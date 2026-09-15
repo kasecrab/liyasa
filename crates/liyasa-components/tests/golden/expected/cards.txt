@@ -1,0 +1,92 @@
+# cards gallery
+
+=== case: default
+--- html
+<div class="ly-cards" data-liyasa="cards" data-cols="2" style="--ly-cols: 2">
+  <a class="ly-card" data-liyasa="card" href="/one">
+    <div class="ly-card-body">
+      <p class="ly-card-title">
+        One
+      </p>
+      <div class="ly-card-content">
+        <p>
+          First.
+        </p>
+      </div>
+    </div>
+  </a>
+  <a class="ly-card" data-liyasa="card" href="/two">
+    <div class="ly-card-body">
+      <p class="ly-card-title">
+        Two
+      </p>
+      <div class="ly-card-content">
+        <p>
+          Second.
+        </p>
+      </div>
+    </div>
+  </a>
+</div>
+--- markdown
+- [One](/one)
+  First.
+- [Two](/two)
+  Second.
+--- text
+One First. Two Second.
+
+=== case: every prop
+--- html
+<div class="ly-cards" data-liyasa="cards" data-cols="4" style="--ly-cols: 4; --ly-gap: 1.5rem">
+  <div class="ly-card" data-liyasa="card">
+    <div class="ly-card-body">
+      <p class="ly-card-title">
+        One
+      </p>
+    </div>
+  </div>
+</div>
+--- markdown
+- **One**
+--- text
+One
+
+=== case: empty body
+--- html
+<div class="ly-cards" data-liyasa="cards" data-cols="2" style="--ly-cols: 2">
+</div>
+--- markdown
+--- text
+
+
+=== case: wrong child
+--- html
+<div class="ly-cards" data-liyasa="cards" data-cols="2" style="--ly-cols: 2">
+  <aside class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note" aria-label="Note">
+    <p class="ly-callout-title">
+      <span class="ly-icon" data-icon="info" aria-hidden="true">
+      </span>
+      Note
+    </p>
+    <div class="ly-callout-body">
+      <p>
+        Nope.
+      </p>
+    </div>
+  </aside>
+</div>
+--- markdown
+> **Note**
+>
+> Nope.
+--- text
+Nope.
+
+=== case: cols out of range
+--- html
+<div class="ly-cards" data-liyasa="cards" data-cols="4" style="--ly-cols: 4">
+</div>
+--- markdown
+--- text
+

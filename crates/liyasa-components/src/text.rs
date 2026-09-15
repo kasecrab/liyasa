@@ -4,7 +4,26 @@
 //! no allocation of intermediate markup. Block boundaries become one space, so
 //! a phrase never merges across a paragraph break.
 
-use liyasa_core::document::{Block, BlockKind, Inline, Node};
+use liyasa_core::document::{Block, BlockKind, Inline, Node, PropValue, Props};
+
+/// Props whose value a reader sees, so the search index has to hold them.
+///
+/// `render_text` is ctx-free (§34.9), so a nested component cannot be resolved
+/// through the registry from here; this list is what makes a card's title
+/// findable when the card is inside a group.
+const VISIBLE_PROPS: &[&str] = &[
+    "alt", "caption", "cta", "hint", "label", "name", "prompt", "question", "subtitle", "text",
+    "title", "value",
+];
+
+fn push_props(props: &Props, out: &mut String) {
+    for name in VISIBLE_PROPS {
+        if let Some(PropValue::Str(value)) = props.get(name) {
+            out.push_str(value);
+            out.push(' ');
+        }
+    }
+}
 
 /// The readable text of a node tree, whitespace collapsed.
 pub fn of(nodes: &[Node]) -> String {
@@ -43,9 +62,9 @@ fn push_block(block: &Block, out: &mut String) {
         // Raw HTML is not text until it is parsed, and parsing it here would
         // index tag names.
         BlockKind::HtmlBlock { .. } => return,
-        BlockKind::Component { name, .. } => {
+        BlockKind::Component { props, .. } => {
             out.push(' ');
-            let _ = name;
+            push_props(props, out);
         }
         _ => {}
     }
@@ -71,7 +90,10 @@ fn push_inline(inline: &Inline, out: &mut String) {
                 push_inline(child, out);
             }
         }
-        Inline::InlineComponent { children, .. } => {
+        Inline::InlineComponent {
+            props, children, ..
+        } => {
+            push_props(props, out);
             for child in children {
                 push_inline(child, out);
             }
@@ -136,6 +158,21 @@ mod tests {
             Vec::new(),
         )];
         assert_eq!(of(&tree), "");
+    }
+
+    #[test]
+    fn a_nested_component_contributes_its_visible_props() {
+        let card = crate::inst::new("card")
+            .prop(
+                "title",
+                liyasa_core::document::PropValue::Str("Quickstart".into()),
+            )
+            .prop(
+                "href",
+                liyasa_core::document::PropValue::Str("/start".into()),
+            )
+            .child(nodes::paragraph("Body."));
+        assert_eq!(of(&[crate::inst::nested(card)]), "Quickstart Body.");
     }
 
     #[test]

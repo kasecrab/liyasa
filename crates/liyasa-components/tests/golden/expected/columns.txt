@@ -1,0 +1,46 @@
+# columns gallery
+
+=== case: default
+--- html
+<div class="ly-columns" data-liyasa="columns" data-cols="2" style="--ly-cols: 2" data-align="stretch">
+  <div class="ly-column" data-liyasa="column">
+    <p>
+      Left.
+    </p>
+  </div>
+  <div class="ly-column" data-liyasa="column">
+    <p>
+      Right.
+    </p>
+  </div>
+</div>
+--- markdown
+Left.
+
+Right.
+--- text
+Left. Right.
+
+=== case: every prop
+--- html
+<div class="ly-columns" data-liyasa="columns" data-cols="3" style="--ly-cols: 3; --ly-gap: 2rem" data-align="center">
+  <div class="ly-column" data-liyasa="column" data-span="2">
+    <p>
+      Wide.
+    </p>
+  </div>
+</div>
+--- markdown
+Wide.
+--- text
+Wide.
+
+=== case: invalid align
+--- html
+<div class="ly-columns" data-liyasa="columns" data-cols="2" style="--ly-cols: 2" data-align="middle">
+</div>
+--- markdown
+--- text
+
+--- diagnostics
+E0315 `columns.align` is `middle`, which is not one of: start, center, end, stretch

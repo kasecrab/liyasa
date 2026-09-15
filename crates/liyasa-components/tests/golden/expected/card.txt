@@ -1,0 +1,110 @@
+# card gallery
+
+=== case: default
+--- html
+<div class="ly-card" data-liyasa="card">
+  <div class="ly-card-body">
+    <p class="ly-card-title">
+      Quickstart
+    </p>
+    <div class="ly-card-content">
+      <p>
+        Get running in five minutes.
+      </p>
+    </div>
+  </div>
+</div>
+--- markdown
+- **Quickstart**
+  Get running in five minutes.
+--- text
+Quickstart Get running in five minutes.
+
+=== case: every prop
+--- html
+<a class="ly-card" data-liyasa="card" href="/start" data-color="#3355ff" data-horizontal>
+  <img class="ly-card-image" src="/img/start.png" alt="" loading="lazy">
+  <div class="ly-card-body">
+    <span class="ly-icon ly-card-icon" data-icon="rocket" aria-hidden="true">
+    </span>
+    <p class="ly-card-title">
+      Quickstart
+    </p>
+    <div class="ly-card-content">
+      <p>
+        Get running in five minutes.
+      </p>
+    </div>
+    <span class="ly-card-cta">
+      Read the guide
+      <span class="ly-card-arrow" aria-hidden="true">
+      </span>
+    </span>
+  </div>
+</a>
+--- markdown
+- [Quickstart](/start)
+  Get running in five minutes.
+--- text
+Quickstart Read the guide Get running in five minutes.
+
+=== case: empty body
+--- html
+<div class="ly-card" data-liyasa="card">
+  <div class="ly-card-body">
+    <p class="ly-card-title">
+      Bare
+    </p>
+  </div>
+</div>
+--- markdown
+- **Bare**
+--- text
+Bare
+
+=== case: no title
+--- html
+<div class="ly-card" data-liyasa="card">
+  <div class="ly-card-body">
+    <div class="ly-card-content">
+      <p>
+        Just a body.
+      </p>
+    </div>
+  </div>
+</div>
+--- markdown
+- **Card**
+  Just a body.
+--- text
+Just a body.
+
+=== case: unsafe href
+--- html
+<div class="ly-card" data-liyasa="card">
+  <div class="ly-card-body">
+    <p class="ly-card-title">
+      Nope
+    </p>
+  </div>
+</div>
+--- markdown
+- **Nope**
+--- text
+Nope
+--- diagnostics
+E0353 `card.href` uses a URL scheme that is not allowed
+
+=== case: invalid prop
+--- html
+<div class="ly-card" data-liyasa="card" data-horizontal>
+  <div class="ly-card-body">
+  </div>
+</div>
+--- markdown
+- **Card**
+--- text
+
+--- diagnostics
+E0315 `card.horizontal` expects true or false, found a string
+W0316 `card` has no prop `titel`

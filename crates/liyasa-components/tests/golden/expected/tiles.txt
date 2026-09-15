@@ -1,0 +1,25 @@
+# tiles gallery
+
+=== case: default
+--- html
+<div class="ly-tiles" data-liyasa="tiles" data-cols="3" style="--ly-cols: 3">
+  <a class="ly-tile" data-liyasa="tile" href="/guides">
+    <span class="ly-icon" data-icon="book" aria-hidden="true">
+    </span>
+    <span class="ly-tile-title">
+      Guides
+    </span>
+  </a>
+</div>
+--- markdown
+- [Guides](/guides)
+--- text
+Guides
+
+=== case: empty body
+--- html
+<div class="ly-tiles" data-liyasa="tiles" data-cols="3" style="--ly-cols: 3">
+</div>
+--- markdown
+--- text
+
