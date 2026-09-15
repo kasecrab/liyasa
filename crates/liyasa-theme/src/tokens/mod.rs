@@ -266,15 +266,20 @@ impl Tokens {
     /// applies to the dark scheme alone. Tokens the theme does not document are
     /// kept and emitted, because a theme override file is also where an
     /// operator puts their own.
-    pub fn with_overrides(&mut self, css: &str) {
-        for (scope, declaration) in crate::css::Stylesheet::parse(css).custom_properties() {
+    pub fn with_overrides(&mut self, css: &str) -> Diagnostics {
+        let properties = match crate::css::custom_properties(css) {
+            Ok(properties) => properties,
+            Err(error) => return std::iter::once(error.diagnostic()).collect(),
+        };
+        for (scope, name, value) in properties {
             let scheme = match scope {
                 crate::css::Scope::Both => None,
                 crate::css::Scope::Light => Some(Scheme::Light),
                 crate::css::Scope::Dark => Some(Scheme::Dark),
             };
-            self.set(&declaration.property, scheme, &declaration.value);
+            self.set(&name, scheme, &value);
         }
+        Diagnostics::new()
     }
 
     /// The shell's tokens alone, minified, for the inlined critical block

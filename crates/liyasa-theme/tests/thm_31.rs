@@ -60,7 +60,8 @@ fn every_lazy_module_fits_its_budget() {
 #[test]
 fn nothing_the_theme_ships_leaves_the_origin() {
     let runtime = Runtime::build(&ThemeConfig::default());
-    let styles = Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]);
+    let styles =
+        Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]).expect("the theme compiles");
     let mut sources = vec![runtime.base.as_str(), BOOTSTRAP, styles.css.as_str()];
     for module in &runtime.lazy {
         sources.push(&module.source);

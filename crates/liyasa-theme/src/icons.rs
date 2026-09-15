@@ -73,7 +73,8 @@ mod tests {
             &crate::config::ThemeConfig::default(),
             &crate::tokens::Tokens::aurora(),
             &[],
-        );
+        )
+        .expect("the theme compiles");
         assert!(styles.css.contains(".ly-icon{"));
         assert!(styles.css.contains("stroke:currentColor"));
     }

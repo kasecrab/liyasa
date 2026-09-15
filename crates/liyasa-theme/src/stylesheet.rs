@@ -8,7 +8,7 @@
 use std::fmt::Write as _;
 
 use crate::config::{Decoration, ThemeConfig};
-use crate::css::{Block, Rule, Stylesheet};
+use crate::css::{self, CssError};
 use crate::tokens::Tokens;
 
 /// THM-30: the served stylesheet, compressed.
@@ -64,7 +64,7 @@ impl Styles {
     /// appended after the theme so an operator's selector of equal specificity
     /// wins, which is what CMP-100 promises, and they are compiled through the
     /// same pipeline so an operator may use nesting too.
-    pub fn build(config: &ThemeConfig, tokens: &Tokens, custom: &[&str]) -> Self {
+    pub fn build(config: &ThemeConfig, tokens: &Tokens, custom: &[&str]) -> Result<Self, CssError> {
         let mut source = String::with_capacity(64 * 1024);
         source.push_str(&tokens.to_css());
         for part in [BASE, SHELL, COMPONENTS, OVERLAYS] {
@@ -79,15 +79,12 @@ impl Styles {
             source.push_str(part);
         }
 
-        let mut sheet = Stylesheet::parse(&source);
-        sheet.expand_custom_media();
-        let flat = Stylesheet {
-            rules: sheet.flatten(),
-        };
-        Self {
-            critical: format!("{}{}", tokens.critical_css(), critical(&flat)),
-            css: flat.minify(),
-        }
+        let compiled = css::compile(&source)?;
+        let critical = css::filter(&compiled, &|selector| is_critical(selector))?;
+        Ok(Self {
+            critical: format!("{}{critical}", tokens.critical_css()),
+            css: compiled,
+        })
     }
 
     /// Prepends the `@font-face` block for the faces the build has files for
@@ -166,41 +163,6 @@ fn background(config: &ThemeConfig) -> String {
     format!("\nbody {{ {declarations} }}\n")
 }
 
-fn critical(sheet: &Stylesheet) -> String {
-    let mut out = String::new();
-    for rule in &sheet.rules {
-        if let Some(kept) = keep(rule) {
-            let filtered = Stylesheet { rules: vec![kept] };
-            out.push_str(&filtered.minify());
-        }
-    }
-    out
-}
-
-fn keep(rule: &Rule) -> Option<Rule> {
-    let block = rule.block.as_ref()?;
-    if rule.prelude.starts_with('@') {
-        // Print and dark-scheme rules are not above the fold; the media queries
-        // that lay the shell out are.
-        if rule.prelude.contains("print") {
-            return None;
-        }
-        let rules: Vec<Rule> = block.rules.iter().filter_map(keep).collect();
-        let declarations = block.declarations.clone();
-        if rules.is_empty() && declarations.is_empty() {
-            return None;
-        }
-        return Some(Rule {
-            prelude: rule.prelude.clone(),
-            block: Some(Block {
-                declarations,
-                rules,
-            }),
-        });
-    }
-    is_critical(&rule.prelude).then(|| rule.clone())
-}
-
 fn is_critical(selector: &str) -> bool {
     selector.split(',').any(|part| {
         let part = part.trim();
@@ -257,7 +219,7 @@ mod tests {
     use super::*;
 
     fn build() -> Styles {
-        Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[])
+        Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]).expect("the theme compiles")
     }
 
     #[test]
@@ -281,14 +243,17 @@ mod tests {
             &ThemeConfig::default(),
             &Tokens::aurora(),
             &[".ly-navbar { background: rebeccapurple; }"],
-        );
+        )
+        .expect("the theme compiles");
         let theme = styles
             .css
             .find(".ly-navbar{")
             .expect("the theme styles the navbar");
+        // `rebeccapurple` is minified to its hex form, like every other colour
+        // in the sheet.
         let custom = styles
             .css
-            .rfind("background:rebeccapurple")
+            .rfind("background:#639")
             .expect("the custom sheet is present");
         assert!(custom > theme, "a custom rule must win by cascade order");
     }
@@ -298,7 +263,7 @@ mod tests {
         let styles = build();
         assert!(!styles.css.contains("@custom-media"));
         assert!(!styles.css.contains("(--md)"));
-        assert!(styles.css.contains("@media (min-width:48em)"));
+        assert!(styles.css.contains("@media (width>=48em)"));
     }
 
     #[test]
@@ -339,7 +304,8 @@ mod tests {
             },
             &Tokens::aurora(),
             &[],
-        );
+        )
+        .expect("the theme compiles");
         assert!(decorated.css.contains("background-color:#fafafa"));
         assert!(decorated.css.contains("var(--ly-color-accent-subtle)"));
 
@@ -357,8 +323,9 @@ mod tests {
             },
             &Tokens::aurora(),
             &[],
-        );
-        assert!(with_image.css.contains("url(\"/hero.avif\")"));
+        )
+        .expect("the theme compiles");
+        assert!(with_image.css.contains("url(/hero.avif)"));
         assert!(
             !with_image.css.contains("linear-gradient(to right"),
             "an image replaces the decoration rather than layering under it"

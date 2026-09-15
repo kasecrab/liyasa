@@ -101,7 +101,8 @@ fn every_image_the_theme_emits_carries_alt_text() {
 
 #[test]
 fn the_stylesheet_carries_focus_and_reduced_motion() {
-    let styles = Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]);
+    let styles =
+        Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]).expect("the theme compiles");
     assert!(styles.css.contains(":focus-visible"));
     assert!(
         styles
@@ -140,7 +141,8 @@ fn no_transition_outlasts_two_hundred_milliseconds() {
         assert!(milliseconds <= 200, "`{name}` is {milliseconds}ms");
     }
 
-    let styles = Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]);
+    let styles =
+        Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]).expect("the theme compiles");
     for (at, _) in styles.css.match_indices("transition:") {
         let rule = &styles.css[at..(at + 200).min(styles.css.len())];
         let literal = rule

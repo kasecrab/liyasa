@@ -1,112 +1,109 @@
 //! The stylesheet compiler (THM-30): nesting, custom media, minification, and
-//! the split between the cached stylesheet and the per-page critical block.
+//! the rule selection the critical block is built from.
 //!
-//! §6.2.1 names lightningcss for this step. It is MPL-2.0 and `deny.toml`'s
-//! allow list, which WP-00 owns, does not carry that licence, so the gate
-//! rejects the dependency today. The transforms the theme actually authors
-//! against — `&` nesting, `@custom-media`, and minification — are implemented
-//! here behind [`Compiler`], and swapping lightningcss in once the licence row
-//! exists is one impl of that trait.
-// TODO(rfc-0500): replace the built-in transforms with lightningcss.
+//! lightningcss does the parsing, lowering, and printing, as §6.2.1 requires;
+//! what lives here is the theme's use of it — the browsers the output is
+//! pinned to, the feature set the theme authors against, the scheme-scope rule
+//! for token overrides, and the filter that builds the critical block.
 
-use std::fmt::Write as _;
+use lightningcss::printer::PrinterOptions;
+use lightningcss::properties::Property;
+use lightningcss::properties::custom::CustomPropertyName;
+use lightningcss::rules::{CssRule, CssRuleList};
+use lightningcss::stylesheet::{MinifyOptions, ParserFlags, ParserOptions, StyleSheet};
+use lightningcss::targets::{Browsers, Features, Targets};
+use lightningcss::traits::ToCss;
+use liyasa_core::diagnostics::{Diagnostic, code};
 
-/// One parsed rule: a style rule, or an at-rule with or without a block.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Rule {
-    /// The selector, or the at-rule's name and prelude (`@media (min-width: 0)`).
-    pub prelude: String,
-    pub block: Option<Block>,
+/// `major << 16 | minor << 8 | patch`, the encoding lightningcss uses.
+const fn version(major: u32, minor: u32) -> Option<u32> {
+    Some((major & 0xff) << 16 | (minor & 0xff) << 8)
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Block {
-    pub declarations: Vec<Declaration>,
-    pub rules: Vec<Rule>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Declaration {
-    pub property: String,
-    pub value: String,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Stylesheet {
-    pub rules: Vec<Rule>,
-}
-
-impl Rule {
-    pub fn at_name(&self) -> Option<&str> {
-        let rest = self.prelude.strip_prefix('@')?;
-        Some(rest.split_whitespace().next().unwrap_or(rest))
-    }
-}
-
-impl Stylesheet {
-    /// Parses a stylesheet. Anything the parser does not understand is carried
-    /// through unchanged rather than dropped: a theme that silently loses a
-    /// rule is worse than one that emits a rule the browser ignores.
-    pub fn parse(css: &str) -> Self {
-        let mut parser = Parser {
-            bytes: css.as_bytes(),
-            at: 0,
-        };
-        Self {
-            rules: parser.rules(false),
-        }
-    }
-
-    /// Every `--*` declaration, with the scope it was written in. Used to merge
-    /// `theme/tokens.css` into the generated tokens (THM-10).
-    pub fn custom_properties(&self) -> Vec<(Scope, Declaration)> {
-        let mut out = Vec::new();
-        collect_properties(&self.rules, Scope::Both, &mut out);
-        out
-    }
-
-    /// Replaces `@custom-media --name <query>;` definitions and their uses.
-    pub fn expand_custom_media(&mut self) {
-        let mut queries = Vec::new();
-        self.rules.retain(|rule| {
-            if rule.at_name() != Some("custom-media") || rule.block.is_some() {
-                return true;
-            }
-            let rest = rule.prelude.trim_start_matches("@custom-media").trim();
-            if let Some((name, query)) = rest.split_once(char::is_whitespace) {
-                queries.push((format!("({})", name.trim()), query.trim().to_owned()));
-            }
-            false
-        });
-        substitute(&mut self.rules, &queries);
-    }
-
-    /// Resolves `&` nesting into flat rules, in source order.
-    pub fn flatten(&self) -> Vec<Rule> {
-        let mut out = Vec::new();
-        flatten_rules(&self.rules, "", &mut out);
-        out
-    }
-
-    pub fn to_css(&self) -> String {
-        let mut out = String::new();
-        write_rules(&self.rules, 0, &mut out);
-        out
-    }
-
-    /// Minified, deterministic output: one rule per line, no comments, no
-    /// spacing the browser does not need.
-    pub fn minify(&self) -> String {
-        let mut out = String::new();
-        for rule in self.flatten() {
-            write_minified(&rule, &mut out);
-        }
-        out
+/// What the theme's output has to run in.
+///
+/// NFR-40 asks for the last two versions of each browser; this floor is years
+/// below that on purpose, because one cached stylesheet serves every reader
+/// and a docs site outlives a release cycle. Naming it also pins the output:
+/// without a browser list lightningcss prints whatever syntax is newest, and
+/// the emitted CSS would drift with the crate rather than with this list.
+fn browsers() -> Browsers {
+    Browsers {
+        chrome: version(111, 0),
+        edge: version(111, 0),
+        firefox: version(113, 0),
+        safari: version(16, 4),
+        ios_saf: version(16, 4),
+        opera: version(97, 0),
+        samsung: version(22, 0),
+        android: version(111, 0),
+        ie: None,
     }
 }
 
-/// Which scheme a declaration in an override file applies to. A declaration
-/// written once outside a scheme block applies to both (THM-12).
+/// Nesting and custom media are lowered whatever the targets say: the theme
+/// authors in them, and neither is worth a browser check on every build.
+fn targets() -> Targets {
+    Targets {
+        browsers: Some(browsers()),
+        include: Features::Nesting | Features::CustomMediaQueries,
+        exclude: Features::empty(),
+    }
+}
+
+fn parser_options<'i>() -> ParserOptions<'i> {
+    ParserOptions {
+        flags: ParserFlags::NESTING | ParserFlags::CUSTOM_MEDIA,
+        ..ParserOptions::default()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum CssError {
+    #[error("stylesheet does not parse: {0}")]
+    Parse(String),
+    #[error("stylesheet cannot be compiled: {0}")]
+    Minify(String),
+    #[error("stylesheet cannot be printed: {0}")]
+    Print(String),
+}
+
+impl CssError {
+    /// An operator's `theme.css` reaches this path, so the failure is a
+    /// diagnostic rather than a panic.
+    pub fn diagnostic(&self) -> Diagnostic {
+        Diagnostic::new(code::E0703, self.to_string()).help(
+            "the theme compiles CSS with lightningcss; nesting and `@custom-media` are supported",
+        )
+    }
+}
+
+/// Parses, lowers, and minifies one stylesheet.
+pub fn compile(source: &str) -> Result<String, CssError> {
+    let mut sheet = StyleSheet::parse(source, parser_options())
+        .map_err(|error| CssError::Parse(error.to_string()))?;
+    sheet
+        .minify(MinifyOptions {
+            targets: targets(),
+            ..MinifyOptions::default()
+        })
+        .map_err(|error| CssError::Minify(error.to_string()))?;
+    print(&sheet)
+}
+
+fn print(sheet: &StyleSheet<'_>) -> Result<String, CssError> {
+    sheet
+        .to_css(PrinterOptions {
+            minify: true,
+            targets: targets(),
+            ..PrinterOptions::default()
+        })
+        .map(|result| result.code)
+        .map_err(|error| CssError::Print(error.to_string()))
+}
+
+/// Which scheme a declaration in an override file applies to. One written
+/// outside a scheme block applies to both (THM-12).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Scope {
     Both,
@@ -114,419 +111,122 @@ pub enum Scope {
     Dark,
 }
 
-fn collect_properties(rules: &[Rule], scope: Scope, out: &mut Vec<(Scope, Declaration)>) {
-    for rule in rules {
-        let Some(block) = &rule.block else { continue };
-        let scope = scope_of(&rule.prelude, scope);
-        for declaration in &block.declarations {
-            if declaration.property.starts_with("--") {
-                out.push((scope, declaration.clone()));
-            }
-        }
-        collect_properties(&block.rules, scope, out);
-    }
+/// Every `--*` declaration in a stylesheet, with the scope it was written in.
+/// Used to merge `theme/tokens.css` into the generated tokens (THM-10).
+pub fn custom_properties(source: &str) -> Result<Vec<(Scope, String, String)>, CssError> {
+    let sheet = StyleSheet::parse(source, parser_options())
+        .map_err(|error| CssError::Parse(error.to_string()))?;
+    let mut out = Vec::new();
+    collect(&sheet.rules, Scope::Both, &mut out)?;
+    Ok(out)
 }
 
-/// A dark scope is either the attribute the toggle sets or the media query the
-/// system preference matches; everything else keeps the scope it inherited.
+fn collect(
+    rules: &CssRuleList<'_>,
+    scope: Scope,
+    out: &mut Vec<(Scope, String, String)>,
+) -> Result<(), CssError> {
+    for rule in &rules.0 {
+        match rule {
+            CssRule::Style(style) => {
+                let scope = scope_of(&text(&style.selectors)?, scope);
+                for property in &style.declarations.declarations {
+                    if let Property::Custom(custom) = property
+                        && let CustomPropertyName::Custom(name) = &custom.name
+                    {
+                        let value = property
+                            .value_to_css_string(PrinterOptions::default())
+                            .map_err(|error| CssError::Print(error.to_string()))?;
+                        out.push((scope, name.0.to_string(), value));
+                    }
+                }
+                collect(&style.rules, scope, out)?;
+            }
+            CssRule::Media(media) => {
+                collect(&media.rules, scope_of(&text(&media.query)?, scope), out)?;
+            }
+            CssRule::Supports(supports) => collect(&supports.rules, scope, out)?,
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn text<T: ToCss>(value: &T) -> Result<String, CssError> {
+    value
+        .to_css_string(PrinterOptions::default())
+        .map_err(|error| CssError::Print(error.to_string()))
+}
+
+/// A dark scope is the attribute the toggle sets or the query the system
+/// preference matches; everything else keeps the scope it inherited.
 fn scope_of(prelude: &str, inherited: Scope) -> Scope {
-    let lower = prelude.to_ascii_lowercase();
-    if lower.contains("prefers-color-scheme: dark") || lower.contains("data-theme=\"dark\"") {
+    let lower = prelude.to_ascii_lowercase().replace(['"', '\''], "");
+    if lower.contains("prefers-color-scheme: dark")
+        || lower.contains("prefers-color-scheme:dark")
+        || lower.contains("data-theme=dark")
+    {
         return Scope::Dark;
     }
-    if lower.contains("prefers-color-scheme: light") || lower.contains("data-theme=\"light\"") {
+    if lower.contains("prefers-color-scheme: light")
+        || lower.contains("prefers-color-scheme:light")
+        || lower.contains("data-theme=light")
+    {
         return Scope::Light;
     }
     inherited
 }
 
-fn substitute(rules: &mut [Rule], queries: &[(String, String)]) {
-    for rule in rules {
-        if rule.at_name() == Some("media") {
-            for (name, query) in queries {
-                if rule.prelude.contains(name.as_str()) {
-                    rule.prelude = rule.prelude.replace(name.as_str(), query);
+/// The subset of a compiled stylesheet whose selectors `keep` accepts, with the
+/// at-rules that wrap them (THM-30's critical block).
+///
+/// A rule inside `@media print` is never kept: nothing printed is above the
+/// fold.
+pub fn filter(source: &str, keep: &dyn Fn(&str) -> bool) -> Result<String, CssError> {
+    let sheet = StyleSheet::parse(source, parser_options())
+        .map_err(|error| CssError::Parse(error.to_string()))?;
+    let rules = retain(&sheet.rules, keep)?;
+    let filtered = StyleSheet::new(Vec::new(), CssRuleList(rules), parser_options());
+    print(&filtered)
+}
+
+fn retain<'i>(
+    rules: &CssRuleList<'i>,
+    keep: &dyn Fn(&str) -> bool,
+) -> Result<Vec<CssRule<'i>>, CssError> {
+    let mut out = Vec::new();
+    for rule in &rules.0 {
+        match rule {
+            CssRule::Style(style) => {
+                if keep(&text(&style.selectors)?) {
+                    out.push(rule.clone());
                 }
             }
-        }
-        if let Some(block) = &mut rule.block {
-            substitute(&mut block.rules, queries);
-        }
-    }
-}
-
-fn flatten_rules(rules: &[Rule], parent: &str, out: &mut Vec<Rule>) {
-    for rule in rules {
-        let Some(block) = &rule.block else {
-            out.push(rule.clone());
-            continue;
-        };
-        if rule.prelude.starts_with('@') {
-            let mut inner = Vec::new();
-            flatten_rules(&block.rules, parent, &mut inner);
-            // Declarations directly inside an at-rule (`@font-face`) stay put.
-            let mut nested = Block {
-                declarations: block.declarations.clone(),
-                rules: Vec::new(),
-            };
-            if !nested.declarations.is_empty() && !parent.is_empty() {
-                out.push(Rule {
-                    prelude: rule.prelude.clone(),
-                    block: Some(Block {
-                        declarations: Vec::new(),
-                        rules: vec![Rule {
-                            prelude: parent.to_owned(),
-                            block: Some(std::mem::take(&mut nested)),
-                        }],
-                    }),
-                });
-            }
-            let mut rules = inner;
-            if !nested.declarations.is_empty() {
-                rules.insert(
-                    0,
-                    Rule {
-                        prelude: String::new(),
-                        block: Some(nested),
-                    },
-                );
-            }
-            if !rules.is_empty() {
-                out.push(Rule {
-                    prelude: rule.prelude.clone(),
-                    block: Some(Block {
-                        declarations: Vec::new(),
-                        rules,
-                    }),
-                });
-            }
-            continue;
-        }
-
-        let selector = resolve_selector(&rule.prelude, parent);
-        if !block.declarations.is_empty() {
-            out.push(Rule {
-                prelude: selector.clone(),
-                block: Some(Block {
-                    declarations: block.declarations.clone(),
-                    rules: Vec::new(),
-                }),
-            });
-        }
-        flatten_rules(&block.rules, &selector, out);
-    }
-}
-
-/// `&` is replaced by the parent selector; a nested selector without one is a
-/// descendant. Each comma-separated part is resolved on its own.
-fn resolve_selector(selector: &str, parent: &str) -> String {
-    if parent.is_empty() {
-        return selector.trim().to_owned();
-    }
-    selector
-        .split(',')
-        .map(|part| {
-            let part = part.trim();
-            if part.contains('&') {
-                part.replace('&', parent)
-            } else {
-                format!("{parent} {part}")
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-fn write_rules(rules: &[Rule], depth: usize, out: &mut String) {
-    let indent = "  ".repeat(depth);
-    for rule in rules {
-        let Some(block) = &rule.block else {
-            let _ = writeln!(out, "{indent}{};", rule.prelude);
-            continue;
-        };
-        let _ = writeln!(out, "{indent}{} {{", rule.prelude);
-        for declaration in &block.declarations {
-            let _ = writeln!(
-                out,
-                "{indent}  {}: {};",
-                declaration.property, declaration.value
-            );
-        }
-        write_rules(&block.rules, depth + 1, out);
-        let _ = writeln!(out, "{indent}}}");
-    }
-}
-
-fn write_minified(rule: &Rule, out: &mut String) {
-    let Some(block) = &rule.block else {
-        let _ = write!(out, "{};", compact(&rule.prelude));
-        return;
-    };
-    if !block.rules.is_empty() {
-        let _ = write!(out, "{}{{", compact(&rule.prelude));
-        for inner in &block.rules {
-            if inner.prelude.is_empty() {
-                write_declarations(&inner.block.clone().unwrap_or_default(), out);
-            } else {
-                write_minified(inner, out);
-            }
-        }
-        out.push('}');
-        return;
-    }
-    if block.declarations.is_empty() {
-        return;
-    }
-    let _ = write!(out, "{}{{", compact(&rule.prelude));
-    write_declarations(block, out);
-    out.push('}');
-}
-
-fn write_declarations(block: &Block, out: &mut String) {
-    let mut first = true;
-    for declaration in &block.declarations {
-        if !first {
-            out.push(';');
-        }
-        first = false;
-        let _ = write!(
-            out,
-            "{}:{}",
-            compact(&declaration.property),
-            compact(&declaration.value)
-        );
-    }
-}
-
-/// Collapses runs of whitespace outside strings, and the space after a comma or
-/// a combinator, which is all a stylesheet this theme authors needs.
-fn compact(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut quote: Option<char> = None;
-    let mut space = false;
-    for c in text.chars() {
-        if let Some(open) = quote {
-            out.push(c);
-            if c == open {
-                quote = None;
-            }
-            continue;
-        }
-        if c.is_whitespace() {
-            space = true;
-            continue;
-        }
-        // One space survives between two tokens that would otherwise merge; it
-        // is dropped around punctuation that separates them on its own. A
-        // string is a token like any other: `attr(href) ")"` needs its space.
-        if space && !out.is_empty() && !ends_with_separator(&out) && c != ',' && c != ')' {
-            out.push(' ');
-        }
-        space = false;
-        if c == '"' || c == '\'' {
-            quote = Some(c);
-        }
-        out.push(c);
-    }
-    out
-}
-
-fn ends_with_separator(text: &str) -> bool {
-    matches!(text.chars().last(), Some(',' | '(' | ':' | '>' | '~' | '+'))
-}
-
-struct Parser<'a> {
-    bytes: &'a [u8],
-    at: usize,
-}
-
-impl Parser<'_> {
-    fn rules(&mut self, nested: bool) -> Vec<Rule> {
-        let mut out = Vec::new();
-        loop {
-            self.skip_trivia();
-            match self.peek() {
-                None => break,
-                Some(b'}') if nested => break,
-                Some(b'}') => {
-                    self.at += 1;
+            CssRule::Media(media) => {
+                if text(&media.query)?.contains("print") {
                     continue;
                 }
-                _ => {}
+                let inner = retain(&media.rules, keep)?;
+                if inner.is_empty() {
+                    continue;
+                }
+                let mut media = media.clone();
+                media.rules = CssRuleList(inner);
+                out.push(CssRule::Media(media));
             }
-            let start = self.at;
-            let prelude = self.until_top_level(b"{;}");
-            match self.peek() {
-                Some(b'{') => {
-                    self.at += 1;
-                    let block = self.block();
-                    out.push(Rule {
-                        prelude: prelude.trim().to_owned(),
-                        block: Some(block),
-                    });
+            CssRule::Supports(supports) => {
+                let inner = retain(&supports.rules, keep)?;
+                if inner.is_empty() {
+                    continue;
                 }
-                Some(b';') => {
-                    self.at += 1;
-                    let text = prelude.trim();
-                    if !text.is_empty() {
-                        out.push(Rule {
-                            prelude: text.to_owned(),
-                            block: None,
-                        });
-                    }
-                }
-                _ => {
-                    if self.at == start {
-                        self.at += 1;
-                    }
-                    break;
-                }
+                let mut supports = supports.clone();
+                supports.rules = CssRuleList(inner);
+                out.push(CssRule::Supports(supports));
             }
-        }
-        out
-    }
-
-    fn block(&mut self) -> Block {
-        let mut block = Block::default();
-        loop {
-            self.skip_trivia();
-            match self.peek() {
-                None => break,
-                Some(b'}') => {
-                    self.at += 1;
-                    break;
-                }
-                _ => {}
-            }
-            let start = self.at;
-            let text = self.until_top_level(b"{;}");
-            match self.peek() {
-                Some(b'{') => {
-                    self.at += 1;
-                    let inner = self.block();
-                    block.rules.push(Rule {
-                        prelude: text.trim().to_owned(),
-                        block: Some(inner),
-                    });
-                }
-                Some(b';') | Some(b'}') | None => {
-                    let ended = self.peek() == Some(b'}');
-                    if self.peek() == Some(b';') {
-                        self.at += 1;
-                    }
-                    let text = text.trim();
-                    if let Some(declaration) = declaration(text) {
-                        block.declarations.push(declaration);
-                    } else if text.starts_with('@') {
-                        block.rules.push(Rule {
-                            prelude: text.to_owned(),
-                            block: None,
-                        });
-                    }
-                    if ended {
-                        self.at += 1;
-                        break;
-                    }
-                }
-                _ => {
-                    if self.at == start {
-                        self.at += 1;
-                    }
-                }
-            }
-        }
-        block
-    }
-
-    /// Reads to the first delimiter that is not inside a string, a comment, or
-    /// parentheses.
-    fn until_top_level(&mut self, delimiters: &[u8]) -> String {
-        let start = self.at;
-        let mut depth = 0usize;
-        while let Some(byte) = self.peek() {
-            match byte {
-                b'"' | b'\'' => self.skip_string(byte),
-                b'/' if self.bytes.get(self.at + 1) == Some(&b'*') => self.skip_comment(),
-                b'(' => {
-                    depth += 1;
-                    self.at += 1;
-                }
-                b')' => {
-                    depth = depth.saturating_sub(1);
-                    self.at += 1;
-                }
-                byte if depth == 0 && delimiters.contains(&byte) => break,
-                _ => self.at += 1,
-            }
-        }
-        strip_comments(&String::from_utf8_lossy(&self.bytes[start..self.at]))
-    }
-
-    fn skip_string(&mut self, quote: u8) {
-        self.at += 1;
-        while let Some(byte) = self.peek() {
-            self.at += 1;
-            match byte {
-                b'\\' => self.at += 1,
-                byte if byte == quote => break,
-                _ => {}
-            }
+            _ => {}
         }
     }
-
-    fn skip_comment(&mut self) {
-        self.at += 2;
-        while self.at < self.bytes.len() {
-            if self.bytes[self.at] == b'*' && self.bytes.get(self.at + 1) == Some(&b'/') {
-                self.at += 2;
-                return;
-            }
-            self.at += 1;
-        }
-    }
-
-    fn skip_trivia(&mut self) {
-        loop {
-            match self.peek() {
-                Some(byte) if byte.is_ascii_whitespace() => self.at += 1,
-                Some(b'/') if self.bytes.get(self.at + 1) == Some(&b'*') => self.skip_comment(),
-                _ => return,
-            }
-        }
-    }
-
-    fn peek(&self) -> Option<u8> {
-        self.bytes.get(self.at).copied()
-    }
-}
-
-fn strip_comments(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(start) = rest.find("/*") {
-        out.push_str(&rest[..start]);
-        match rest[start + 2..].find("*/") {
-            Some(end) => rest = &rest[start + 2 + end + 2..],
-            None => return out,
-        }
-    }
-    out.push_str(rest);
-    out
-}
-
-fn declaration(text: &str) -> Option<Declaration> {
-    if text.is_empty() || text.starts_with('@') {
-        return None;
-    }
-    let (property, value) = text.split_once(':')?;
-    let property = property.trim();
-    if property.is_empty() || property.contains(['{', '}']) {
-        return None;
-    }
-    Some(Declaration {
-        property: property.to_owned(),
-        value: value.trim().to_owned(),
-    })
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -534,102 +234,102 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_declarations_selectors_and_at_rules() {
-        let sheet = Stylesheet::parse(
-            r#"
-            /* a comment */
-            :root { --ly-color-primary: #0a7cff; }
-            @media (min-width: 40em) { .a { color: red; } }
-            @import "other.css";
-            "#,
-        );
-        assert_eq!(sheet.rules.len(), 3);
-        assert_eq!(sheet.rules[0].prelude, ":root");
-        assert_eq!(
-            sheet.rules[0]
-                .block
-                .as_ref()
-                .map(|block| block.declarations.len()),
-            Some(1)
-        );
-        assert_eq!(sheet.rules[1].at_name(), Some("media"));
-        assert_eq!(sheet.rules[2].prelude, "@import \"other.css\"");
-    }
-
-    #[test]
-    fn a_semicolon_inside_a_value_does_not_split_a_declaration() {
-        let sheet = Stylesheet::parse(r#".a { background: url("i.png?a=1;b=2"); color: red; }"#);
-        let block = sheet.rules[0].block.as_ref().expect("a block");
-        assert_eq!(block.declarations.len(), 2);
-        assert_eq!(block.declarations[0].value, "url(\"i.png?a=1;b=2\")");
-    }
-
-    #[test]
-    fn nesting_resolves_against_the_parent_selector() {
-        let sheet = Stylesheet::parse(
-            ".card { color: red; &:hover { color: blue; } .title { font-weight: 600; } }",
-        );
-        let flat = sheet.flatten();
-        let selectors: Vec<&str> = flat.iter().map(|rule| rule.prelude.as_str()).collect();
-        assert_eq!(selectors, vec![".card", ".card:hover", ".card .title"]);
-    }
-
-    #[test]
-    fn nesting_inside_a_media_query_keeps_the_query() {
-        let sheet = Stylesheet::parse(".a { @media (min-width: 40em) { color: red; } }");
-        let css = sheet.minify();
-        assert_eq!(css, "@media (min-width:40em){.a{color:red}}");
+    fn nesting_is_lowered_against_the_parent_selector() {
+        let css = compile(".card{color:red;&:hover{color:blue}.title{font-weight:600}}")
+            .expect("nesting compiles");
+        assert!(!css.contains('&'), "{css}");
+        assert!(css.contains(".card:hover"));
+        assert!(css.contains(".card .title"));
     }
 
     #[test]
     fn custom_media_is_expanded_and_its_definition_dropped() {
-        let mut sheet = Stylesheet::parse(
-            "@custom-media --tablet (min-width: 48em);\n@media (--tablet) { .a { color: red; } }",
-        );
-        sheet.expand_custom_media();
-        let css = sheet.minify();
+        let css =
+            compile("@custom-media --tablet (min-width: 48em);@media (--tablet){.a{color:red}}")
+                .expect("custom media compiles");
         assert!(!css.contains("custom-media"), "{css}");
-        assert_eq!(css, "@media (min-width:48em){.a{color:red}}");
+        assert_eq!(css, "@media (width>=48em){.a{color:red}}");
     }
 
     #[test]
-    fn a_space_between_a_function_and_a_string_survives() {
-        let sheet = Stylesheet::parse(".a::after { content: \" (\" attr(href) \")\"; }");
-        assert_eq!(sheet.minify(), ".a::after{content:\" (\" attr(href) \")\"}");
+    fn output_is_minified_and_deterministic() {
+        let source = ".a::after { content: \" (\" attr(href) \")\"; color: #ffffff; }";
+        let css = compile(source).expect("compiles");
+        assert!(!css.contains('\n'));
+        assert!(css.contains("attr(href)"));
+        assert_eq!(css, compile(source).expect("compiles again"));
     }
 
     #[test]
-    fn minification_keeps_strings_intact() {
-        let sheet = Stylesheet::parse(
-            ".a::after { content: \"a  b\"; font-family: \"Fira Sans\", sans-serif; }",
-        );
-        assert_eq!(
-            sheet.minify(),
-            ".a::after{content:\"a  b\";font-family:\"Fira Sans\",sans-serif}"
-        );
+    fn a_stylesheet_that_does_not_parse_is_a_diagnostic() {
+        let error = compile("} nonsense {").expect_err("a stray block is rejected");
+        assert_eq!(error.diagnostic().code.as_str(), "E0703");
+        assert!(error.diagnostic().message.contains("does not parse"));
+    }
+
+    #[test]
+    fn the_output_is_pinned_to_the_declared_browsers() {
+        // Range syntax: every browser in `browsers()` has had it since 2023,
+        // and it is shorter. The point of the assertion is that the output
+        // follows that list rather than whatever lightningcss prefers today.
+        let css = compile("@media (min-width: 64em){.a{gap:1rem}}").expect("compiles");
+        assert_eq!(css, "@media (width>=64em){.a{gap:1rem}}");
     }
 
     #[test]
     fn custom_properties_carry_the_scheme_they_were_written_in() {
-        let sheet = Stylesheet::parse(
+        let properties = custom_properties(
             r#"
             :root { --ly-color-primary: #111111; }
             [data-theme="dark"] { --ly-color-primary: #eeeeee; }
             @media (prefers-color-scheme: dark) { :root { --ly-color-bg: #000000; } }
             .card { color: red; }
             "#,
-        );
-        let properties = sheet.custom_properties();
+        )
+        .expect("the override parses");
         assert_eq!(properties.len(), 3);
         assert_eq!(properties[0].0, Scope::Both);
+        assert_eq!(properties[0].1, "--ly-color-primary");
         assert_eq!(properties[1].0, Scope::Dark);
         assert_eq!(properties[2].0, Scope::Dark);
-        assert_eq!(properties[2].1.property, "--ly-color-bg");
+        assert_eq!(properties[2].1, "--ly-color-bg");
+        assert_eq!(
+            properties[2].2, "#000",
+            "values are minified with the sheet"
+        );
     }
 
     #[test]
-    fn an_unparseable_rule_is_carried_through_rather_than_dropped() {
-        let sheet = Stylesheet::parse("@supports (display: grid) { .a { display: grid; } }");
-        assert!(sheet.minify().contains("@supports (display:grid)"));
+    fn a_nested_override_keeps_its_scope() {
+        let properties =
+            custom_properties("[data-theme=\"dark\"]{ .brand { --ly-color-primary: #eeeeee; } }")
+                .expect("the override parses");
+        assert_eq!(properties.len(), 1);
+        assert_eq!(properties[0].0, Scope::Dark);
+    }
+
+    #[test]
+    fn filtering_keeps_the_at_rules_that_wrap_a_kept_rule() {
+        let source = ".ly-shell{display:grid}.ly-callout{color:red}\
+                      @media (width>=64em){.ly-shell{gap:1rem}.ly-callout{gap:0}}\
+                      @media print{.ly-shell{display:block}}";
+        let css =
+            filter(source, &|selector| selector.starts_with(".ly-shell")).expect("the filter runs");
+        assert!(css.contains(".ly-shell{display:grid}"));
+        assert!(!css.contains(".ly-callout"));
+        assert!(
+            css.contains("@media (width>=64em){.ly-shell{gap:1rem}}"),
+            "{css}"
+        );
+        assert!(!css.contains("print"), "nothing printed is above the fold");
+    }
+
+    #[test]
+    fn filtering_drops_an_at_rule_whose_body_is_all_dropped() {
+        let css = filter("@media (min-width:64em){.ly-callout{gap:0}}", &|selector| {
+            selector.starts_with(".ly-shell")
+        })
+        .expect("the filter runs");
+        assert!(css.is_empty(), "{css}");
     }
 }

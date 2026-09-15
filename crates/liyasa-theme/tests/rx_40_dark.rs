@@ -80,21 +80,19 @@ fn the_choice_persists_and_wins_over_the_system_preference() {
 
 #[test]
 fn an_image_pair_swaps_without_a_reload() {
-    let styles = Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]);
+    let styles =
+        Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]).expect("the theme compiles");
+    // Compiled CSS carries unquoted attribute values; the markup is unchanged.
+    assert!(styles.css.contains("[data-ly-scheme=dark]{display:none}"));
     assert!(
         styles
             .css
-            .contains("[data-ly-scheme=\"dark\"]{display:none}")
+            .contains("[data-theme=dark] [data-ly-scheme=dark]")
     );
     assert!(
         styles
             .css
-            .contains("[data-theme=\"dark\"] [data-ly-scheme=\"dark\"]")
-    );
-    assert!(
-        styles
-            .css
-            .contains("[data-theme=\"dark\"] [data-ly-scheme=\"light\"]")
+            .contains("[data-theme=dark] [data-ly-scheme=light]")
     );
 
     let html = render(&RenderContext::sample());
@@ -122,7 +120,8 @@ fn both_code_themes_are_emitted_as_variables() {
 
     // Every highlighted span reads a variable, so switching the scheme repaints
     // rather than re-rendering: no markup depends on the current scheme.
-    let styles = Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]);
+    let styles =
+        Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]).expect("the theme compiles");
     assert!(
         styles
             .css

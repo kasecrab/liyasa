@@ -117,7 +117,8 @@ fn the_documented_list_is_sorted_and_free_of_duplicates() {
 fn a_selector_on_a_documented_element_matches_what_the_theme_styles() {
     // The attribute is the stable hook; the class is documented alongside it,
     // so a stylesheet written against either keeps working.
-    let styles = Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]);
+    let styles =
+        Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]).expect("the theme compiles");
     for (element, class) in [
         ("sidebar", ".ly-sidebar"),
         ("navbar", ".ly-navbar"),
@@ -140,10 +141,9 @@ fn a_custom_stylesheet_can_target_the_attribute() {
         &ThemeConfig::default(),
         &Tokens::aurora(),
         &["[data-liyasa=\"sidebar\"] { border-right: 0; }"],
-    );
-    assert!(
-        styles
-            .css
-            .contains("[data-liyasa=\"sidebar\"]{border-right:0}")
-    );
+    )
+    .expect("the theme compiles");
+    // The compiler drops the quotes an attribute selector does not need; the
+    // operator's own sheet is compiled the same way, so both still match.
+    assert!(styles.css.contains("[data-liyasa=sidebar]{border-right:0}"));
 }

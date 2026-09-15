@@ -53,7 +53,8 @@ disagree in either direction.
   files are not committed yet (see `NEEDS-INPUT.md`); until they are, the
   stacks fall through to the reader's system fonts and no request leaves the
   origin either way.
-- **RFCs raised.** 0500 (lightningcss is MPL-2.0 and `cargo deny` rejects it),
+- **RFCs raised.** 0500 (lightningcss is MPL-2.0 and `cargo deny` rejected it —
+  resolved: the licence is allowed and the theme compiles with lightningcss),
   0501 (the frozen `PageMeta` and `NavCtx` are empty, so the theme defines the
   context types), 0502 (the endpoints behind the "open in" page actions), 0503
   (THM-40's interface strings have no key in the config schema, so they live in
@@ -62,7 +63,11 @@ disagree in either direction.
 
 ## Budgets
 
-`cargo test -p liyasa-theme` enforces them: the stylesheet under 60 KB
+The stylesheet is compiled with lightningcss against the browser list in
+`css::browsers`, so nesting and `@custom-media` are lowered and the output
+shape is pinned rather than following whatever the crate prefers today.
+
+`cargo test -p liyasa-theme` enforces the budgets: the stylesheet under 60 KB
 compressed, the critical block under 8 KB uncompressed, the base bundle under
 50 KB compressed, and each lazily loaded module against its own budget
 (THM-30, THM-31). Compression is measured with `gzip -9`, which every host

@@ -19,7 +19,7 @@ fn an_override_applies_in_both_schemes() {
         Some("#7c3aed")
     );
 
-    let styles = Styles::build(&ThemeConfig::default(), &tokens, &[]);
+    let styles = Styles::build(&ThemeConfig::default(), &tokens, &[]).expect("the theme compiles");
     assert_eq!(
         styles.css.matches("--ly-color-primary:#7c3aed").count(),
         1,
@@ -40,12 +40,14 @@ fn a_scheme_scoped_override_touches_only_that_scheme() {
         "#,
     );
 
-    assert_eq!(tokens.get("--ly-color-bg", Scheme::Dark), Some("#000000"));
+    // An override's value is minified with the rest of the sheet, so the token
+    // carries the short form the stylesheet will.
+    assert_eq!(tokens.get("--ly-color-bg", Scheme::Dark), Some("#000"));
     assert_eq!(
         tokens.get("--ly-color-bg", Scheme::Light),
         before.as_deref()
     );
-    assert_eq!(tokens.get("--ly-color-text", Scheme::Dark), Some("#ffffff"));
+    assert_eq!(tokens.get("--ly-color-text", Scheme::Dark), Some("#fff"));
 }
 
 #[test]
@@ -56,7 +58,7 @@ fn an_operators_own_token_is_kept() {
         tokens.get("--brand-hero-height", Scheme::Light),
         Some("32rem")
     );
-    let styles = Styles::build(&ThemeConfig::default(), &tokens, &[]);
+    let styles = Styles::build(&ThemeConfig::default(), &tokens, &[]).expect("the theme compiles");
     assert!(styles.css.contains("--brand-hero-height:32rem"));
 }
 

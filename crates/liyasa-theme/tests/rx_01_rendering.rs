@@ -157,7 +157,8 @@ fn the_navigation_opens_on_a_phone_without_javascript() {
         &liyasa_theme::config::ThemeConfig::default(),
         &liyasa_theme::tokens::Tokens::aurora(),
         &[],
-    );
+    )
+    .expect("the theme compiles");
     assert!(styles.css.contains(".ly-sidebar:target"));
 }
 

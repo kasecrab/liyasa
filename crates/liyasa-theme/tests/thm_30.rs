@@ -38,7 +38,7 @@ fn compressed_len(text: &str) -> usize {
 }
 
 fn styles() -> Styles {
-    Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[])
+    Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]).expect("the theme compiles")
 }
 
 #[test]
