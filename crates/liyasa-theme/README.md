@@ -29,6 +29,23 @@ let html = theme.render_page(&context)?;                          // RX-01
 (THM-22): `tests/thm_22_context.rs` fails when the documentation and the types
 disagree in either direction.
 
+## Reviewing the preset
+
+```sh
+cargo run -p liyasa-theme --bin preview      # ../../preview/aurora.html
+```
+
+One self-contained page: the real partials rendering a real docs page, then
+the whole token table live — the neutral ramp per scheme, every colour role
+with its measured contrast, the type scale, spacing, radii, shadows, motion —
+with the theme's own appearance toggle. Both bundled faces are inlined as data
+URIs, so the typography is the shipped typography even opened from a file.
+Nothing is hand-written into it: regenerate it and it is current.
+
+The command lives in this crate rather than in `xtask` because `xtask/` belongs
+to WP-00 and `bin/path-guard` fails a branch that writes outside its packet;
+aliasing it there is one line whenever its owner wants it.
+
 ## What is deliberately not here
 
 | Belongs to | Why |

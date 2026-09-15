@@ -98,10 +98,14 @@ pub fn css(faces: &[FaceFile], base_path: &str) -> String {
         out.push_str(";font-weight:");
         out.push_str(&face.weight);
         out.push_str(";font-display:swap;src:url(\"");
-        out.push_str(base_path);
-        out.push('/');
-        out.push_str(DIRECTORY);
-        out.push('/');
+        // A face already given as a `data:` URI is used as it is: that is how
+        // a single-file export carries its typography (§11.9).
+        if !face.file.starts_with("data:") {
+            out.push_str(base_path);
+            out.push('/');
+            out.push_str(DIRECTORY);
+            out.push('/');
+        }
         out.push_str(&face.file);
         out.push_str("\") format(\"");
         out.push_str(&face.format);
@@ -228,6 +232,20 @@ mod tests {
     fn a_subpath_deployment_keeps_the_font_urls_inside_it() {
         let css = css(&bundled(), "/docs");
         assert!(css.contains("url(\"/docs/_liyasa/fonts/"));
+    }
+
+    #[test]
+    fn an_inlined_face_keeps_its_data_uri() {
+        let face = FaceFile {
+            file: "data:font/woff2;base64,AAAA".to_owned(),
+            ..bundled().swap_remove(0)
+        };
+        let css = css(&[face], "/docs");
+        assert!(
+            css.contains("src:url(\"data:font/woff2;base64,AAAA\")"),
+            "{css}"
+        );
+        assert!(!css.contains("/docs/_liyasa"));
     }
 
     #[test]

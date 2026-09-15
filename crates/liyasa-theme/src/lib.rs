@@ -19,6 +19,7 @@ pub mod nav;
 pub mod og;
 pub mod outputs;
 pub mod presets;
+pub mod preview;
 pub mod runtime;
 pub mod safety;
 pub mod strings;
