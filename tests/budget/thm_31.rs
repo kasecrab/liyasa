@@ -59,12 +59,15 @@ fn the_committed_bundle_is_the_one_the_build_produces() {
         "the reader build failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let built = std::fs::read_to_string(format!("{root}/dist/reader.js")).expect("dist is written");
-    assert_eq!(
-        built.trim(),
-        site::READER.trim(),
-        "`web/reader/dist/reader.js` is not the build of `web/reader/src`; run `npm run build`"
-    );
+    for (file, committed) in [("reader.js", site::READER), ("measure.js", site::MEASURE)] {
+        let built =
+            std::fs::read_to_string(format!("{root}/dist/{file}")).expect("dist is written");
+        assert_eq!(
+            built.trim(),
+            committed.trim(),
+            "`web/reader/dist/{file}` is not the build of `web/reader/src`; run `npm run build`"
+        );
+    }
 }
 
 #[test]
