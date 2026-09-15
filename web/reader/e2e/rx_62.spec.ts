@@ -9,23 +9,17 @@ const BUTTON = '[data-ly-action="copy-markdown"]';
 
 test.use({ permissions: ["clipboard-read", "clipboard-write"] });
 
-// RX-100 gives the action the page's *absolute* Markdown URL, and the site
-// under test is built for its published origin rather than for this server, so
-// `copy.js` would fetch the real host and copy whatever it answered. Point the
-// Markdown twin back at the server under test, which is what the URL resolves
-// to on a deployed site.
-test.beforeEach(async ({ page, baseURL }) => {
-  await page.route(/\.md(\?.*)?$/, async (route) => {
-    const { pathname } = new URL(route.request().url());
-    // Node's own fetch, not `page.request`: the reply outlives the test that
-    // only waited for the request to be made.
-    const response = await fetch(`${baseURL}${pathname}`);
-    await route.fulfill({
-      status: response.status,
-      headers: { "content-type": "text/markdown; charset=utf-8" },
-      body: Buffer.from(await response.arrayBuffer()),
-    });
-  });
+// The twin the reader dereferences is a path, so the browser resolves it
+// against whatever host served the page (RFC 0505). Nothing here intercepts
+// it: the fetch goes to the server under test because the markup says so, and
+// this test is what keeps it that way — an absolute URL here would send a
+// preview, a staging host or a mirror to the published origin instead.
+test("the action the reader dereferences stays on the serving host", async ({ page }) => {
+  await page.goto(PAGE);
+  const copy = await page.locator(BUTTON).getAttribute("data-ly-copy-url");
+  expect(copy).toBe(`${PAGE}.md`);
+  const view = await page.locator('[data-ly-action="view-markdown"]').getAttribute("href");
+  expect(view).toBe(`${PAGE}.md`);
 });
 
 async function clipboard(page: import("@playwright/test").Page): Promise<string> {
