@@ -4,6 +4,8 @@ use std::fmt;
 
 use liyasa_core::diagnostics::{Diagnostic, code};
 
+use crate::SpecError;
+
 use crate::tree::{Value, field_str};
 
 /// The dialect of the source document. Everything downstream sees the 3.1
@@ -42,7 +44,7 @@ impl fmt::Display for SpecVersion {
 /// A 3.2 or later document is rejected rather than read as 3.1: a minor
 /// version adds keywords, and quietly dropping them would render a page that
 /// does not describe the API.
-pub fn detect(root: &Value) -> Result<SpecVersion, Diagnostic> {
+pub fn detect(root: &Value) -> Result<SpecVersion, SpecError> {
     if let Some(text) = field_str(root, "openapi") {
         return match major_minor(text) {
             Some((3, 0)) => Ok(SpecVersion::V3_0(text.to_owned())),
@@ -56,11 +58,11 @@ pub fn detect(root: &Value) -> Result<SpecVersion, Diagnostic> {
             _ => Err(unsupported(text)),
         };
     }
-    Err(
+    Err(Box::new(
         Diagnostic::new(code::E0504, "the document declares no OpenAPI version").help(
             "an OpenAPI document starts with `openapi: 3.1.0`, a Swagger one with `swagger: \"2.0\"`",
         ),
-    )
+    ))
 }
 
 fn major_minor(text: &str) -> Option<(u32, u32)> {
@@ -70,14 +72,16 @@ fn major_minor(text: &str) -> Option<(u32, u32)> {
     Some((major, minor))
 }
 
-fn unsupported(text: &str) -> Diagnostic {
-    Diagnostic::new(
-        code::E0504,
-        format!("OpenAPI version `{text}` is not supported"),
-    )
-    .help(
-        "Liyasa reads OpenAPI 3.0.x and 3.1.x, and converts Swagger 2.0; \
-         convert a newer document first",
+fn unsupported(text: &str) -> SpecError {
+    Box::new(
+        Diagnostic::new(
+            code::E0504,
+            format!("OpenAPI version `{text}` is not supported"),
+        )
+        .help(
+            "Liyasa reads OpenAPI 3.0.x and 3.1.x, and converts Swagger 2.0; \
+             convert a newer document first",
+        ),
     )
 }
 
@@ -86,7 +90,7 @@ mod tests {
     use super::*;
     use crate::tree::parse;
 
-    fn detect_in(source: &str) -> Result<SpecVersion, Diagnostic> {
+    fn detect_in(source: &str) -> Result<SpecVersion, SpecError> {
         detect(&parse(source.as_bytes(), "test").expect("the fixture parses"))
     }
 
