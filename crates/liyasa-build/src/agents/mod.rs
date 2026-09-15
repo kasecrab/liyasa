@@ -1,0 +1,13 @@
+//! The agent surfaces: Markdown routes, `llms.txt`, skills, feeds, and the
+//! agent-readiness report (PRD §11.7, §11.8, §11.9, §25).
+//!
+//! Everything here is produced from the anonymous render of a page (§6.6.4), so
+//! no reader value can reach a shared surface (SRC-12).
+
+pub mod site;
+pub mod spec;
+
+pub use site::{
+    AgentsSettings, CanonicalOrigin, CustomSkill, FeedsSettings, LlmsSettings, MarkdownSettings,
+    McpSettings, NavSection, PageRecord, SiteInput, SkillSettings,
+};

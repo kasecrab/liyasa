@@ -155,3 +155,9 @@ W0632 = { severity = "warning", crate = "liyasa-verify", title = "Word is not in
 E0633 = { severity = "error", crate = "liyasa-verify", title = "Prose rule package could not be read" }
 E0634 = { severity = "error", crate = "liyasa-verify", title = "`verify.policy` names a check class Liyasa does not know" }
 E0635 = { severity = "error", crate = "liyasa-verify", title = "`verify` setting is not a value Liyasa can read" }
+E0407 = { severity = "error", crate = "liyasa-build", title = "Generated agent resource declares its continuation as a trailing note instead of an opening header" }
+W0408 = { severity = "warning", crate = "liyasa-build", title = "Custom `llms.txt` links to a route the build cannot resolve" }
+W0409 = { severity = "warning", crate = "liyasa-build", title = "`llms.txt` does not cover every indexable page" }
+W0410 = { severity = "warning", crate = "liyasa-build", title = "Implemented spec check set differs from the tracked `agents.specVersion`" }
+W0411 = { severity = "warning", crate = "liyasa-build", title = "Agent-readiness run reports an interaction effect rather than the underlying check failures" }
+W0412 = { severity = "warning", crate = "liyasa-build", title = "Agent-readiness run computed from a partial sample; more than 20% of page fetches failed" }

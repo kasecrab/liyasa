@@ -1,0 +1,18 @@
+[package]
+name = "liyasa-build"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The build engine: render loop, artifact cache, and the agent surfaces (PRD §6.6, §11.7, §11.8, §25)."
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-components = { path = "../liyasa-components", version = "0.1.0" }
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+url.workspace = true
