@@ -9,4 +9,31 @@ pub mod inline;
 pub mod leaf;
 pub mod mask;
 pub mod props;
+pub mod slots;
 pub mod tag;
+#[cfg(test)]
+pub mod testing;
+pub mod validate;
+
+use liyasa_core::document::PropValue;
+
+/// A prop value written the way a directive would carry it. Shared by the
+/// formatter, the Markdown serialization, and the tag round-trip.
+pub fn render_value(value: &PropValue) -> String {
+    match value {
+        PropValue::Str(text) => format!("\"{}\"", text.replace('"', "&quot;")),
+        PropValue::Num(number) => {
+            if number.fract() == 0.0 && number.abs() < 1e15 {
+                format!("{number:.0}")
+            } else {
+                number.to_string()
+            }
+        }
+        PropValue::Bool(value) => value.to_string(),
+        PropValue::List(items) => format!(
+            "[{}]",
+            items.iter().map(render_value).collect::<Vec<_>>().join(",")
+        ),
+        PropValue::Expr(expr) => format!("{{{{ {expr} }}}}"),
+    }
+}
