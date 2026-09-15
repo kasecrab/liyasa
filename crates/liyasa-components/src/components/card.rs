@@ -99,15 +99,12 @@ impl Render for Card {
             Some(href) => crate::md::link(&title, href),
             None => format!("**{}**", crate::md::escape_inline(&title)),
         };
-        let children = ctx.renderer();
-        let body = inst.children.clone();
-        let mut error = Ok(());
-        ctx.out.item("- ", |md| {
-            md.write(&heading);
-            md.end_line();
-            error = children.markdown(&body, md);
-        });
-        error
+        let item = ctx.out.push_item("- ");
+        ctx.out.write(&heading);
+        ctx.out.end_line();
+        let result = ctx.children(&inst.children);
+        ctx.out.pop(item);
+        result
     }
 
     fn text(&self, inst: &ComponentInst) -> String {
@@ -350,15 +347,12 @@ impl Render for Tile {
             Some(href) => crate::md::link(&title, &href),
             None => format!("**{}**", crate::md::escape_inline(&title)),
         };
-        let children = ctx.renderer();
-        let body = inst.children.clone();
-        let mut error = Ok(());
-        ctx.out.item("- ", |md| {
-            md.write(&heading);
-            md.end_line();
-            error = children.markdown(&body, md);
-        });
-        error
+        let item = ctx.out.push_item("- ");
+        ctx.out.write(&heading);
+        ctx.out.end_line();
+        let result = ctx.children(&inst.children);
+        ctx.out.pop(item);
+        result
     }
 
     fn text(&self, inst: &ComponentInst) -> String {

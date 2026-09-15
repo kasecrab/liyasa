@@ -50,3 +50,60 @@ fn registering_a_name_twice_replaces_it() {
     registry.add(liyasa_components::components::callout::Note);
     assert_eq!(registry.len(), before);
 }
+
+#[test]
+fn a_nested_component_reports_into_the_same_sink() {
+    use liyasa_components::{HtmlCtx, Reference, inst, nodes};
+
+    let registry = Registry::builtins();
+    let reference = Reference::with(&registry);
+    let outer = inst::new("note")
+        .child(inst::nested(inst::new("cards").child(inst::nested(
+            inst::new("tip").child(nodes::paragraph("Not a card.")),
+        ))))
+        .build();
+    let note = registry.resolve("note").expect("registered");
+    let mut ctx = HtmlCtx::new(&reference);
+    note.html(&outer, &mut ctx).expect("renders");
+    let codes: Vec<&str> = ctx
+        .shared
+        .diagnostics
+        .iter()
+        .map(|d| d.code.as_str())
+        .collect();
+    assert_eq!(
+        codes,
+        ["E0354"],
+        "a diagnostic two levels down must surface"
+    );
+}
+
+#[test]
+fn a_nested_component_sees_the_site_origin() {
+    use liyasa_components::render::Shared;
+    use liyasa_components::{MarkdownCtx, Reference, inst};
+    use liyasa_core::document::PropValue;
+    use liyasa_core::ids::Locale;
+    use liyasa_core::markdown::SiteMeta;
+
+    let registry = Registry::builtins();
+    let reference = Reference::with(&registry);
+    let site = SiteMeta {
+        name: "Liyasa".into(),
+        canonical_origin: "https://docs.example.com/".parse().expect("a URL"),
+        llms_txt: "https://docs.example.com/llms.txt".parse().expect("a URL"),
+        version: None,
+        locale: Locale::new("en"),
+    };
+    let group = inst::new("cards")
+        .child(inst::nested(
+            inst::new("card")
+                .prop("title", PropValue::Str("Start".into()))
+                .prop("href", PropValue::Str("/start".into())),
+        ))
+        .build();
+    let cards = registry.resolve("cards").expect("registered");
+    let mut ctx = MarkdownCtx::with(Shared::new(&reference).site(&site));
+    cards.markdown(&group, &mut ctx).expect("serializes");
+    assert_eq!(ctx.finish(), "- [Start](https://docs.example.com/start)\n");
+}

@@ -10,10 +10,8 @@
 use liyasa_core::components::RenderError;
 use liyasa_core::document::{Align, Block, BlockKind, Inline, Node};
 
-use crate::html::Html;
-use crate::md::Markdown;
 use crate::registry::Registry;
-use crate::render::{Children, HtmlCtx, MarkdownCtx, Shared};
+use crate::render::{Children, HtmlCtx, MarkdownCtx};
 
 pub struct Reference<'r> {
     registry: Option<&'r Registry>,
@@ -36,83 +34,80 @@ impl<'r> Reference<'r> {
         }
     }
 
-    fn component_html(&self, block: &Block, out: &mut Html) -> Result<(), RenderError> {
+    fn component_html(&self, block: &Block, ctx: &mut HtmlCtx<'_>) -> Result<(), RenderError> {
         let Some(inst) = crate::nodes::as_component(&Node::Block(block.clone())) else {
             return Ok(());
         };
         let Some(component) = self.registry.and_then(|r| r.resolve(&inst.name)) else {
             // An unknown component is reported by validation, not by the
             // renderer; here its children are all that can be salvaged.
-            return self.html(&block.children, out);
+            return self.html(&block.children, ctx);
         };
-        // The component writes into the caller's buffer, not into a fragment:
-        // a nested component keeps the surrounding element stack.
-        let mut ctx = HtmlCtx::with(Shared::new(self));
-        ctx.out = std::mem::take(out);
-        let result = component.html(&inst, &mut ctx);
-        *out = ctx.out;
-        result
+        // The component writes into the caller's context: a nested component
+        // keeps the element stack, the site, and the diagnostics sink.
+        component.html(&inst, ctx)
     }
 
-    fn component_markdown(&self, block: &Block, out: &mut Markdown) -> Result<(), RenderError> {
+    fn component_markdown(
+        &self,
+        block: &Block,
+        ctx: &mut MarkdownCtx<'_>,
+    ) -> Result<(), RenderError> {
         let Some(inst) = crate::nodes::as_component(&Node::Block(block.clone())) else {
             return Ok(());
         };
         let Some(component) = self.registry.and_then(|r| r.resolve(&inst.name)) else {
-            return self.markdown(&block.children, out);
+            return self.markdown(&block.children, ctx);
         };
-        // Written into the caller's buffer so the line prefix and a pending
+        // Written into the caller's context so the line prefix and a pending
         // list marker survive: a card inside a card group is one list item,
         // not a document of its own.
-        let mut ctx = MarkdownCtx::with(Shared::new(self));
-        ctx.out = std::mem::take(out);
-        let result = component.markdown(&inst, &mut ctx);
-        *out = ctx.out;
-        result
+        component.markdown(&inst, ctx)
     }
 
-    fn block_html(&self, block: &Block, out: &mut Html) -> Result<(), RenderError> {
+    fn block_html(&self, block: &Block, ctx: &mut HtmlCtx<'_>) -> Result<(), RenderError> {
         match &block.kind {
-            BlockKind::Document => self.html(&block.children, out)?,
+            BlockKind::Document => self.html(&block.children, ctx)?,
             BlockKind::Heading { level, anchor } => {
                 let tag = heading_tag(*level);
-                out.open(tag).attr("id", anchor);
-                self.html(&block.children, out)?;
-                out.close();
+                ctx.out.open(tag).attr("id", anchor);
+                self.html(&block.children, ctx)?;
+                ctx.out.close();
             }
             BlockKind::Paragraph => {
-                out.open("p");
-                self.html(&block.children, out)?;
-                out.close();
+                ctx.out.open("p");
+                self.html(&block.children, ctx)?;
+                ctx.out.close();
             }
             BlockKind::List { ordered, start, .. } => {
                 if *ordered {
-                    out.open("ol");
+                    ctx.out.open("ol");
                     if *start != 1 {
-                        out.attr("start", &start.to_string());
+                        ctx.out.attr("start", &start.to_string());
                     }
                 } else {
-                    out.open("ul");
+                    ctx.out.open("ul");
                 }
-                self.html(&block.children, out)?;
-                out.close();
+                self.html(&block.children, ctx)?;
+                ctx.out.close();
             }
             BlockKind::ListItem { checked } => {
-                out.open("li");
+                ctx.out.open("li");
                 if let Some(checked) = checked {
-                    out.attr("class", "ly-task");
-                    out.open("input")
+                    ctx.out.attr("class", "ly-task");
+                    ctx.out
+                        .open("input")
                         .attr("type", "checkbox")
                         .flag_if("checked", *checked)
                         .flag("disabled");
                 }
-                self.html(&block.children, out)?;
-                out.close();
+                self.html(&block.children, ctx)?;
+                ctx.out.close();
             }
             BlockKind::BlockQuote => {
-                out.open("blockquote");
-                self.html(&block.children, out)?;
-                out.close();
+                ctx.out.open("blockquote");
+                self.html(&block.children, ctx)?;
+                ctx.out.close();
             }
             BlockKind::CodeBlock {
                 lang,
@@ -122,11 +117,11 @@ impl<'r> Reference<'r> {
                 let body =
                     raw_code(&block.children).unwrap_or_else(|| crate::text::of(&block.children));
                 if lang.as_deref() == Some("mermaid") {
-                    crate::fence::render_mermaid(out, &body, attrs);
+                    crate::fence::render_mermaid(&mut ctx.out, &body, attrs);
                 } else {
                     let options = crate::fence::CodeOptions::read(attrs);
                     crate::fence::render_html(
-                        out,
+                        &mut ctx.out,
                         lang.as_deref(),
                         &body,
                         &options,
@@ -135,35 +130,37 @@ impl<'r> Reference<'r> {
                 }
             }
             BlockKind::HtmlBlock { html } => {
-                out.raw(html);
+                ctx.out.raw(html);
             }
             BlockKind::Table { align } => {
-                out.open("table");
-                self.table_html(block, align, out)?;
-                out.close();
+                ctx.out.open("table");
+                self.table_html(block, align, ctx)?;
+                ctx.out.close();
             }
             BlockKind::TableRow { .. } | BlockKind::TableCell => {
                 // Reached only when a row or a cell is rendered on its own.
-                self.html(&block.children, out)?;
+                self.html(&block.children, ctx)?;
             }
             BlockKind::ThematicBreak => {
-                out.open("hr");
+                ctx.out.open("hr");
             }
             BlockKind::FootnoteDefinition { label } => {
-                out.open("div")
+                ctx.out
+                    .open("div")
                     .attr("class", "ly-footnote")
                     .attr("id", &format!("fn-{label}"));
-                self.html(&block.children, out)?;
-                out.close();
+                self.html(&block.children, ctx)?;
+                ctx.out.close();
             }
             BlockKind::Math { display, src } => {
-                out.open(if *display { "div" } else { "span" })
+                ctx.out
+                    .open(if *display { "div" } else { "span" })
                     .attr("class", "ly-math")
                     .flag_if("data-display", *display)
                     .text(src)
                     .close();
             }
-            BlockKind::Component { .. } => self.component_html(block, out)?,
+            BlockKind::Component { .. } => self.component_html(block, ctx)?,
             BlockKind::LogicMarker { .. } => {}
         }
         Ok(())
@@ -173,7 +170,7 @@ impl<'r> Reference<'r> {
         &self,
         block: &Block,
         align: &[Align],
-        out: &mut Html,
+        ctx: &mut HtmlCtx<'_>,
     ) -> Result<(), RenderError> {
         let mut in_body = false;
         for child in &block.children {
@@ -182,47 +179,47 @@ impl<'r> Reference<'r> {
                 continue;
             };
             if header {
-                out.open("thead");
+                ctx.out.open("thead");
             } else if !in_body {
                 in_body = true;
-                out.open("tbody");
+                ctx.out.open("tbody");
             }
-            out.open("tr");
+            ctx.out.open("tr");
             for (at, cell) in row.children.iter().enumerate() {
                 let Node::Block(cell_block) = cell else {
                     continue;
                 };
-                out.open(if header { "th" } else { "td" });
+                ctx.out.open(if header { "th" } else { "td" });
                 if let Some(style) = align.get(at).and_then(align_style) {
-                    out.attr("style", style);
+                    ctx.out.attr("style", style);
                 }
-                self.html(&cell_block.children, out)?;
-                out.close();
+                self.html(&cell_block.children, ctx)?;
+                ctx.out.close();
             }
-            out.close();
+            ctx.out.close();
             if header {
-                out.close();
+                ctx.out.close();
             }
         }
         if in_body {
-            out.close();
+            ctx.out.close();
         }
         Ok(())
     }
 
-    fn block_markdown(&self, block: &Block, out: &mut Markdown) -> Result<(), RenderError> {
+    fn block_markdown(&self, block: &Block, ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError> {
         match &block.kind {
-            BlockKind::Document => self.markdown(&block.children, out)?,
+            BlockKind::Document => self.markdown(&block.children, ctx)?,
             BlockKind::Heading { level, .. } => {
-                out.heading(*level, &inline_text(&block.children));
+                ctx.out.heading(*level, &inline_text(&block.children));
             }
             BlockKind::Paragraph => {
-                out.block();
-                self.markdown(&block.children, out)?;
-                out.end_line();
+                ctx.out.block();
+                self.markdown(&block.children, ctx)?;
+                ctx.out.end_line();
             }
             BlockKind::List { ordered, start, .. } => {
-                out.block();
+                ctx.out.block();
                 let mut number = *start;
                 for child in &block.children {
                     let Node::Block(item) = child else { continue };
@@ -231,56 +228,58 @@ impl<'r> Reference<'r> {
                     } else {
                         "- ".to_owned()
                     };
-                    let mut error = Ok(());
-                    out.item(&marker, |md| error = self.markdown(&item.children, md));
-                    error?;
+                    let nesting = ctx.out.push_item(&marker);
+                    let result = self.markdown(&item.children, ctx);
+                    ctx.out.pop(nesting);
+                    result?;
                     number += 1;
                 }
             }
-            BlockKind::ListItem { .. } => self.markdown(&block.children, out)?,
+            BlockKind::ListItem { .. } => self.markdown(&block.children, ctx)?,
             BlockKind::BlockQuote => {
-                let mut error = Ok(());
-                out.quote(|md| error = self.markdown(&block.children, md));
-                error?;
+                let nesting = ctx.out.push_quote();
+                let result = self.markdown(&block.children, ctx);
+                ctx.out.pop(nesting);
+                result?;
             }
             BlockKind::CodeBlock { lang, attrs, .. } => {
                 let options = crate::fence::CodeOptions::read(attrs);
                 let body = raw_code(&block.children).unwrap_or_default();
-                crate::fence::render_markdown(out, lang.as_deref(), &body, &options);
+                crate::fence::render_markdown(&mut ctx.out, lang.as_deref(), &body, &options);
             }
             BlockKind::HtmlBlock { html } => {
-                out.block();
-                out.write(html.trim_end());
-                out.end_line();
+                ctx.out.block();
+                ctx.out.write(html.trim_end());
+                ctx.out.end_line();
             }
-            BlockKind::Table { .. } => self.table_markdown(block, out)?,
+            BlockKind::Table { .. } => self.table_markdown(block, ctx)?,
             BlockKind::TableRow { .. } | BlockKind::TableCell => {
-                self.markdown(&block.children, out)?;
+                self.markdown(&block.children, ctx)?;
             }
             BlockKind::ThematicBreak => {
-                out.thematic_break();
+                ctx.out.thematic_break();
             }
             BlockKind::FootnoteDefinition { label } => {
-                out.block();
-                out.write(&format!("[^{label}]: "));
-                self.markdown(&block.children, out)?;
-                out.end_line();
+                ctx.out.block();
+                ctx.out.write(&format!("[^{label}]: "));
+                self.markdown(&block.children, ctx)?;
+                ctx.out.end_line();
             }
             BlockKind::Math { display, src } => {
                 if *display {
-                    out.block();
-                    out.line(&format!("$${src}$$"));
+                    ctx.out.block();
+                    ctx.out.line(&format!("$${src}$$"));
                 } else {
-                    out.write(&format!("${src}$"));
+                    ctx.out.write(&format!("${src}$"));
                 }
             }
-            BlockKind::Component { .. } => self.component_markdown(block, out)?,
+            BlockKind::Component { .. } => self.component_markdown(block, ctx)?,
             BlockKind::LogicMarker { .. } => {}
         }
         Ok(())
     }
 
-    fn table_markdown(&self, block: &Block, out: &mut Markdown) -> Result<(), RenderError> {
+    fn table_markdown(&self, block: &Block, ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError> {
         let mut header: Vec<String> = Vec::new();
         let mut rows: Vec<Vec<String>> = Vec::new();
         for child in &block.children {
@@ -302,45 +301,50 @@ impl<'r> Reference<'r> {
                 rows.push(cells);
             }
         }
-        out.table(&header, &rows);
+        ctx.out.table(&header, &rows);
         Ok(())
     }
 
-    fn inline_markdown(&self, inline: &Inline, out: &mut Markdown) -> Result<(), RenderError> {
+    fn inline_markdown(
+        &self,
+        inline: &Inline,
+        ctx: &mut MarkdownCtx<'_>,
+    ) -> Result<(), RenderError> {
         match inline {
             Inline::Text(text) => {
-                out.write(&crate::md::escape_inline(text));
+                ctx.out.write(&crate::md::escape_inline(text));
             }
             Inline::Code(text) => {
-                out.write(&crate::md::code_span(text));
+                ctx.out.write(&crate::md::code_span(text));
             }
-            Inline::Emph(children) => self.wrap_markdown("*", children, out)?,
-            Inline::Strong(children) => self.wrap_markdown("**", children, out)?,
-            Inline::Strike(children) => self.wrap_markdown("~~", children, out)?,
+            Inline::Emph(children) => self.wrap_markdown("*", children, ctx)?,
+            Inline::Strong(children) => self.wrap_markdown("**", children, ctx)?,
+            Inline::Strike(children) => self.wrap_markdown("~~", children, ctx)?,
             Inline::Link { href, children, .. } => {
-                out.write("[");
-                self.inlines_markdown(children, out)?;
-                out.write(&format!("]({})", crate::md::escape_url(href)));
+                ctx.out.write("[");
+                self.inlines_markdown(children, ctx)?;
+                ctx.out
+                    .write(&format!("]({})", crate::md::escape_url(href)));
             }
             Inline::Image { src, alt, .. } => {
-                out.write(&format!(
+                ctx.out.write(&format!(
                     "![{}]({})",
                     crate::md::escape_inline(alt),
                     crate::md::escape_url(src)
                 ));
             }
             Inline::HtmlInline(html) => {
-                out.write(html);
+                ctx.out.write(html);
             }
             Inline::FootnoteRef(label) => {
-                out.write(&format!("[^{label}]"));
+                ctx.out.write(&format!("[^{label}]"));
             }
             Inline::SoftBreak => {
-                out.end_line();
+                ctx.out.end_line();
             }
             Inline::HardBreak => {
-                out.write("  ");
-                out.end_line();
+                ctx.out.write("  ");
+                ctx.out.end_line();
             }
             Inline::InlineComponent {
                 name,
@@ -352,21 +356,15 @@ impl<'r> Reference<'r> {
                     .children(children.iter().cloned().map(Node::Inline))
                     .build();
                 match self.registry.and_then(|r| r.resolve(name)) {
-                    Some(component) => {
-                        let mut ctx = MarkdownCtx::with(Shared::new(self));
-                        ctx.out = std::mem::take(out);
-                        let result = component.markdown(&inst, &mut ctx);
-                        *out = ctx.out;
-                        result?;
-                    }
-                    None => self.inlines_markdown(children, out)?,
+                    Some(component) => component.markdown(&inst, ctx)?,
+                    None => self.inlines_markdown(children, ctx)?,
                 }
             }
             Inline::Math(src) => {
-                out.write(&format!("${src}$"));
+                ctx.out.write(&format!("${src}$"));
             }
             Inline::TemplateInline { expr, .. } => {
-                out.write(&format!("{{{{{expr}}}}}"));
+                ctx.out.write(&format!("{{{{{expr}}}}}"));
             }
         }
         Ok(())
@@ -376,60 +374,65 @@ impl<'r> Reference<'r> {
         &self,
         marker: &str,
         children: &[Inline],
-        out: &mut Markdown,
+        ctx: &mut MarkdownCtx<'_>,
     ) -> Result<(), RenderError> {
-        out.write(marker);
-        self.inlines_markdown(children, out)?;
-        out.write(marker);
+        ctx.out.write(marker);
+        self.inlines_markdown(children, ctx)?;
+        ctx.out.write(marker);
         Ok(())
     }
 
-    fn inlines_markdown(&self, children: &[Inline], out: &mut Markdown) -> Result<(), RenderError> {
+    fn inlines_markdown(
+        &self,
+        children: &[Inline],
+        ctx: &mut MarkdownCtx<'_>,
+    ) -> Result<(), RenderError> {
         for child in children {
-            self.inline_markdown(child, out)?;
+            self.inline_markdown(child, ctx)?;
         }
         Ok(())
     }
 
-    fn inline_html(&self, inline: &Inline, out: &mut Html) -> Result<(), RenderError> {
+    fn inline_html(&self, inline: &Inline, ctx: &mut HtmlCtx<'_>) -> Result<(), RenderError> {
         match inline {
             Inline::Text(text) => {
-                out.text(text);
+                ctx.out.text(text);
             }
             Inline::Code(text) => {
-                out.open("code").text(text).close();
+                ctx.out.open("code").text(text).close();
             }
-            Inline::Emph(children) => self.wrap_html("em", children, out)?,
-            Inline::Strong(children) => self.wrap_html("strong", children, out)?,
-            Inline::Strike(children) => self.wrap_html("del", children, out)?,
+            Inline::Emph(children) => self.wrap_html("em", children, ctx)?,
+            Inline::Strong(children) => self.wrap_html("strong", children, ctx)?,
+            Inline::Strike(children) => self.wrap_html("del", children, ctx)?,
             Inline::Link {
                 href,
                 title,
                 children,
                 ..
             } => {
-                out.open("a");
+                ctx.out.open("a");
                 if crate::props::is_safe_url(href) {
-                    out.attr("href", href);
+                    ctx.out.attr("href", href);
                 }
-                out.attr_if("title", title.as_deref());
-                self.inlines_html(children, out)?;
-                out.close();
+                ctx.out.attr_if("title", title.as_deref());
+                self.inlines_html(children, ctx)?;
+                ctx.out.close();
             }
             Inline::Image {
                 src, alt, title, ..
             } => {
-                out.open("img");
+                ctx.out.open("img");
                 if crate::props::is_safe_url(src) {
-                    out.attr("src", src);
+                    ctx.out.attr("src", src);
                 }
-                out.attr("alt", alt).attr_if("title", title.as_deref());
+                ctx.out.attr("alt", alt).attr_if("title", title.as_deref());
             }
             Inline::HtmlInline(html) => {
-                out.raw(html);
+                ctx.out.raw(html);
             }
             Inline::FootnoteRef(label) => {
-                out.open("sup")
+                ctx.out
+                    .open("sup")
                     .open("a")
                     .attr("href", &format!("#fn-{label}"))
                     .text(label)
@@ -437,10 +440,10 @@ impl<'r> Reference<'r> {
                     .close();
             }
             Inline::SoftBreak => {
-                out.text("\n");
+                ctx.out.text("\n");
             }
             Inline::HardBreak => {
-                out.open("br");
+                ctx.out.open("br");
             }
             Inline::InlineComponent {
                 name,
@@ -452,21 +455,20 @@ impl<'r> Reference<'r> {
                     .children(children.iter().cloned().map(Node::Inline))
                     .build();
                 match self.registry.and_then(|r| r.resolve(name)) {
-                    Some(component) => {
-                        let mut ctx = HtmlCtx::with(Shared::new(self));
-                        ctx.out = std::mem::take(out);
-                        let result = component.html(&inst, &mut ctx);
-                        *out = ctx.out;
-                        result?;
-                    }
-                    None => self.inlines_html(children, out)?,
+                    Some(component) => component.html(&inst, ctx)?,
+                    None => self.inlines_html(children, ctx)?,
                 }
             }
             Inline::Math(src) => {
-                out.open("span").attr("class", "ly-math").text(src).close();
+                ctx.out
+                    .open("span")
+                    .attr("class", "ly-math")
+                    .text(src)
+                    .close();
             }
             Inline::TemplateInline { expr, .. } => {
-                out.open("span")
+                ctx.out
+                    .open("span")
                     .attr("class", "ly-template")
                     .text(expr)
                     .close();
@@ -479,34 +481,34 @@ impl<'r> Reference<'r> {
         &self,
         tag: &'static str,
         children: &[Inline],
-        out: &mut Html,
+        ctx: &mut HtmlCtx<'_>,
     ) -> Result<(), RenderError> {
-        out.open(tag);
-        self.inlines_html(children, out)?;
-        out.close();
+        ctx.out.open(tag);
+        self.inlines_html(children, ctx)?;
+        ctx.out.close();
         Ok(())
     }
 
-    fn inlines_html(&self, children: &[Inline], out: &mut Html) -> Result<(), RenderError> {
+    fn inlines_html(&self, children: &[Inline], ctx: &mut HtmlCtx<'_>) -> Result<(), RenderError> {
         for child in children {
-            self.inline_html(child, out)?;
+            self.inline_html(child, ctx)?;
         }
         Ok(())
     }
 }
 
 impl Children for Reference<'_> {
-    fn html(&self, nodes: &[Node], out: &mut Html) -> Result<(), RenderError> {
+    fn html(&self, nodes: &[Node], ctx: &mut HtmlCtx<'_>) -> Result<(), RenderError> {
         for node in nodes {
             match node {
-                Node::Block(block) => self.block_html(block, out)?,
-                Node::Inline(inline) => self.inline_html(inline, out)?,
+                Node::Block(block) => self.block_html(block, ctx)?,
+                Node::Inline(inline) => self.inline_html(inline, ctx)?,
             }
         }
         Ok(())
     }
 
-    fn markdown(&self, nodes: &[Node], out: &mut Markdown) -> Result<(), RenderError> {
+    fn markdown(&self, nodes: &[Node], ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError> {
         let mut at = 0;
         while at < nodes.len() {
             // RX-61: a run of API fields is one table, so it is recognized
@@ -517,13 +519,13 @@ impl Children for Reference<'_> {
                     .iter()
                     .filter_map(crate::nodes::as_component)
                     .collect();
-                crate::components::api::table_markdown(&fields, out, self);
+                crate::components::api::table_markdown(&fields, ctx)?;
                 at += run;
                 continue;
             }
             match &nodes[at] {
-                Node::Block(block) => self.block_markdown(block, out)?,
-                Node::Inline(inline) => self.inline_markdown(inline, out)?,
+                Node::Block(block) => self.block_markdown(block, ctx)?,
+                Node::Inline(inline) => self.inline_markdown(inline, ctx)?,
             }
             at += 1;
         }
@@ -555,11 +557,12 @@ fn raw_code(children: &[Node]) -> Option<String> {
     Some(body)
 }
 
+/// A cell's or a heading's text: inline Markdown on one line.
 fn inline_text(children: &[Node]) -> String {
     let reference = Reference::new();
-    let mut out = Markdown::new();
-    let _ = reference.markdown(children, &mut out);
-    out.finish().trim().replace('\n', " ")
+    let mut ctx = MarkdownCtx::new(&reference);
+    let _ = reference.markdown(children, &mut ctx);
+    ctx.finish().trim().replace('\n', " ")
 }
 
 fn heading_tag(level: u8) -> &'static str {

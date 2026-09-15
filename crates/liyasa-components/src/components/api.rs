@@ -10,9 +10,8 @@ use liyasa_core::components::{ComponentInst, PropType, RenderError};
 use liyasa_core::diagnostics::{Diagnostic, code};
 use liyasa_core::document::{Dep, DepTarget};
 
-use crate::md::Markdown;
 use crate::props::Reader;
-use crate::render::{Children, HtmlCtx, MarkdownCtx, Render};
+use crate::render::{HtmlCtx, MarkdownCtx, Render};
 use crate::schema::{list_of, one_of, text as default_text};
 use crate::{anchor, declare, deps, text};
 
@@ -175,8 +174,8 @@ fn field_html(
 fn field_row(
     inst: &ComponentInst,
     schema: &crate::PropSchema,
-    children: &dyn Children,
-) -> Vec<String> {
+    ctx: &mut MarkdownCtx<'_>,
+) -> Result<Vec<String>, RenderError> {
     let field = read_field(inst, schema, "f");
     let mut flags = Vec::new();
     if field.required {
@@ -188,33 +187,33 @@ fn field_row(
     for (label, value) in &field.notes {
         flags.push(format!("{label}: {value}"));
     }
-    let mut description = Markdown::new();
-    let _ = children.markdown(&inst.children, &mut description);
-    vec![
+    let description = ctx.children_fragment(&inst.children)?;
+    Ok(vec![
         crate::md::code_span(&field.name),
         field
             .ty
             .map(|ty| crate::md::code_span(&ty))
             .unwrap_or_default(),
         flags.join(", "),
-        description.finish().trim().replace('\n', " "),
-    ]
+        description.trim().replace('\n', " "),
+    ])
 }
 
 /// A run of parameter and response fields as one table (RX-61).
-pub fn table_markdown(fields: &[ComponentInst], out: &mut Markdown, children: &dyn Children) {
-    let rows: Vec<Vec<String>> = fields
-        .iter()
-        .map(|inst| {
-            let schema = if inst.name.contains("response") || inst.name == "ResponseField" {
-                ResponseField::schema_of()
-            } else {
-                Param::schema_of()
-            };
-            field_row(inst, schema, children)
-        })
-        .collect();
-    out.table(
+pub fn table_markdown(
+    fields: &[ComponentInst],
+    ctx: &mut MarkdownCtx<'_>,
+) -> Result<(), RenderError> {
+    let mut rows = Vec::with_capacity(fields.len());
+    for inst in fields {
+        let schema = if inst.name.contains("response") || inst.name == "ResponseField" {
+            ResponseField::schema_of()
+        } else {
+            Param::schema_of()
+        };
+        rows.push(field_row(inst, schema, ctx)?);
+    }
+    ctx.out.table(
         &[
             "Name".to_owned(),
             "Type".to_owned(),
@@ -223,6 +222,7 @@ pub fn table_markdown(fields: &[ComponentInst], out: &mut Markdown, children: &d
         ],
         &rows,
     );
+    Ok(())
 }
 
 impl Render for Param {
@@ -232,9 +232,7 @@ impl Render for Param {
     }
 
     fn markdown(&self, inst: &ComponentInst, ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError> {
-        let children = ctx.renderer();
-        table_markdown(std::slice::from_ref(inst), &mut ctx.out, children);
-        Ok(())
+        table_markdown(std::slice::from_ref(inst), ctx)
     }
 
     fn text(&self, inst: &ComponentInst) -> String {
@@ -270,9 +268,7 @@ impl Render for ResponseField {
     }
 
     fn markdown(&self, inst: &ComponentInst, ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError> {
-        let children = ctx.renderer();
-        table_markdown(std::slice::from_ref(inst), &mut ctx.out, children);
-        Ok(())
+        table_markdown(std::slice::from_ref(inst), ctx)
     }
 
     fn text(&self, inst: &ComponentInst) -> String {

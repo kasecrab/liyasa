@@ -77,13 +77,12 @@ fn render_markdown(
 ) -> Result<(), RenderError> {
     let props = Reader::of(inst, schema);
     let title = props.str_or("title", style.title).to_owned();
-    let children = ctx.renderer();
-    let mut error = Ok(());
-    ctx.out.quote(|md| {
-        md.paragraph(&format!("**{}**", crate::md::escape_inline(&title)));
-        error = children.markdown(&inst.children, md);
-    });
-    error
+    let quote = ctx.out.push_quote();
+    ctx.out
+        .paragraph(&format!("**{}**", crate::md::escape_inline(&title)));
+    let result = ctx.children(&inst.children);
+    ctx.out.pop(quote);
+    result
 }
 
 macro_rules! callout {

@@ -8,6 +8,14 @@
 
 use std::fmt::Write as _;
 
+/// The writer state one nesting level owns, handed back to [`Markdown::pop`].
+#[derive(Debug, Clone)]
+pub struct Nesting {
+    prefix: String,
+    pending_marker: Option<String>,
+    suppress_block: bool,
+}
+
 #[derive(Debug, Default)]
 pub struct Markdown {
     buf: String,
@@ -104,24 +112,55 @@ impl Markdown {
         self.line(&fence)
     }
 
-    /// Runs `body` with `> ` added to every line.
-    pub fn quote(&mut self, body: impl FnOnce(&mut Self)) -> &mut Self {
+    /// Opens a block quote. Every line until the matching [`Self::pop`] is
+    /// prefixed with `> `.
+    ///
+    /// The push-and-pop pair exists because a component renders its children
+    /// while nested, and the child renderer needs the whole render context,
+    /// which a closure holding `&mut Markdown` would already have borrowed.
+    #[must_use = "the returned state must be handed back to `pop`"]
+    pub fn push_quote(&mut self) -> Nesting {
         self.block();
         // The quote's own separator is the block's; the first paragraph inside
         // must not add a second.
+        let saved = self.push("> ", None);
         self.suppress_block = true;
-        self.nested("> ", None, body);
+        saved
+    }
+
+    /// Opens one list item: `marker` starts the first line, the rest is
+    /// indented to match.
+    #[must_use = "the returned state must be handed back to `pop`"]
+    pub fn push_item(&mut self, marker: &str) -> Nesting {
+        self.end_line();
+        let indent = " ".repeat(marker.chars().count());
+        let outer = self.prefix.clone();
+        let saved = self.push(&indent, Some(format!("{outer}{marker}")));
+        self.suppress_block = true;
+        saved
+    }
+
+    /// Closes what the matching push opened.
+    pub fn pop(&mut self, saved: Nesting) -> &mut Self {
+        self.end_line();
+        self.prefix = saved.prefix;
+        self.pending_marker = saved.pending_marker;
+        self.suppress_block = saved.suppress_block;
         self
     }
 
-    /// Runs `body` as one list item: `marker` starts the first line, the rest is
-    /// indented to match.
+    /// Runs `body` inside a block quote.
+    pub fn quote(&mut self, body: impl FnOnce(&mut Self)) -> &mut Self {
+        let saved = self.push_quote();
+        body(self);
+        self.pop(saved)
+    }
+
+    /// Runs `body` inside one list item.
     pub fn item(&mut self, marker: &str, body: impl FnOnce(&mut Self)) -> &mut Self {
-        self.end_line();
-        let indent = " ".repeat(marker.chars().count());
-        self.suppress_block = true;
-        self.nested(&indent, Some(marker.to_owned()), body);
-        self
+        let saved = self.push_item(marker);
+        body(self);
+        self.pop(saved)
     }
 
     /// The `n`th marker of an ordered list, `1.`-style.
@@ -185,15 +224,15 @@ impl Markdown {
         &self.buf
     }
 
-    fn nested(&mut self, prefix: &str, marker: Option<String>, body: impl FnOnce(&mut Self)) {
-        let outer_prefix = self.prefix.clone();
-        let outer_marker = self.pending_marker.take();
+    fn push(&mut self, prefix: &str, marker: Option<String>) -> Nesting {
+        let saved = Nesting {
+            prefix: self.prefix.clone(),
+            pending_marker: self.pending_marker.take(),
+            suppress_block: self.suppress_block,
+        };
         self.prefix.push_str(prefix);
-        self.pending_marker = marker.map(|m| format!("{outer_prefix}{m}"));
-        body(self);
-        self.end_line();
-        self.prefix = outer_prefix;
-        self.pending_marker = outer_marker;
+        self.pending_marker = marker;
+        saved
     }
 
     fn start_line(&mut self) {

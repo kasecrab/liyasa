@@ -19,19 +19,19 @@ use crate::md::Markdown;
 /// `liyasa-markdown` owns the real one (it owns the AST walk); the crate ships
 /// [`crate::reference::Reference`] so components are testable before it lands.
 pub trait Children: Sync {
-    fn html(&self, nodes: &[Node], out: &mut Html) -> Result<(), RenderError>;
-    fn markdown(&self, nodes: &[Node], out: &mut Markdown) -> Result<(), RenderError>;
+    fn html(&self, nodes: &[Node], ctx: &mut HtmlCtx<'_>) -> Result<(), RenderError>;
+    fn markdown(&self, nodes: &[Node], ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError>;
 }
 
 /// A child renderer that emits nothing, for a context with no AST walk.
 pub struct NoChildren;
 
 impl Children for NoChildren {
-    fn html(&self, _nodes: &[Node], _out: &mut Html) -> Result<(), RenderError> {
+    fn html(&self, _nodes: &[Node], _ctx: &mut HtmlCtx<'_>) -> Result<(), RenderError> {
         Ok(())
     }
 
-    fn markdown(&self, _nodes: &[Node], _out: &mut Markdown) -> Result<(), RenderError> {
+    fn markdown(&self, _nodes: &[Node], _ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError> {
         Ok(())
     }
 }
@@ -105,17 +105,22 @@ impl<'a> HtmlCtx<'a> {
     }
 
     /// Renders `nodes` straight into the current position.
+    ///
+    /// The child renderer receives this context, not a bare buffer, so a
+    /// nested component sees the same site, audience, and diagnostics sink as
+    /// the component that contains it.
     pub fn children(&mut self, nodes: &[Node]) -> Result<(), RenderError> {
         let children = self.shared.children;
-        children.html(nodes, &mut self.out)
+        children.html(nodes, self)
     }
 
     /// Renders `nodes` into a fragment, for a component that has to look at its
     /// children's markup before placing it.
     pub fn children_fragment(&mut self, nodes: &[Node]) -> Result<String, RenderError> {
-        let children = self.shared.children;
-        let mut fragment = Html::new();
-        children.html(nodes, &mut fragment)?;
+        let outer = std::mem::replace(&mut self.out, Html::new());
+        let result = self.children(nodes);
+        let fragment = std::mem::replace(&mut self.out, outer);
+        result?;
         Ok(fragment.finish())
     }
 
@@ -157,38 +162,33 @@ impl<'a> MarkdownCtx<'a> {
 
     pub fn children(&mut self, nodes: &[Node]) -> Result<(), RenderError> {
         let children = self.shared.children;
-        children.markdown(nodes, &mut self.out)
+        children.markdown(nodes, self)
     }
 
     /// Children rendered into their own document, so a component can indent or
     /// re-wrap them.
     pub fn children_fragment(&mut self, nodes: &[Node]) -> Result<String, RenderError> {
-        let children = self.shared.children;
-        let mut fragment = Markdown::new();
-        children.markdown(nodes, &mut fragment)?;
+        let outer = std::mem::replace(&mut self.out, Markdown::new());
+        let result = self.children(nodes);
+        let fragment = std::mem::replace(&mut self.out, outer);
+        result?;
         Ok(fragment.finish())
     }
 
     /// Children inside a block quote, which is how callouts serialize.
     pub fn quote_children(&mut self, nodes: &[Node]) -> Result<(), RenderError> {
-        let children = self.shared.children;
-        let mut result = Ok(());
-        self.out.quote(|md| result = children.markdown(nodes, md));
+        let nesting = self.out.push_quote();
+        let result = self.children(nodes);
+        self.out.pop(nesting);
         result
     }
 
     /// Children inside one list item, which is how cards and steps serialize.
     pub fn item_children(&mut self, marker: &str, nodes: &[Node]) -> Result<(), RenderError> {
-        let children = self.shared.children;
-        let mut result = Ok(());
-        self.out
-            .item(marker, |md| result = children.markdown(nodes, md));
+        let nesting = self.out.push_item(marker);
+        let result = self.children(nodes);
+        self.out.pop(nesting);
         result
-    }
-
-    /// The child renderer itself, for a component nesting in its own way.
-    pub fn renderer(&self) -> &'a dyn Children {
-        self.shared.children
     }
 
     pub fn report(&mut self, diagnostic: Diagnostic) {

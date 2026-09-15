@@ -93,19 +93,18 @@ impl Render for Steps {
         let props = Reader::of(inst, Self::schema_of());
         let start = props.int("start").unwrap_or(1);
         ctx.out.block();
-        let children = ctx.renderer();
         for (at, step) in steps_of(inst).into_iter().enumerate() {
             let step_props = Reader::of(&step, Step::schema_of());
             let number = step_props.int("number").unwrap_or(start + at as i64);
             let title = step_props.str("title").map(str::to_owned);
-            let mut error = Ok(());
-            ctx.out.item(&format!("{number}. "), |md| {
-                if let Some(title) = &title {
-                    md.line(&format!("**{}**", crate::md::escape_inline(title)));
-                }
-                error = children.markdown(&step.children, md);
-            });
-            error?;
+            let item = ctx.out.push_item(&format!("{number}. "));
+            if let Some(title) = &title {
+                ctx.out
+                    .line(&format!("**{}**", crate::md::escape_inline(title)));
+            }
+            let result = ctx.children(&step.children);
+            ctx.out.pop(item);
+            result?;
         }
         Ok(())
     }
@@ -152,14 +151,12 @@ impl Render for Step {
     fn markdown(&self, inst: &ComponentInst, ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError> {
         let props = Reader::of(inst, Self::schema_of());
         let title = props.str_or("title", "Step").to_owned();
-        let children = ctx.renderer();
-        let body = inst.children.clone();
-        let mut error = Ok(());
-        ctx.out.item("1. ", |md| {
-            md.line(&format!("**{}**", crate::md::escape_inline(&title)));
-            error = children.markdown(&body, md);
-        });
-        error
+        let item = ctx.out.push_item("1. ");
+        ctx.out
+            .line(&format!("**{}**", crate::md::escape_inline(&title)));
+        let result = ctx.children(&inst.children);
+        ctx.out.pop(item);
+        result
     }
 
     fn text(&self, inst: &ComponentInst) -> String {
