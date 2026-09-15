@@ -1,0 +1,9 @@
+{% if site.assistant %}
+<section class="ly-assistant" data-ly-assistant data-liyasa="assistant" aria-label="{{ strings.assistant }}" hidden>
+  <header class="ly-assistant-header">
+    <span>{{ strings.assistant }}</span>
+    <button type="button" class="ly-icon-button" data-ly-assistant-trigger aria-label="{{ strings.close }}">×</button>
+  </header>
+  <div class="ly-assistant-body" data-ly-assistant-body></div>
+</section>
+{% endif %}

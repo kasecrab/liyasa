@@ -1,0 +1,14 @@
+{% extends "layouts/base" %}
+{# Embedded content: a minimal top bar and nothing else (§7.7). #}
+{% block chrome_top %}
+<header class="ly-navbar" data-liyasa="navbar">
+  <a class="ly-navbar-logo" href="{{ site.logo.href or '/' }}" data-liyasa="logo"><span>{{ page.title }}</span></a>
+</header>
+{% endblock %}
+{% block sidebar %}{% endblock %}
+{% block rail %}{% endblock %}
+{% block chrome_bottom %}{% endblock %}
+{% block overlays %}{% endblock %}
+{% block main %}
+{% include "partials/content" %}
+{% endblock %}

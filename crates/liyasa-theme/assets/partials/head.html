@@ -1,0 +1,22 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{ page.title }}{% if site.name and page.title != site.name %} · {{ site.name }}{% endif %}</title>
+{% if page.description %}<meta name="description" content="{{ page.description }}">{% endif %}
+<link rel="canonical" href="{{ site.origin }}{{ site.basePath }}{{ page.route }}">
+{% if site.favicon %}<link rel="icon" href="{{ site.favicon }}">{% endif %}
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ page.og.title or page.title }}">
+<meta property="og:description" content="{{ page.og.description or page.description }}">
+<meta property="og:url" content="{{ site.origin }}{{ site.basePath }}{{ page.route }}">
+{% if page.og.image %}<meta property="og:image" content="{{ page.og.image }}">
+<meta name="twitter:card" content="summary_large_image">{% endif %}
+{% if site.name %}<meta property="og:site_name" content="{{ site.name }}">{% endif %}
+{% for tag in page.meta %}<meta name="{{ tag.name }}" content="{{ tag.content }}">
+{% endfor %}
+<link rel="alternate" type="text/markdown" href="{{ page.markdownUrl }}">
+{% if site.llmsTxt %}<link rel="alternate" type="text/plain" title="llms.txt" href="{{ site.llmsTxt }}">{% endif %}
+<style data-liyasa="critical">{{ assets.critical|safe }}</style>
+<link rel="stylesheet" href="{{ assets.stylesheet }}">
+{% for sheet in assets.customCss %}<link rel="stylesheet" href="{{ sheet }}">
+{% endfor %}
+<script nonce="{{ nonce }}" data-liyasa="bootstrap">{{ assets.bootstrap|safe }}</script>

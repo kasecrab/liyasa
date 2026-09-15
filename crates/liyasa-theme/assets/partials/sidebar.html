@@ -1,0 +1,49 @@
+<aside class="ly-sidebar" data-liyasa="sidebar">
+  <div class="ly-sidebar-inner">
+    {% if nav.navigation.versions or nav.navigation.locales %}
+    <div class="ly-switchers" data-liyasa="switchers">
+      {% if nav.navigation.versions %}
+      <label class="ly-visually-hidden" for="ly-version">{{ strings.version }}</label>
+      <select id="ly-version" data-ly-switcher="version" onchange="location.href=this.value">
+        {% for choice in nav.navigation.versions %}<option value="{{ choice.href }}"{% if choice.current %} selected{% endif %}>{{ choice.label }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      {% if nav.navigation.locales %}
+      <label class="ly-visually-hidden" for="ly-locale">{{ strings.language }}</label>
+      <select id="ly-locale" data-ly-switcher="locale" onchange="location.href=this.value">
+        {% for choice in nav.navigation.locales %}<option value="{{ choice.href }}"{% if choice.current %} selected{% endif %}>{{ choice.label }}</option>{% endfor %}
+      </select>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if nav.navigation.tabs|length > 1 %}
+    <nav class="ly-sidebar-tabs" aria-label="{{ site.name }}" data-liyasa="tabs">
+      <ul class="ly-sidebar-list">
+        {% for tab in nav.navigation.tabs %}
+        <li><a class="ly-sidebar-link" href="{{ tab.href or '#' }}"{% if loop.index0 == nav.activeTab %} aria-current="true"{% endif %}>{{ tab.title }}</a></li>
+        {% endfor %}
+      </ul>
+    </nav>
+    {% endif %}
+
+    <nav aria-label="{{ strings.menu }}" data-liyasa="sidebar-nav">
+      {% for group in nav.navigation.tabs[nav.activeTab].groups %}
+      <div class="ly-sidebar-group" data-liyasa="sidebar-group">
+        {% if group.title %}
+        <button type="button" class="ly-sidebar-group-header" data-ly-group="{{ group.title }}" aria-expanded="{{ 'true' if group.expanded else 'false' }}" data-liyasa="sidebar-group-header">
+          {% if group.icon %}<span class="ly-icon" aria-hidden="true">{{ group.icon }}</span>{% endif %}
+          <span>{{ group.title }}</span>
+          <span class="ly-chevron" aria-hidden="true">⌄</span>
+        </button>
+        {% endif %}
+        <ul class="ly-sidebar-list">
+          {% for item in group.items %}{% with depth = 1 %}{% include "partials/sidebar-item" %}{% endwith %}{% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </nav>
+
+    {% if page.actionsPlacement != 'header' and page.actions %}{% include "partials/page-actions" %}{% endif %}
+  </div>
+</aside>

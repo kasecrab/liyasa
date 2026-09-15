@@ -1,0 +1,11 @@
+{% extends "layouts/base" %}
+{# CFG-71: the 404 body, served with HTTP 404 by the server or the host. #}
+{% block sidebar %}{% endblock %}
+{% block rail %}{% endblock %}
+{% block main %}
+<div class="ly-page-header" data-liyasa="page-header">
+  <h1 class="ly-page-title">{{ page.title or strings.notFoundTitle }}</h1>
+  {% if page.content %}{{ page.content|safe }}{% else %}<p class="ly-page-description">{{ strings.notFoundDescription }}</p>{% endif %}
+  <p><a href="{{ site.basePath }}/">{{ strings.notFoundHome }}</a></p>
+</div>
+{% endblock %}

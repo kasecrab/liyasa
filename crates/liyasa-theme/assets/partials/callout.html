@@ -1,0 +1,7 @@
+<div class="ly-callout" data-liyasa="callout" data-ly-tone="{{ callout.tone }}"{% if callout.tone %} role="note"{% endif %}>
+  {% if callout.icon %}<span class="ly-callout-icon" aria-hidden="true">{{ callout.icon }}</span>{% endif %}
+  <div class="ly-callout-body">
+    {% if callout.title %}<p class="ly-callout-title">{{ callout.title }}</p>{% endif %}
+    {{ callout.body|safe }}
+  </div>
+</div>

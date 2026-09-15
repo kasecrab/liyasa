@@ -1,0 +1,20 @@
+{% if page.toc %}
+<nav class="ly-toc" aria-labelledby="ly-toc-title" data-liyasa="toc">
+  <p class="ly-rail-title" id="ly-toc-title">{{ strings.onThisPage }}</p>
+  <ul class="ly-toc-list">
+    {% for entry in page.toc %}
+    <li class="ly-toc-item" data-ly-depth="{{ entry.level }}">
+      <a class="ly-toc-link" href="#{{ entry.anchor }}">{{ entry.text }}</a>
+      {% if entry.children %}
+      <ul class="ly-toc-list">
+        {% for child in entry.children %}
+        <li class="ly-toc-item" data-ly-depth="{{ child.level }}"><a class="ly-toc-link" href="#{{ child.anchor }}">{{ child.text }}</a></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="ly-back-to-top"><a href="#ly-main" data-ly-back-to-top hidden>{{ strings.backToTop }}</a></p>
+</nav>
+{% endif %}

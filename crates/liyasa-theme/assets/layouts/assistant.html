@@ -1,0 +1,10 @@
+{% extends "layouts/base" %}
+{# The assistant panel starts open beside the content (§7.7). #}
+{% block rail %}
+<aside class="ly-rail" data-liyasa="rail" aria-label="{{ strings.assistant }}">
+<div class="ly-rail-inner">
+{% include "partials/toc" %}
+<button type="button" class="ly-page-action" data-ly-assistant-trigger data-liyasa="assistant-trigger">{{ strings.askAi }}</button>
+</div>
+</aside>
+{% endblock %}

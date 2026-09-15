@@ -1,0 +1,11 @@
+{% if nav.breadcrumbs == 'eyebrow' and page.eyebrow %}
+<p class="ly-eyebrow" data-liyasa="eyebrow">{{ page.eyebrow }}</p>
+{% elif nav.breadcrumbs == 'path' and page.breadcrumbs %}
+<nav class="ly-breadcrumbs" aria-label="Breadcrumb" data-liyasa="breadcrumbs">
+  <ol>
+    {% for crumb in page.breadcrumbs %}
+    <li>{% if crumb.href %}<a href="{{ crumb.href }}">{{ crumb.title }}</a>{% else %}<span{% if loop.last %} aria-current="page"{% endif %}>{{ crumb.title }}</span>{% endif %}</li>
+    {% endfor %}
+  </ol>
+</nav>
+{% endif %}

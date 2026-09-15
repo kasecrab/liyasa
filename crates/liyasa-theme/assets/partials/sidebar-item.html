@@ -1,0 +1,12 @@
+<li class="ly-sidebar-item" data-liyasa="sidebar-item"{% if item.children %} data-ly-ancestor="{{ 'true' if nav.activeRoute is startingwith(item.route ~ '/') else 'false' }}"{% endif %}>
+  <a class="ly-sidebar-link" href="{{ item.route }}"{% if item.route == nav.activeRoute %} aria-current="page"{% endif %}>
+    {% if item.icon %}<span class="ly-icon" aria-hidden="true">{{ item.icon }}</span>{% endif %}
+    <span>{{ item.title }}</span>
+    {% if item.tag %}<span class="ly-sidebar-tag">{{ item.tag }}</span>{% endif %}
+  </a>
+  {% if item.children %}
+  <ul class="ly-sidebar-list">
+    {% for child in item.children %}{% with item = child, depth = depth + 1 %}{% include "partials/sidebar-item" %}{% endwith %}{% endfor %}
+  </ul>
+  {% endif %}
+</li>

@@ -1,0 +1,14 @@
+{% if site.search %}
+<div class="ly-dialog" data-ly-search data-ly-search-module="{{ assets.searchModule or '/_liyasa/search.js' }}" data-liyasa="search" role="dialog" aria-modal="true" aria-label="{{ strings.search }}" hidden>
+  <div class="ly-dialog-panel">
+    <label class="ly-visually-hidden" for="ly-search-input">{{ strings.search }}</label>
+    <input class="ly-search-input" id="ly-search-input" type="search" autocomplete="off" placeholder="{{ strings.searchPlaceholder }}">
+    <ul class="ly-search-results" data-ly-search-results role="listbox" aria-label="{{ strings.search }}"></ul>
+    <p class="ly-search-empty" data-ly-search-empty hidden>{{ strings.searchEmpty }}</p>
+    <div class="ly-search-footer">
+      <span>{{ strings.searchHint }}</span>
+      {% if site.assistant %}<button type="button" class="ly-page-action" data-ly-assistant-trigger>{{ strings.askAi }}</button>{% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}

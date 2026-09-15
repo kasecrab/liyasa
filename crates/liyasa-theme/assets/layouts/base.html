@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="{{ site.locale or 'en' }}" dir="{{ site.direction or 'ltr' }}" data-ly-appearance="{{ site.appearance.default or 'system' }}"{% if site.appearance.strict %} data-ly-appearance-strict="true"{% endif %}{% if site.appearance.default == 'dark' %} data-theme="dark"{% elif site.appearance.default == 'light' %} data-theme="light"{% endif %}>
+<head>
+{% include "partials/head" %}
+</head>
+<body class="ly-mode-{{ page.mode }}" data-liyasa="body" data-ly-route="{{ page.route }}">
+<a class="ly-skip-link" href="#ly-main" data-liyasa="skip-link">{{ strings.skipToContent }}</a>
+<div class="ly-page" data-liyasa="page">
+{% block chrome_top %}
+{% include "partials/banner" %}
+{% include "partials/navbar" %}
+{% endblock %}
+<div class="ly-shell" data-liyasa="shell">
+{% block sidebar %}{% include "partials/sidebar" %}{% endblock %}
+<main class="ly-main" id="ly-main" tabindex="-1" data-liyasa="main">
+{% block main %}
+{% include "partials/breadcrumbs" %}
+{% include "partials/page-header" %}
+{% include "partials/content" %}
+{% include "partials/pagination" %}
+{% include "partials/feedback" %}
+{% endblock %}
+</main>
+{% block rail %}
+<aside class="ly-rail" data-liyasa="rail" aria-label="{{ strings.onThisPage }}">
+<div class="ly-rail-inner">
+{% if page.panel %}<div class="ly-panel" data-liyasa="panel">{{ page.panel|safe }}</div>{% else %}{% include "partials/toc" %}{% endif %}
+</div>
+</aside>
+{% endblock %}
+</div>
+{% block chrome_bottom %}{% include "partials/footer" %}{% endblock %}
+</div>
+{% block overlays %}
+{% include "partials/search" %}
+{% include "partials/assistant" %}
+{% endblock %}
+<div class="ly-visually-hidden" id="ly-live-region" role="status" aria-live="polite" data-liyasa="live-region"></div>
+<script type="application/json" id="ly-page-data" data-liyasa="page-data">{{ assets.pageData|safe }}</script>
+<script src="{{ assets.script }}" defer data-liyasa="runtime"></script>
+{% for script in assets.customJs %}<script src="{{ script }}" defer></script>
+{% endfor %}
+</body>
+</html>

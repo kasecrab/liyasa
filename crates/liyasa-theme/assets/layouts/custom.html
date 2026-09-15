@@ -1,0 +1,7 @@
+{% extends "layouts/base" %}
+{# Landing pages: navbar and footer stay, nothing else does (§7.7). #}
+{% block sidebar %}{% endblock %}
+{% block rail %}{% endblock %}
+{% block main %}
+{% include "partials/content" %}
+{% endblock %}

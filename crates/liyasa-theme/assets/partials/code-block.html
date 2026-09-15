@@ -1,0 +1,10 @@
+<div class="ly-code" data-liyasa="code-block"{% if code.numbers %} data-ly-numbers="true"{% endif %}>
+  {% if code.title or code.lang %}
+  <div class="ly-code-header">
+    {% if code.title %}<span class="ly-code-title">{{ code.title }}</span>{% endif %}
+    {% if code.lang %}<span class="ly-code-lang">{{ code.lang }}</span>{% endif %}
+  </div>
+  {% endif %}
+  <pre id="{{ code.id }}"><code{% if code.lang %} class="language-{{ code.lang }}"{% endif %}>{{ code.html|safe }}</code></pre>
+  <button type="button" class="ly-code-copy" data-ly-copy="{{ code.id }}" data-ly-copied-label="{{ strings.copied }}" hidden>{{ strings.copy }}</button>
+</div>

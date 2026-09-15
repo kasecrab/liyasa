@@ -1,0 +1,15 @@
+<div class="ly-page-actions" data-liyasa="page-actions">
+  <button type="button" class="ly-icon-button" data-ly-actions-trigger aria-expanded="false" aria-controls="ly-page-actions-menu" aria-label="{{ strings.pageActions }}">⋯</button>
+  <ul class="ly-page-actions-menu" id="ly-page-actions-menu" data-liyasa="page-actions-menu" hidden>
+    {% for action in page.actions %}
+    <li>
+      {% if action.href %}
+      <a class="ly-page-action" href="{{ action.href }}"{% if action.external %} target="_blank" rel="noopener noreferrer"{% endif %} data-ly-action="{{ action.id }}">{{ action.label }}</a>
+      {% else %}
+      <button type="button" class="ly-page-action" data-ly-action="{{ action.id }}" data-ly-copy="{{ action.copyTarget }}" data-ly-copied-label="{{ strings.copied }}" hidden>{{ action.label }}</button>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% if page.mcpUrl %}<span class="ly-visually-hidden" id="ly-mcp-url">{{ page.mcpUrl }}</span>{% endif %}
+</div>

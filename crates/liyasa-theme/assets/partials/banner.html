@@ -1,0 +1,8 @@
+{% if site.banner %}
+<div class="ly-banner" data-liyasa="banner" data-ly-banner-id="{{ site.banner.id }}" role="region" aria-label="{{ strings.dismissBanner }}">
+  <div class="ly-banner-body">{{ site.banner.html|safe }}</div>
+  {% if site.banner.dismissible %}
+  <button type="button" class="ly-banner-dismiss" data-ly-banner-dismiss="{{ site.banner.id }}" aria-label="{{ strings.dismissBanner }}">×</button>
+  {% endif %}
+</div>
+{% endif %}

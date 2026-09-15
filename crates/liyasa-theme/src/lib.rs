@@ -15,4 +15,5 @@ pub mod nav;
 pub mod runtime;
 pub mod strings;
 pub mod stylesheet;
+pub mod theme;
 pub mod tokens;

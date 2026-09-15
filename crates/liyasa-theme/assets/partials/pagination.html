@@ -1,0 +1,16 @@
+{% if page.previous or page.next %}
+<nav class="ly-pagination" aria-label="{{ strings.next }}" data-liyasa="pagination">
+  {% if page.previous %}
+  <a class="ly-pagination-previous" href="{{ page.previous.route }}" rel="prev">
+    <span class="ly-pagination-label">{{ strings.previous }}</span>
+    <span>{{ page.previous.title }}</span>
+  </a>
+  {% else %}<span></span>{% endif %}
+  {% if page.next %}
+  <a class="ly-pagination-next" href="{{ page.next.route }}" rel="next">
+    <span class="ly-pagination-label">{{ strings.next }}</span>
+    <span>{{ page.next.title }}</span>
+  </a>
+  {% endif %}
+</nav>
+{% endif %}

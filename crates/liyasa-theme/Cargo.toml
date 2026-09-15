@@ -12,7 +12,10 @@ workspace = true
 
 [dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
-minijinja.workspace = true
+# `multi_template` adds `{% extends %}` and `{% include %}`, which is how a
+# page is assembled from partials (THM-20) and how a layout is overridden
+# (THM-21). Features are additive, so the workspace row is untouched.
+minijinja = { workspace = true, features = ["multi_template"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

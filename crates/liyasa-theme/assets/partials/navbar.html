@@ -1,0 +1,27 @@
+<header class="ly-navbar" data-liyasa="navbar">
+  <button type="button" class="ly-icon-button ly-drawer-trigger" data-ly-drawer-trigger aria-expanded="false" aria-controls="ly-drawer" aria-label="{{ strings.menu }}" data-liyasa="drawer-trigger">≡</button>
+  <a class="ly-navbar-logo" href="{{ site.logo.href or '/' }}" data-liyasa="logo">
+    {% if site.logo.light %}<img src="{{ site.logo.light }}" alt="{{ site.logo.alt or site.name }}" data-ly-scheme="light">{% endif %}
+    {% if site.logo.dark %}<img src="{{ site.logo.dark }}" alt="{{ site.logo.alt or site.name }}" data-ly-scheme="dark">{% endif %}
+    {% if not site.logo.light %}<span>{{ site.name }}</span>{% endif %}
+  </a>
+  {% if site.navbar %}
+  <nav class="ly-navbar-links" aria-label="{{ site.name }}" data-liyasa="navbar-links">
+    {% for link in site.navbar %}<a href="{{ link.href }}"{% if link.current %} aria-current="true"{% endif %}>{{ link.label }}</a>{% endfor %}
+  </nav>
+  {% endif %}
+  <div class="ly-navbar-actions" data-liyasa="navbar-actions">
+    {% if site.search %}
+    <button type="button" class="ly-search-trigger" data-ly-search-trigger aria-haspopup="dialog" data-liyasa="search-trigger" hidden>
+      <span aria-hidden="true">⌕</span>
+      <span class="ly-search-trigger-label">{{ strings.search }}</span>
+      <kbd>/</kbd>
+    </button>
+    <noscript><a class="ly-search-trigger" href="/search">{{ strings.search }}</a></noscript>
+    {% endif %}
+    {% if not site.appearance.strict %}
+    <button type="button" class="ly-icon-button" data-ly-theme-toggle aria-pressed="false" aria-label="{{ strings.toggleTheme }}" data-liyasa="theme-toggle" hidden>◐</button>
+    {% endif %}
+    {% if page.actionsPlacement != 'sidebar' and page.actions %}{% include "partials/page-actions" %}{% endif %}
+  </div>
+</header>

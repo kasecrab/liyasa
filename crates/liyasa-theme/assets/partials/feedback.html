@@ -1,0 +1,8 @@
+{% if page.feedback %}
+<form class="ly-feedback" method="post" action="/_liyasa/feedback" data-ly-feedback data-ly-feedback-thanks="{{ strings.feedbackThanks }}" data-liyasa="feedback">
+  <input type="hidden" name="route" value="{{ page.route }}">
+  <span>{{ strings.feedbackQuestion }}</span>
+  <button type="submit" class="ly-icon-button" name="helpful" value="yes" data-ly-feedback-value="yes">{{ strings.feedbackYes }}</button>
+  <button type="submit" class="ly-icon-button" name="helpful" value="no" data-ly-feedback-value="no">{{ strings.feedbackNo }}</button>
+</form>
+{% endif %}
