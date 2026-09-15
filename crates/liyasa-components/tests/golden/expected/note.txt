@@ -1,0 +1,131 @@
+# note gallery
+
+=== case: default
+--- html
+<aside class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note" aria-label="Note">
+  <p class="ly-callout-title">
+    <span class="ly-icon" data-icon="info" aria-hidden="true">
+    </span>
+    Note
+  </p>
+  <div class="ly-callout-body">
+    <p>
+      Read this first.
+    </p>
+  </div>
+</aside>
+--- markdown
+> **Note**
+>
+> Read this first.
+--- text
+Note Read this first.
+
+=== case: every prop
+--- html
+<details class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note" open>
+  <summary class="ly-callout-title">
+    <span class="ly-icon" data-icon="rocket" aria-hidden="true">
+    </span>
+    Before you start
+  </summary>
+  <div class="ly-callout-body">
+  </div>
+</details>
+--- markdown
+> **Before you start**
+--- text
+Before you start
+
+=== case: empty body
+--- html
+<aside class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note" aria-label="Note">
+  <p class="ly-callout-title">
+    <span class="ly-icon" data-icon="info" aria-hidden="true">
+    </span>
+    Note
+  </p>
+  <div class="ly-callout-body">
+  </div>
+</aside>
+--- markdown
+> **Note**
+--- text
+Note
+
+=== case: nesting
+--- html
+<aside class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note" aria-label="Note">
+  <p class="ly-callout-title">
+    <span class="ly-icon" data-icon="info" aria-hidden="true">
+    </span>
+    Note
+  </p>
+  <div class="ly-callout-body">
+    <p>
+      Outer.
+    </p>
+    <aside class="ly-callout ly-callout-tip" data-liyasa="callout" data-variant="tip" aria-label="Tip">
+      <p class="ly-callout-title">
+        <span class="ly-icon" data-icon="lightbulb" aria-hidden="true">
+        </span>
+        Tip
+      </p>
+      <div class="ly-callout-body">
+        <p>
+          Inner.
+        </p>
+      </div>
+    </aside>
+  </div>
+</aside>
+--- markdown
+> **Note**
+>
+> Outer.
+>
+> > **Tip**
+> >
+> > Inner.
+--- text
+Note Outer. Inner.
+
+=== case: invalid prop
+--- html
+<details class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note">
+  <summary class="ly-callout-title">
+    <span class="ly-icon" data-icon="info" aria-hidden="true">
+    </span>
+    Note
+  </summary>
+  <div class="ly-callout-body">
+  </div>
+</details>
+--- markdown
+> **Note**
+--- text
+Note
+--- diagnostics
+E0315 `note.collapsible` expects true or false, found a number
+W0316 `note` has no prop `titel`
+
+=== case: escaping
+--- html
+<aside class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note" aria-label="&lt;script&gt;&quot;&amp;&#39;">
+  <p class="ly-callout-title">
+    <span class="ly-icon" data-icon="info" aria-hidden="true">
+    </span>
+    &lt;script&gt;"&amp;'
+  </p>
+  <div class="ly-callout-body">
+    <p>
+      5 &lt; 6 &amp; 7 &gt; 6
+    </p>
+  </div>
+</aside>
+--- markdown
+> **\<script\>"&'**
+>
+> 5 \< 6 & 7 \> 6
+--- text
+<script>"&' 5 < 6 & 7 > 6

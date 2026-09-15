@@ -1,0 +1,52 @@
+# callout gallery
+
+=== case: default
+--- html
+<aside class="ly-callout ly-callout-callout" data-liyasa="callout" data-variant="callout" data-color="default" data-callout-variant="soft" aria-label="">
+  <p class="ly-callout-title">
+  </p>
+  <div class="ly-callout-body">
+    <p>
+      Plain.
+    </p>
+  </div>
+</aside>
+--- markdown
+> Plain.
+--- text
+Plain.
+
+=== case: every prop
+--- html
+<details class="ly-callout ly-callout-callout" data-liyasa="callout" data-variant="callout" data-color="#ff8800" data-callout-variant="solid">
+  <summary class="ly-callout-title">
+    <span class="ly-icon" data-icon="bell" aria-hidden="true">
+    </span>
+    Heads up
+  </summary>
+  <div class="ly-callout-body">
+    <p>
+      Body.
+    </p>
+  </div>
+</details>
+--- markdown
+> **Heads up**
+>
+> Body.
+--- text
+Heads up Body.
+
+=== case: invalid variant
+--- html
+<aside class="ly-callout ly-callout-callout" data-liyasa="callout" data-variant="callout" data-color="default" data-callout-variant="neon" aria-label="">
+  <p class="ly-callout-title">
+  </p>
+  <div class="ly-callout-body">
+  </div>
+</aside>
+--- markdown
+--- text
+
+--- diagnostics
+E0315 `callout.variant` is `neon`, which is not one of: soft, outline, solid

@@ -1,0 +1,127 @@
+# callouts gallery
+
+=== case: note
+--- html
+<aside class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note" aria-label="Note">
+  <p class="ly-callout-title">
+    <span class="ly-icon" data-icon="info" aria-hidden="true">
+    </span>
+    Note
+  </p>
+  <div class="ly-callout-body">
+    <p>
+      Body text.
+    </p>
+  </div>
+</aside>
+--- markdown
+> **Note**
+>
+> Body text.
+--- text
+Note Body text.
+
+=== case: tip
+--- html
+<aside class="ly-callout ly-callout-tip" data-liyasa="callout" data-variant="tip" aria-label="Tip">
+  <p class="ly-callout-title">
+    <span class="ly-icon" data-icon="lightbulb" aria-hidden="true">
+    </span>
+    Tip
+  </p>
+  <div class="ly-callout-body">
+    <p>
+      Body text.
+    </p>
+  </div>
+</aside>
+--- markdown
+> **Tip**
+>
+> Body text.
+--- text
+Tip Body text.
+
+=== case: warning
+--- html
+<aside class="ly-callout ly-callout-warning" data-liyasa="callout" data-variant="warning" aria-label="Warning">
+  <p class="ly-callout-title">
+    <span class="ly-icon" data-icon="triangle-alert" aria-hidden="true">
+    </span>
+    Warning
+  </p>
+  <div class="ly-callout-body">
+    <p>
+      Body text.
+    </p>
+  </div>
+</aside>
+--- markdown
+> **Warning**
+>
+> Body text.
+--- text
+Warning Body text.
+
+=== case: info
+--- html
+<aside class="ly-callout ly-callout-info" data-liyasa="callout" data-variant="info" aria-label="Info">
+  <p class="ly-callout-title">
+    <span class="ly-icon" data-icon="circle-info" aria-hidden="true">
+    </span>
+    Info
+  </p>
+  <div class="ly-callout-body">
+    <p>
+      Body text.
+    </p>
+  </div>
+</aside>
+--- markdown
+> **Info**
+>
+> Body text.
+--- text
+Info Body text.
+
+=== case: check
+--- html
+<aside class="ly-callout ly-callout-check" data-liyasa="callout" data-variant="check" aria-label="Check">
+  <p class="ly-callout-title">
+    <span class="ly-icon" data-icon="circle-check" aria-hidden="true">
+    </span>
+    Check
+  </p>
+  <div class="ly-callout-body">
+    <p>
+      Body text.
+    </p>
+  </div>
+</aside>
+--- markdown
+> **Check**
+>
+> Body text.
+--- text
+Check Body text.
+
+=== case: danger
+--- html
+<aside class="ly-callout ly-callout-danger" data-liyasa="callout" data-variant="danger" aria-label="Danger">
+  <p class="ly-callout-title">
+    <span class="ly-icon" data-icon="octagon-alert" aria-hidden="true">
+    </span>
+    Danger
+  </p>
+  <div class="ly-callout-body">
+    <p>
+      Body text.
+    </p>
+  </div>
+</aside>
+--- markdown
+> **Danger**
+>
+> Body text.
+--- text
+Danger Body text.
