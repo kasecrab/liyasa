@@ -7,7 +7,9 @@
 
 pub mod docs;
 pub mod field;
+pub mod manifest;
 pub mod postings;
+pub mod score;
 pub mod snippets;
 pub mod tokenize;
 pub(crate) mod varint;
