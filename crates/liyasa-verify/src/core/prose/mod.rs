@@ -7,6 +7,7 @@
 
 pub mod bundled;
 pub mod ini;
+pub mod package;
 pub mod rule;
 
 use liyasa_core::diagnostics::{Diagnostic, Severity, code};
@@ -19,6 +20,7 @@ use ini::{Override, ValeIni};
 use rule::{CapStyle, Level, Rule, RuleKind};
 
 pub use ini::Section;
+pub use package::{Package, Vocabulary, load as load_package};
 pub use rule::{Rule as ProseRule, RuleError};
 
 /// One block's prose, and what kind of block it came from.

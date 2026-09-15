@@ -158,6 +158,36 @@ impl Rule {
         })
     }
 
+    /// An existence rule over literal words, which is what Vale generates for
+    /// a vocabulary's `reject.txt` and what [`super::package`] wants from one.
+    ///
+    /// The words are escaped, so `C++` searches for `C++`.
+    pub fn from_words(
+        name: &str,
+        level: Level,
+        message: &str,
+        words: &[String],
+    ) -> Result<Self, RuleError> {
+        if words.is_empty() {
+            return Err(RuleError::Incomplete {
+                kind: "existence".to_owned(),
+                missing: "`tokens` or `raw`".to_owned(),
+            });
+        }
+        let body: Vec<String> = words.iter().map(|word| bounded(word)).collect();
+        Ok(Self {
+            name: name.to_owned(),
+            level,
+            message: message.to_owned(),
+            link: None,
+            scope: Vec::new(),
+            kind: RuleKind::Existence {
+                pattern: compile(&format!("(?:{})", body.join("|")), false)?,
+            },
+            exceptions: None,
+        })
+    }
+
     pub fn severity(&self) -> Severity {
         self.level.severity()
     }
@@ -361,6 +391,21 @@ fn compile(pattern: &str, ignorecase: bool) -> Result<Regex, RuleError> {
             pattern: pattern.to_owned(),
             error: error.to_string(),
         })
+}
+
+/// One literal word, escaped, with a word boundary only on the sides that can
+/// carry one. `\bC\+\+\b` never matches, because `+` is not a word
+/// character and the boundary after it needs one.
+fn bounded(word: &str) -> String {
+    let is_word = |c: char| c.is_alphanumeric() || c == '_';
+    let left = word.chars().next().is_some_and(is_word);
+    let right = word.chars().next_back().is_some_and(is_word);
+    format!(
+        "{}{}{}",
+        if left { r"\b" } else { "" },
+        regex::escape(word),
+        if right { r"\b" } else { "" }
+    )
 }
 
 /// `scope` is a string or a list of them.
