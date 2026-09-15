@@ -7,6 +7,9 @@
 
 pub mod agents;
 
+pub mod clock;
+pub mod git;
+
 pub use liyasa_core::build::{
     ArtifactCache, BuildClock, CacheError, GcReport, OutputFormat, PoolMetrics, RenderBudget,
     RenderJob, RenderMode, RenderPool, Rendered, Variant,
