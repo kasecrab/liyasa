@@ -113,6 +113,10 @@ pub struct Asset {
 pub struct Tree {
     pub pages: Vec<Page>,
     pub assets: Vec<Asset>,
+    /// Every file the walk saw that the ignore file did not remove, whether or
+    /// not it is a page. A link to one of these is a download, not a broken
+    /// route (CM-84).
+    pub files: BTreeSet<VfsPath>,
     /// Files `.liyasaignore` removed, kept so `--profile` and the manifest can
     /// say why a page is missing.
     pub ignored: Vec<VfsPath>,
@@ -149,6 +153,7 @@ pub fn discover(vfs: &dyn Vfs, map: &mut SourceMap, options: &Options) -> Tree {
             tree.ignored.push(path);
             continue;
         }
+        tree.files.insert(path.clone());
         if is_asset(&path) {
             if let Ok(fingerprint) = vfs.fingerprint(&path) {
                 tree.assets.push(Asset { path, fingerprint });
@@ -398,6 +403,24 @@ mod tests {
             },
         );
         assert!(tree.pages.is_empty());
+    }
+
+    #[test]
+    fn every_file_the_walk_kept_is_listed() {
+        let tree = discovered(
+            &[
+                (IGNORE_FILE, "drafts/\n"),
+                ("index.md", "# home"),
+                ("guides/schema.json", "{}"),
+                ("assets/manual.pdf", "%PDF"),
+                ("drafts/next.md", "# next"),
+            ],
+            &Options::default(),
+        );
+        assert!(tree.files.contains(&VfsPath::new("guides/schema.json")));
+        assert!(tree.files.contains(&VfsPath::new("assets/manual.pdf")));
+        assert!(tree.files.contains(&VfsPath::new("index.md")));
+        assert!(!tree.files.contains(&VfsPath::new("drafts/next.md")));
     }
 
     #[test]

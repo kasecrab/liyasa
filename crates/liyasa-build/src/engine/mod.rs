@@ -1075,7 +1075,9 @@ fn write_surfaces(
                     version: version.clone(),
                     tab: None,
                     group: None,
-                    indexable: page.indexing.ai && page.indexing.sitemap && !page.draft,
+                    // CM-80: `ai` alone decides whether a page reaches an
+                    // agent surface; the sitemap is a separate switch.
+                    indexable: page.indexing.ai && !page.draft,
                     personalized: outcome.dynamic,
                     markdown: outcome.markdown.clone(),
                     updated: page.front.updated.clone(),
