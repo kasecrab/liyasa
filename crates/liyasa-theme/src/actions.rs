@@ -94,7 +94,7 @@ pub const KNOWN_ITEMS: &[&str] = &[
 /// endpoint is a third party's to change. They are listed here as one table so
 /// a change is one line, and an operator who disagrees overrides the entry with
 /// a custom item.
-// TODO(rfc-0006): confirm each endpoint against the provider's own
+// TODO(rfc-0011): confirm each endpoint against the provider's own
 // documentation before 1.0.
 pub const PROVIDERS: &[(&str, &str, &str)] = &[
     ("open-in-chatgpt", "ChatGPT", "https://chatgpt.com/?q="),

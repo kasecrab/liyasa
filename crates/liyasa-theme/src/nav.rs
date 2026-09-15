@@ -6,7 +6,7 @@
 //! already resolved — every entry has a title and a route, and hidden pages are
 //! gone. That keeps the sidebar a pure function of a tree, which is what makes
 //! previous and next links, ancestor highlighting, and breadcrumbs testable.
-// TODO(rfc-0005): `NavCtx` in liyasa-core is an empty frozen stub; these are
+// TODO(rfc-0010): `NavCtx` in liyasa-core is an empty frozen stub; these are
 // the types the partials actually receive.
 
 use liyasa_core::document::{Block, BlockKind, Inline, Node};
