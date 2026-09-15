@@ -2,9 +2,12 @@
 //!
 //! Drawn here as inline SVG rather than taken from an icon set: the chrome
 //! needs eight shapes, the site's configured library is for content, and a
-//! glyph from a font renders differently on every platform. Each is a 16-unit
-//! square on `currentColor`, so it inherits the colour and the size of the text
-//! beside it and costs no request (THM-32).
+//! glyph from a font renders differently on every platform.
+//!
+//! Each is a 16-unit square carrying nothing but its path; `.ly-icon` in the
+//! stylesheet gives it the size, the stroke, and `currentColor`, so an icon
+//! inherits the text beside it, repeats cheaply in the markup, and costs no
+//! request (THM-32).
 
 /// The icons the chrome uses, by name.
 pub const NAMES: &[&str] = &[
@@ -37,9 +40,7 @@ pub fn svg(name: &str) -> Option<String> {
         _ => return None,
     };
     Some(format!(
-        "<svg class=\"ly-icon\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" \
-         stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" \
-         stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"{path}\"/></svg>"
+        "<svg class=\"ly-icon\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"{path}\"/></svg>"
     ))
 }
 
@@ -53,9 +54,10 @@ mod tests {
             let svg = svg(name).unwrap_or_else(|| panic!("`{name}` has a shape"));
             assert!(svg.starts_with("<svg class=\"ly-icon\""));
             assert!(svg.contains("viewBox=\"0 0 16 16\""));
+            assert!(svg.contains("<path d=\""), "`{name}` draws nothing");
             assert!(
-                svg.contains("stroke=\"currentColor\""),
-                "`{name}` is not themeable"
+                svg.len() < 400,
+                "`{name}` is inlined at every occurrence, so it stays small"
             );
             assert!(
                 svg.contains("aria-hidden=\"true\""),
@@ -63,6 +65,17 @@ mod tests {
             );
             assert!(svg.ends_with("</svg>"));
         }
+    }
+
+    #[test]
+    fn the_stylesheet_gives_every_icon_its_colour_and_size() {
+        let styles = crate::stylesheet::Styles::build(
+            &crate::config::ThemeConfig::default(),
+            &crate::tokens::Tokens::aurora(),
+            &[],
+        );
+        assert!(styles.css.contains(".ly-icon{"));
+        assert!(styles.css.contains("stroke:currentColor"));
     }
 
     #[test]

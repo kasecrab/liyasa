@@ -57,7 +57,8 @@ disagree in either direction.
   0501 (the frozen `PageMeta` and `NavCtx` are empty, so the theme defines the
   context types), 0502 (the endpoints behind the "open in" page actions), 0503
   (THM-40's interface strings have no key in the config schema, so they live in
-  `theme/strings.json`).
+  `theme/strings.json`), 0504 (RX-21's table-of-contents depth has no key
+  either, so it is an argument with a documented default).
 
 ## Budgets
 
