@@ -108,3 +108,39 @@ E0353 `card.href` uses a URL scheme that is not allowed
 --- diagnostics
 E0315 `card.horizontal` expects true or false, found a string
 W0316 `card` has no prop `titel`
+
+=== case: nesting
+--- html
+<div class="ly-card" data-liyasa="card">
+  <div class="ly-card-body">
+    <p class="ly-card-title">
+      Quickstart
+    </p>
+    <div class="ly-card-content">
+      <p>
+        Pick a language.
+      </p>
+      <aside class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note" aria-label="Note">
+        <p class="ly-callout-title">
+          <span class="ly-icon" data-icon="info" aria-hidden="true">
+          </span>
+          Note
+        </p>
+        <div class="ly-callout-body">
+          <p>
+            Rust only for now.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+--- markdown
+- **Quickstart**
+  Pick a language.
+
+  > **Note**
+  >
+  > Rust only for now.
+--- text
+Quickstart Pick a language. Rust only for now.

@@ -57,6 +57,16 @@ fn card() {
                 .prop("titel", str("typo"))
                 .build(),
         )
+        .case(
+            "nesting",
+            inst::new("card")
+                .prop("title", str("Quickstart"))
+                .child(nodes::paragraph("Pick a language."))
+                .child(inst::nested(
+                    inst::new("note").child(nodes::paragraph("Rust only for now.")),
+                ))
+                .build(),
+        )
         .check();
 }
 
@@ -101,6 +111,25 @@ fn cards() {
             "cols out of range",
             inst::new("cards").prop("cols", PropValue::Num(9.0)).build(),
         )
+        .case(
+            "nesting",
+            inst::new("cards")
+                .child(inst::nested(
+                    inst::new("card")
+                        .prop("title", str("One"))
+                        .child(inst::nested(
+                            inst::new("tip").child(nodes::paragraph("Start here.")),
+                        )),
+                ))
+                .build(),
+        )
+        .case(
+            "invalid prop",
+            inst::new("cards")
+                .prop("cols", str("many"))
+                .prop("col", PropValue::Num(2.0))
+                .build(),
+        )
         .check();
 }
 
@@ -135,6 +164,22 @@ fn columns() {
             "invalid align",
             inst::new("columns").prop("align", str("middle")).build(),
         )
+        .case("empty body", inst::new("columns").build())
+        .case(
+            "nesting",
+            inst::new("columns")
+                .child(inst::nested(inst::new("column").child(inst::nested(
+                    inst::new("card").prop("title", str("Inner")),
+                ))))
+                .build(),
+        )
+        .case(
+            "invalid prop",
+            inst::new("columns")
+                .prop("cols", str("three"))
+                .prop("column", PropValue::Num(1.0))
+                .build(),
+        )
         .check();
 }
 
@@ -152,6 +197,36 @@ fn tiles() {
                 ))
                 .build(),
         )
+        .case(
+            "every prop",
+            inst::new("tiles")
+                .prop("cols", PropValue::Num(4.0))
+                .child(inst::nested(
+                    inst::new("tile")
+                        .prop("title", str("Reference"))
+                        .prop("href", str("/reference")),
+                ))
+                .build(),
+        )
         .case("empty body", inst::new("tiles").build())
+        .case(
+            "nesting",
+            inst::new("tiles")
+                .child(inst::nested(
+                    inst::new("tile")
+                        .prop("title", str("Hub"))
+                        .child(inst::nested(
+                            inst::new("note").child(nodes::paragraph("Inside a tile.")),
+                        )),
+                ))
+                .build(),
+        )
+        .case(
+            "invalid prop",
+            inst::new("tiles")
+                .prop("cols", str("four"))
+                .prop("gap", str("1rem"))
+                .build(),
+        )
         .check();
 }

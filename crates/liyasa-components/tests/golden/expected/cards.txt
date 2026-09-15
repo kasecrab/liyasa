@@ -94,3 +94,47 @@ E0354 `cards` holds `note`
 
 --- diagnostics
 W0358 `cards.cols` is 9; 1 to 4 is the range it documents
+
+=== case: nesting
+--- html
+<div class="ly-cards" data-liyasa="cards" data-cols="2" style="--ly-cols: 2">
+  <div class="ly-card" data-liyasa="card">
+    <div class="ly-card-body">
+      <p class="ly-card-title">
+        One
+      </p>
+      <div class="ly-card-content">
+        <aside class="ly-callout ly-callout-tip" data-liyasa="callout" data-variant="tip" aria-label="Tip">
+          <p class="ly-callout-title">
+            <span class="ly-icon" data-icon="lightbulb" aria-hidden="true">
+            </span>
+            Tip
+          </p>
+          <div class="ly-callout-body">
+            <p>
+              Start here.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+--- markdown
+- **One**
+  > **Tip**
+  >
+  > Start here.
+--- text
+One Start here.
+
+=== case: invalid prop
+--- html
+<div class="ly-cards" data-liyasa="cards" data-cols="2" style="--ly-cols: 2">
+</div>
+--- markdown
+--- text
+
+--- diagnostics
+W0316 `cards` has no prop `col`
+E0315 `cards.cols` expects a number, found a string

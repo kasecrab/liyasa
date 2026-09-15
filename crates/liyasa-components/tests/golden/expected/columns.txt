@@ -44,3 +44,40 @@ Wide.
 
 --- diagnostics
 E0315 `columns.align` is `middle`, which is not one of: start, center, end, stretch
+
+=== case: empty body
+--- html
+<div class="ly-columns" data-liyasa="columns" data-cols="2" style="--ly-cols: 2" data-align="stretch">
+</div>
+--- markdown
+--- text
+
+
+=== case: nesting
+--- html
+<div class="ly-columns" data-liyasa="columns" data-cols="2" style="--ly-cols: 2" data-align="stretch">
+  <div class="ly-column" data-liyasa="column">
+    <div class="ly-card" data-liyasa="card">
+      <div class="ly-card-body">
+        <p class="ly-card-title">
+          Inner
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+--- markdown
+- **Inner**
+--- text
+Inner
+
+=== case: invalid prop
+--- html
+<div class="ly-columns" data-liyasa="columns" data-cols="2" style="--ly-cols: 2" data-align="stretch">
+</div>
+--- markdown
+--- text
+
+--- diagnostics
+E0315 `columns.cols` expects a number, found a string
+W0316 `columns` has no prop `column`

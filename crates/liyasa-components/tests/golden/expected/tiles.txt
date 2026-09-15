@@ -16,6 +16,20 @@
 --- text
 Guides
 
+=== case: every prop
+--- html
+<div class="ly-tiles" data-liyasa="tiles" data-cols="4" style="--ly-cols: 4">
+  <a class="ly-tile" data-liyasa="tile" href="/reference">
+    <span class="ly-tile-title">
+      Reference
+    </span>
+  </a>
+</div>
+--- markdown
+- [Reference](/reference)
+--- text
+Reference
+
 === case: empty body
 --- html
 <div class="ly-tiles" data-liyasa="tiles" data-cols="3" style="--ly-cols: 3">
@@ -23,3 +37,43 @@ Guides
 --- markdown
 --- text
 
+
+=== case: nesting
+--- html
+<div class="ly-tiles" data-liyasa="tiles" data-cols="3" style="--ly-cols: 3">
+  <div class="ly-tile" data-liyasa="tile">
+    <span class="ly-tile-title">
+      Hub
+    </span>
+    <aside class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note" aria-label="Note">
+      <p class="ly-callout-title">
+        <span class="ly-icon" data-icon="info" aria-hidden="true">
+        </span>
+        Note
+      </p>
+      <div class="ly-callout-body">
+        <p>
+          Inside a tile.
+        </p>
+      </div>
+    </aside>
+  </div>
+</div>
+--- markdown
+- **Hub**
+  > **Note**
+  >
+  > Inside a tile.
+--- text
+Hub Inside a tile.
+
+=== case: invalid prop
+--- html
+<div class="ly-tiles" data-liyasa="tiles" data-cols="2" style="--ly-cols: 2; --ly-gap: 1rem">
+</div>
+--- markdown
+--- text
+
+--- diagnostics
+E0315 `tiles.cols` expects a number, found a string
+W0316 `tiles` has no prop `gap`
