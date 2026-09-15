@@ -51,7 +51,7 @@ fn a_case_parses_into_its_sections() {
 #[test]
 fn writing_a_case_round_trips() {
     let case = parse(CASE);
-    let written = corpus::write(&case);
+    let written = corpus::write(&case).expect("writes");
     assert_eq!(parse(&written), case);
 }
 
@@ -146,6 +146,19 @@ fn a_pending_case_that_passes_fails_so_the_list_cannot_go_stale() {
     case.diagnostics = None;
     case.header.pending = Some("known".to_owned());
     assert_eq!(run(case), Verdict::Fail);
+}
+
+#[test]
+fn a_case_that_asserts_nothing_fails_rather_than_passing_forever() {
+    let mut case = parse(CASE);
+    case.html = None;
+    case.diagnostics = None;
+    assert!(case.asserted().is_empty());
+    assert_eq!(
+        run(case),
+        Verdict::Fail,
+        "an expectation-free case must not read as a pass"
+    );
 }
 
 #[test]

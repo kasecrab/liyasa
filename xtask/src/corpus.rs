@@ -195,14 +195,22 @@ pub fn parse(path: &Path, text: &str) -> Result<Case, String> {
     })
 }
 
-pub fn write(case: &Case) -> String {
+/// Renders a case back to its file form. The inverse of [`parse`].
+pub fn write(case: &Case) -> Result<String, String> {
+    let json = |value: &serde_json::Value| {
+        serde_json::to_string_pretty(value).map_err(|e| format!("{}: {e}", case.header.id))
+    };
+
     let mut out = String::new();
     out.push_str("%%% case\n");
-    out.push_str(&serde_json::to_string(&case.header).unwrap_or_default());
+    out.push_str(
+        &serde_json::to_string(&case.header).map_err(|e| format!("{}: {e}", case.header.id))?,
+    );
     out.push('\n');
     out.push_str("%%% source\n");
     out.push_str(&case.source);
     ensure_newline(&mut out);
+
     for (name, body) in [
         ("html", case.html.as_ref()),
         ("markdown", case.markdown.as_ref()),
@@ -219,17 +227,19 @@ pub fn write(case: &Case) -> String {
     ] {
         if let Some(value) = value {
             out.push_str(&format!("%%% {name}\n"));
-            out.push_str(&serde_json::to_string_pretty(value).unwrap_or_default());
+            out.push_str(&json(value)?);
             out.push('\n');
         }
     }
     if let Some(diagnostics) = &case.diagnostics {
         out.push_str("%%% diagnostics\n");
-        out.push_str(&serde_json::to_string(diagnostics).unwrap_or_default());
+        out.push_str(
+            &serde_json::to_string(diagnostics).map_err(|e| format!("{}: {e}", case.header.id))?,
+        );
         out.push('\n');
     }
     out.push_str("%%% end\n");
-    out
+    Ok(out)
 }
 
 /// Every case under `dir`, ordered by path so runs are reproducible.

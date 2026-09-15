@@ -134,10 +134,15 @@ fn run_case(
 
     let verdict = if !failures.is_empty() {
         Verdict::Fail
-    } else if checked == 0 && skipped > 0 {
+    } else if checked > 0 {
+        Verdict::Pass
+    } else if skipped > 0 {
         Verdict::Skip
     } else {
-        Verdict::Pass
+        // A case with no expectations at all asserts nothing and would
+        // otherwise read as a pass forever.
+        failures.push("the case asserts no expectations".to_owned());
+        Verdict::Fail
     };
     let detail = if options.verbose || verdict == Verdict::Fail {
         failures.join("; ")

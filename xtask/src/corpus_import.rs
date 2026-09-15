@@ -150,8 +150,8 @@ pub fn write(case: &Case) -> Result<(), String> {
     if let Some(parent) = case.path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
     }
-    std::fs::write(&case.path, crate::corpus::write(case))
-        .map_err(|e| format!("{}: {e}", case.path.display()))
+    let text = crate::corpus::write(case)?;
+    std::fs::write(&case.path, text).map_err(|e| format!("{}: {e}", case.path.display()))
 }
 
 fn slug(text: &str) -> String {
