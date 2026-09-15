@@ -1,0 +1,21 @@
+[package]
+name = "liyasa-components"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Liyasa's built-in component set and the user component loader (PRD §9)."
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+minijinja.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_norway.workspace = true
+
+[dev-dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0", features = ["conformance"] }

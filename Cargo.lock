@@ -342,6 +342,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
+name = "liyasa-components"
+version = "0.1.0"
+dependencies = [
+ "liyasa-core",
+ "minijinja",
+ "serde",
+ "serde_json",
+ "serde_norway",
+]
+
+[[package]]
 name = "liyasa-core"
 version = "0.1.0"
 dependencies = [
