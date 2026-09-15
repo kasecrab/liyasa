@@ -81,3 +81,6 @@ desktop.ini
 *.tmp
 .direnv/
 result
+
+# not published
+/.github/pull_request_template.md
