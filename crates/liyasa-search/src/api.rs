@@ -16,7 +16,7 @@ use crate::idx::query::{self, Filters, ReaderScope};
 use crate::idx::search::{Hit, SearchOptions};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct SearchRequest {
     pub query: String,
     /// The page the search was opened from, which picks the shard.
@@ -31,7 +31,7 @@ pub struct SearchRequest {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct RequestFilters {
     pub tab: Option<String>,
     pub version: Option<String>,
@@ -127,6 +127,13 @@ pub fn search(
     settings: &SearchSettings,
     reader: &ReaderScope,
 ) -> Result<(SearchResponse, SearchEvent), SearchError> {
+    if let Some(limit) = request.limit
+        && limit > MAX_LIMIT
+    {
+        return Err(SearchError::Query(format!(
+            "`limit` is {limit}; this endpoint returns at most {MAX_LIMIT} results per query"
+        )));
+    }
     let locale = request.locale.as_deref().unwrap_or("en");
     let mut parsed = query::parse(&request.query, locale)?;
     request.filters.apply(&mut parsed.filters)?;
@@ -162,6 +169,255 @@ pub fn search(
     ))
 }
 
+/// Where the REST endpoint is mounted, so the server, the docs, and the agent
+/// surfaces name one path.
+pub const REST_PATH: &str = "/api/search";
+
+/// The MCP tool's name, as `tool_schema` publishes it.
+pub const TOOL_NAME: &str = "search";
+
+/// The largest `limit` a caller may ask for. The same number is the `maximum`
+/// in [`tool_schema`], so a conforming agent never trips it.
+pub const MAX_LIMIT: usize = 50;
+
+/// A REST answer, with no transport in it: the server turns this into whatever
+/// its HTTP layer speaks.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RestResponse {
+    pub status: u16,
+    /// A [`SearchResponse`] at 200, a `Diagnostic` otherwise.
+    pub body: serde_json::Value,
+}
+
+/// `GET /api/search?q=...`. The parameters are the request's fields, with the
+/// facets spelled `filters.<name>`; `q` is the short spelling of `query`.
+pub fn request_from_query_string(query_string: &str) -> Result<SearchRequest, SearchError> {
+    let mut request = SearchRequest::default();
+    let mut seen_query = false;
+
+    for pair in query_string.trim_start_matches('?').split('&') {
+        if pair.is_empty() {
+            continue;
+        }
+        let (key, value) = match pair.split_once('=') {
+            Some((key, value)) => (decode(key)?, decode(value)?),
+            None => (decode(pair)?, String::new()),
+        };
+        match key.as_str() {
+            "q" | "query" => {
+                request.query = value;
+                seen_query = true;
+            }
+            "locale" => request.locale = Some(value),
+            "version" => request.version = Some(value),
+            "tab" => request.tab = Some(value),
+            "limit" => request.limit = Some(number("limit", &value)?),
+            "snippets" => request.snippets = Some(boolean("snippets", &value)?),
+            "filters.tab" => request.filters.tab = Some(value),
+            "filters.version" => request.filters.version = Some(value),
+            "filters.locale" => request.filters.locale = Some(value),
+            "filters.type" => request.filters.kind = Some(value),
+            other => {
+                return Err(SearchError::Query(format!(
+                    "`{other}` is not a search parameter; expected one of q, locale, version, \
+                     tab, limit, snippets, filters.tab, filters.version, filters.locale, \
+                     filters.type"
+                )));
+            }
+        }
+    }
+
+    if !seen_query || request.query.trim().is_empty() {
+        return Err(SearchError::Query(
+            "a search needs a query: `?q=<words>`".to_owned(),
+        ));
+    }
+    Ok(request)
+}
+
+/// Answers the REST endpoint. The event is `None` when the request never
+/// reached the index, so a refused call is not counted as something a reader
+/// searched for.
+pub fn rest(
+    index: &Index,
+    query_string: &str,
+    settings: &SearchSettings,
+    reader: &ReaderScope,
+) -> (RestResponse, Option<SearchEvent>) {
+    let request = match request_from_query_string(query_string) {
+        Ok(request) => request,
+        Err(error) => return (refused(&error), None),
+    };
+    match search(index, &request, settings, reader) {
+        Ok((response, event)) => {
+            let body = serde_json::to_value(&response)
+                .unwrap_or_else(|e| serde_json::json!({ "error": e.to_string() }));
+            (RestResponse { status: 200, body }, Some(event))
+        }
+        Err(error) => (refused(&error), None),
+    }
+}
+
+/// The MCP `tools/list` payload.
+pub fn tools_list() -> serde_json::Value {
+    serde_json::json!({ "tools": [tool_schema()] })
+}
+
+/// The MCP `tools/call` handler. A caller's mistake comes back as a tool
+/// result with `isError`, which is what the protocol asks for: the model reads
+/// it and retries, rather than the transport failing under it.
+pub fn tool_call(
+    index: &Index,
+    name: &str,
+    arguments: &serde_json::Value,
+    settings: &SearchSettings,
+    reader: &ReaderScope,
+) -> (serde_json::Value, Option<SearchEvent>) {
+    if name != TOOL_NAME {
+        return (
+            tool_error(format!(
+                "`{name}` is not a tool; this server offers `{TOOL_NAME}`"
+            )),
+            None,
+        );
+    }
+    let request: SearchRequest = match serde_json::from_value(arguments.clone()) {
+        Ok(request) => request,
+        Err(error) => return (tool_error(error.to_string()), None),
+    };
+    if request.query.trim().is_empty() {
+        return (tool_error("a search needs a `query`".to_owned()), None);
+    }
+
+    match search(index, &request, settings, reader) {
+        Ok((response, event)) => {
+            let structured = serde_json::to_value(&response)
+                .unwrap_or_else(|e| serde_json::json!({ "error": e.to_string() }));
+            let result = serde_json::json!({
+                "content": [{ "type": "text", "text": transcript(&response) }],
+                "structuredContent": structured,
+                "isError": false,
+            });
+            (result, Some(event))
+        }
+        Err(error) => {
+            let diagnostic = error.diagnostic();
+            (
+                tool_error(format!(
+                    "{}: {} ({})",
+                    diagnostic.code.as_str(),
+                    diagnostic.message,
+                    diagnostic.url
+                )),
+                None,
+            )
+        }
+    }
+}
+
+/// What a model reads. One line per result, because an agent that has to parse
+/// prose to find a route will parse it wrong.
+fn transcript(response: &SearchResponse) -> String {
+    use std::fmt::Write as _;
+
+    if response.results.is_empty() {
+        return format!("No results for `{}`.", response.query);
+    }
+    let mut out = format!(
+        "{} result{} for `{}`:\n",
+        response.total,
+        if response.total == 1 { "" } else { "s" },
+        response.query
+    );
+    for (rank, result) in response.results.iter().enumerate() {
+        let title = if result.section == result.title || result.section.is_empty() {
+            result.title.clone()
+        } else {
+            format!("{} › {}", result.title, result.section)
+        };
+        let _ = write!(out, "\n{}. {} — {}", rank + 1, result.url, title);
+        if let Some(snippet) = &result.snippet {
+            let _ = write!(out, "\n   {}", snippet.replace('\n', " "));
+        }
+    }
+    out
+}
+
+fn refused(error: &SearchError) -> RestResponse {
+    let diagnostic = error.diagnostic();
+    RestResponse {
+        status: match error {
+            // The caller can fix these by asking differently.
+            SearchError::Query(_) => 400,
+            // A broken or mismatched index is the deployment's problem.
+            SearchError::Corrupt { .. }
+            | SearchError::FormatVersion { .. }
+            | SearchError::MissingDictionary(_) => 500,
+        },
+        body: serde_json::to_value(&diagnostic)
+            .unwrap_or_else(|e| serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+fn tool_error(message: String) -> serde_json::Value {
+    serde_json::json!({
+        "content": [{ "type": "text", "text": message }],
+        "isError": true,
+    })
+}
+
+fn number(key: &str, value: &str) -> Result<usize, SearchError> {
+    value
+        .parse()
+        .map_err(|_| SearchError::Query(format!("`{key}` is `{value}`, which is not a number")))
+}
+
+fn boolean(key: &str, value: &str) -> Result<bool, SearchError> {
+    match value {
+        "true" | "1" | "" => Ok(true),
+        "false" | "0" => Ok(false),
+        other => Err(SearchError::Query(format!(
+            "`{key}` is `{other}`, which is not true or false"
+        ))),
+    }
+}
+
+/// `application/x-www-form-urlencoded`, rejecting a broken escape rather than
+/// replacing it: a mangled query should be reportable, not silently answered.
+fn decode(text: &str) -> Result<String, SearchError> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut at = 0;
+    while at < bytes.len() {
+        match bytes[at] {
+            b'+' => {
+                out.push(b' ');
+                at += 1;
+            }
+            b'%' => {
+                let hex = bytes
+                    .get(at + 1..at + 3)
+                    .and_then(|pair| std::str::from_utf8(pair).ok())
+                    .and_then(|pair| u8::from_str_radix(pair, 16).ok())
+                    .ok_or_else(|| {
+                        SearchError::Query(format!(
+                            "`{text}` is not a valid query string: `%` must be followed by two \
+                             hex digits"
+                        ))
+                    })?;
+                out.push(hex);
+                at += 3;
+            }
+            byte => {
+                out.push(byte);
+                at += 1;
+            }
+        }
+    }
+    String::from_utf8(out)
+        .map_err(|_| SearchError::Query(format!("`{text}` does not decode to text")))
+}
+
 /// The MCP tool's JSON Schema, so the server and the docs describe one tool.
 pub fn tool_schema() -> serde_json::Value {
     serde_json::json!({
@@ -189,7 +445,7 @@ pub fn tool_schema() -> serde_json::Value {
                     },
                     "additionalProperties": false
                 },
-                "limit": { "type": "integer", "minimum": 1, "maximum": 50 },
+                "limit": { "type": "integer", "minimum": 1, "maximum": MAX_LIMIT },
                 "snippets": { "type": "boolean" }
             },
             "required": ["query"],
@@ -225,6 +481,36 @@ mod tests {
         };
         let error = request.apply(&mut filters).expect_err("must reject");
         assert_eq!(error.diagnostic().code.as_str(), "E1004");
+    }
+
+    #[test]
+    fn a_field_the_request_does_not_have_is_refused_rather_than_ignored() {
+        // `additionalProperties: false` in the published schema, enforced.
+        let error = serde_json::from_str::<SearchRequest>(r#"{ "query": "a", "sort": "date" }"#)
+            .expect_err("must reject");
+        assert!(error.to_string().contains("sort"), "{error}");
+    }
+
+    #[test]
+    fn a_broken_escape_is_a_diagnostic_rather_than_a_replacement_character() {
+        let error = decode("rate%2limits").expect_err("must reject");
+        assert_eq!(error.diagnostic().code.as_str(), "E1004");
+        assert_eq!(decode("rate%20limits").expect("decodes"), "rate limits");
+        assert_eq!(decode("%E6%A4%9C%E7%B4%A2").expect("decodes"), "検索");
+    }
+
+    #[test]
+    fn a_broken_index_is_the_servers_fault_and_a_bad_query_is_the_callers() {
+        assert_eq!(refused(&SearchError::Query("bad".to_owned())).status, 400);
+        assert_eq!(refused(&SearchError::corrupt("docs-0.bin")).status, 500);
+        assert_eq!(
+            refused(&SearchError::FormatVersion {
+                found: 2,
+                supported: 1
+            })
+            .status,
+            500
+        );
     }
 
     #[test]
