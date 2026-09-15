@@ -9,6 +9,25 @@ const BUTTON = '[data-ly-action="copy-markdown"]';
 
 test.use({ permissions: ["clipboard-read", "clipboard-write"] });
 
+// RX-100 gives the action the page's *absolute* Markdown URL, and the site
+// under test is built for its published origin rather than for this server, so
+// `copy.js` would fetch the real host and copy whatever it answered. Point the
+// Markdown twin back at the server under test, which is what the URL resolves
+// to on a deployed site.
+test.beforeEach(async ({ page, baseURL }) => {
+  await page.route(/\.md(\?.*)?$/, async (route) => {
+    const { pathname } = new URL(route.request().url());
+    // Node's own fetch, not `page.request`: the reply outlives the test that
+    // only waited for the request to be made.
+    const response = await fetch(`${baseURL}${pathname}`);
+    await route.fulfill({
+      status: response.status,
+      headers: { "content-type": "text/markdown; charset=utf-8" },
+      body: Buffer.from(await response.arrayBuffer()),
+    });
+  });
+});
+
 async function clipboard(page: import("@playwright/test").Page): Promise<string> {
   return page.evaluate(() => navigator.clipboard.readText());
 }
