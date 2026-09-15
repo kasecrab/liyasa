@@ -34,7 +34,7 @@ use liyasa_core::source_map::SourceMap;
 use liyasa_core::span::{SourceId, Span};
 use liyasa_core::vfs::VfsPath;
 
-use super::scan;
+use super::{filters, scan};
 
 /// Opens a sentinel; the segment index follows in decimal.
 pub const SENTINEL_START: char = '\u{e000}';
@@ -113,6 +113,7 @@ pub fn environment(options: &ExpandOptions) -> minijinja::Environment<'static> {
         Undefined::Lenient => minijinja::UndefinedBehavior::Lenient,
     });
     env.set_keep_trailing_newline(true);
+    filters::install(&mut env);
     env
 }
 
@@ -165,10 +166,10 @@ pub fn expand_with(
         }
     };
 
-    let values = match options.undefined {
-        Undefined::Strict => context.values.clone(),
-        Undefined::Lenient => minijinja::Value::from_object(Lenient(context.values.clone())),
-    };
+    let values = minijinja::Value::from_object(Root {
+        values: context.values.clone(),
+        lenient: options.undefined == Undefined::Lenient,
+    });
     let mut sink = Sink::new(options.budget);
     if let Err(error) = template.render_captured_to(values, &mut sink).map(|_| ()) {
         if let Some(reason) = sink.overflow {
@@ -797,23 +798,37 @@ impl Clock {
     }
 }
 
-// ---- lenient undefined (CM-17) ----
+// ---- the template root ----
 
-/// In `dev`, an undefined name renders as a visible marker instead of failing
-/// the build.
+/// The root the page is rendered against.
+///
+/// It does two things the caller's plain map cannot: it makes `env` answer to
+/// both `env.CI` and `env("CI")` (CM-12 with CM-15), and in `dev` it renders an
+/// undefined name as a visible marker instead of failing the build (CM-17).
 #[derive(Debug)]
-struct Lenient(minijinja::Value);
+struct Root {
+    values: minijinja::Value,
+    lenient: bool,
+}
 
-impl minijinja::value::Object for Lenient {
+impl minijinja::value::Object for Root {
     fn get_value(self: &Arc<Self>, key: &minijinja::Value) -> Option<minijinja::Value> {
-        match self.0.get_item(key) {
-            Ok(found) if !found.is_undefined() => Some(found),
-            _ => Some(minijinja::Value::from(format!("⚠ undefined: {key}"))),
+        let found = self.values.get_item(key).unwrap_or_default();
+        if key.as_str() == Some("env") {
+            return Some(minijinja::Value::from_object(super::filters::EnvAccessor(
+                found,
+            )));
         }
+        if found.is_undefined() {
+            return self
+                .lenient
+                .then(|| minijinja::Value::from(format!("⚠ undefined: {key}")));
+        }
+        Some(found)
     }
 
     fn enumerate(self: &Arc<Self>) -> minijinja::value::Enumerator {
-        match self.0.try_iter() {
+        match self.values.try_iter() {
             Ok(keys) => minijinja::value::Enumerator::Values(keys.collect()),
             Err(_) => minijinja::value::Enumerator::NonEnumerable,
         }
@@ -831,6 +846,20 @@ fn describe(
     use minijinja::ErrorKind;
 
     let detail = error.detail().unwrap_or_default();
+    // A filter or function this crate installed puts its own code in the
+    // message, because a minijinja error has nowhere else to carry one.
+    if let Some((chosen, message)) = tagged_code(detail) {
+        let mut diagnostic = Diagnostic::new(chosen, message);
+        if let Some(range) = error.range()
+            && let Some(start) = assembly.to_source(range.start as u32)
+        {
+            let end = assembly
+                .to_source(range.end.saturating_sub(1) as u32)
+                .map_or(start, |end| end + 1);
+            diagnostic = diagnostic.at(Span::new(source, start, end.max(start)));
+        }
+        return diagnostic;
+    }
     let chosen = match error.kind() {
         ErrorKind::UndefinedError => code::E0201,
         ErrorKind::UnknownFilter
@@ -864,6 +893,13 @@ fn describe(
         diagnostic = diagnostic.help(format!("did you mean `{closest}`?"));
     }
     diagnostic
+}
+
+/// `E0211: …` at the front of a message, put there by [`filters`].
+fn tagged_code(detail: &str) -> Option<(liyasa_core::Code, String)> {
+    let (text, message) = detail.split_once(": ")?;
+    let code = liyasa_core::Code::new(text)?;
+    Some((code, message.to_owned()))
 }
 
 fn closest(name: &str, values: &minijinja::Value) -> Option<String> {
@@ -1283,21 +1319,25 @@ mod tests {
 {{ env(\"CI\") }}
 {% if version >= \"2.0\" %}new{% endif %}
 ";
-        let (map, document) = page(text);
-        let options = ExpandOptions::default();
-        let mut env = environment(&options);
-        env.add_function("fact", |id: String| id);
-        env.add_function("env", |name: String| name);
-        let out = expand(
-            &map,
-            &document,
-            &context(context! { version => "2.0" }),
-            &env,
-        )
-        .expect("expansion");
+        let out = render(
+            text,
+            context! {
+                version => "2.0",
+                env => context! { CI => "yes" },
+                facts => context! { plan => context! { pro => context! { price => 99 } } },
+            },
+        );
         assert!(out.record.facts.contains(&FactId::new("plan.pro.price")));
         assert!(out.record.env.contains("CI"));
         assert!(out.record.dimensions.contains("version"));
+    }
+
+    #[test]
+    fn a_filter_code_reaches_the_diagnostic() {
+        let values = context! { env => context! { CI => "yes" } };
+        assert_eq!(fails("{{ env(\"SECRET\") }}\n", values), ["E0211"]);
+        let values = context! { facts => context! { plan => 1 } };
+        assert_eq!(fails("{{ fact(\"plan.pro\") }}\n", values), ["E0209"]);
     }
 
     #[test]

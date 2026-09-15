@@ -2,6 +2,7 @@
 
 pub mod escape;
 pub mod expand;
+pub mod filters;
 mod format;
 pub(crate) mod lines;
 pub mod mask;
