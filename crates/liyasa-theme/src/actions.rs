@@ -139,8 +139,9 @@ pub struct Action {
     /// The id of the element whose text the action copies.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub copy_target: Option<String>,
-    /// A same-origin URL the action fetches and copies. RX-14 forbids inlining
-    /// a page's Markdown into its HTML, so copying it means fetching it.
+    /// A same-origin path the action fetches and copies (RFC 0505). RX-14
+    /// forbids inlining a page's Markdown into its HTML, so copying it means
+    /// fetching it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub copy_url: Option<String>,
     pub external: bool,
@@ -192,13 +193,13 @@ fn named(name: &str, targets: &Targets, strings: &Strings) -> Option<Action> {
     };
     match name {
         "copy-markdown" => (!targets.markdown_url.is_empty()).then(|| Action {
-            copy_url: Some(targets.markdown_url.clone()),
+            copy_url: Some(same_origin(&targets.markdown_url)),
             ..action(&strings.copy_page, "clipboard", None, None)
         }),
         "view-markdown" => Some(action(
             &strings.view_markdown,
             "file-text",
-            Some(targets.markdown_url.clone()),
+            Some(same_origin(&targets.markdown_url)),
             None,
         )),
         "copy-mcp-url" => targets.mcp_url.as_ref().map(|_| {
@@ -234,6 +235,29 @@ fn named(name: &str, targets: &Targets, strings: &Strings) -> Option<Action> {
             ))
         }
     }
+}
+
+/// The twin as the reader's own browser should resolve it (RFC 0505).
+///
+/// `Targets::markdown_url` is absolute so a provider can fetch it, but the two
+/// actions the reader dereferences must land on the host that served the page:
+/// a preview, a staging host or a mirror serves its own Markdown, and fetching
+/// the published origin from one of them copies a stranger's page. A URL that
+/// is already a path is left as it is.
+pub fn same_origin(markdown_url: &str) -> String {
+    let Ok(parsed) = url::Url::parse(markdown_url) else {
+        return markdown_url.to_owned();
+    };
+    let mut out = parsed.path().to_owned();
+    if let Some(query) = parsed.query() {
+        out.push('?');
+        out.push_str(query);
+    }
+    if let Some(fragment) = parsed.fragment() {
+        out.push('#');
+        out.push_str(fragment);
+    }
+    out
 }
 
 /// The provider link: the endpoint plus a prompt carrying the Markdown URL.
@@ -300,15 +324,73 @@ mod tests {
             .iter()
             .find(|action| action.id == "copy-markdown")
             .expect("copy is in the default menu");
-        assert_eq!(
-            copy.copy_url.as_deref(),
-            Some("https://docs.example/guide/install.md")
-        );
+        assert_eq!(copy.copy_url.as_deref(), Some("/guide/install.md"));
         assert!(
             copy.copy_target.is_none(),
             "RX-14 forbids inlining the source"
         );
         assert!(copy.href.is_none(), "copying is not navigation");
+    }
+
+    #[test]
+    fn the_reader_reaches_the_twin_on_the_host_that_served_the_page() {
+        // RFC 0505: a preview, a staging host and a mirror all serve their own
+        // Markdown; fetching the published origin from one of them copies a
+        // stranger's page into the reader's clipboard.
+        let actions = resolve(&Config::default(), &targets(), &Strings::default());
+        for id in ["copy-markdown", "view-markdown"] {
+            let action = actions
+                .iter()
+                .find(|action| action.id == id)
+                .unwrap_or_else(|| panic!("`{id}` is in the default menu"));
+            let url = action
+                .copy_url
+                .as_deref()
+                .or(action.href.as_deref())
+                .unwrap_or_else(|| panic!("`{id}` names the twin"));
+            assert_eq!(url, "/guide/install.md");
+            assert!(!action.external, "`{id}` stays on this site");
+        }
+    }
+
+    #[test]
+    fn a_provider_is_handed_a_url_it_can_reach() {
+        // The opposite of the rule above: the party dereferencing the URL is
+        // not the reader's browser, so a path would be unreachable.
+        let actions = resolve(&Config::default(), &targets(), &Strings::default());
+        for (id, _, _) in PROVIDERS {
+            let Some(action) = actions.iter().find(|action| &action.id == id) else {
+                continue;
+            };
+            let href = action.href.as_deref().unwrap_or_default();
+            assert!(
+                href.contains("https%3A%2F%2Fdocs.example%2Fguide%2Finstall.md"),
+                "`{id}` hands over `{href}`"
+            );
+        }
+    }
+
+    #[test]
+    fn a_twin_that_is_already_a_path_is_left_alone() {
+        let targets = Targets {
+            markdown_url: "/guide/install.md".to_owned(),
+            ..targets()
+        };
+        let actions = resolve(&Config::default(), &targets, &Strings::default());
+        let copy = actions
+            .iter()
+            .find(|action| action.id == "copy-markdown")
+            .expect("copy is in the default menu");
+        assert_eq!(copy.copy_url.as_deref(), Some("/guide/install.md"));
+    }
+
+    #[test]
+    fn a_query_and_a_fragment_survive_the_trip_to_a_path() {
+        assert_eq!(
+            same_origin("https://docs.example/a/b.md?v=2#top"),
+            "/a/b.md?v=2#top"
+        );
+        assert_eq!(same_origin("not a url"), "not a url");
     }
 
     #[test]
