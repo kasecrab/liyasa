@@ -9,6 +9,7 @@ pub mod bundled;
 pub mod ini;
 pub mod package;
 pub mod rule;
+pub mod vale;
 
 use liyasa_core::diagnostics::{Diagnostic, Severity, code};
 use liyasa_core::document::{Block, BlockKind, Inline, Node};
@@ -22,6 +23,7 @@ use rule::{CapStyle, Level, Rule, RuleKind};
 pub use ini::Section;
 pub use package::{Package, Vocabulary, load as load_package};
 pub use rule::{Rule as ProseRule, RuleError};
+pub use vale::{Companion, Request as ValeRequest};
 
 /// One block's prose, and what kind of block it came from.
 #[derive(Debug, Clone, PartialEq, Eq)]

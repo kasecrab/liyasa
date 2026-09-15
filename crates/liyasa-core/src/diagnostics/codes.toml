@@ -167,3 +167,4 @@ W0510 = { severity = "warning", crate = "liyasa-openapi", title = "Operation has
 W0511 = { severity = "warning", crate = "liyasa-openapi", title = "Spec feature not rendered by this release" }
 W0512 = { severity = "warning", crate = "liyasa-openapi", title = "Overlay action matched nothing in the spec" }
 W0513 = { severity = "warning", crate = "liyasa-openapi", title = "Manual API page differs from the spec that describes the same path" }
+W0636 = { severity = "warning", crate = "liyasa-verify", title = "Prose rules Liyasa does not implement did not run" }
