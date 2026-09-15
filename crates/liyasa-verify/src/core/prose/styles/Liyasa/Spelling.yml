@@ -1,0 +1,5 @@
+extends: spelling
+message: "Did you mean '%s'?"
+level: warning
+filters:
+  - '^[A-Z]{2,}$'

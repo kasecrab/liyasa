@@ -1,0 +1,19 @@
+extends: existence
+message: "'%s' adds no information; cut it or say the number."
+level: warning
+ignorecase: true
+link: https://kasecrab.github.io/liyasa/docs/style/weasel
+tokens:
+  - very
+  - really
+  - quite
+  - simply
+  - basically
+  - obviously
+  - clearly
+  - easily
+  - just
+  - actually
+  - essentially
+  - fairly
+  - somewhat

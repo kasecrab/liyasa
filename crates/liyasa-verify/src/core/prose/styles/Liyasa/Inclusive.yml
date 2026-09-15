@@ -1,0 +1,15 @@
+extends: substitution
+message: "Use '%s' rather than '%s'."
+level: error
+ignorecase: true
+link: https://kasecrab.github.io/liyasa/docs/style/inclusive
+swap:
+  whitelist: allow list
+  white-list: allow list
+  blacklist: deny list
+  black-list: deny list
+  master: primary
+  slave: replica
+  sanity check: quick check
+  dummy value: placeholder value
+  grandfathered: legacy

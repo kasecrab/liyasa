@@ -1,0 +1,24 @@
+extends: capitalization
+message: "'%s' should be in sentence case."
+level: warning
+scope: heading
+match: $sentence
+link: https://kasecrab.github.io/liyasa/docs/style/headings
+exceptions:
+  - Liyasa
+  - Markdown
+  - CommonMark
+  - JSON
+  - YAML
+  - OpenAPI
+  - Rust
+  - Docker
+  - Podman
+  - GitHub
+  - GitLab
+  - Bitbucket
+  - Vale
+  - Mermaid
+  - JavaScript
+  - TypeScript
+  - WebAssembly

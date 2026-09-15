@@ -1,0 +1,16 @@
+extends: consistency
+message: "'%s' and '%s' are both used; pick one."
+level: warning
+ignorecase: true
+either:
+  advisor: adviser
+  analog: analogue
+  behavior: behaviour
+  canceled: cancelled
+  center: centre
+  color: colour
+  e-mail: email
+  gray: grey
+  license: licence
+  labeled: labelled
+  toward: towards

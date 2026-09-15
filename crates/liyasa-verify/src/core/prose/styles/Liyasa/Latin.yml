@@ -1,0 +1,12 @@
+extends: substitution
+message: "Write '%s' rather than '%s'; a reader translating Latin is a reader who stopped reading."
+level: suggestion
+ignorecase: true
+# The tokens end in a full stop, and `\b` needs a word character on both sides,
+# so word boundaries would never match them.
+nonword: true
+swap:
+  e\.g\.: for example
+  i\.e\.: that is
+  etc\.: and so on
+  cf\.: compare

@@ -1,0 +1,9 @@
+extends: existence
+message: "Documentation does not need an exclamation mark."
+level: suggestion
+nonword: true
+scope:
+  - paragraph
+  - list
+raw:
+  - '!(?:\s|$)'

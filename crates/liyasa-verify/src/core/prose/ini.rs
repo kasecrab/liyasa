@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use super::rule::Level;
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValeIni {
     /// Where rule packages live, relative to the config file.
     pub styles_path: String,
@@ -36,12 +36,24 @@ pub enum Override {
     Level(Level),
 }
 
+/// Vale's own defaults: rules live under `styles/`, and nothing is filtered
+/// out — `MinAlertLevel` starts at `suggestion`, not at the level a rule that
+/// names none gets.
+impl Default for ValeIni {
+    fn default() -> Self {
+        Self {
+            styles_path: "styles".to_owned(),
+            min_alert_level: Level::Suggestion,
+            vocab: Vec::new(),
+            sections: Vec::new(),
+            other: BTreeMap::new(),
+        }
+    }
+}
+
 impl ValeIni {
     pub fn parse(text: &str) -> Self {
-        let mut out = Self {
-            styles_path: "styles".to_owned(),
-            ..Self::default()
-        };
+        let mut out = Self::default();
         let mut section: Option<Section> = None;
 
         for line in text.lines() {

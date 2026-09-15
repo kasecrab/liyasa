@@ -5,6 +5,7 @@
 //! and the scope selector that block answers to, so `scope: heading` really
 //! only reads headings and the default `text` scope never reads code.
 
+pub mod bundled;
 pub mod ini;
 pub mod rule;
 
