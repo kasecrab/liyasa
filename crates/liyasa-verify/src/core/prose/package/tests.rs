@@ -255,3 +255,190 @@ fn a_loaded_package_runs_through_the_linter_that_reads_the_same_config() {
     assert_eq!(findings[0].rule, "Google.Wordiness");
     assert_eq!(findings[0].message, "Prefer 'to' over 'in order to'.");
 }
+
+// ---- the two packages VER-61 names by name ----
+//
+// Google's and Microsoft's styles are fetched, not committed, the same as the
+// Markdown corpus; `spec/vale/styles/PINNED` records the commit each came
+// from. A checkout without them runs these as a no-op and says so, rather than
+// reporting a pass.
+
+use std::path::Path;
+
+use crate::core::corpus::vale_styles;
+
+fn third_party() -> Option<std::path::PathBuf> {
+    let found = vale_styles();
+    if found.is_none() {
+        eprintln!(
+            "the third-party Vale styles are not in this checkout; \
+             set LIYASA_VALE_STYLES to run these"
+        );
+    }
+    found
+}
+
+/// A real directory, read into the `Vfs` the loader takes.
+fn memory_from(root: &Path) -> MemoryVfs {
+    let mut vfs = MemoryVfs::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if let Ok(bytes) = std::fs::read(&path) {
+                let relative = path
+                    .strip_prefix(root)
+                    .unwrap_or(&path)
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                vfs = vfs.with(relative, bytes);
+            }
+        }
+    }
+    vfs
+}
+
+/// How many rule files are on disk, which is what the loader must produce.
+fn rule_files(root: &Path) -> usize {
+    ["Google", "Microsoft"]
+        .iter()
+        .filter_map(|style| std::fs::read_dir(root.join("styles").join(style)).ok())
+        .flat_map(|entries| entries.flatten())
+        .filter(|entry| {
+            matches!(
+                entry.path().extension().and_then(|e| e.to_str()),
+                Some("yml" | "yaml")
+            )
+        })
+        .count()
+}
+
+fn load_third_party(root: &Path) -> (Package, ValeIni) {
+    let vfs = memory_from(root);
+    let ini = ValeIni::parse(
+        &std::fs::read_to_string(root.join(".vale.ini")).unwrap_or_else(|_| String::new()),
+    );
+    let package = load(&vfs, &ini, &VfsPath::new(""));
+    (package, ini)
+}
+
+#[test]
+fn ver_61_every_rule_google_and_microsoft_ship_is_read() {
+    let Some(root) = third_party() else { return };
+    let (package, _) = load_third_party(&root);
+
+    assert!(
+        package.problems.is_empty(),
+        "no rule in either package should be unreadable: {:#?}",
+        package
+            .problems
+            .iter()
+            .map(|d| d.message.as_str())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        package.rules.len(),
+        rule_files(&root),
+        "every rule file on disk must become a rule"
+    );
+    assert!(
+        package.rules.len() >= 80,
+        "the two packages are about 83 rules at the pinned commits, not {}",
+        package.rules.len()
+    );
+}
+
+#[test]
+fn ver_61_every_rule_liyasa_cannot_run_is_delegated_rather_than_dropped() {
+    let Some(root) = third_party() else { return };
+    let (package, ini) = load_third_party(&root);
+
+    let supported = package.rules.iter().filter(|r| r.is_supported()).count();
+    let total = package.rules.len();
+    let linter = Linter::new(package.rules).with_ini(ini);
+    let delegated = linter.delegated("docs/index.md");
+
+    // Nothing may be lost between the two: a rule either runs here or is
+    // named for the Vale binary, and the arithmetic is the assertion.
+    assert_eq!(supported + delegated.len(), total);
+
+    // At the pinned commits the two packages are 83 rules: 64 existence, 14
+    // substitution, 2 capitalization, 1 occurrence, 2 `conditional`. Two rule
+    // types are delegated for two different reasons — `conditional` is a type
+    // Liyasa does not implement, and fourteen rules of types it does
+    // implement are written with look-around, which the `regex` crate has no
+    // engine for.
+    let mut reasons: Vec<&str> = delegated.iter().map(|d| d.extends.as_str()).collect();
+    reasons.sort_unstable();
+    reasons.dedup();
+    assert_eq!(
+        reasons,
+        [
+            "conditional",
+            "existence (look-around)",
+            "substitution (look-around)"
+        ]
+    );
+    assert_eq!(delegated.len(), 16, "{delegated:?}");
+    assert_eq!(supported, 67);
+}
+
+#[test]
+fn ver_61_a_third_party_rule_finds_what_it_is_for() {
+    let Some(root) = third_party() else { return };
+    let (package, ini) = load_third_party(&root);
+    let linter = Linter::new(package.rules).with_ini(ini);
+
+    const TEXT: &str = "You cannot configure it that way.";
+    let findings = linter.check(
+        "docs/index.md",
+        &[Passage {
+            block: liyasa_core::ids::BlockId::explicit("b"),
+            span: None,
+            scope: Scope::Paragraph,
+            text: TEXT.to_owned(),
+        }],
+        None,
+    );
+
+    let contraction = findings
+        .iter()
+        .find(|f| f.rule == "Google.Contractions")
+        .unwrap_or_else(|| panic!("Google.Contractions should fire on `cannot`: {findings:?}"));
+    assert_eq!(contraction.message, "Use 'can\'t' instead of 'cannot'.");
+    assert_eq!(contraction.found, "cannot");
+    assert_eq!(&TEXT[contraction.at..contraction.at + 6], "cannot");
+    assert_eq!(
+        contraction.link.as_deref(),
+        Some("https://developers.google.com/style/contractions"),
+        "a third-party rule's link reaches the reader"
+    );
+}
+
+#[test]
+fn ver_61_a_third_party_rule_still_never_reads_code() {
+    let Some(root) = third_party() else { return };
+    let (package, ini) = load_third_party(&root);
+    let linter = Linter::new(package.rules).with_ini(ini);
+
+    let findings = linter.check(
+        "docs/index.md",
+        &[Passage {
+            block: liyasa_core::ids::BlockId::explicit("b"),
+            span: None,
+            scope: Scope::Code,
+            text: "if cannot_connect() { return; }".to_owned(),
+        }],
+        None,
+    );
+
+    assert!(
+        findings.is_empty(),
+        "a `text`-scoped rule must not read a code block: {findings:?}"
+    );
+}

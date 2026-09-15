@@ -47,6 +47,8 @@ pub enum RuleError {
     Incomplete { kind: String, missing: String },
     #[error("pattern `{pattern}` does not compile: {error}")]
     Pattern { pattern: String, error: String },
+    #[error("pattern `{pattern}` needs look-around, which Liyasa's regex engine does not have")]
+    LookAround { pattern: String },
 }
 
 /// The fields every Vale rule shares, before `extends` decides the rest.
@@ -141,7 +143,23 @@ impl Rule {
         let common: Common =
             serde_norway::from_str(yaml).map_err(|e| RuleError::Yaml(e.to_string()))?;
         let extends = common.extends.clone().ok_or(RuleError::NoKind)?;
-        let kind = build(&extends, &common)?;
+        let built = build(&extends, &common).and_then(|kind| {
+            let exceptions = (!common.exceptions.is_empty())
+                .then(|| compile(&alternation(&common.exceptions, false), true))
+                .transpose()?;
+            Ok((kind, exceptions))
+        });
+        // A pattern that needs look-around is the one failure that is not the
+        // rule author's mistake, so the rule is delegated rather than dropped:
+        // dropping it is the "ran and found nothing" that RFC 1305 forbids.
+        let (kind, exceptions) = match built {
+            Ok(pair) => pair,
+            Err(RuleError::LookAround { .. }) => (
+                RuleKind::Unsupported(format!("{extends} (look-around)")),
+                None,
+            ),
+            Err(other) => return Err(other),
+        };
         Ok(Self {
             name: name.to_owned(),
             level: common.level,
@@ -152,9 +170,7 @@ impl Rule {
             link: common.link.clone(),
             scope: scopes(common.scope.as_ref()),
             kind,
-            exceptions: (!common.exceptions.is_empty())
-                .then(|| compile(&alternation(&common.exceptions, false), true))
-                .transpose()?,
+            exceptions,
         })
     }
 
@@ -381,7 +397,35 @@ fn alternation(tokens: &[String], word_bounded: bool) -> String {
     }
 }
 
+/// The look-around constructs Vale 3 runs through a backtracking engine and
+/// the `regex` crate does not have. Fourteen of the eighty-three rules Google
+/// and Microsoft ship use one.
+const LOOKAROUND: &[&str] = &["(?=", "(?!", "(?<=", "(?<!"];
+
+fn needs_backtracking(pattern: &str) -> bool {
+    LOOKAROUND.iter().any(|construct| {
+        pattern
+            .match_indices(construct)
+            .any(|(at, _)| !is_escaped(pattern, at))
+    })
+}
+
+fn is_escaped(pattern: &str, at: usize) -> bool {
+    pattern[..at]
+        .chars()
+        .rev()
+        .take_while(|c| *c == '\\')
+        .count()
+        % 2
+        == 1
+}
+
 fn compile(pattern: &str, ignorecase: bool) -> Result<Regex, RuleError> {
+    if needs_backtracking(pattern) {
+        return Err(RuleError::LookAround {
+            pattern: pattern.to_owned(),
+        });
+    }
     RegexBuilder::new(pattern)
         .case_insensitive(ignorecase)
         .size_limit(SIZE_LIMIT)

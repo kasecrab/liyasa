@@ -83,6 +83,23 @@ pub fn root() -> Option<PathBuf> {
     candidate.is_dir().then_some(candidate)
 }
 
+/// Where the third-party Vale style packages are, or `None` when this checkout
+/// does not have them.
+///
+/// VER-61 names Google's and Microsoft's packages. They are fetched rather
+/// than committed, the same as the Markdown corpus, and
+/// `spec/vale/styles/PINNED` records the commit each was taken from.
+/// `LIYASA_VALE_STYLES` wins; otherwise the layout `bin/wt` builds.
+pub fn vale_styles() -> Option<PathBuf> {
+    if let Ok(path) = std::env::var("LIYASA_VALE_STYLES") {
+        let path = PathBuf::from(path);
+        return path.is_dir().then_some(path);
+    }
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let candidate = manifest.join("../../../../spec/vale");
+    candidate.is_dir().then_some(candidate)
+}
+
 /// Every case under `root/<dir>`, sorted by path.
 pub fn cases(root: &Path, dir: &str) -> Vec<Case> {
     let mut out = Vec::new();

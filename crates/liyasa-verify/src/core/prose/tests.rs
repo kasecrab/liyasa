@@ -690,3 +690,72 @@ fn a_findings_offset_points_into_the_passage() {
     let found = Linter::new(vec![rule]).check("a.md", std::slice::from_ref(&passage), None);
     assert_eq!(&passage.text[found[0].at..found[0].at + 6], "weasel");
 }
+
+// ---- look-around (VER-61) ----
+
+#[test]
+fn a_pattern_that_needs_look_around_is_delegated_not_dropped() {
+    let rule = Rule::parse(
+        "Google.Latin",
+        "extends: existence\nmessage: \"Use '%s'.\"\nraw:\n  - '\\b(?:eg|e\\.g\\.)(?=[\\s,;]|$)'\n",
+    )
+    .expect("a rule Liyasa cannot run still parses");
+
+    assert!(!rule.is_supported());
+    let RuleKind::Unsupported(reason) = &rule.kind else {
+        panic!("a look-around pattern is unsupported, not a failure");
+    };
+    assert_eq!(reason, "existence (look-around)");
+
+    let delegated = Linter::new(vec![rule]).delegated("docs/index.md");
+    assert_eq!(delegated.len(), 1, "it must reach the Vale binary");
+    assert_eq!(delegated[0].rule, "Google.Latin");
+}
+
+#[test]
+fn a_look_around_rule_reports_nothing_rather_than_a_wrong_answer() {
+    let rule = Rule::parse(
+        "X.Best",
+        "extends: existence\nraw:\n  - 'best(?! practices)'\n",
+    )
+    .expect("parses");
+    let findings = Linter::new(vec![rule]).check(
+        "docs/index.md",
+        &[Passage {
+            block: BlockId::explicit("b"),
+            span: None,
+            scope: Scope::Paragraph,
+            text: "the best practices are best".to_owned(),
+        }],
+        None,
+    );
+
+    assert!(
+        findings.is_empty(),
+        "an approximation of the pattern would be worse than no answer: {findings:?}"
+    );
+}
+
+#[test]
+fn a_pattern_that_is_merely_broken_is_still_the_author_s_mistake() {
+    let error = Rule::parse("X.Broken", "extends: existence\ntokens: ['(']\n")
+        .expect_err("an unbalanced group is not look-around");
+    assert!(matches!(error, RuleError::Pattern { .. }), "{error:?}");
+}
+
+#[test]
+fn an_escaped_parenthesis_is_not_look_around() {
+    let rule = Rule::parse(
+        "X.Smiley",
+        r"extends: existence
+nonword: true
+tokens:
+  - '\(\?=' 
+",
+    )
+    .expect("parses");
+    assert!(
+        rule.is_supported(),
+        "a literal `(?=` in the source text is not the construct"
+    );
+}
