@@ -23,31 +23,46 @@ use crate::tree::{Pointer, Value, as_bool, as_map, as_seq, as_str};
 use crate::version::SpecVersion;
 
 /// Every document a spec's references reach: the one that was configured, plus
-/// whatever `$ref` pulled in. The root is keyed by the empty string.
+/// whatever `$ref` pulled in.
+///
+/// Each is filed under the key a relative `$ref` written inside it resolves
+/// against, which is the spec's own path, so the reader and the fetcher agree
+/// on what `shared/params.yaml` means.
 #[derive(Debug, Clone, Default)]
-pub struct Documents(OrderedMap<Value>);
+pub struct Documents {
+    documents: OrderedMap<Value>,
+    root: String,
+}
 
 impl Documents {
-    pub fn new(root: Value) -> Self {
-        let mut docs = OrderedMap::new();
-        docs.insert(String::new(), root);
-        Self(docs)
+    pub fn new(key: impl Into<String>, root: Value) -> Self {
+        let key = key.into();
+        let mut documents = OrderedMap::new();
+        documents.insert(key.clone(), root);
+        Self {
+            documents,
+            root: key,
+        }
     }
 
     pub fn insert(&mut self, key: impl Into<String>, document: Value) {
-        self.0.insert(key, document);
+        self.documents.insert(key, document);
     }
 
     pub fn get(&self, key: &str) -> Option<&Value> {
-        self.0.get(key)
+        self.documents.get(key)
     }
 
     pub fn root(&self) -> Option<&Value> {
-        self.0.get("")
+        self.documents.get(&self.root)
+    }
+
+    pub fn root_key(&self) -> &str {
+        &self.root
     }
 
     pub fn contains(&self, key: &str) -> bool {
-        self.0.contains_key(key)
+        self.documents.contains_key(key)
     }
 }
 
@@ -59,9 +74,9 @@ pub struct At {
 }
 
 impl At {
-    pub fn root() -> Self {
+    pub fn root_of(doc: impl Into<String>) -> Self {
         Self {
-            doc: String::new(),
+            doc: doc.into(),
             pointer: Pointer::root(),
         }
     }
@@ -139,7 +154,7 @@ impl<'a> Reader<'a> {
     /// Reads the whole document. The version is supplied because it is decided
     /// before normalizing, on the source document.
     pub fn spec(&mut self, id: impl Into<String>, version: SpecVersion) -> Spec {
-        let at = At::root();
+        let at = At::root_of(self.docs.root_key());
         let root = self.docs.root().cloned().unwrap_or(Value::Null);
         if as_map(&root).is_none() {
             self.complain(&at, "the document is not a mapping");
@@ -407,7 +422,10 @@ impl<'a> Reader<'a> {
 
     fn info(&mut self, root: &Value, at: &At) -> Info {
         let Some(value) = crate::tree::field(root, "info") else {
-            self.complain(&At::root(), "`info` is required");
+            self.complain(
+                &At::root_of(self.docs.root_key().to_owned()),
+                "`info` is required",
+            );
             return Info::default();
         };
         Info {
@@ -909,6 +927,8 @@ impl<'a> Reader<'a> {
         }
 
         let extensions = extensions_of(value);
+        let lower = self.bound(value, at, "minimum", "exclusiveMinimum");
+        let upper = self.bound(value, at, "maximum", "exclusiveMaximum");
         let mut schema = Schema {
             types: self.types(value, at),
             format: self.string(value, at, "format"),
@@ -954,10 +974,10 @@ impl<'a> Reader<'a> {
             content_media_type: self.string(value, at, "contentMediaType"),
             content_encoding: self.string(value, at, "contentEncoding"),
 
-            minimum: self.number(value, at, "minimum"),
-            maximum: self.number(value, at, "maximum"),
-            exclusive_minimum: self.number(value, at, "exclusiveMinimum"),
-            exclusive_maximum: self.number(value, at, "exclusiveMaximum"),
+            minimum: lower.0,
+            maximum: upper.0,
+            exclusive_minimum: lower.1,
+            exclusive_maximum: upper.1,
             multiple_of: self.number(value, at, "multipleOf"),
 
             external_docs: self.external_docs(value, at),
@@ -975,7 +995,31 @@ impl<'a> Reader<'a> {
         schema
     }
 
+    /// The inclusive and exclusive bound for one end of a numeric range.
+    ///
+    /// 3.0 wrote `exclusiveMinimum: true` beside `minimum`; 2020-12 writes the
+    /// number itself. [`crate::normalize::v30`] rewrites the root document,
+    /// but a fragment reached by `$ref` has no version of its own to rewrite
+    /// from, so the boolean form is read here too rather than complained about.
+    fn bound(
+        &mut self,
+        value: &Value,
+        at: &At,
+        inclusive: &str,
+        exclusive: &str,
+    ) -> (Option<Number>, Option<Number>) {
+        match crate::tree::field(value, exclusive).and_then(as_bool) {
+            Some(true) => (None, self.number(value, at, inclusive)),
+            Some(false) => (self.number(value, at, inclusive), None),
+            None => (
+                self.number(value, at, inclusive),
+                self.number(value, at, exclusive),
+            ),
+        }
+    }
+
     fn types(&mut self, value: &Value, at: &At) -> Vec<SchemaType> {
+        let nullable = crate::tree::field(value, "nullable").and_then(as_bool) == Some(true);
         let Some(found) = crate::tree::field(value, "type") else {
             return Vec::new();
         };
@@ -991,6 +1035,10 @@ impl<'a> Reader<'a> {
                 Some(_) => {}
                 None => self.complain(&at, "`type` names a JSON Schema type"),
             }
+        }
+        // 3.0's `nullable`, for a fragment the root's normalizer never saw.
+        if nullable && !out.is_empty() && !out.contains(&SchemaType::Null) {
+            out.push(SchemaType::Null);
         }
         out
     }
@@ -1152,7 +1200,7 @@ fn unmodelled(value: &Value) -> OrderedMap<Value> {
 
 /// Reads a document that needs no remote reference.
 pub fn local(root: Value, id: &str, version: SpecVersion) -> (Spec, Diagnostics) {
-    let docs = Documents::new(root);
+    let docs = Documents::new(String::new(), root);
     let mut reader = Reader::new(&docs);
     let spec = reader.spec(id, version);
     (spec, reader.into_diagnostics())

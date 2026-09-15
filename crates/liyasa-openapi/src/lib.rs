@@ -11,6 +11,7 @@ pub mod model;
 pub mod normalize;
 pub mod read;
 pub mod refs;
+pub mod source;
 pub mod tree;
 pub mod version;
 

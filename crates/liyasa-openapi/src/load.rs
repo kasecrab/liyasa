@@ -9,6 +9,7 @@ use liyasa_core::diagnostics::Diagnostics;
 
 use crate::model::Spec;
 use crate::read::Documents;
+use crate::source::{Fetcher, Location};
 use crate::{SpecError, normalize, read, tree, version};
 
 #[derive(Debug)]
@@ -35,7 +36,27 @@ pub fn from_documents(
     let mut diagnostics = normalize::to_3_1(&mut root, &dialect);
 
     let mut docs = documents();
-    docs.insert(String::new(), root);
+    docs.insert(docs.root_key().to_owned(), root);
+    let mut reader = read::Reader::new(&docs);
+    let spec = reader.spec(id, dialect);
+    diagnostics.extend(reader.into_diagnostics());
+    Ok(Loaded { spec, diagnostics })
+}
+
+/// Loads a spec from wherever it is written, following every `$ref` that
+/// leaves the document (API-01, API-02).
+pub async fn from_source(
+    id: &str,
+    at: &Location,
+    fetcher: &Fetcher<'_>,
+) -> Result<Loaded, SpecError> {
+    let bytes = fetcher.bytes(at).await?;
+    let mut root = tree::parse(&bytes, &at.key())?;
+    let dialect = version::detect(&root)?;
+    let mut diagnostics = normalize::to_3_1(&mut root, &dialect);
+
+    let (docs, fetched) = fetcher.documents(at, root).await;
+    diagnostics.extend(fetched);
     let mut reader = read::Reader::new(&docs);
     let spec = reader.spec(id, dialect);
     diagnostics.extend(reader.into_diagnostics());
