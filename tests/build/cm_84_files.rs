@@ -164,3 +164,43 @@ fn the_manifest_lists_the_assets_in_a_stable_order() {
         ]
     );
 }
+
+// ---- the built site's `_headers` (CM-84) ----
+
+#[test]
+fn a_built_site_writes_the_headers_file_for_its_downloads() {
+    use liyasa_build::engine::{self, Options};
+    use liyasa_build::git::NoGit;
+    use liyasa_config::vfs::OsVfs;
+
+    let root = std::env::temp_dir().join(format!("liyasa-cm-84-headers-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("assets")).expect("a project directory");
+    std::fs::write(root.join("liyasa.json"), r#"{"name":"Acme docs"}"#).expect("config");
+    std::fs::write(root.join("index.md"), "---\ntitle: Home\n---\n# Home\n").expect("a page");
+    std::fs::write(root.join("assets/bundle.zip"), "PK\u{3}\u{4}").expect("an asset");
+
+    let vfs = OsVfs::new(&root);
+    let report = engine::build(
+        &vfs,
+        &NoGit,
+        &root,
+        &Options {
+            build_time: Some(1_789_473_600),
+            ..Options::default()
+        },
+    );
+    assert!(!report.failed(false), "{:?}", report.diagnostics);
+
+    let headers = std::fs::read_to_string(root.join("dist/_headers")).expect("dist/_headers");
+    assert!(headers.contains("/assets/bundle.zip"), "{headers}");
+    assert!(
+        headers.contains("Content-Disposition: attachment"),
+        "{headers}"
+    );
+    assert!(
+        headers.contains("X-Content-Type-Options: nosniff"),
+        "{headers}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}

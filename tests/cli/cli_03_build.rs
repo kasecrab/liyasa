@@ -442,3 +442,25 @@ fn navigation_naming_a_missing_page_is_reported() {
         report.diagnostics
     );
 }
+
+#[test]
+fn cm_92_each_version_gets_its_own_agent_surfaces() {
+    let project = Project::new("version-surfaces");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","seo":{"canonicalOrigin":"https://docs.acme.com"},
+                "versions":[{"name":"v2","label":"2.x","default":true},{"name":"v1","label":"1.x"}]}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n")
+        .write("guides/install.md", "---\ntitle: Install\n---\n# Install\n");
+
+    let report = build(&project, options());
+    assert!(!report.failed(false), "{:?}", report.diagnostics);
+
+    let default = project.read_dist("llms.txt");
+    assert!(default.contains("/guides/install"), "{default}");
+
+    let older = project.read_dist("v1/llms.txt");
+    assert!(older.contains("/v1/guides/install"), "{older}");
+}

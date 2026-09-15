@@ -54,6 +54,24 @@ pub fn build(config: &Value, settings: &Settings, report: &mut super::Report) ->
     let (tokens, token_diagnostics) = Tokens::from_config(&theme_config);
     report.diagnostics.extend(token_diagnostics.into_vec());
 
+    // RX-02 asks for subsetting; §6.2.1 defers it past 1.0, so the key is
+    // accepted and reported rather than silently ignored.
+    if config
+        .get("theme")
+        .and_then(|theme| theme.get("fonts"))
+        .and_then(|fonts| fonts.get("subset"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        report.diagnostics.push(
+            Diagnostic::new(
+                code::W0716,
+                "`theme.fonts.subset` is on, and subsetting is not in this release",
+            )
+            .help("the full variable font ships; subsetting lands after 1.0"),
+        );
+    }
+
     let (css, critical) = match Styles::build(&theme_config, &tokens, &[]) {
         Ok(styles) => (styles.css, styles.critical),
         Err(error) => {

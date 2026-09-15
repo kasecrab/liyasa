@@ -412,7 +412,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     }
 
     // 9. Assets and the image tier.
-    let (asset_entries, image_entries, generated) = copy_assets(
+    let (asset_entries, image_entries, generated, headers) = copy_assets(
         vfs,
         root,
         &output,
@@ -488,7 +488,6 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         &mut report,
         &mut outputs,
     );
-    let headers = assets::headers(&assets::plan(&[], &[], &settings.asset_options()));
     if !headers.is_empty() {
         write_file(
             &output,
@@ -911,6 +910,9 @@ fn write_surfaces(
         return 0;
     };
 
+    let default_version = settings
+        .default_version()
+        .map(|version| version.name.clone());
     let mut written = 0;
     for version in navigations.keys() {
         let records: Vec<crate::agents::site::PageRecord> = tree
@@ -971,7 +973,20 @@ fn write_surfaces(
             .diagnostics
             .extend(surfaces.diagnostics.as_slice().to_vec());
         for resource in &surfaces.resources {
-            let path = resource.path.trim_start_matches('/');
+            // CM-92: a version's surfaces live under its own prefix. A page's
+            // Markdown route already carries it, because the route does.
+            let prefixed = match version {
+                // The default version is served unprefixed (CM-91), so only
+                // the others move.
+                Some(version)
+                    if Some(version.as_str()) != default_version.as_deref()
+                        && !resource.path.starts_with(&format!("/{version}/")) =>
+                {
+                    format!("/{version}{}", resource.path)
+                }
+                _ => resource.path.clone(),
+            };
+            let path = prefixed.trim_start_matches('/');
             if path.is_empty() {
                 continue;
             }
@@ -1100,7 +1115,7 @@ fn copy_assets(
     cache: &DiskCache,
     report: &mut Report,
     outputs: &mut Outputs,
-) -> (Vec<AssetEntry>, Vec<ImageEntry>, u64) {
+) -> (Vec<AssetEntry>, Vec<ImageEntry>, u64, String) {
     let from_tree: Vec<(VfsPath, Fingerprint)> = tree
         .assets
         .iter()
@@ -1182,7 +1197,7 @@ fn copy_assets(
         });
     }
     let _ = root;
-    (entries, image_entries, generated)
+    (entries, image_entries, generated, assets::headers(&plan))
 }
 
 fn site_meta(settings: &Settings) -> SiteMeta {
