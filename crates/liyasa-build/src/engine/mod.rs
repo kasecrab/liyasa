@@ -151,6 +151,12 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     report
         .diagnostics
         .extend(tree.diagnostics.as_slice().to_vec());
+
+    // CM-90: the pages each declared version serves, from its own tree or from
+    // the shared one.
+    let declared = crate::versions::Versions::new(&settings.versions);
+    let mut tree = tree;
+    tree.pages = crate::versions::expand(tree.pages, &declared);
     phase.mark("content_tree");
 
     // 3. Git-derived data, frozen once and fingerprinted (§6.6.2 rule 2).

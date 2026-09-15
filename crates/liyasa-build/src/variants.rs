@@ -305,18 +305,32 @@ pub fn key(variant: &Variant) -> String {
     }
 }
 
+/// The part of a variant the file name has to carry.
+///
+/// Version and locale decide the route itself (CM-91, CM-101), so repeating
+/// them in the file name would put the default version's page at
+/// `index.v-v2.html` instead of `index.html`.
+pub fn path_key(variant: &Variant) -> String {
+    key(&Variant {
+        version: None,
+        locale: None,
+        ..variant.clone()
+    })
+}
+
 /// Where a variant's HTML lands under `dist/`, relative to the route.
 pub fn output_paths(route: &Route, variants: &[Variant]) -> BTreeMap<String, String> {
     variants
         .iter()
         .map(|variant| {
             let key = key(variant);
+            let name = path_key(variant);
             let trimmed = route.as_str().trim_matches('/');
             let base = match trimmed.is_empty() {
                 true => "index".to_owned(),
                 false => format!("{trimmed}/index"),
             };
-            let path = match key.as_str() {
+            let path = match name.as_str() {
                 "default" => format!("{base}.html"),
                 other => format!("{base}.{}.html", slug(other)),
             };
@@ -495,11 +509,32 @@ mod tests {
         };
         assert_eq!(key(&variant), "v=v2,g=admin");
         let paths = output_paths(&Route::new("/guides/install"), &[variant]);
+        // The version is in the route, so only the groups reach the file name.
         assert_eq!(
             paths.get("v=v2,g=admin").map(String::as_str),
-            Some("guides/install/index.v-v2-g-admin.html")
+            Some("guides/install/index.g-admin.html")
         );
         let root = output_paths(&Route::new("/"), &[Variant::default()]);
         assert_eq!(root.get("default").map(String::as_str), Some("index.html"));
+    }
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+
+    #[test]
+    fn a_versioned_page_keeps_the_plain_file_name() {
+        let variant = Variant {
+            version: Some(Version::new("v1")),
+            locale: Some(Locale::new("de")),
+            ..Variant::default()
+        };
+        assert_eq!(path_key(&variant), "default");
+        let paths = output_paths(&Route::new("/v1/guides/install"), &[variant]);
+        assert_eq!(
+            paths.values().next().map(String::as_str),
+            Some("v1/guides/install/index.html")
+        );
     }
 }

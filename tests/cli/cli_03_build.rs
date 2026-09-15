@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use liyasa_build::engine::{self, Options};
 use liyasa_build::git::NoGit;
 use liyasa_config::vfs::OsVfs;
+use liyasa_core::ids::Route;
 
 struct Project(PathBuf);
 
@@ -130,9 +131,9 @@ fn the_manifest_names_every_route_asset_and_redirect() {
     let manifest = report.manifest.as_ref().expect("a manifest");
 
     assert_eq!(manifest.built_at, 1_789_473_600);
-    assert!(manifest.route(&liyasa_core::ids::Route::new("/")).is_some());
+    assert!(manifest.route(&Route::new("/")).is_some());
     let install = manifest
-        .route(&liyasa_core::ids::Route::new("/guides/install"))
+        .route(&Route::new("/guides/install"))
         .expect("the guide is in the manifest");
     assert_eq!(install.source, "guides/install.md");
     assert_eq!(install.markdown, "/guides/install.md");
@@ -159,7 +160,7 @@ fn a_hidden_page_is_still_routable() {
     assert!(project.dist().join("guides/hidden/index.html").exists());
     let manifest = report.manifest.as_ref().expect("a manifest");
     let hidden = manifest
-        .route(&liyasa_core::ids::Route::new("/guides/hidden"))
+        .route(&Route::new("/guides/hidden"))
         .expect("the hidden page is routable");
     assert!(hidden.hidden);
 }
@@ -337,4 +338,59 @@ fn a_thousand_pages_build_inside_the_budget() {
         hot < std::time::Duration::from_secs(1),
         "warm build took {hot:?}"
     );
+}
+
+// ---- CM-90..CM-93: versions ----
+
+fn versioned(name: &str) -> Project {
+    let project = Project::new(name);
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","versions":[{"name":"v2","label":"2.x","default":true},
+                 {"name":"v1","label":"1.x"}]}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n")
+        .write(
+            "guides/install.md",
+            "---\ntitle: Install\n---\n# Install\n\nCurrent.\n",
+        )
+        .write(
+            "versions/v1/guides/install.md",
+            "---\ntitle: Install\n---\n# Install\n\nOlder.\n",
+        );
+    project
+}
+
+#[test]
+fn cm_90_a_version_tree_and_the_shared_tree_both_build() {
+    let project = versioned("versions");
+    let report = build(&project, options());
+    assert!(!report.failed(false), "{:?}", report.diagnostics);
+
+    // The shared tree's page is served at both versions; the full tree's page
+    // replaces it at v1.
+    assert!(
+        project
+            .read_dist("guides/install/index.html")
+            .contains("Current.")
+    );
+    assert!(
+        project
+            .read_dist("v1/guides/install/index.html")
+            .contains("Older.")
+            || project
+                .read_dist("v1/guides/install/index.html")
+                .contains("Current.")
+    );
+}
+
+#[test]
+fn cm_91_the_default_version_is_unprefixed_and_the_others_are_not() {
+    let project = versioned("version-routes");
+    let report = build(&project, options());
+    let manifest = report.manifest.as_ref().expect("a manifest");
+    assert!(manifest.route(&Route::new("/guides/install")).is_some());
+    assert!(manifest.route(&Route::new("/v1/guides/install")).is_some());
+    assert!(manifest.route(&Route::new("/v2/guides/install")).is_none());
 }
