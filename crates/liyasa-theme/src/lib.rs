@@ -14,6 +14,7 @@ pub mod config;
 pub mod context;
 pub mod css;
 pub mod fonts;
+pub mod icons;
 pub mod nav;
 pub mod og;
 pub mod outputs;

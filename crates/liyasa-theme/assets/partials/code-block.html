@@ -6,5 +6,5 @@
   </div>
   {% endif %}
   <pre id="{{ code.id }}"><code{% if code.lang %} class="language-{{ code.lang }}"{% endif %}>{{ code.html|safe }}</code></pre>
-  <button type="button" class="ly-code-copy" data-ly-copy="{{ code.id }}" data-ly-copied-label="{{ strings.copied }}" hidden>{{ strings.copy }}</button>
+  <button type="button" class="ly-code-copy" data-ly-copy="{{ code.id }}" data-ly-copied-label="{{ strings.copied }}" hidden>{{ icon("copy") }} {{ strings.copy }}</button>
 </div>

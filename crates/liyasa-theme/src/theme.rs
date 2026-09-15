@@ -153,6 +153,10 @@ impl Theme {
         // a field a page does not have — `code.title` on a page with no code
         // block — renders nothing rather than failing the build.
         env.set_undefined_behavior(UndefinedBehavior::Chainable);
+        // `icon("menu")` in a partial, including an operator's own (CFG-07).
+        env.add_function("icon", |name: &str| {
+            Value::from_safe_string(crate::icons::svg(name).unwrap_or_default())
+        });
 
         for (name, source) in PARTIALS {
             add(&mut env, &format!("partials/{name}"), source)?;

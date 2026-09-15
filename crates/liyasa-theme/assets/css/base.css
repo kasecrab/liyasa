@@ -110,6 +110,13 @@ body {
   transform: translateY(0);
 }
 
+.ly-icon {
+  flex: none;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+
 .ly-visually-hidden {
   position: absolute;
   width: 1px;

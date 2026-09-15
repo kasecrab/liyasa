@@ -1,5 +1,5 @@
 <header class="ly-navbar" data-liyasa="navbar">
-  <a class="ly-icon-button ly-drawer-trigger" href="#ly-sidebar" data-ly-drawer-trigger aria-expanded="false" aria-controls="ly-sidebar" aria-label="{{ strings.menu }}" data-liyasa="drawer-trigger">≡</a>
+  <a class="ly-icon-button ly-drawer-trigger" href="#ly-sidebar" data-ly-drawer-trigger aria-expanded="false" aria-controls="ly-sidebar" aria-label="{{ strings.menu }}" data-liyasa="drawer-trigger">{{ icon("menu") }}</a>
   <a class="ly-navbar-logo" href="{{ site.logo.href or '/' }}" data-liyasa="logo">
     {% if site.logo.light %}<img src="{{ site.logo.light }}" alt="{{ site.logo.alt or site.name }}" data-ly-scheme="light">{% endif %}
     {% if site.logo.dark %}<img src="{{ site.logo.dark }}" alt="{{ site.logo.alt or site.name }}" data-ly-scheme="dark">{% endif %}
@@ -13,14 +13,14 @@
   <div class="ly-navbar-actions" data-liyasa="navbar-actions">
     {% if site.search %}
     <button type="button" class="ly-search-trigger" data-ly-search-trigger aria-haspopup="dialog" data-liyasa="search-trigger" hidden>
-      <span aria-hidden="true">⌕</span>
+      {{ icon("search") }}
       <span class="ly-search-trigger-label">{{ strings.search }}</span>
       <kbd>/</kbd>
     </button>
     <noscript><a class="ly-search-trigger" href="/search">{{ strings.search }}</a></noscript>
     {% endif %}
     {% if not site.appearance.strict %}
-    <button type="button" class="ly-icon-button" data-ly-theme-toggle aria-pressed="false" aria-label="{{ strings.toggleTheme }}" data-liyasa="theme-toggle" hidden>◐</button>
+    <button type="button" class="ly-icon-button" data-ly-theme-toggle aria-pressed="false" aria-label="{{ strings.toggleTheme }}" data-liyasa="theme-toggle" hidden>{{ icon("appearance") }}</button>
     {% endif %}
     {% if page.actionsPlacement != 'sidebar' and page.actions %}{% include "partials/page-actions" %}{% endif %}
   </div>
