@@ -394,3 +394,51 @@ fn cm_91_the_default_version_is_unprefixed_and_the_others_are_not() {
     assert!(manifest.route(&Route::new("/v1/guides/install")).is_some());
     assert!(manifest.route(&Route::new("/v2/guides/install")).is_none());
 }
+
+// ---- navigation (§6.6 query 7) ----
+
+#[test]
+fn navigation_reaches_the_rendered_page() {
+    let project = Project::new("navigation");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","navigation":[{"group":"Guides",
+                 "pages":["guides/install","guides/upgrade"]}]}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n")
+        .write("guides/install.md", "---\ntitle: Install\n---\n# Install\n")
+        .write("guides/upgrade.md", "---\ntitle: Upgrade\n---\n# Upgrade\n");
+
+    let report = build(&project, options());
+    assert!(!report.failed(false), "{:?}", report.diagnostics);
+    let install = project.read_dist("guides/install/index.html");
+    assert!(
+        install.contains("Guides"),
+        "the group's title is in the shell"
+    );
+    assert!(
+        install.contains("/guides/upgrade"),
+        "the next page is linked from the sidebar or the pager"
+    );
+}
+
+#[test]
+fn navigation_naming_a_missing_page_is_reported() {
+    let project = Project::new("navigation-missing");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","navigation":[{"group":"Guides","pages":["guides/ghost"]}]}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n");
+    let report = build(&project, options());
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code.as_str() == "E0104"),
+        "{:?}",
+        report.diagnostics
+    );
+}

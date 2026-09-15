@@ -209,6 +209,22 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
 
     let registry = Registry::builtins();
     let site = site_meta(&settings);
+
+    // §6.6 query 7: one navigation per version, resolved once and shared by
+    // every page that version serves.
+    let mut navigations: BTreeMap<
+        Option<liyasa_core::ids::Version>,
+        liyasa_theme::nav::Navigation,
+    > = BTreeMap::new();
+    let mut version_keys: Vec<Option<liyasa_core::ids::Version>> =
+        tree.pages.iter().map(|page| page.version.clone()).collect();
+    version_keys.sort();
+    version_keys.dedup();
+    for version in version_keys {
+        let resolved = crate::nav::resolve(&load.value, &tree, &declared, version.as_ref());
+        report.diagnostics.extend(resolved.diagnostics.into_vec());
+        navigations.insert(version, resolved.navigation);
+    }
     let pages = render_pages(
         &tree,
         &sources,
@@ -217,6 +233,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         &site,
         &cache,
         &assets_built,
+        &navigations,
         config_fingerprint,
     );
     phase.mark("pages");
@@ -476,6 +493,7 @@ fn render_pages(
     site: &SiteMeta,
     cache: &DiskCache,
     assets_built: &theme::Assets,
+    navigations: &BTreeMap<Option<liyasa_core::ids::Version>, liyasa_theme::nav::Navigation>,
     config_fingerprint: Fingerprint,
 ) -> Vec<Outcome> {
     // §6.6: pages render in parallel with rayon.
@@ -550,12 +568,18 @@ fn render_pages(
                 rendered.clear();
                 let mut grew = false;
                 for variant in variant_set(&outcome) {
+                    let navigation_fingerprint = navigations
+                        .get(&page.version)
+                        .and_then(|navigation| serde_json::to_vec(navigation).ok())
+                        .map(Fingerprint::of)
+                        .unwrap_or_else(|| Fingerprint::of("no navigation"));
                     let key = crate::cache::key(
                         "page_html",
                         &[
                             page.fingerprint,
                             config_fingerprint,
                             assets_built.fingerprint,
+                            navigation_fingerprint,
                             Fingerprint::of(variants::key(&variant)),
                         ],
                     );
@@ -575,12 +599,15 @@ fn render_pages(
                                 markdown = page_render.markdown.clone();
                                 referenced = referenced_files(&page_render);
                             }
+                            let navigation =
+                                navigations.get(&page.version).cloned().unwrap_or_default();
                             let html = theme::page_html(
                                 settings,
                                 assets_built,
                                 page,
                                 &variant,
                                 &page_render.html,
+                                &navigation,
                                 &mut diagnostics,
                             );
                             let _ = cache.put(

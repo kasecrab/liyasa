@@ -9,6 +9,7 @@ use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use liyasa_core::ids::Fingerprint;
 use liyasa_theme::config::ThemeConfig;
 use liyasa_theme::context::{self, Mode, RenderContext};
+use liyasa_theme::nav::Navigation;
 use liyasa_theme::runtime::Runtime;
 use liyasa_theme::stylesheet::Styles;
 use liyasa_theme::theme::Theme;
@@ -117,9 +118,10 @@ pub fn page_html(
     page: &tree::Page,
     variant: &Variant,
     body: &str,
+    navigation: &Navigation,
     diagnostics: &mut Diagnostics,
 ) -> String {
-    let context = render_context(settings, assets, page, variant, body);
+    let context = render_context(settings, assets, page, variant, body, navigation);
     let Some(theme) = &assets.theme else {
         return body.to_owned();
     };
@@ -144,7 +146,11 @@ fn render_context(
     page: &tree::Page,
     variant: &Variant,
     body: &str,
+    navigation: &Navigation,
 ) -> RenderContext {
+    let route = page.route.as_str().to_owned();
+    let (previous, next) = navigation.neighbours(&route);
+    let trail = navigation.trail(&route);
     let title = page
         .front
         .title
@@ -158,6 +164,9 @@ fn render_context(
             mode: mode_of(page),
             content: body.to_owned(),
             markdown_url: super::markdown_url(&settings.base_path, &page.route),
+            breadcrumbs: trail,
+            previous,
+            next,
             og: context::Og {
                 title,
                 description: page.front.description.clone().unwrap_or_default(),
@@ -183,6 +192,12 @@ fn render_context(
             built_with: true,
             built_with_url: liyasa_core::site::SITE_URL.to_owned(),
             ..context::Site::default()
+        },
+        nav: context::Nav {
+            navigation: navigation.clone(),
+            active_tab: 0,
+            active_route: page.route.as_str().to_owned(),
+            breadcrumbs: navigation.breadcrumbs,
         },
         assets: context::Assets {
             stylesheet: assets.stylesheet_url.clone(),
