@@ -5,5 +5,6 @@ pub mod conformance;
 pub mod corpus;
 pub mod corpus_import;
 pub mod corpus_seed;
+pub mod parity;
 pub mod schemas;
 pub mod spike;

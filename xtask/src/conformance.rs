@@ -252,6 +252,33 @@ fn show(text: &str) -> String {
     format!("{}…", escaped.chars().take(160).collect::<String>())
 }
 
+/// Loads a corpus and runs it, without printing. The parity runner compares
+/// two of these.
+pub fn report(dir: &Path, engine_name: &str, filter: Option<&str>) -> Result<Report, String> {
+    let engine = engines::by_name(engine_name).ok_or_else(|| {
+        format!(
+            "unknown engine `{engine_name}`; available: {}",
+            engines::all()
+                .iter()
+                .map(|e| e.name())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    })?;
+    let cases = corpus::load(dir)?;
+    if cases.is_empty() {
+        return Err(format!("{}: no cases", dir.display()));
+    }
+    Ok(run(
+        &cases,
+        &Options {
+            engine: engine.as_ref(),
+            filter,
+            verbose: false,
+        },
+    ))
+}
+
 /// Entry point for `xtask conformance`.
 pub fn main(
     dir: &Path,

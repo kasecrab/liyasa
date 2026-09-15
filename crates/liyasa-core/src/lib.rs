@@ -17,6 +17,8 @@
 pub mod ai; // TODO(rfc-0002): re-exported by liyasa-ai
 pub mod build; // TODO(rfc-0002): re-exported by liyasa-build
 pub mod components; // TODO(rfc-0002): re-exported by liyasa-components
+#[cfg(feature = "conformance")]
+pub mod conformance;
 pub mod diagnostics;
 pub mod document;
 pub mod frontmatter;

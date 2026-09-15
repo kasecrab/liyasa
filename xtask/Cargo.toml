@@ -11,9 +11,12 @@ description = "Repository tasks: schema generation, the conformance corpus harne
 [lints]
 workspace = true
 
+[dev-dependencies]
+zeroize.workspace = true
+
 [dependencies]
 comrak.workspace = true       # candidate (a) and (b), PRD §7.5.2
-liyasa-core = { path = "../crates/liyasa-core" }
+liyasa-core = { path = "../crates/liyasa-core", features = ["conformance"] }
 markdown.workspace = true     # candidate (c)
 pulldown-cmark.workspace = true # candidate (d)
 schemars.workspace = true

@@ -861,6 +861,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "zeroize",
 ]
 
 [[package]]

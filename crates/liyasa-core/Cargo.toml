@@ -10,6 +10,11 @@ description = "Shared types and contracts for Liyasa (PRD §6.11, §34.9). Froze
 [lints]
 workspace = true
 
+[features]
+# One kit per frozen trait (§31.7 gate item 5). Downstream crates turn this on
+# in their dev-dependencies, so the kits never reach a production build.
+conformance = []
+
 [dependencies]
 blake3.workspace = true
 bytes.workspace = true

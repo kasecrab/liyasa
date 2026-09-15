@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use xtask::spike::engines;
-use xtask::{conformance, corpus, corpus_import, corpus_seed, schemas};
+use xtask::{conformance, corpus, corpus_import, corpus_seed, parity, schemas};
 
 const USAGE: &str = "\
 usage: cargo run -p xtask -- <command>
@@ -14,6 +14,9 @@ usage: cargo run -p xtask -- <command>
 
   conformance DIR [--engine NAME] [--filter TEXT] [-v]
       Run the conformance corpus in DIR through one engine.
+
+  parity DIR [--engine NAME] [--strict]
+      Run the corpus natively and under WebAssembly and compare (§30.9).
 
   spike DIR [--filter TEXT]
       Run the corpus through every parser candidate and compare (§7.5.2).
@@ -56,6 +59,11 @@ fn dispatch(args: &[String]) -> Result<(), String> {
             let dir = positional(args).ok_or("conformance needs a directory")?;
             let engine = flag(args, "--engine").unwrap_or(DEFAULT_ENGINE);
             conformance::main(Path::new(dir), engine, flag(args, "--filter"), verbose)
+        }
+        Some("parity") => {
+            let dir = positional(args).ok_or("parity needs a directory")?;
+            let engine = flag(args, "--engine").unwrap_or(DEFAULT_ENGINE);
+            parity::run(Path::new(dir), engine, args.iter().any(|a| a == "--strict"))
         }
         Some("spike") => {
             let dir = positional(args).ok_or("spike needs a directory")?;
@@ -174,7 +182,10 @@ fn positional(args: &[String]) -> Option<&str> {
             continue;
         }
         if arg.starts_with('-') {
-            skip_next = !matches!(arg.as_str(), "-v" | "--verbose" | "--check" | "--overwrite");
+            skip_next = !matches!(
+                arg.as_str(),
+                "-v" | "--verbose" | "--check" | "--overwrite" | "--strict"
+            );
             continue;
         }
         return Some(arg);
