@@ -1,8 +1,11 @@
 * text=auto eol=lf
 
-# Shared append-only files: keep both sides, never conflict.
-Cargo.toml merge=union
+# codes.toml is a table of one-line rows, so keeping both sides is always right.
 crates/liyasa-core/src/diagnostics/codes.toml merge=union
+
+# Cargo.toml is NOT union-merged: two branches adding the same dependency with
+# different features produced a duplicate key that only `cargo metadata` caught.
+# A conflict there is better than a manifest that does not parse.
 
 *.png binary
 *.jpg binary
