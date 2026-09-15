@@ -12,6 +12,7 @@ pub mod cache;
 pub mod clock;
 pub mod git;
 pub mod images;
+pub mod manifest;
 pub mod pool;
 pub mod redirects;
 pub mod render;
