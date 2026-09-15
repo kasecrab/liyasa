@@ -6,6 +6,7 @@ pub mod card;
 pub mod code;
 pub mod disclosure;
 pub mod frame;
+pub mod media;
 pub mod steps;
 pub mod tabs;
 pub mod tree;
@@ -52,5 +53,12 @@ pub fn register_builtins(registry: &mut Registry) {
         .add(api::RequestExample)
         .add(api::ResponseExample)
         .add(api::Endpoint)
-        .add(api::OpenapiSchema);
+        .add(api::OpenapiSchema)
+        .add(media::Image)
+        .add(media::Video)
+        .add(media::IFrame)
+        .add(media::Embed)
+        .add(media::File)
+        .add(media::Files)
+        .add(media::Screenshot);
 }

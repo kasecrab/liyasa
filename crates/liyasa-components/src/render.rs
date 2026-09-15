@@ -227,4 +227,9 @@ pub trait Render {
     fn text(&self, inst: &ComponentInst) -> String {
         crate::text::of(&inst.children)
     }
+
+    /// Checks this component can make that the prop schema cannot express:
+    /// two props that exclude each other, a URL from an unlisted provider, a
+    /// missing alt text that deserves its own code.
+    fn validate(&self, _inst: &ComponentInst, _out: &mut Diagnostics) {}
 }

@@ -1,0 +1,68 @@
+# image gallery
+
+=== case: default
+--- html
+<img class="ly-image" data-liyasa="image" src="/img/dashboard.png" alt="The dashboard, showing three builds" loading="lazy" decoding="async" data-align="center" data-zoom>
+--- markdown
+![The dashboard, showing three builds](/img/dashboard.png)
+--- text
+The dashboard, showing three builds
+
+=== case: every prop
+--- html
+<figure class="ly-image-figure" data-align="full">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="/img/dashboard-dark.png">
+    <img class="ly-image" data-liyasa="image" src="/img/dashboard.png" alt="The dashboard" width="1280" height="720" loading="lazy" decoding="async" data-align="full" data-border>
+  </picture>
+  <figcaption class="ly-image-caption">
+    The build dashboard
+  </figcaption>
+</figure>
+--- markdown
+![The dashboard](/img/dashboard.png)
+
+*The build dashboard*
+--- text
+The dashboard The build dashboard
+
+=== case: missing required props
+--- html
+
+--- markdown
+![]()
+--- text
+
+--- diagnostics
+E0314 `image` requires the `src` prop
+E0314 `image` requires the `alt` prop
+
+=== case: empty alt
+--- html
+<img class="ly-image" data-liyasa="image" src="/img/divider.svg" alt="  " loading="lazy" decoding="async" data-align="center" data-zoom>
+--- markdown
+![  ](/img/divider.svg)
+--- text
+
+--- diagnostics
+E0305 `image.alt` is empty
+
+=== case: one dimension
+--- html
+<img class="ly-image" data-liyasa="image" src="/img/a.png" alt="A" width="800" loading="lazy" decoding="async" data-align="center" data-zoom>
+--- markdown
+![A](/img/a.png)
+--- text
+A
+--- diagnostics
+W0714 `image` has one of `width` and `height`, so its aspect ratio is unknown
+
+=== case: unsafe src
+--- html
+
+--- markdown
+![Nope](javascript:alert(1%29)
+--- text
+Nope
+--- diagnostics
+E0353 `image.src` uses a URL scheme that is not allowed

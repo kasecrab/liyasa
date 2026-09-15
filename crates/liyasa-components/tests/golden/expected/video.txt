@@ -1,0 +1,50 @@
+# video gallery
+
+=== case: local
+--- html
+<figure class="ly-video-figure">
+  <video class="ly-video" data-liyasa="video" src="/media/tour.mp4" poster="/media/tour.png" preload="metadata" controls>
+  </video>
+  <figcaption class="ly-video-caption">
+    A tour
+  </figcaption>
+</figure>
+--- markdown
+[A tour](/media/tour.mp4)
+--- text
+A tour
+
+=== case: every prop
+--- html
+<figure class="ly-video-figure">
+  <video class="ly-video" data-liyasa="video" src="/media/tour.mp4" poster="/media/tour.png" preload="metadata" autoplay loop muted playsinline>
+  </video>
+  <figcaption class="ly-video-caption">
+    A tour
+  </figcaption>
+</figure>
+--- markdown
+[Product tour](/media/tour.mp4)
+--- text
+Product tour A tour
+--- diagnostics
+W0355 `video.muted=false` is ignored because `autoplay` is set
+
+=== case: hosted
+--- html
+<iframe class="ly-video ly-video-hosted" data-liyasa="video" data-provider="youtube" src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ" title="The announcement" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>
+</iframe>
+--- markdown
+[The announcement](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+--- text
+The announcement
+
+=== case: missing required prop
+--- html
+
+--- markdown
+[Video]()
+--- text
+
+--- diagnostics
+E0314 `video` requires the `src` prop

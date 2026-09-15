@@ -1,0 +1,63 @@
+# file gallery
+
+=== case: default
+--- html
+<a class="ly-file" data-liyasa="file" href="/dl/report.pdf" download="report.pdf">
+  <span class="ly-file-name">
+    report.pdf
+  </span>
+  <span class="ly-file-type">
+    PDF
+  </span>
+</a>
+--- markdown
+- [report.pdf](/dl/report.pdf)
+--- text
+report.pdf
+
+=== case: every prop
+--- html
+<a class="ly-file" data-liyasa="file" href="/dl/report.pdf" download="Annual report">
+  <span class="ly-file-name">
+    Annual report
+  </span>
+  <span class="ly-file-type">
+    PDF
+  </span>
+  <span class="ly-file-size">
+    2.4 MB
+  </span>
+</a>
+--- markdown
+- [Annual report (2.4 MB)](/dl/report.pdf)
+--- text
+Annual report
+
+=== case: group
+--- html
+<div class="ly-files" data-liyasa="files">
+  <a class="ly-file" data-liyasa="file" href="/dl/a.pdf" download="a.pdf">
+    <span class="ly-file-name">
+      a.pdf
+    </span>
+    <span class="ly-file-type">
+      PDF
+    </span>
+    <span class="ly-file-size">
+      1 MB
+    </span>
+  </a>
+  <a class="ly-file" data-liyasa="file" href="/dl/b.zip" download="b.zip">
+    <span class="ly-file-name">
+      b.zip
+    </span>
+    <span class="ly-file-type">
+      ZIP
+    </span>
+  </a>
+</div>
+--- markdown
+- [a.pdf (1 MB)](/dl/a.pdf)
+- [b.zip](/dl/b.zip)
+--- text
+

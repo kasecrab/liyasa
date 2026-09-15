@@ -1,0 +1,29 @@
+# embed gallery
+
+=== case: youtube
+--- html
+<iframe class="ly-embed" data-liyasa="embed" data-provider="youtube" data-frame-src="https://www.youtube-nocookie.com" src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ" title="youtube" data-aspect loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>
+</iframe>
+--- markdown
+[https://www.youtube.com/watch?v=dQw4w9WgXcQ](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+--- text
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
+=== case: every prop
+--- html
+<iframe class="ly-embed" data-liyasa="embed" data-provider="figma" data-frame-src="https://www.figma.com" src="https://www.figma.com/embed?embed_host=liyasa&amp;url=https%3A%2F%2Fwww.figma.com%2Fdesign%2Fabc%2FTitle" title="The design file" style="height: 600px" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>
+</iframe>
+--- markdown
+[The design file](https://www.figma.com/design/abc/Title)
+--- text
+The design file
+
+=== case: unlisted provider
+--- html
+
+--- markdown
+[https://evil.example.com/embed/1](https://evil.example.com/embed/1)
+--- text
+https://evil.example.com/embed/1
+--- diagnostics
+E0357 `embed.url` is `https://evil.example.com/embed/1`, which is not an allow-listed provider

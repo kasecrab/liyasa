@@ -16,11 +16,21 @@ pub mod intern;
 pub mod md;
 pub mod nodes;
 pub mod props;
+pub mod provider;
 pub mod reference;
 pub mod registry;
 pub mod render;
 pub mod schema;
 pub mod text;
+
+use liyasa_core::diagnostics::Diagnostics;
+
+/// Everything wrong with one component call: the schema check and whatever the
+/// component itself adds.
+pub fn validate(component: &dyn AnyComponent, inst: &ComponentInst, out: &mut Diagnostics) {
+    props::validate(inst, component.schema(), out);
+    Render::validate(component, inst, out);
+}
 
 pub use reference::Reference;
 pub use registry::{AnyComponent, Registry};

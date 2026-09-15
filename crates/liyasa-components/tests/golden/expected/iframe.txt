@@ -1,0 +1,30 @@
+# iframe gallery
+
+=== case: default
+--- html
+<iframe class="ly-iframe" data-liyasa="iframe" src="https://example.com/demo" title="The live demo" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-popups allow-forms">
+</iframe>
+--- markdown
+[The live demo](https://example.com/demo)
+--- text
+The live demo
+
+=== case: every prop
+--- html
+<iframe class="ly-iframe" data-liyasa="iframe" src="https://example.com/demo" title="The live demo" style="height: 480px" allow="clipboard-write" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-popups allow-forms">
+</iframe>
+--- markdown
+[The live demo](https://example.com/demo)
+--- text
+The live demo
+
+=== case: missing required props
+--- html
+
+--- markdown
+[Frame]()
+--- text
+
+--- diagnostics
+E0314 `iframe` requires the `src` prop
+E0314 `iframe` requires the `title` prop

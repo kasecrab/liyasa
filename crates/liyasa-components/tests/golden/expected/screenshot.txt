@@ -1,0 +1,22 @@
+# screenshot gallery
+
+=== case: default
+--- html
+<img class="ly-image ly-screenshot" data-liyasa="screenshot" src="/shots/builds.png" alt="The builds list" loading="lazy" data-zoom>
+--- markdown
+![The builds list](/shots/builds.png)
+--- text
+The builds list
+
+=== case: every prop
+--- html
+<figure class="ly-screenshot-figure">
+  <img class="ly-image ly-screenshot" data-liyasa="screenshot" src="/shots/builds.png" alt="The builds list" data-app="console" data-route="/builds" data-selector=".builds-table" data-viewport="1280x800" loading="lazy" data-zoom>
+  <figcaption class="ly-image-caption">
+    Three builds, one failing
+  </figcaption>
+</figure>
+--- markdown
+![The builds list](/shots/builds.png)
+--- text
+The builds list Three builds, one failing

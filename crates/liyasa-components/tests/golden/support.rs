@@ -50,7 +50,7 @@ impl Gallery {
                 .unwrap_or_else(|| panic!("`{}` is not registered", inst.name));
 
             let mut diagnostics = Diagnostics::new();
-            liyasa_components::props::validate(inst, component.schema(), &mut diagnostics);
+            liyasa_components::validate(component, inst, &mut diagnostics);
 
             let mut html = HtmlCtx::new(&reference);
             component
