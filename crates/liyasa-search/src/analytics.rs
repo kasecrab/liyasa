@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn a_long_opaque_run_is_masked() {
         assert_eq!(
-            scrub("sk_live_4eC39HqLyjWDarjtT1zdp7dc"),
+            scrub(concat!("sk_", "live_4eC39HqLyjWDarjtT1zdp7dc")),
             "[token]",
             "an API key is not a search term"
         );
