@@ -6,7 +6,9 @@ pub mod color;
 pub mod json;
 pub mod load;
 pub mod merge;
+pub mod pages;
 pub mod schema;
+pub mod validate;
 pub mod vfs;
 
 /// The config types, generated from `schemas/liyasa.schema.json` by typify
