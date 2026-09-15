@@ -70,6 +70,34 @@ fn nothing_the_theme_ships_leaves_the_origin() {
 }
 
 #[test]
+fn every_hook_thm_33_documents_is_emitted() {
+    let runtime = Runtime::build(&ThemeConfig::default());
+    for hook in [
+        "page:load",
+        "search:open",
+        "theme:change",
+        "feedback:submit",
+    ] {
+        assert!(
+            runtime.base.contains(&format!("emit(\"{hook}\"")),
+            "`liyasa.on(\"{hook}\")` would never fire"
+        );
+    }
+    // A custom script registers before the first hook fires, because the API
+    // is defined by the first module in the bundle and `theme.js` is deferred
+    // after it (CMP-101).
+    let api = runtime
+        .base
+        .find("window.liyasa = liyasa")
+        .expect("the api is defined");
+    let first_emit = runtime
+        .base
+        .find("emit(\"page:load\"")
+        .expect("page:load fires");
+    assert!(api < first_emit);
+}
+
+#[test]
 fn every_module_guards_the_elements_it_enhances() {
     // A module that assumes its markup is present breaks every page that does
     // not carry it, which is how a progressive-enhancement bundle stops being
