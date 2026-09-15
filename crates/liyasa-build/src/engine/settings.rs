@@ -32,6 +32,10 @@ pub struct Settings {
     /// `build.env`: the only environment variables `env()` may read, and build
     /// inputs in their own right (§6.6.2 rule 6).
     pub env: Vec<String>,
+    /// `build.budget.template`: the whole build's template budget (§6.6).
+    pub template_budget: std::time::Duration,
+    /// `build.budget.templateIncremental`, used when the cache was warm.
+    pub incremental_budget: std::time::Duration,
     pub versions: Vec<VersionDecl>,
     pub locales: Vec<String>,
 }
@@ -91,6 +95,8 @@ impl Default for Settings {
             redirects: Vec::new(),
             external_allow: Vec::new(),
             env: Vec::new(),
+            template_budget: std::time::Duration::from_secs(60),
+            incremental_budget: std::time::Duration::from_secs(10),
             versions: Vec::new(),
             locales: Vec::new(),
         }
@@ -148,6 +154,18 @@ impl Settings {
         };
 
         settings.env = strings(value, &["build", "env"]).unwrap_or_default();
+        if let Some(budget) = string(value, &["build", "budget", "template"])
+            .as_deref()
+            .and_then(duration)
+        {
+            settings.template_budget = budget;
+        }
+        if let Some(budget) = string(value, &["build", "budget", "templateIncremental"])
+            .as_deref()
+            .and_then(duration)
+        {
+            settings.incremental_budget = budget;
+        }
         (settings.redirects, settings.external_allow) = redirects(value);
         settings.versions = versions(value);
         settings.locales = locales(value);
@@ -171,6 +189,22 @@ impl Settings {
             base_path: self.base_path.clone(),
         }
     }
+}
+
+/// `500ms`, `30s`, `5m`, `2h`, `180d` — the schema's duration pattern.
+pub fn duration(text: &str) -> Option<std::time::Duration> {
+    let text = text.trim();
+    let (number, unit) = text.split_at(text.find(|ch: char| ch.is_ascii_alphabetic())?);
+    let number: u64 = number.parse().ok()?;
+    let seconds = match unit {
+        "ms" => return Some(std::time::Duration::from_millis(number)),
+        "s" => number,
+        "m" => number * 60,
+        "h" => number * 3_600,
+        "d" => number * 86_400,
+        _ => return None,
+    };
+    Some(std::time::Duration::from_secs(seconds))
 }
 
 fn at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
@@ -414,6 +448,31 @@ mod tests {
             Settings::from_value(&value(r#"{"locales":["de",{"code":"en","default":true}]}"#));
         assert_eq!(settings.locales, vec!["en".to_owned(), "de".to_owned()]);
         assert_eq!(settings.locale, "en");
+    }
+
+    #[test]
+    fn the_template_budgets_are_read() {
+        let settings = Settings::from_value(&value(
+            r#"{"build":{"budget":{"template":"30s","templateIncremental":"500ms"}}}"#,
+        ));
+        assert_eq!(settings.template_budget, std::time::Duration::from_secs(30));
+        assert_eq!(
+            settings.incremental_budget,
+            std::time::Duration::from_millis(500)
+        );
+    }
+
+    #[test]
+    fn a_duration_reads_every_unit_the_schema_allows() {
+        assert_eq!(
+            duration("500ms"),
+            Some(std::time::Duration::from_millis(500))
+        );
+        assert_eq!(duration("30s"), Some(std::time::Duration::from_secs(30)));
+        assert_eq!(duration("5m"), Some(std::time::Duration::from_secs(300)));
+        assert_eq!(duration("2h"), Some(std::time::Duration::from_secs(7_200)));
+        assert_eq!(duration("1d"), Some(std::time::Duration::from_secs(86_400)));
+        assert_eq!(duration("soon"), None);
     }
 
     #[test]

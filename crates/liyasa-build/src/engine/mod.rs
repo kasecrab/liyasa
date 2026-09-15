@@ -63,6 +63,21 @@ pub struct Options {
     pub profile: bool,
     /// `--images`: run the image pre-pass in this build.
     pub eager_images: bool,
+    /// The environment `env()` and `build.env` read. `None` is the process
+    /// environment; a caller that wants a reproducible build passes its own,
+    /// and so does a test, because the workspace forbids `unsafe` and
+    /// `set_var` is unsafe.
+    pub environment: Option<BTreeMap<String, String>>,
+}
+
+impl Options {
+    /// One allow-listed environment value.
+    pub fn env_value(&self, name: &str) -> Option<String> {
+        match &self.environment {
+            Some(values) => values.get(name).cloned(),
+            None => std::env::var(name).ok(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -236,6 +251,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         &cache,
         &assets_built,
         &navigations,
+        options,
         config_fingerprint,
     );
     phase.mark("pages");
@@ -288,6 +304,9 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     }
     report.pages = pages.len();
     if let Some(over) = variants::check_site_cap(report.variants, &settings.caps) {
+        report.diagnostics.push(over);
+    }
+    if let Some(over) = template_budget(&pages, &settings, report.cache_hits) {
         report.diagnostics.push(over);
     }
     phase.mark("write_pages");
@@ -459,11 +478,30 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         format!("{CACHE_DIR}/{GIT_META}"),
         Fingerprint::of(&git_meta),
     );
+    let previous_env = Outputs::load_env(&cache_root);
+    let mut current_env: BTreeMap<String, Fingerprint> = BTreeMap::new();
     for name in &settings.env {
-        if let Ok(value) = std::env::var(name) {
-            inputs.insert(format!("env:{name}"), Fingerprint::of(value));
+        if let Some(value) = options.env_value(name) {
+            let fingerprint = Fingerprint::of(value);
+            inputs.insert(format!("env:{name}"), fingerprint);
+            current_env.insert(name.clone(), fingerprint);
+            // §6.6.2 rule 6: a changed value invalidates every page that read
+            // it, and the operator is told which one collapsed their cache.
+            if previous_env
+                .get(name)
+                .is_some_and(|before| before != &fingerprint)
+            {
+                report.diagnostics.push(
+                    Diagnostic::new(
+                        code::W0718,
+                        format!("`{name}` changed since the last build, so its pages were rebuilt"),
+                    )
+                    .help("every page that reads the variable is invalidated by its value"),
+                );
+            }
         }
     }
+    Outputs::save_env(&cache_root, &current_env);
     let lockfile = vfs
         .fingerprint(&VfsPath::new("liyasa.lock"))
         .ok()
@@ -596,6 +634,9 @@ struct Outcome {
     changelog: Vec<crate::changelog::Entry>,
     cache_hits: usize,
     cache_misses: usize,
+    /// How long this page spent expanding and rendering, for the build-wide
+    /// template budget and for `--profile`'s slowest-pages table.
+    spent: Duration,
     diagnostics: Diagnostics,
 }
 
@@ -610,6 +651,7 @@ fn render_pages(
     cache: &DiskCache,
     assets_built: &theme::Assets,
     navigations: &BTreeMap<Option<liyasa_core::ids::Version>, liyasa_theme::nav::Navigation>,
+    build_options: &Options,
     config_fingerprint: Fingerprint,
 ) -> Vec<Outcome> {
     // §6.6: pages render in parallel with rayon.
@@ -629,6 +671,7 @@ fn render_pages(
                     changelog: Vec::new(),
                     cache_hits: 0,
                     cache_misses: 0,
+                    spent: Duration::ZERO,
                     diagnostics,
                 };
             };
@@ -691,6 +734,7 @@ fn render_pages(
             let mut recorded = false;
             let (mut hits, mut misses) = (0usize, 0usize);
             let mut converged = false;
+            let mut spent = Duration::ZERO;
 
             for _ in 0..settings.caps.iterations.max(1) {
                 rendered.clear();
@@ -711,7 +755,7 @@ fn render_pages(
                             Fingerprint::of(variants::key(&variant)),
                         ],
                     );
-                    let context = template_context(settings, page, &variant);
+                    let context = template_context(settings, build_options, page, &variant);
                     let html = match cache.get(&key) {
                         Some(cached) => {
                             hits += 1;
@@ -719,7 +763,9 @@ fn render_pages(
                         }
                         None => {
                             misses += 1;
+                            let started = Instant::now();
                             let page_render = render::page(sources, &source, &context, &options);
+                            spent += started.elapsed();
                             diagnostics.extend(page_render.diagnostics.as_slice().to_vec());
                             grew |= reads.absorb(&page_render.record);
                             if !recorded {
@@ -781,7 +827,7 @@ fn render_pages(
             // produce `<route>.md`, so one render fills what is missing.
             if !recorded && markdown.is_empty() {
                 let variant = variant_set(&outcome).first().cloned().unwrap_or_default();
-                let context = template_context(settings, page, &variant);
+                let context = template_context(settings, build_options, page, &variant);
                 let page_render = render::page(sources, &source, &context, &options);
                 diagnostics.extend(page_render.diagnostics.as_slice().to_vec());
                 markdown = agent_markdown(
@@ -833,6 +879,7 @@ fn render_pages(
                 changelog,
                 cache_hits: hits,
                 cache_misses: misses,
+                spent,
                 diagnostics,
             }
         })
@@ -852,11 +899,16 @@ fn variant_set(outcome: &variants::Outcome) -> Vec<Variant> {
     }
 }
 
-fn template_context(settings: &Settings, page: &tree::Page, variant: &Variant) -> TemplateContext {
+fn template_context(
+    settings: &Settings,
+    options: &Options,
+    page: &tree::Page,
+    variant: &Variant,
+) -> TemplateContext {
     let env: BTreeMap<String, String> = settings
         .env
         .iter()
-        .filter_map(|name| std::env::var(name).ok().map(|value| (name.clone(), value)))
+        .filter_map(|name| options.env_value(name).map(|value| (name.clone(), value)))
         .collect();
     TemplateContext {
         values: minijinja::context! {
@@ -887,6 +939,40 @@ fn template_context(settings: &Settings, page: &tree::Page, variant: &Variant) -
         },
         tracking: true,
     }
+}
+
+/// The build-wide template budget of §6.6, with the slowest pages named.
+///
+/// A warm build is held to `build.budget.templateIncremental` and a cold one to
+/// `build.budget.template`, because the two measure different work.
+fn template_budget(
+    pages: &[Outcome],
+    settings: &Settings,
+    cache_hits: usize,
+) -> Option<Diagnostic> {
+    let spent: Duration = pages.iter().map(|page| page.spent).sum();
+    let budget = match cache_hits > 0 {
+        true => settings.incremental_budget,
+        false => settings.template_budget,
+    };
+    if spent <= budget {
+        return None;
+    }
+    let mut slowest: Vec<&Outcome> = pages.iter().collect();
+    slowest.sort_by_key(|page| std::cmp::Reverse(page.spent));
+    let table = slowest
+        .iter()
+        .take(5)
+        .map(|page| format!("{} ({:?})", page.route, page.spent))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(
+        Diagnostic::new(
+            code::E0705,
+            format!("templates took {spent:?}, over the budget of {budget:?}"),
+        )
+        .help(format!("slowest pages: {table}")),
+    )
 }
 
 /// Builds and writes every agent surface, one set per version (CM-92).
@@ -1240,6 +1326,22 @@ pub struct Outputs {
 
 impl Outputs {
     const FILE: &'static str = "outputs.json";
+    const ENV_FILE: &'static str = "env.json";
+
+    /// The allow-listed environment values as the last build saw them.
+    fn load_env(cache_root: &Path) -> BTreeMap<String, Fingerprint> {
+        std::fs::read(cache_root.join(Self::ENV_FILE))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default()
+    }
+
+    fn save_env(cache_root: &Path, values: &BTreeMap<String, Fingerprint>) {
+        if let Ok(bytes) = serde_json::to_vec(values) {
+            let _ = std::fs::create_dir_all(cache_root);
+            let _ = std::fs::write(cache_root.join(Self::ENV_FILE), bytes);
+        }
+    }
 
     fn load(cache_root: &Path) -> Self {
         std::fs::read(cache_root.join(Self::FILE))

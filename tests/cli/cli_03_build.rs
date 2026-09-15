@@ -496,3 +496,85 @@ fn a_reader_field_in_an_untaken_branch_still_makes_the_page_dynamic() {
     // §6.6.3 item 4: a dynamic page still ships its default variant.
     assert_eq!(account.variants.len(), 1);
 }
+
+#[test]
+fn a_build_over_its_template_budget_names_the_slowest_pages() {
+    let project = Project::new("budget");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","build":{"budget":{"template":"0ms"}}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n\nWelcome.\n")
+        .write(
+            "guides/install.md",
+            "---\ntitle: Install\n---\n# Install\n\nRun it.\n",
+        );
+
+    let report = build(&project, options());
+    let budget = report
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code.as_str() == "E0705")
+        .expect("the build-wide template budget is enforced");
+    assert!(
+        budget
+            .help
+            .as_deref()
+            .unwrap_or_default()
+            .contains("slowest pages"),
+        "{budget:?}"
+    );
+}
+
+#[test]
+fn a_changed_environment_variable_says_why_the_cache_collapsed() {
+    let project = Project::new("env");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","build":{"env":["LIYASA_TEST_API_URL"]}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n");
+
+    // The workspace forbids `unsafe`, and `set_var` is unsafe, so the engine
+    // takes the environment it should read rather than reading the process's.
+    let environment = |value: &str| {
+        Some(
+            [("LIYASA_TEST_API_URL".to_owned(), value.to_owned())]
+                .into_iter()
+                .collect(),
+        )
+    };
+    let first = build(
+        &project,
+        Options {
+            environment: environment("https://api.example.com"),
+            ..options()
+        },
+    );
+    assert!(
+        !first
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code.as_str() == "W0718"),
+        "the first build has nothing to compare with"
+    );
+
+    let second = build(
+        &project,
+        Options {
+            environment: environment("https://api.acme.com"),
+            ..options()
+        },
+    );
+    assert!(
+        second
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code.as_str() == "W0718"),
+        "{:?}",
+        second.diagnostics
+    );
+    assert_ne!(first.build_id, second.build_id);
+}
