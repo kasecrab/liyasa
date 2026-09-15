@@ -483,6 +483,38 @@ pub fn version() -> &'static str {
     SPEC_VERSION
 }
 
+/// What the release's `spec-compliance` job compares: the check set this build
+/// implements against the set the tracked spec version publishes (SPEC-03).
+///
+/// `published` comes from the spec's own check-summary page, read by the job;
+/// this function is the comparison, not the fetch.
+pub fn compare(published: &[&str]) -> Option<liyasa_core::Diagnostic> {
+    let ours: std::collections::BTreeSet<&str> = CHECKS.iter().map(|check| check.id).collect();
+    let theirs: std::collections::BTreeSet<&str> = published.iter().copied().collect();
+    let missing: Vec<&str> = theirs.difference(&ours).copied().collect();
+    let extra: Vec<&str> = ours.difference(&theirs).copied().collect();
+    if missing.is_empty() && extra.is_empty() {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if !missing.is_empty() {
+        parts.push(format!("not implemented: {}", missing.join(", ")));
+    }
+    if !extra.is_empty() {
+        parts.push(format!("no longer published: {}", extra.join(", ")));
+    }
+    Some(
+        liyasa_core::Diagnostic::new(
+            liyasa_core::diagnostics::code::W0410,
+            format!(
+                "the implemented check set differs from spec v{SPEC_VERSION}: {}",
+                parts.join("; ")
+            ),
+        )
+        .help("add the new checks and bump `agents.specVersion`, or pin the tracked version"),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
@@ -656,5 +688,41 @@ mod tests {
     fn spec_03_the_table_names_the_version_it_implements() {
         assert_eq!(version(), "0.6.0");
         assert_eq!(ids().len(), 28);
+    }
+
+    #[test]
+    fn spec_03_a_matching_check_set_is_silent() {
+        assert!(compare(&ids()).is_none());
+    }
+
+    #[test]
+    fn spec_03_a_check_the_spec_added_is_reported() {
+        let mut published = ids();
+        published.push("structured-data-presence");
+        let diagnostic = compare(&published).expect("a diagnostic");
+        assert_eq!(diagnostic.code.as_str(), "W0410");
+        assert!(
+            diagnostic
+                .message
+                .contains("not implemented: structured-data-presence"),
+            "{}",
+            diagnostic.message
+        );
+    }
+
+    #[test]
+    fn spec_03_a_check_the_spec_dropped_is_reported() {
+        let published: Vec<&str> = ids()
+            .into_iter()
+            .filter(|id| *id != "cache-header-hygiene")
+            .collect();
+        let diagnostic = compare(&published).expect("a diagnostic");
+        assert!(
+            diagnostic
+                .message
+                .contains("no longer published: cache-header-hygiene"),
+            "{}",
+            diagnostic.message
+        );
     }
 }
