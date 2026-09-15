@@ -218,3 +218,114 @@ fn navigation_between_pages_is_anchors() {
         );
     }
 }
+
+/// Every class on an element the markup renders `hidden`.
+fn hidden_classes(html: &str) -> Vec<&str> {
+    let mut found = Vec::new();
+    let mut rest = html;
+    while let Some(at) = rest.find('<') {
+        rest = &rest[at..];
+        let Some(end) = rest.find('>') else { break };
+        let tag = &rest[..=end];
+        rest = &rest[end..];
+        if !tag.contains(" hidden") {
+            continue;
+        }
+        let Some(class_at) = tag.find("class=\"") else {
+            continue;
+        };
+        let names = &tag[class_at + 7..];
+        let Some(close) = names.find('"') else { continue };
+        found.extend(names[..close].split_whitespace());
+    }
+    found
+}
+
+/// Every `selector { declarations }` pair in `css`, `@media` wrappers skipped.
+fn rules(css: &str) -> Vec<(&str, &str)> {
+    let bytes = css.as_bytes();
+    let mut out = Vec::new();
+    let mut selector_from = 0;
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'{' => {
+                let mut depth = 1;
+                let mut j = i + 1;
+                while j < bytes.len() && depth > 0 {
+                    match bytes[j] {
+                        b'{' => depth += 1,
+                        b'}' => depth -= 1,
+                        _ => {}
+                    }
+                    j += 1;
+                }
+                let body = &css[i + 1..j.saturating_sub(1)];
+                let selector = css[selector_from..i].trim();
+                if body.contains('{') {
+                    // An at-rule wrapper: its own rules are found by walking in.
+                    i += 1;
+                    selector_from = i;
+                    continue;
+                }
+                if !selector.starts_with('@') {
+                    out.push((selector, body));
+                }
+                i = j;
+                selector_from = i;
+            }
+            b'}' => {
+                i += 1;
+                selector_from = i;
+            }
+            _ => i += 1,
+        }
+    }
+    out
+}
+
+/// Does any selector in the list name exactly `.class`, with no suffix?
+fn names_class(selector: &str, class: &str) -> bool {
+    selector.split(',').any(|one| {
+        one.split_whitespace().any(|part| {
+            part.strip_prefix('.')
+                .and_then(|rest| rest.strip_prefix(class))
+                .is_some_and(|tail| tail.is_empty())
+        })
+    })
+}
+
+#[test]
+#[ignore = "three theme controls override `[hidden]`: see NEEDS-INPUT, the fix is in crates/liyasa-theme/assets/css/"]
+fn a_control_the_markup_hides_is_not_displayed_anyway() {
+    let site = site::build().expect("the reference site renders");
+    let mut classes: Vec<&str> = Vec::new();
+    for page in &site.pages {
+        classes.extend(hidden_classes(&page.html));
+    }
+    classes.sort_unstable();
+    classes.dedup();
+
+    let rules = rules(&site.stylesheet);
+    let mut overriding = Vec::new();
+    for class in classes {
+        let sets_display = rules
+            .iter()
+            .any(|(selector, body)| names_class(selector, class) && body.contains("display:"));
+        if !sets_display {
+            continue; // `[hidden]` from the browser's own stylesheet holds.
+        }
+        let neutralised = rules.iter().any(|(selector, body)| {
+            selector.contains(&format!(".{class}[hidden]")) && body.contains("display:")
+        });
+        if !neutralised {
+            overriding.push(class);
+        }
+    }
+
+    assert!(
+        overriding.is_empty(),
+        "these classes set `display` and never take it back under `[hidden]`, \
+         so the control is a dead button without a script: {overriding:?}"
+    );
+}

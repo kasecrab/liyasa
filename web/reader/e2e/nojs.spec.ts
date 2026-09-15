@@ -15,7 +15,7 @@ for (const route of ROUTES) {
   test(`\`${route}\` is readable without javascript`, async ({ page }) => {
     await page.goto(route);
 
-    await expect(page.locator("main h1")).toBeVisible();
+    await expect(page.locator('[data-liyasa="page-title"]')).toBeVisible();
     await expect(page.locator("main")).not.toBeEmpty();
     // The bootstrap marks the document once it runs; nothing here may depend
     // on that having happened.
@@ -27,9 +27,12 @@ for (const route of ROUTES) {
 
 test("the navigation moves between pages", async ({ page }) => {
   await page.goto("/");
-  await page.locator('nav a[href="/reference/cli"], aside a[href="/reference/cli"]').first().click();
-  await page.waitForURL("**/reference/cli");
-  await expect(page.locator("main h1")).toHaveText("CLI reference");
+  // A route the sidebar actually lists: `/reference/cli` is linked from the
+  // page body, not from the navigation, so it proves nothing about the nav.
+  const target = '/guide/configuration';
+  await page.locator(`nav a[href="${target}"], aside a[href="${target}"]`).first().click();
+  await page.waitForURL(`**${target}`);
+  await expect(page.locator('[data-liyasa="page-title"]')).toHaveText("Configuration");
 });
 
 test("the table of contents links into the page", async ({ page }) => {
@@ -58,10 +61,28 @@ test("the sidebar opens on a phone without a script", async ({ page }) => {
 
 test("search offers a page rather than a dead button", async ({ page }) => {
   await page.goto("/");
-  // The button the overlay uses is hidden until its module runs; the fallback
-  // is a link to the search page.
-  await expect(page.locator("[data-ly-search-trigger]")).toBeHidden();
-  await expect(page.locator('noscript >> text=Search')).toHaveCount(1);
+  // With scripting off the browser parses `<noscript>` into real elements, so
+  // the fallback is a link a reader can follow rather than inert text.
+  await expect(page.locator('noscript a[href="/search"]')).toHaveCount(1);
+});
+
+// The theme sets `display` on three controls it also renders `hidden`, which
+// beats the browser's own `[hidden]` rule, so a reader without a script is
+// shown a search button, a page-actions trigger, and a "Copy page as Markdown"
+// button that do nothing. The fix is three `[hidden]` rules in
+// `crates/liyasa-theme/assets/css/`, which WP-11 may not write; NEEDS-INPUT
+// carries it, and `tests/web/nojs.rs` asserts the same thing without a
+// browser. `test.fail()` rather than a skip, so this turns green by itself
+// when the theme is fixed.
+test("nothing the markup hides is shown anyway", async ({ page }) => {
+  test.fail();
+  await page.goto("/");
+  const shown = await page.$$eval("[hidden]", (nodes) =>
+    nodes
+      .filter((node) => getComputedStyle(node).display !== "none")
+      .map((node) => node.className || node.tagName.toLowerCase()),
+  );
+  expect(shown).toEqual([]);
 });
 
 test("no page hides its content behind a script", async ({ page }) => {
