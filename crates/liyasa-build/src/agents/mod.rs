@@ -4,6 +4,7 @@
 //! Everything here is produced from the anonymous render of a page (§6.6.4), so
 //! no reader value can reach a shared surface (SRC-12).
 
+pub mod continuation;
 pub mod markdown;
 pub mod site;
 pub mod size;
