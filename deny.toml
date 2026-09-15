@@ -10,6 +10,11 @@ yanked = "deny"
 allow = [
   "Apache-2.0",
   "MIT",
+  # jsonschema reaches borrow-or-share, which is MIT-0.
+  "MIT-0",
+  # lightningcss and its cssparser dependency are MPL-2.0: file-level copyleft,
+  # which leaves Liyasa's own sources under Apache-2.0.
+  "MPL-2.0",
   "BSD-2-Clause",
   "BSD-3-Clause",
   "ISC",
