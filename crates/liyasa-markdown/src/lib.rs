@@ -12,4 +12,4 @@
 
 pub mod source;
 
-pub use source::{escape_untrusted_markdown, expand, normalize, scan, serialize_source};
+pub use source::{escape_untrusted_markdown, expand, format, normalize, scan, serialize_source};

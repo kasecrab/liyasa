@@ -2,6 +2,7 @@
 
 pub mod escape;
 pub mod expand;
+mod format;
 pub(crate) mod lines;
 pub mod mask;
 mod normalize;
@@ -14,6 +15,7 @@ mod wellformed;
 
 pub use escape::escape_untrusted_markdown;
 pub use expand::{Budget, ExpandOptions, Undefined, environment, expand, expand_with};
+pub use format::{FormatOptions, format, format_with, is_formatted};
 pub use normalize::normalize;
 pub use route::{Ignore, external_of, href, is_routable, route_of};
 pub use scan::{body_start, scan};
