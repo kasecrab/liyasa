@@ -43,3 +43,7 @@ path = "budget/thm_31.rs"
 [[test]]
 name = "web_reader"
 path = "web/reader.rs"
+
+[[test]]
+name = "nojs"
+path = "web/nojs.rs"
