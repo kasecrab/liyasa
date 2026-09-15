@@ -5,7 +5,7 @@
 //! author did not touch. That is the whole point of the Source Document.
 //!
 //! The text is a parameter because a `SourceDocument` holds spans, not bytes;
-//! `plan/rfcs/0021-source-text-for-expansion.md` records why.
+//! `plan/rfcs/0201-source-text-for-expansion.md` records why.
 
 use liyasa_core::document::{SegmentEdit, SourceDocument};
 

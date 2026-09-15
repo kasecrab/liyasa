@@ -19,7 +19,7 @@
 //! `template` (CM-11): their sentinel stands alone and the original bytes are
 //! restored after rendering.
 //!
-//! `plan/rfcs/0021-source-text-for-expansion.md` records why these entry points
+//! `plan/rfcs/0201-source-text-for-expansion.md` records why these entry points
 //! take a `SourceMap` that §34.9 does not name.
 
 use std::collections::{BTreeMap, BTreeSet};

@@ -13,7 +13,7 @@
 //!    template tag inside a code block is not a template tag (CM-11);
 //! 3. template tags in what is left, skipping inline code spans (CM-23).
 //!
-//! `plan/rfcs/0020-source-document-tiling.md` records what `segments` tiles
+//! `plan/rfcs/0200-source-document-tiling.md` records what `segments` tiles
 //! and what counts as front matter.
 
 use std::ops::Range;
@@ -139,7 +139,7 @@ fn scan_frontmatter(
     let open_len = FENCE_YAML.len() + 1;
 
     // The close may not be the line straight after the open: `---\n---` is two
-    // thematic breaks, which is what the parser does with it too (RFC 0020).
+    // thematic breaks, which is what the parser does with it too (RFC 0200).
     let mut body_len = 0usize;
     let mut close_len = None;
     for line in rest.split_inclusive('\n') {
@@ -970,7 +970,7 @@ mod tests {
 
     #[test]
     fn an_empty_block_is_not_front_matter() {
-        // RFC 0020: `---\n---` is two thematic breaks, as the parser reads it.
+        // RFC 0200: `---\n---` is two thematic breaks, as the parser reads it.
         let text = "---\n---\n\nbody\n";
         let (document, _) = document(text);
         assert!(document.frontmatter.is_none());
