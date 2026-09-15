@@ -12,8 +12,10 @@
 //! path, so it is a module here instead, written so the split is a directory
 //! move. See `plan/rfcs/0700-idx-inside-search.md`.
 
+pub mod config;
 pub mod doc;
 pub mod error;
+pub mod glob;
 // TODO(rfc-0700): `idx` becomes the crate `liyasa-idx` once it may be committed.
 pub mod idx;
 pub mod incremental;
