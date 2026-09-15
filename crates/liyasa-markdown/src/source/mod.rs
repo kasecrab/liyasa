@@ -1,5 +1,6 @@
 //! The Source Document: scanner, segments, span maps, and the formatter.
 
+pub mod context;
 pub mod escape;
 pub mod expand;
 pub mod filters;
@@ -12,6 +13,7 @@ pub mod yaml;
 pub mod route;
 mod scan;
 mod serialize;
+pub mod snippets;
 mod wellformed;
 
 pub use escape::escape_untrusted_markdown;

@@ -700,7 +700,7 @@ fn mentions(tag: &str, name: &str) -> bool {
 
 /// Template names an `{% include %}`, `{% snippet %}`, `{% import %}`, or
 /// `{% from … import %}` statement pulls in (CM-19).
-fn includes(tag: &str) -> Vec<String> {
+pub(crate) fn includes(tag: &str) -> Vec<String> {
     let inner = tag
         .trim_start_matches("{%")
         .trim_end_matches("%}")
