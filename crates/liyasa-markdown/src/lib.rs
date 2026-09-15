@@ -16,3 +16,8 @@ pub use source::{
     escape_untrusted, escape_untrusted_markdown, expand, format, from_mdx, normalize, scan,
     serialize_source,
 };
+
+pub mod ast;
+pub mod directives;
+pub mod render;
+pub mod sanitize;

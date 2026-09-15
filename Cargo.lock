@@ -713,6 +713,7 @@ dependencies = [
 name = "liyasa-markdown"
 version = "0.1.0"
 dependencies = [
+ "comrak",
  "liyasa-core",
  "minijinja",
  "serde",
