@@ -6,9 +6,11 @@
 //! consumers handle one shape; 3.0's `nullable`, boolean `exclusiveMinimum`,
 //! and single `type` never leave this crate.
 
+pub mod model;
 pub mod tree;
 pub mod version;
 
+pub use model::{Method, Operation, OperationRef, Schema, Spec};
 pub use version::SpecVersion;
 
 /// `Diagnostic` is 160 bytes, so it travels boxed in the `Err` arm, the same
