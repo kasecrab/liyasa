@@ -31,6 +31,17 @@ allow = [
 ]
 confidence-threshold = 0.9
 
+# `libfuzzer-sys` is `(MIT OR Apache-2.0) AND NCSA`, and NCSA is not in the list
+# above because no Liyasa artifact has ever contained NCSA code — including this
+# one. rav1e declares it under `[target."cfg(fuzzing)".dependencies]`, not behind
+# a Cargo feature, so it exists only under `cargo fuzz`; `cargo tree` never shows
+# it. cargo-deny resolves every target and cfg, which is why it sees it at all.
+# Scoped to the crate rather than allowed outright, so an NCSA crate that really
+# does ship still stops the gate and gets looked at. See rfcs/0004.
+[[licenses.exceptions]]
+name = "libfuzzer-sys"
+allow = ["NCSA"]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
