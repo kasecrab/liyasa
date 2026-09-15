@@ -71,16 +71,26 @@ impl Builder<'_> {
             },
             NodeValue::CodeBlock(code) => {
                 let parsed = fence::parse(&code.info);
+                // comrak keeps a fence's body in the node rather than in
+                // children; the Rendered AST has no such field, so the body is
+                // the block's one text child.
+                let literal = code.literal.clone();
                 // The info string starts after the fence on the opening line.
                 self.diagnostics
                     .extend(parsed.diagnostics(self.positions.source, span.start));
-                BlockKind::CodeBlock {
-                    lang: parsed.info.lang,
-                    attrs: parsed.info.attrs,
-                    // CM-38 highlights at build time, after the grammar set is
-                    // resolved; the parser only records what to highlight.
-                    highlighted: None,
-                }
+                return Some(Block {
+                    id: UNASSIGNED,
+                    explicit_id: None,
+                    kind: BlockKind::CodeBlock {
+                        lang: parsed.info.lang,
+                        attrs: parsed.info.attrs,
+                        // CM-38 highlights at build time, after the grammar set
+                        // is resolved; the parser records what to highlight.
+                        highlighted: None,
+                    },
+                    origin: self.positions.origin(span),
+                    children: vec![Node::Inline(Inline::Text(literal))],
+                });
             }
             NodeValue::HtmlBlock(html) => return Some(self.html_block(html, span)),
             NodeValue::ThematicBreak => BlockKind::ThematicBreak,
