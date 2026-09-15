@@ -7,7 +7,7 @@
 
 use std::fmt::Write as _;
 
-use crate::config::ThemeConfig;
+use crate::config::{Decoration, ThemeConfig};
 use crate::css::{Block, Rule, Stylesheet};
 use crate::tokens::Tokens;
 
@@ -72,12 +72,12 @@ impl Styles {
             source.push('\n');
         }
         source.push_str(&utilities(tokens));
+        source.push_str(&background(config));
         source.push_str(PRINT);
         for part in custom {
             source.push('\n');
             source.push_str(part);
         }
-        let _ = config;
 
         let mut sheet = Stylesheet::parse(&source);
         sheet.expand_custom_media();
@@ -118,6 +118,52 @@ impl Styles {
         }
         out
     }
+}
+
+/// `theme.appearance.background` (CFG-08): a colour, an image, or one of the
+/// four decorations. A decoration is drawn from tokens, so it follows the
+/// scheme without a second asset, and it sits behind the content rather than
+/// over it.
+fn background(config: &ThemeConfig) -> String {
+    let background = &config.appearance.background;
+    let mut declarations = String::new();
+    if let Some(color) = &background.color {
+        let _ = write!(declarations, "background-color:{color};");
+    }
+    if let Some(image) = &background.image {
+        // Self-hosted: the build copies the file and rewrites the path (THM-32).
+        let _ = write!(
+            declarations,
+            "background-image:url(\"{image}\");background-size:cover;background-attachment:fixed;"
+        );
+    } else {
+        let decoration = match config.appearance.background.decoration {
+            Decoration::None => "",
+            Decoration::Grid => concat!(
+                "background-image:",
+                "linear-gradient(to right, var(--ly-color-border-subtle) 1px, transparent 1px),",
+                "linear-gradient(to bottom, var(--ly-color-border-subtle) 1px, transparent 1px);",
+                "background-size:var(--ly-space-7) var(--ly-space-7);",
+                "background-position:center top;"
+            ),
+            Decoration::Gradient => concat!(
+                "background-image:",
+                "radial-gradient(60rem 30rem at 50% -8rem, var(--ly-color-primary-subtle), transparent 70%);",
+                "background-repeat:no-repeat;"
+            ),
+            Decoration::Windows => concat!(
+                "background-image:",
+                "radial-gradient(28rem 18rem at 12% -4rem, var(--ly-color-primary-subtle), transparent 70%),",
+                "radial-gradient(24rem 16rem at 88% -2rem, var(--ly-color-accent-subtle), transparent 70%);",
+                "background-repeat:no-repeat;"
+            ),
+        };
+        declarations.push_str(decoration);
+    }
+    if declarations.is_empty() {
+        return String::new();
+    }
+    format!("\nbody {{ {declarations} }}\n")
 }
 
 fn critical(sheet: &Stylesheet) -> String {
@@ -265,6 +311,53 @@ mod tests {
             styles.critical.len() <= CRITICAL_BUDGET,
             "the critical block is {} bytes",
             styles.critical.len()
+        );
+    }
+
+    #[test]
+    fn a_configured_background_reaches_the_page() {
+        use crate::config::{Appearance, AppearanceBackground};
+
+        let plain = build();
+        assert!(!plain.css.contains("background-image:radial-gradient"));
+
+        let decorated = Styles::build(
+            &ThemeConfig {
+                appearance: Appearance {
+                    background: AppearanceBackground {
+                        decoration: Decoration::Windows,
+                        color: Some("#fafafa".to_owned()),
+                        ..AppearanceBackground::default()
+                    },
+                    ..Appearance::default()
+                },
+                ..ThemeConfig::default()
+            },
+            &Tokens::aurora(),
+            &[],
+        );
+        assert!(decorated.css.contains("background-color:#fafafa"));
+        assert!(decorated.css.contains("var(--ly-color-accent-subtle)"));
+
+        let with_image = Styles::build(
+            &ThemeConfig {
+                appearance: Appearance {
+                    background: AppearanceBackground {
+                        image: Some("/hero.avif".to_owned()),
+                        decoration: Decoration::Grid,
+                        ..AppearanceBackground::default()
+                    },
+                    ..Appearance::default()
+                },
+                ..ThemeConfig::default()
+            },
+            &Tokens::aurora(),
+            &[],
+        );
+        assert!(with_image.css.contains("url(\"/hero.avif\")"));
+        assert!(
+            !with_image.css.contains("linear-gradient(to right"),
+            "an image replaces the decoration rather than layering under it"
         );
     }
 

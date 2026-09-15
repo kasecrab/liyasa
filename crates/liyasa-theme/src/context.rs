@@ -251,6 +251,10 @@ pub struct Assets {
     pub custom_js: Vec<String>,
     /// The JSON `window.liyasa` reads, already escaped for a script element.
     pub page_data: String,
+    /// The search index reader, imported on first search (§12.2).
+    pub search_module: Option<String>,
+    /// The assistant panel, imported on first use (THM-31).
+    pub assistant_module: Option<String>,
 }
 
 /// One partial and the context it may read (THM-22).
@@ -283,6 +287,8 @@ pub fn reference() -> &'static [PartialDoc] {
                 "reader",
                 "playground",
                 "assets.stylesheet",
+                "assets.searchModule",
+                "assets.assistantModule",
                 "assets.critical",
                 "assets.bootstrap",
                 "assets.customCss",
@@ -605,6 +611,8 @@ impl RenderContext {
                 custom_css: vec!["/brand.css".to_owned()],
                 custom_js: vec!["/brand.js".to_owned()],
                 page_data: String::new(),
+                search_module: Some("/_liyasa/search.9c4d1e.js".to_owned()),
+                assistant_module: Some("/_liyasa/assistant.9c4d1e.js".to_owned()),
             },
             strings,
             reader: Reader::default(),

@@ -37,6 +37,7 @@ const MODULES: &[(&str, &str)] = &[
     ("search", include_str!("../assets/js/search.js")),
     ("prefetch", include_str!("../assets/js/prefetch.js")),
     ("feedback", include_str!("../assets/js/feedback.js")),
+    ("lazy", include_str!("../assets/js/lazy.js")),
 ];
 
 const ASSISTANT: &str = include_str!("../assets/js/assistant.js");
@@ -146,7 +147,7 @@ mod tests {
         assert!(runtime.base.contains("data-ly-theme-toggle"));
         assert!(runtime.base.contains("IntersectionObserver"));
         assert!(runtime.base.contains("aria-selected"));
-        assert_eq!(runtime.module_names().len(), 13);
+        assert_eq!(runtime.module_names().len(), 14);
     }
 
     #[test]
