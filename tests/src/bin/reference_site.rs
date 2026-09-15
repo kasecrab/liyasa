@@ -22,7 +22,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     write(&out.join("_liyasa/base.js"), &built.script)?;
     write(&out.join("_liyasa/reader.js"), &built.reader)?;
     write(&out.join("_liyasa/measure.js"), site::MEASURE)?;
-    write(&out.join(site::FAVICON_URL.trim_start_matches('/')), site::FAVICON)?;
+    write(
+        &out.join(site::FAVICON_URL.trim_start_matches('/')),
+        site::FAVICON,
+    )?;
 
     for page in &built.pages {
         let route = page.route.trim_matches('/');

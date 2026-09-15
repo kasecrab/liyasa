@@ -235,7 +235,9 @@ fn hidden_classes(html: &str) -> Vec<&str> {
             continue;
         };
         let names = &tag[class_at + 7..];
-        let Some(close) = names.find('"') else { continue };
+        let Some(close) = names.find('"') else {
+            continue;
+        };
         found.extend(names[..close].split_whitespace());
     }
     found
