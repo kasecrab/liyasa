@@ -49,11 +49,17 @@ fn rendered(options: &markdown::Options) -> String {
 fn it_has_a_parameter_table_and_examples_and_no_html() {
     let out = rendered(&markdown::Options::default());
     assert!(out.contains("## Query parameters"), "{out}");
-    assert!(out.contains("| Name | Type | Required | Description |"), "{out}");
+    assert!(
+        out.contains("| Name | Type | Required | Description |"),
+        "{out}"
+    );
     assert!(out.contains("| `limit` | integer |"), "{out}");
     assert!(out.contains("## Response samples"), "{out}");
     assert!(out.contains("```json"), "{out}");
-    assert!(!out.contains('<'), "no HTML in the Markdown representation: {out}");
+    assert!(
+        !out.contains('<'),
+        "no HTML in the Markdown representation: {out}"
+    );
     assert!(!out.contains("&lt;"), "and nothing HTML-escaped either");
 }
 
