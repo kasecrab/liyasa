@@ -12,7 +12,10 @@ description = "Repository tasks: schema generation, the conformance corpus harne
 workspace = true
 
 [dependencies]
+comrak.workspace = true       # candidate (a) and (b), PRD §7.5.2
 liyasa-core = { path = "../crates/liyasa-core" }
+markdown.workspace = true     # candidate (c)
+pulldown-cmark.workspace = true # candidate (d)
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
