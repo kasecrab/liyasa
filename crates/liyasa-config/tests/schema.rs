@@ -52,10 +52,14 @@ fn the_prd_example_still_drifts_in_exactly_two_places() {
     let messages: Vec<&str> = diagnostics.iter().map(|d| d.message.as_str()).collect();
     assert_eq!(
         codes(&diagnostics),
-        vec!["E0102", "E0102", "E0102"],
-        "RFC 0005: §34.2 writes `weight` as an array and `versions[].tag`, \
-         neither of which the schema allows. If this fails, the schema was \
-         fixed and RFC 0005 can be closed. Got {messages:?}"
+        vec!["E0102", "E0103", "E0103"],
+        "RFC 0005: §34.2 writes `weight` as an array, which the schema rejects, \
+         and `versions[].tag`, which it does not know. If this fails, the schema \
+         was fixed and RFC 0005 can be closed. Got {messages:?}"
+    );
+    assert!(
+        diagnostics.iter().any(|d| d.message.contains("600")),
+        "the array weight is the error: {messages:?}"
     );
 }
 

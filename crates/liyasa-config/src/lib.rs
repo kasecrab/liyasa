@@ -3,6 +3,8 @@
 //! versions (PRD §8).
 
 pub mod json;
+pub mod load;
+pub mod merge;
 pub mod schema;
 pub mod vfs;
 

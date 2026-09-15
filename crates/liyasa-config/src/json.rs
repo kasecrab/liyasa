@@ -85,6 +85,32 @@ impl SpanIndex {
         }
     }
 
+    /// Copies every entry at or under `pointer` from another file's index,
+    /// after dropping what was there. Used when an overlay or a navigation
+    /// file replaces a subtree: the grafted spans carry their own `SourceId`,
+    /// so a diagnostic lands in the file that actually wrote the value.
+    pub fn graft(&mut self, pointer: &str, from: &SpanIndex) {
+        let under = format!("{pointer}/");
+        self.located
+            .retain(|at, _| at != pointer && !at.starts_with(&under));
+        for (at, located) in &from.located {
+            if at == pointer || at.starts_with(&under) {
+                self.located.insert(at.clone(), *located);
+            }
+        }
+    }
+
+    /// Re-roots another file's index under `pointer` and grafts it there, for a
+    /// file whose whole document becomes one subtree of the config.
+    pub fn graft_root(&mut self, pointer: &str, from: &SpanIndex) {
+        let under = format!("{pointer}/");
+        self.located
+            .retain(|at, _| at != pointer && !at.starts_with(&under));
+        for (at, located) in &from.located {
+            self.located.insert(format!("{pointer}{at}"), *located);
+        }
+    }
+
     fn record(&mut self, pointer: &str, key: Option<Span>, start: usize, end: usize) {
         self.located.insert(
             pointer.to_owned(),

@@ -8,7 +8,7 @@
 use std::sync::OnceLock;
 
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, Severity, code};
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use crate::json::SpanIndex;
 
@@ -50,8 +50,26 @@ fn validator() -> &'static jsonschema::Validator {
 /// Validates one parsed config against the schema.
 pub fn check(config: &Value, spans: &SpanIndex) -> Report {
     let mut report = Report::default();
-    for error in validator().iter_errors(config) {
-        let at = error.instance_path().to_string();
+    collect(validator(), config, "", config, spans, &mut report, 0);
+    report
+}
+
+/// How many times a failing `oneOf` is re-validated against the single branch
+/// the instance meant, to turn "is not valid under any of the given schemas"
+/// into the error inside that branch.
+const REFINE_DEPTH: u8 = 4;
+
+fn collect(
+    validator: &jsonschema::Validator,
+    instance: &Value,
+    prefix: &str,
+    config: &Value,
+    spans: &SpanIndex,
+    report: &mut Report,
+    depth: u8,
+) {
+    for error in validator.iter_errors(instance) {
+        let at = format!("{prefix}{}", error.instance_path());
         match error.kind() {
             jsonschema::error::ValidationErrorKind::AdditionalProperties { unexpected } => {
                 for key in unexpected {
@@ -62,19 +80,72 @@ pub fn check(config: &Value, spans: &SpanIndex) -> Report {
                     report.unknown.push(pointer);
                 }
             }
-            _ => {
-                // The value is what is wrong, so it is what gets underlined; a
-                // missing required property has no value and falls back to the
-                // object that should have held it.
-                let mut diagnostic = Diagnostic::new(code::E0102, error.to_string());
-                if let Some(span) = spans.nearest(&at) {
-                    diagnostic = diagnostic.at(span);
+            jsonschema::error::ValidationErrorKind::OneOfNotValid { .. }
+                if depth < REFINE_DEPTH =>
+            {
+                if !refine(&at, config, spans, report, depth) {
+                    report
+                        .diagnostics
+                        .push(mismatch(&error.to_string(), &at, spans));
                 }
-                report.diagnostics.push(diagnostic);
             }
+            _ => report
+                .diagnostics
+                .push(mismatch(&error.to_string(), &at, spans)),
         }
     }
-    report
+}
+
+/// Re-runs validation at `at` against the one `oneOf` branch the instance
+/// discriminates itself into (§8.4 gives every node type its own key), so the
+/// report names the real problem instead of the whole union. Returns false when
+/// no branch claims the instance, which is itself the right thing to report.
+fn refine(at: &str, config: &Value, spans: &SpanIndex, report: &mut Report, depth: u8) -> bool {
+    let Some(instance) = config.pointer(at) else {
+        return false;
+    };
+    let Some(node) = schema_node_at(config, at) else {
+        return false;
+    };
+    let Some(branch) = pick_branch(node, instance) else {
+        return false;
+    };
+
+    // `$ref` in a branch points at the document root, so the root's `$defs`
+    // travels with it.
+    let mut standalone = branch.clone();
+    if let (Some(object), Some(defs)) = (standalone.as_object_mut(), config_schema().get("$defs")) {
+        object.insert("$defs".to_owned(), defs.clone());
+    }
+    let Ok(validator) = jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .build(&standalone)
+    else {
+        return false;
+    };
+
+    let before = report.diagnostics.len();
+    collect(
+        &validator,
+        instance,
+        at,
+        config,
+        spans,
+        report,
+        depth.saturating_add(1),
+    );
+    report.diagnostics.len() > before
+}
+
+fn mismatch(message: &str, at: &str, spans: &SpanIndex) -> Diagnostic {
+    // The value is what is wrong, so it is what gets underlined; a missing
+    // required property has no value and falls back to the object that should
+    // have held it.
+    let diagnostic = Diagnostic::new(code::E0102, message.to_owned());
+    match spans.nearest(at) {
+        Some(span) => diagnostic.at(span),
+        None => diagnostic,
+    }
 }
 
 fn unknown_key(
@@ -98,8 +169,12 @@ fn unknown_key(
 /// The key the schema does know that is closest to the one written, when it is
 /// close enough that a typo is the likely explanation.
 fn nearest_known(key: &str, config: &Value, parent: &str) -> Option<String> {
-    let subschema = subschema_at(config_schema(), config, parent)?;
-    let known = subschema.get("properties")?.as_object()?;
+    let node = schema_node_at(config, parent)?;
+    let instance = config.pointer(parent)?;
+    let known = pick_branch(node, instance)
+        .unwrap_or(node)
+        .get("properties")?
+        .as_object()?;
     known
         .keys()
         .map(|candidate| (distance(key, candidate), candidate))
@@ -108,55 +183,85 @@ fn nearest_known(key: &str, config: &Value, parent: &str) -> Option<String> {
         .map(|(_, candidate)| candidate.clone())
 }
 
-/// Walks the schema alongside the instance to the object that holds `pointer`.
-/// Only the shapes the config schema actually uses are followed: nested
-/// `properties`, `items`, and the one `oneOf` branch the instance matches by
-/// its own keys.
-fn subschema_at<'a>(
-    schema: &'a Value,
-    config: &Value,
-    pointer: &str,
-) -> Option<&'a Map<String, Value>> {
-    let mut schema = schema;
-    let mut config = config;
+/// Walks the schema alongside the instance to the node that governs `pointer`,
+/// following `$ref` but leaving a final `oneOf` for the caller to choose from.
+/// Only the shapes this schema uses are followed: `properties` and `items`.
+fn schema_node_at<'a>(config: &Value, pointer: &str) -> Option<&'a Value> {
+    let mut schema: &'a Value = config_schema();
+    let mut instance = config;
     for token in pointer.split('/').skip(1).filter(|t| !t.is_empty()) {
         let token = unescape(token);
-        schema = resolve(schema, config)?;
-        (schema, config) = match config {
+        schema = deref(schema)?;
+        if let Some(branch) = pick_branch(schema, instance) {
+            schema = branch;
+        }
+        (schema, instance) = match instance {
             Value::Array(_) => (
                 schema.get("items")?,
-                config.get(token.parse::<usize>().ok()?)?,
+                instance.get(token.parse::<usize>().ok()?)?,
             ),
-            _ => (schema.get("properties")?.get(&token)?, config.get(&token)?),
+            _ => (
+                schema.get("properties")?.get(&token)?,
+                instance.get(&token)?,
+            ),
         };
     }
-    resolve(schema, config)?.as_object()
+    deref(schema)
 }
 
-/// Follows `$ref` into `$defs` and picks the `oneOf` branch whose required keys
-/// the instance has.
-fn resolve<'a>(schema: &'a Value, config: &Value) -> Option<&'a Value> {
-    if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
-        let name = reference.strip_prefix("#/$defs/")?;
-        return resolve(config_schema().get("$defs")?.get(name)?, config);
+/// Follows one `$ref` into `$defs`.
+fn deref(schema: &Value) -> Option<&Value> {
+    match schema.get("$ref").and_then(Value::as_str) {
+        Some(reference) => {
+            let name = reference.strip_prefix("#/$defs/")?;
+            deref(config_schema().get("$defs")?.get(name)?)
+        }
+        None => Some(schema),
     }
-    let Some(branches) = schema.get("oneOf").and_then(Value::as_array) else {
-        return Some(schema);
-    };
+}
+
+/// The `oneOf` branch the instance discriminates itself into: the one whose
+/// required keys it has, else the one whose JSON type it matches. `None` when
+/// the node is not a union, or when nothing claims the instance.
+fn pick_branch<'a>(schema: &'a Value, instance: &Value) -> Option<&'a Value> {
+    let branches = schema.get("oneOf").and_then(Value::as_array)?;
     branches
         .iter()
+        .filter_map(|branch| deref(branch))
         .find(|branch| {
             branch
                 .get("required")
                 .and_then(Value::as_array)
                 .is_some_and(|required| {
-                    required
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .all(|key| config.get(key).is_some())
+                    !required.is_empty()
+                        && required
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .all(|key| instance.get(key).is_some())
                 })
         })
-        .or_else(|| branches.iter().find(|b| b.get("properties").is_some()))
+        .or_else(|| {
+            branches
+                .iter()
+                .filter_map(|branch| deref(branch))
+                .find(|branch| same_type(branch, instance))
+        })
+}
+
+fn same_type(schema: &Value, instance: &Value) -> bool {
+    let Some(declared) = schema.get("type").and_then(Value::as_str) else {
+        return false;
+    };
+    matches!(
+        (declared, instance),
+        ("object", Value::Object(_))
+            | ("array", Value::Array(_))
+            | ("string", Value::String(_))
+            | ("boolean", Value::Bool(_))
+            | ("number", Value::Number(_))
+            | ("integer", Value::Number(_))
+            | ("null", Value::Null)
+    )
 }
 
 /// Levenshtein distance, capped by the shorter word: only used to decide
