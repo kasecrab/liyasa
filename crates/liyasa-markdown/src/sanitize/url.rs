@@ -20,7 +20,12 @@ pub const DATA_IMAGE_TYPES: &[&str] = &[
 ];
 
 /// Whether a URL may be kept. `image` relaxes only the `data:` rule.
+///
+/// The check runs over the URL a browser would see, with character references
+/// resolved, because `java&#9;script:x` navigates exactly like `javascript:x`.
 pub fn allowed(url: &str, image: bool) -> bool {
+    let decoded = super::html::decode_refs(url);
+    let url = decoded.as_str();
     let Some(scheme) = scheme_of(url) else {
         // Relative, root-relative, protocol-relative, or a bare fragment.
         return true;

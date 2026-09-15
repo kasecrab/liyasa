@@ -123,6 +123,61 @@ fn value(text: &str) -> (&str, usize) {
     (&text[..len], len)
 }
 
+/// Character references a browser resolves before it reads a URL.
+///
+/// `java&#9;script:x` and `javascript&colon;x` are both `javascript:` by the
+/// time anything navigates, so the scheme check has to see them that way too.
+/// Only the references that can change a scheme are listed; the decoded text is
+/// used for the check and never kept.
+pub fn decode_refs(text: &str) -> String {
+    const NAMED: &[(&str, char)] = &[
+        ("amp", '&'),
+        ("colon", ':'),
+        ("lt", '<'),
+        ("gt", '>'),
+        ("newline", '\n'),
+        ("quot", '"'),
+        ("sol", '/'),
+        ("tab", '\t'),
+    ];
+
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find('&') {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + 1..];
+        let Some(end) = after.find(';').filter(|end| *end <= 8) else {
+            out.push('&');
+            rest = after;
+            continue;
+        };
+        let name = &after[..end];
+        let decoded = match name.strip_prefix('#') {
+            Some(number) => match number.strip_prefix(['x', 'X']) {
+                Some(hex) => u32::from_str_radix(hex, 16).ok(),
+                None => number.parse().ok(),
+            }
+            .and_then(char::from_u32),
+            None => NAMED
+                .iter()
+                .find(|(spelling, _)| spelling.eq_ignore_ascii_case(name))
+                .map(|(_, ch)| *ch),
+        };
+        match decoded {
+            Some(ch) => {
+                out.push(ch);
+                rest = &after[end + 1..];
+            }
+            None => {
+                out.push('&');
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// HTML text, escaped so it cannot re-open a tag.
 pub fn escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());

@@ -56,6 +56,31 @@ fn a_scheme_split_by_whitespace_is_still_that_scheme() {
     }
 }
 
+/// A browser resolves character references before it reads the scheme.
+#[test]
+fn a_scheme_hidden_behind_character_references_is_still_that_scheme() {
+    for url in [
+        "java&#9;script:alert(1)",
+        "java&#x09;script:alert(1)",
+        "javascript&colon;alert(1)",
+        "javascript&COLON;alert(1)",
+        "java&NewLine;script:alert(1)",
+        "&#106;avascript:alert(1)",
+    ] {
+        assert!(!allowed(url, false), "{url}");
+    }
+}
+
+/// Decoding must not invent a scheme that was not there.
+#[test]
+fn an_ampersand_in_an_ordinary_url_is_harmless() {
+    assert!(allowed("/search?a=1&b=2", false));
+    assert!(allowed("/search?a=1&amp;b=2", false));
+    assert!(allowed("/a&notareference;b", false));
+    assert!(allowed("&", false));
+    assert!(allowed("&#;", false));
+}
+
 #[test]
 fn data_urls_are_rejected_except_for_images() {
     assert!(!allowed("data:text/html,<script>x</script>", true));
