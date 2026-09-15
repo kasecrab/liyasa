@@ -149,3 +149,9 @@ W0358 = { severity = "warning", crate = "liyasa-components", title = "Component 
 W0131 = { severity = "warning", crate = "liyasa-config", title = "No `seo.canonicalOrigin`; absolute URLs cannot be generated" }
 E0132 = { severity = "error", crate = "liyasa-config", title = "Colour value is not one Liyasa can read" }
 E0133 = { severity = "error", crate = "liyasa-config", title = "Navigation binds a subtree to a version, locale, product, or spec that is not declared" }
+W0630 = { severity = "warning", crate = "liyasa-verify", title = "Page has no `description`" }
+W0631 = { severity = "warning", crate = "liyasa-verify", title = "Prose lint rule matched" }
+W0632 = { severity = "warning", crate = "liyasa-verify", title = "Word is not in the project dictionary" }
+E0633 = { severity = "error", crate = "liyasa-verify", title = "Prose rule package could not be read" }
+E0634 = { severity = "error", crate = "liyasa-verify", title = "`verify.policy` names a check class Liyasa does not know" }
+E0635 = { severity = "error", crate = "liyasa-verify", title = "`verify` setting is not a value Liyasa can read" }
