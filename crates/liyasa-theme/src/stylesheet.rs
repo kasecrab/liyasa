@@ -218,8 +218,13 @@ fn is_critical(selector: &str) -> bool {
 /// from the spacing scale so the two cannot disagree.
 fn utilities(tokens: &Tokens) -> String {
     let mut out = String::from("\n/* utilities */\n");
-    for step in ["0", "1", "2", "3", "4", "5", "6", "7"] {
-        let space = format!("var(--ly-space-{step})");
+    for name in tokens.names() {
+        // One set per step of the live spacing scale, whatever the scale is:
+        // a step added to the token table is a utility without a second edit.
+        let Some(step) = name.strip_prefix("--ly-space-") else {
+            continue;
+        };
+        let space = format!("var({name})");
         let _ = writeln!(
             out,
             ".ly-m-{step}{{margin:{space}}}.ly-mt-{step}{{margin-top:{space}}}\
@@ -227,7 +232,6 @@ fn utilities(tokens: &Tokens) -> String {
              .ly-gap-{step}{{gap:{space}}}"
         );
     }
-    let _ = tokens;
     out.push_str(
         ".ly-text-left{text-align:left}.ly-text-center{text-align:center}\
          .ly-text-right{text-align:right}\n\

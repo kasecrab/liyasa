@@ -339,6 +339,8 @@ impl CoreRenderer for PageRenderer<'_> {
         children: &str,
         ctx: &mut RenderCtx,
     ) -> Result<String, RenderError> {
+        // `RenderCtx` is an empty frozen struct; everything a component needs
+        // from the theme is already in the context this renderer holds.
         let _ = ctx;
         let name = if self
             .theme
