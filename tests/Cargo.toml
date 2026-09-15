@@ -110,3 +110,7 @@ path = "cli/cli_02_dev.rs"
 [[test]]
 name = "cm_120_changelog"
 path = "build/cm_120_changelog.rs"
+
+[[test]]
+name = "cm_80_hidden"
+path = "build/cm_80_hidden.rs"

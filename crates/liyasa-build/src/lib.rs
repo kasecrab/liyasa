@@ -21,6 +21,7 @@ pub mod nav;
 pub mod pool;
 pub mod redirects;
 pub mod render;
+pub mod sitemap;
 pub mod tree;
 pub mod variants;
 pub mod versions;

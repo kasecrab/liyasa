@@ -225,9 +225,11 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         report.diagnostics.extend(resolved.diagnostics.into_vec());
         navigations.insert(version, resolved.navigation);
     }
+    let all_routes: BTreeSet<Route> = tree.pages.iter().map(|page| page.route.clone()).collect();
     let pages = render_pages(
         &tree,
         &sources,
+        &all_routes,
         &settings,
         &registry,
         &site,
@@ -263,15 +265,6 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
                 path: path.clone(),
                 hash: Fingerprint::of(html),
             });
-        }
-        for path in markdown_paths(&outcome.route) {
-            write_file(
-                &output,
-                &path,
-                outcome.markdown.as_bytes(),
-                &mut report,
-                &mut outputs,
-            );
         }
         index.record(
             "page_html",
@@ -379,6 +372,43 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         ] {
             write_file(&output, path, body.as_bytes(), &mut report, &mut outputs);
         }
+    }
+
+    // 8c. The agent surfaces (§11.7, §11.8, RX-03): Markdown routes,
+    // `llms.txt`, the skill, the sitemap, robots, and the feeds. WP-10 owns
+    // what they say; the engine owns which pages reach them (CM-80).
+    let surfaces_written = write_surfaces(
+        &output,
+        &tree,
+        &pages,
+        &settings,
+        &navigations,
+        report.clock_unix,
+        &mut report,
+        &mut outputs,
+    );
+    phase.mark("agent_surfaces");
+    let _ = surfaces_written;
+
+    // 8d. The sitemap: every route CM-80 lets into it.
+    if !settings.canonical_origin.is_empty() {
+        let entries: Vec<crate::sitemap::Entry> = tree
+            .pages
+            .iter()
+            .filter(|page| page.indexing.sitemap && !page.draft)
+            .map(|page| crate::sitemap::Entry {
+                route: page.route.clone(),
+                updated: page.front.updated.clone(),
+            })
+            .collect();
+        let xml = crate::sitemap::render(&entries, &settings.canonical_origin, report.clock_unix);
+        write_file(
+            &output,
+            crate::sitemap::FILE,
+            xml.as_bytes(),
+            &mut report,
+            &mut outputs,
+        );
     }
 
     // 9. Assets and the image tier.
@@ -574,6 +604,7 @@ struct Outcome {
 fn render_pages(
     tree: &tree::Tree,
     sources: &SourceMap,
+    all_routes: &BTreeSet<Route>,
     settings: &Settings,
     registry: &Registry,
     site: &SiteMeta,
@@ -689,7 +720,14 @@ fn render_pages(
                             grew |= reads.absorb(&page_render.record);
                             if !recorded {
                                 recorded = true;
-                                markdown = page_render.markdown.clone();
+                                markdown = agent_markdown(
+                                    &page_render,
+                                    page,
+                                    registry,
+                                    site,
+                                    all_routes,
+                                    &mut diagnostics,
+                                );
                                 referenced = referenced_files(&page_render);
                                 changelog = page_render
                                     .document
@@ -742,7 +780,14 @@ fn render_pages(
                 let context = template_context(settings, page, &variant);
                 let page_render = render::page(sources, &source, &context, &options);
                 diagnostics.extend(page_render.diagnostics.as_slice().to_vec());
-                markdown = page_render.markdown.clone();
+                markdown = agent_markdown(
+                    &page_render,
+                    page,
+                    registry,
+                    site,
+                    all_routes,
+                    &mut diagnostics,
+                );
                 referenced = referenced_files(&page_render);
                 changelog = page_render
                     .document
@@ -838,6 +883,152 @@ fn template_context(settings: &Settings, page: &tree::Page, variant: &Variant) -
         },
         tracking: true,
     }
+}
+
+/// Builds and writes every agent surface, one set per version (CM-92).
+#[allow(clippy::too_many_arguments)]
+fn write_surfaces(
+    output: &Path,
+    tree: &tree::Tree,
+    pages: &[Outcome],
+    settings: &Settings,
+    navigations: &BTreeMap<Option<liyasa_core::ids::Version>, liyasa_theme::nav::Navigation>,
+    clock_unix: i64,
+    report: &mut Report,
+    outputs: &mut Outputs,
+) -> usize {
+    let Some(origin) = crate::agents::site::CanonicalOrigin::parse(&settings.canonical_origin)
+    else {
+        // Without an origin every absolute URL in a surface would be wrong, so
+        // the surfaces are skipped rather than written with a placeholder.
+        report.diagnostics.push(
+            Diagnostic::new(
+                code::W0131,
+                "`seo.canonicalOrigin` is not set, so the agent surfaces were not written",
+            )
+            .help("set `seo.canonicalOrigin` to the site's production origin"),
+        );
+        return 0;
+    };
+
+    let mut written = 0;
+    for version in navigations.keys() {
+        let records: Vec<crate::agents::site::PageRecord> = tree
+            .pages
+            .iter()
+            .filter(|page| &page.version == version)
+            .filter_map(|page| {
+                let outcome = pages.iter().find(|outcome| outcome.route == page.route)?;
+                Some(crate::agents::site::PageRecord {
+                    id: page.front.id,
+                    route: page.route.clone(),
+                    title: page
+                        .front
+                        .title
+                        .clone()
+                        .unwrap_or_else(|| page.route.as_str().to_owned()),
+                    description: page.front.description.clone(),
+                    locale: Locale::new(settings.locale.clone()),
+                    version: version.clone(),
+                    tab: None,
+                    group: None,
+                    indexable: page.indexing.ai && page.indexing.sitemap && !page.draft,
+                    personalized: outcome.dynamic,
+                    markdown: outcome.markdown.clone(),
+                    updated: page.front.updated.clone(),
+                    changelog: crate::changelog::is_entry_file(page.path.as_str())
+                        || !outcome.changelog.is_empty(),
+                })
+            })
+            .collect();
+        if records.is_empty() {
+            continue;
+        }
+
+        let navigation = navigations.get(version).cloned().unwrap_or_default();
+        let site = crate::agents::site::SiteInput {
+            name: settings.name.clone(),
+            summary: (!settings.description.is_empty()).then(|| settings.description.clone()),
+            origin: origin.clone(),
+            locale: Locale::new(settings.locale.clone()),
+            version: version.clone(),
+            nav: sections(&navigation),
+            pages: records,
+            agents: crate::agents::site::AgentsSettings::default(),
+            feeds: crate::agents::site::FeedsSettings::default(),
+        };
+        let surfaces = crate::agents::surfaces(
+            &site,
+            &crate::agents::Options {
+                clock: liyasa_core::build::BuildClock(
+                    std::time::UNIX_EPOCH
+                        + std::time::Duration::from_secs(clock_unix.max(0) as u64),
+                ),
+                not_found: None,
+            },
+        );
+        report
+            .diagnostics
+            .extend(surfaces.diagnostics.as_slice().to_vec());
+        for resource in &surfaces.resources {
+            let path = resource.path.trim_start_matches('/');
+            if path.is_empty() {
+                continue;
+            }
+            write_file(output, path, resource.body.as_bytes(), report, outputs);
+            written += 1;
+        }
+    }
+    written
+}
+
+/// The `llms.txt` sections, which mirror the navigation groups (RX-70).
+fn sections(navigation: &liyasa_theme::nav::Navigation) -> Vec<crate::agents::site::NavSection> {
+    let mut out = Vec::new();
+    for tab in &navigation.tabs {
+        for group in &tab.groups {
+            out.push(crate::agents::site::NavSection {
+                title: match group.title.is_empty() {
+                    true => tab.title.clone(),
+                    false => group.title.clone(),
+                },
+                tab: (!tab.title.is_empty()).then(|| tab.title.clone()),
+                routes: group
+                    .items
+                    .iter()
+                    .map(|item| Route::new(item.route.clone()))
+                    .collect(),
+            });
+        }
+    }
+    out
+}
+
+/// The Markdown an agent fetches (§11.7), serialized from the same render the
+/// HTML came from.
+fn agent_markdown(
+    rendered: &render::Page,
+    page: &tree::Page,
+    registry: &Registry,
+    site: &SiteMeta,
+    all_routes: &BTreeSet<Route>,
+    diagnostics: &mut Diagnostics,
+) -> String {
+    let Some(document) = &rendered.document else {
+        return rendered.markdown.clone();
+    };
+    let options = crate::agents::markdown::Options {
+        site,
+        registry,
+        route: &page.route,
+        frontmatter: Some(&page.front),
+        routes: all_routes,
+        site_instructions: None,
+        openapi_schema: None,
+    };
+    let produced = crate::agents::render_page(document, &options);
+    diagnostics.extend(produced.diagnostics.as_slice().to_vec());
+    produced.markdown
 }
 
 /// Files a page links to that are not pages, which the asset pass copies
@@ -1006,15 +1197,6 @@ fn site_meta(settings: &Settings) -> SiteMeta {
         version: None,
         locale: Locale::new(settings.locale.clone()),
     }
-}
-
-/// RX-03: the Markdown of a route is served at both its forms.
-fn markdown_paths(route: &Route) -> Vec<String> {
-    let trimmed = route.as_str().trim_matches('/');
-    if trimmed.is_empty() {
-        return vec!["index.md".to_owned()];
-    }
-    vec![format!("{trimmed}.md"), format!("{trimmed}/index.md")]
 }
 
 fn markdown_url(base_path: &str, route: &Route) -> String {
