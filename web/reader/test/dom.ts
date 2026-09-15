@@ -177,6 +177,10 @@ export interface FakeElement {
   closest(selector: string): FakeElement | null;
   addEventListener(type: string, listener: (event: unknown) => void): void;
   listeners: Record<string, Array<(event: unknown) => void>>;
+  dispatch(type: string, event?: unknown): void;
+  /** What a real `HTMLElement.click()` does: run the click handlers. */
+  click(): void;
+  clicks: number;
   children: FakeElement[];
   appendChild(child: FakeElement): FakeElement;
   matches: string[];
@@ -195,6 +199,7 @@ export function element(tag: string, attributes: Record<string, string> = {}): F
     hidden: false,
     children: [],
     listeners: {},
+    clicks: 0,
     matches: [],
     setAttribute(name, value) {
       node.attributes[name] = value;
@@ -205,6 +210,13 @@ export function element(tag: string, attributes: Record<string, string> = {}): F
     closest: (selector) => (node.matches.includes(selector) || node.tag === "a" ? node : null),
     addEventListener(type, listener) {
       (node.listeners[type] ||= []).push(listener);
+    },
+    dispatch(type, event) {
+      for (const listener of node.listeners[type] ?? []) listener(event ?? {});
+    },
+    click() {
+      node.clicks += 1;
+      node.dispatch("click");
     },
     appendChild(child) {
       node.children.push(child);
