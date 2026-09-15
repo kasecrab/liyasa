@@ -10,6 +10,7 @@ pub mod agents;
 pub mod assets;
 pub mod cache;
 pub mod clock;
+pub mod dev;
 pub mod engine;
 pub mod git;
 pub mod images;
@@ -19,6 +20,7 @@ pub mod redirects;
 pub mod render;
 pub mod tree;
 pub mod variants;
+pub mod watch;
 
 pub use liyasa_core::build::{
     ArtifactCache, BuildClock, CacheError, GcReport, OutputFormat, PoolMetrics, RenderBudget,
