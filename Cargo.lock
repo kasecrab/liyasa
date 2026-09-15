@@ -1011,6 +1011,7 @@ dependencies = [
  "liyasa-config",
  "liyasa-core",
  "liyasa-markdown",
+ "liyasa-theme",
  "minijinja",
  "serde",
  "serde_json",

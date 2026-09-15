@@ -77,6 +77,10 @@ pub struct Page {
     pub markdown: String,
     /// What the search index stores.
     pub text: String,
+    /// The Rendered AST this page was serialized from, kept so the agent
+    /// surfaces (§11.7) serialize the same render the HTML came from rather
+    /// than a second one.
+    pub document: Option<Document>,
     pub deps: Deps,
     /// What the page read while it expanded, which decides its variants
     /// (§6.6.3 item 1).
@@ -142,6 +146,7 @@ fn serialize(document: &Document, options: &Options<'_>) -> Page {
         markdown: liyasa_markdown::render_markdown(document, Audience::Human, options.site),
         text: liyasa_markdown::render::render_text(document),
         deps: document.deps.clone(),
+        document: Some(document.clone()),
         record: ExpansionRecord::default(),
         diagnostics,
     }

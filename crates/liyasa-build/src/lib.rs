@@ -10,6 +10,7 @@ pub mod agents;
 pub mod assets;
 pub mod cache;
 pub mod clock;
+pub mod engine;
 pub mod git;
 pub mod images;
 pub mod manifest;

@@ -29,6 +29,7 @@ serde_json.workspace = true
 jsonschema.workspace = true
 # WP-06: the build engine, whose acceptance tests are about the built site.
 liyasa-build = { path = "../crates/liyasa-build", version = "0.1.0" }
+liyasa-config = { path = "../crates/liyasa-config", version = "0.1.0" }
 serde_json.workspace = true
 # The image fixtures are generated rather than checked in: the corpus is not committed.
 image.workspace = true
@@ -96,3 +97,7 @@ path = "build/cm_84_files.rs"
 [[test]]
 name = "rx_02_assets"
 path = "build/rx_02_assets.rs"
+
+[[test]]
+name = "cli_03_build"
+path = "cli/cli_03_build.rs"
