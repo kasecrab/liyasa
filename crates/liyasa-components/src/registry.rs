@@ -66,6 +66,13 @@ impl Registry {
         self.register(Arc::new(component))
     }
 
+    /// The component behind a name or alias, as an owned handle, for a caller
+    /// that is about to wrap it: an override keeps the built-in alive.
+    pub fn take(&self, name: &str) -> Option<Arc<dyn AnyComponent>> {
+        let at = *self.by_name.get(name)?;
+        self.entries.get(at).cloned()
+    }
+
     /// The component behind a name or alias, with its render methods.
     pub fn resolve(&self, name: &str) -> Option<&dyn AnyComponent> {
         let at = *self.by_name.get(name)?;

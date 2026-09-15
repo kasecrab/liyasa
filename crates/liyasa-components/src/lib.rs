@@ -15,6 +15,7 @@ pub mod inst;
 pub mod intern;
 pub mod md;
 pub mod nodes;
+pub mod pack;
 pub mod props;
 pub mod provider;
 pub mod reference;
@@ -22,6 +23,7 @@ pub mod registry;
 pub mod render;
 pub mod schema;
 pub mod text;
+pub mod user;
 
 use liyasa_core::diagnostics::Diagnostics;
 
