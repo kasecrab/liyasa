@@ -10,3 +10,7 @@ pub mod tree;
 pub mod version;
 
 pub use version::SpecVersion;
+
+/// `Diagnostic` is 160 bytes, so it travels boxed in the `Err` arm, the same
+/// arrangement `liyasa_core::yaml` uses.
+pub type SpecError = Box<liyasa_core::Diagnostic>;

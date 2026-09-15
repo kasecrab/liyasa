@@ -13,27 +13,39 @@
 // TODO(rfc-0800): pending core growing an order-preserving value type.
 use liyasa_core::diagnostics::{Diagnostic, code};
 
+use crate::SpecError;
+
 pub type Value = serde_norway::Value;
 pub type Map = serde_norway::Mapping;
 
 /// Parses a spec's bytes. `origin` names the document in any diagnostic.
-pub fn parse(bytes: &[u8], origin: &str) -> Result<Value, Diagnostic> {
+pub fn parse(bytes: &[u8], origin: &str) -> Result<Value, SpecError> {
     serde_norway::from_slice(bytes).map_err(|e| {
-        Diagnostic::new(code::E0501, format!("{origin}: {e}"))
-            .help("the document must be valid JSON or YAML")
+        Box::new(
+            Diagnostic::new(code::E0501, format!("{origin}: {e}"))
+                .help("the document must be valid JSON or YAML"),
+        )
     })
 }
 
 /// The processed spec as JSON, with the document's own key order (API-50).
-pub fn to_json(value: &Value) -> Result<String, Diagnostic> {
-    serde_json::to_string_pretty(value)
-        .map_err(|e| Diagnostic::new(code::E0501, format!("cannot write the spec as JSON: {e}")))
+pub fn to_json(value: &Value) -> Result<String, SpecError> {
+    serde_json::to_string_pretty(value).map_err(|e| {
+        Box::new(Diagnostic::new(
+            code::E0501,
+            format!("cannot write the spec as JSON: {e}"),
+        ))
+    })
 }
 
 /// The processed spec as YAML (API-50).
-pub fn to_yaml(value: &Value) -> Result<String, Diagnostic> {
-    serde_norway::to_string(value)
-        .map_err(|e| Diagnostic::new(code::E0501, format!("cannot write the spec as YAML: {e}")))
+pub fn to_yaml(value: &Value) -> Result<String, SpecError> {
+    serde_norway::to_string(value).map_err(|e| {
+        Box::new(Diagnostic::new(
+            code::E0501,
+            format!("cannot write the spec as YAML: {e}"),
+        ))
+    })
 }
 
 pub fn as_map(value: &Value) -> Option<&Map> {
