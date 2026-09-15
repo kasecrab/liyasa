@@ -589,6 +589,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "liyasa-theme"
+version = "0.1.0"
+dependencies = [
+ "liyasa-core",
+ "minijinja",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "url",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
