@@ -114,6 +114,9 @@ pub struct RunFacts {
     pub no_viable_path: bool,
     /// Share of page fetches that failed.
     pub fetch_failure_rate: f64,
+    /// `llms.txt` entries pointing outside `seo.canonicalOrigin`, which an
+    /// agent cannot treat as this site's content (SPEC-05).
+    pub cross_origin_llms_links: usize,
 }
 
 impl Default for RunFacts {
@@ -125,6 +128,7 @@ impl Default for RunFacts {
             gated_proportion: 0.0,
             no_viable_path: false,
             fetch_failure_rate: 0.0,
+            cross_origin_llms_links: 0,
         }
     }
 }
