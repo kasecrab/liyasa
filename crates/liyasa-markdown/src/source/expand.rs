@@ -326,7 +326,7 @@ fn assemble(text: &str, document: &SourceDocument) -> Assembly {
             // raw block already stops templating, so it needs no splitting.
             _ if raw == 0 => {
                 let mut at = span.start as usize;
-                for range in spans_within(&masked, span) {
+                for range in held_out(text, &masked, span) {
                     if range.start > at {
                         emit_literal(&mut out, text, span.source, at..range.start, in_loop);
                     }
@@ -391,6 +391,32 @@ fn masked_ranges(text: &str, document: &SourceDocument) -> Vec<std::ops::Range<u
 }
 
 /// The masked ranges that fall inside one segment.
+/// The runs of a Markdown segment that minijinja never sees: inline code spans
+/// (CM-11, CM-23) and, since RFC 0203, the two bytes of a `{#` the scanner
+/// declined to read as a comment, which minijinja would otherwise take for a
+/// comment open. Both come back from the source afterwards.
+fn held_out(
+    text: &str,
+    masked: &[std::ops::Range<usize>],
+    span: Span,
+) -> Vec<std::ops::Range<usize>> {
+    let mut ranges: Vec<_> = spans_within(masked, span).collect();
+    let end = span.end as usize;
+    let mut at = span.start as usize;
+    while let Some(found) = text[at..end].find("{#") {
+        let open = at + found;
+        at = open + 2;
+        if !ranges
+            .iter()
+            .any(|range| range.start <= open && open < range.end)
+        {
+            ranges.push(open..at);
+        }
+    }
+    ranges.sort_by_key(|range| range.start);
+    ranges
+}
+
 fn spans_within(
     masked: &[std::ops::Range<usize>],
     span: Span,

@@ -571,6 +571,13 @@ fn scan_region(
             continue;
         };
         let Some(tag) = close_of(&source[open..region.end], kind) else {
+            // TODO(rfc-0203): `{#install}` is CM-56's explicit block ID, not an
+            // unclosed CM-10 comment. Only a `{#` that a `#}` closes is a
+            // comment; the rest is content, and expansion holds it out of the
+            // render so minijinja does not read it either.
+            if kind == Kind::Comment {
+                continue;
+            }
             diagnostics.push(
                 Diagnostic::new(code::E0202, format!("`{}` is never closed", kind.open()))
                     .at(Span::new(id, open as u32, region.end as u32)),
