@@ -3,6 +3,7 @@
 use std::fmt;
 
 use liyasa_core::diagnostics::{Diagnostic, code};
+use serde::Serialize;
 
 use crate::SpecError;
 
@@ -10,7 +11,8 @@ use crate::tree::{Value, field_str};
 
 /// The dialect of the source document. Everything downstream sees the 3.1
 /// model; this is kept only to explain a page and to label a conversion.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(rename_all = "camelCase", tag = "dialect", content = "version")]
 pub enum SpecVersion {
     /// Swagger 2.0, converted with a warning.
     V2(String),
