@@ -6,4 +6,6 @@ mod card;
 mod code;
 mod disclosure;
 mod frame;
+mod inline;
 mod media;
+mod page;

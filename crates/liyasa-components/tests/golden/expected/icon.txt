@@ -1,0 +1,28 @@
+# icon gallery
+
+=== case: default
+--- html
+<span class="ly-icon" data-liyasa="icon" data-icon="rocket" aria-hidden="true">
+</span>
+--- markdown
+--- text
+
+
+=== case: every prop
+--- html
+<span class="ly-icon" data-liyasa="icon" data-icon="rocket" data-set="lucide" data-color="#3355ff" style="--ly-icon-size: 24px" role="img" aria-label="Launch">
+</span>
+--- markdown
+Launch
+--- text
+Launch
+
+=== case: missing required prop
+--- html
+<span class="ly-icon" data-liyasa="icon" data-icon="" aria-hidden="true">
+</span>
+--- markdown
+--- text
+
+--- diagnostics
+E0314 `icon` requires the `name` prop

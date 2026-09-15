@@ -1,0 +1,26 @@
+# github gallery
+
+=== case: default
+--- html
+<a class="ly-github" data-liyasa="github" data-repo="kasecrab/liyasa" href="https://github.com/kasecrab/liyasa">
+  <span class="ly-github-name">
+    kasecrab/liyasa
+  </span>
+</a>
+--- markdown
+[kasecrab/liyasa](https://github.com/kasecrab/liyasa)
+--- text
+kasecrab/liyasa
+
+=== case: missing required prop
+--- html
+<a class="ly-github" data-liyasa="github" data-repo="" href="https://github.com/">
+  <span class="ly-github-name">
+  </span>
+</a>
+--- markdown
+[](https://github.com/)
+--- text
+
+--- diagnostics
+E0314 `github` requires the `repo` prop

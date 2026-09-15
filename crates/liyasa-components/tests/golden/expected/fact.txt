@@ -1,0 +1,31 @@
+# fact gallery
+
+=== case: default
+--- html
+<span class="ly-fact" data-liyasa="fact" data-fact="pricing.pro">
+</span>
+--- markdown
+`pricing.pro`
+--- text
+
+
+=== case: every prop
+--- html
+<span class="ly-fact" data-liyasa="fact" data-fact="pricing.pro" data-format="currency">
+  $20
+</span>
+--- markdown
+$20
+--- text
+$20
+
+=== case: missing required prop
+--- html
+<span class="ly-fact" data-liyasa="fact" data-fact="">
+</span>
+--- markdown
+``
+--- text
+
+--- diagnostics
+E0314 `fact` requires the `id` prop

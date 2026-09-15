@@ -1,0 +1,32 @@
+# kbd gallery
+
+=== case: default
+--- html
+<kbd class="ly-kbd" data-liyasa="kbd">
+  Ctrl
+</kbd>
+--- markdown
+`Ctrl`
+--- text
+Ctrl
+
+=== case: empty body
+--- html
+<kbd class="ly-kbd" data-liyasa="kbd">
+</kbd>
+--- markdown
+``
+--- text
+
+
+=== case: invalid prop
+--- html
+<kbd class="ly-kbd" data-liyasa="kbd">
+  Ctrl
+</kbd>
+--- markdown
+`Ctrl`
+--- text
+Ctrl
+--- diagnostics
+W0316 `kbd` has no prop `key`

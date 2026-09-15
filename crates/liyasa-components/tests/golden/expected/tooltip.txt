@@ -1,0 +1,40 @@
+# tooltip gallery
+
+=== case: default
+--- html
+<button class="ly-tooltip" data-liyasa="tooltip" aria-describedby="tt-4ec47e7c3269fc922a3827a6" type="button">
+  fact
+</button>
+<span class="ly-tooltip-text" role="tooltip" id="tt-4ec47e7c3269fc922a3827a6">
+  A value with a source behind it.
+</span>
+--- markdown
+fact (A value with a source behind it.)
+--- text
+A value with a source behind it. fact
+
+=== case: every prop
+--- html
+<a class="ly-tooltip" data-liyasa="tooltip" aria-describedby="tt-4ec47e7c3269fc922a3827a6" href="/concepts/facts">
+  fact
+</a>
+<span class="ly-tooltip-text" role="tooltip" id="tt-4ec47e7c3269fc922a3827a6">
+  A value with a source behind it.
+</span>
+--- markdown
+[fact](/concepts/facts) (A value with a source behind it.)
+--- text
+A value with a source behind it. fact
+
+=== case: missing required prop
+--- html
+<button class="ly-tooltip" data-liyasa="tooltip" aria-describedby="tt-4ec47e7c3269fc922a3827a6" type="button">
+</button>
+<span class="ly-tooltip-text" role="tooltip" id="tt-4ec47e7c3269fc922a3827a6">
+</span>
+--- markdown
+ ()
+--- text
+
+--- diagnostics
+E0314 `tooltip` requires the `text` prop

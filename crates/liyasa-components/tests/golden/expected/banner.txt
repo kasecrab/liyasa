@@ -1,0 +1,31 @@
+# banner gallery
+
+=== case: default
+--- html
+<div class="ly-banner" data-liyasa="banner" role="region" aria-label="Announcement">
+  <div class="ly-banner-body">
+    <p>
+      Version 0.5 is out.
+    </p>
+  </div>
+</div>
+--- markdown
+> Version 0.5 is out.
+--- text
+Version 0.5 is out.
+
+=== case: every prop
+--- html
+<div class="ly-banner" data-liyasa="banner" role="region" aria-label="Announcement" data-color="#3355ff" id="v05" data-dismissible>
+  <div class="ly-banner-body">
+    <p>
+      Version 0.5 is out.
+    </p>
+  </div>
+  <button class="ly-banner-close" type="button" aria-label="Dismiss" data-liyasa="dismiss">
+  </button>
+</div>
+--- markdown
+> Version 0.5 is out.
+--- text
+Version 0.5 is out.

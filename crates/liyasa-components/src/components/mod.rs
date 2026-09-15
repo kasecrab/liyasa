@@ -6,7 +6,9 @@ pub mod card;
 pub mod code;
 pub mod disclosure;
 pub mod frame;
+pub mod inline;
 pub mod media;
+pub mod page;
 pub mod steps;
 pub mod tabs;
 pub mod tree;
@@ -60,5 +62,20 @@ pub fn register_builtins(registry: &mut Registry) {
         .add(media::Embed)
         .add(media::File)
         .add(media::Files)
-        .add(media::Screenshot);
+        .add(media::Screenshot)
+        .add(inline::Badge)
+        .add(inline::Color)
+        .add(inline::Icon)
+        .add(inline::Tooltip)
+        .add(inline::Kbd)
+        .add(inline::Fact)
+        .add(page::Banner)
+        .add(page::Update)
+        .add(page::Prompt)
+        .add(page::Github)
+        .add(page::Md)
+        .add(page::Visibility)
+        .add(page::Region)
+        .add(page::Feedback)
+        .add(page::Assistant);
 }

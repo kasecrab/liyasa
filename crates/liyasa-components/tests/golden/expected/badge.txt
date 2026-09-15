@@ -1,0 +1,43 @@
+# badge gallery
+
+=== case: default
+--- html
+<span class="ly-badge" data-liyasa="badge" data-variant="soft">
+  Beta
+</span>
+--- markdown
+**Beta**
+--- text
+Beta
+
+=== case: every prop
+--- html
+<span class="ly-badge" data-liyasa="badge" data-variant="solid" data-color="#3355ff">
+  <span class="ly-icon" data-icon="flask" aria-hidden="true">
+  </span>
+  Beta
+</span>
+--- markdown
+**Beta**
+--- text
+Beta
+
+=== case: empty body
+--- html
+<span class="ly-badge" data-liyasa="badge" data-variant="soft">
+</span>
+--- markdown
+--- text
+
+
+=== case: invalid variant
+--- html
+<span class="ly-badge" data-liyasa="badge" data-variant="glow">
+  Beta
+</span>
+--- markdown
+**Beta**
+--- text
+Beta
+--- diagnostics
+E0315 `badge.variant` is `glow`, which is not one of: soft, outline, solid

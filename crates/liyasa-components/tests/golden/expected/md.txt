@@ -1,0 +1,11 @@
+# md gallery
+
+=== case: default
+--- html
+<p>
+  Parsed as Markdown.
+</p>
+--- markdown
+Parsed as Markdown.
+--- text
+Parsed as Markdown.

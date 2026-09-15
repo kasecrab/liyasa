@@ -1,0 +1,13 @@
+# region gallery
+
+=== case: every prop
+--- html
+<div class="ly-region" data-liyasa="region" data-only="eu uk" data-except="us">
+  <p>
+    EU terms.
+  </p>
+</div>
+--- markdown
+EU terms.
+--- text
+EU terms.

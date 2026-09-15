@@ -1,0 +1,79 @@
+# prompt gallery
+
+=== case: default
+--- html
+<div class="ly-prompt" data-liyasa="prompt">
+  <div class="ly-prompt-body">
+    <p>
+      Summarize this page for a new reader.
+    </p>
+  </div>
+  <div class="ly-prompt-actions">
+    <button class="ly-button" type="button" data-liyasa="copy">
+      Copy prompt
+    </button>
+  </div>
+</div>
+--- markdown
+```text
+Summarize this page for a new reader.
+```
+--- text
+Summarize this page for a new reader.
+
+=== case: every prop
+--- html
+<div class="ly-prompt" data-liyasa="prompt">
+  <p class="ly-prompt-title">
+    Ask an assistant
+  </p>
+  <div class="ly-prompt-body">
+    <p>
+      Summarize this page for a new reader.
+    </p>
+  </div>
+  <div class="ly-prompt-actions">
+    <button class="ly-button" type="button" data-liyasa="copy">
+      Copy prompt
+    </button>
+    <button class="ly-button ly-button-secondary" type="button" data-open-in="cursor">
+      Open in cursor
+    </button>
+    <button class="ly-button ly-button-secondary" type="button" data-open-in="claude">
+      Open in claude
+    </button>
+    <button class="ly-button ly-button-secondary" type="button" data-open-in="chatgpt">
+      Open in chatgpt
+    </button>
+  </div>
+</div>
+--- markdown
+**Ask an assistant**
+
+```text
+Summarize this page for a new reader.
+```
+--- text
+Ask an assistant Summarize this page for a new reader.
+
+=== case: invalid target
+--- html
+<div class="ly-prompt" data-liyasa="prompt">
+  <div class="ly-prompt-body">
+  </div>
+  <div class="ly-prompt-actions">
+    <button class="ly-button" type="button" data-liyasa="copy">
+      Copy prompt
+    </button>
+    <button class="ly-button ly-button-secondary" type="button" data-open-in="copilot">
+      Open in copilot
+    </button>
+  </div>
+</div>
+--- markdown
+```text
+```
+--- text
+
+--- diagnostics
+E0315 `prompt.open` is `copilot`, which is not one of: cursor, claude, chatgpt

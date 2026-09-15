@@ -1,0 +1,73 @@
+# update gallery
+
+=== case: default
+--- html
+<article class="ly-update" data-liyasa="update" id="2026-09-15-2026-09-15" data-date="2026-09-15">
+  <time class="ly-update-date" datetime="2026-09-15">
+    2026-09-15
+  </time>
+  <h3 class="ly-update-title">
+    2026-09-15
+  </h3>
+  <div class="ly-update-body">
+    <p>
+      Fixed the anchor generator.
+    </p>
+  </div>
+</article>
+--- markdown
+### 2026-09-15 — 2026-09-15
+
+Fixed the anchor generator.
+--- text
+2026-09-15 2026-09-15 Fixed the anchor generator.
+
+=== case: every prop
+--- html
+<article class="ly-update" data-liyasa="update" id="2026-09-15-0-5-0-anchors-are-stable" data-date="2026-09-15" data-version="0.5.0">
+  <time class="ly-update-date" datetime="2026-09-15">
+    2026-09-15
+  </time>
+  <h3 class="ly-update-title">
+    0.5.0 — Anchors are stable
+  </h3>
+  <p class="ly-update-labels">
+    <span class="ly-badge" data-label="breaking">
+      breaking
+    </span>
+    <span class="ly-badge" data-label="api">
+      api
+    </span>
+  </p>
+  <div class="ly-update-body">
+    <p>
+      Fixed the anchor generator.
+    </p>
+  </div>
+</article>
+--- markdown
+### 2026-09-15 — 0.5.0 — Anchors are stable
+
+*breaking, api*
+
+Fixed the anchor generator.
+--- text
+2026-09-15 0.5.0 — Anchors are stable Fixed the anchor generator.
+
+=== case: missing required prop
+--- html
+<article class="ly-update" data-liyasa="update" id="update" data-date="">
+  <time class="ly-update-date" datetime="">
+  </time>
+  <h3 class="ly-update-title">
+    Update
+  </h3>
+  <div class="ly-update-body">
+  </div>
+</article>
+--- markdown
+### — Update
+--- text
+Update
+--- diagnostics
+E0314 `update` requires the `date` prop

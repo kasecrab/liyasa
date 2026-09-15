@@ -1,0 +1,58 @@
+# color gallery
+
+=== case: default
+--- html
+<button class="ly-color" type="button" data-liyasa="color" data-value="#ff8800" title="Copy #ff8800">
+  <span class="ly-color-swatch" aria-hidden="true" style="background: #ff8800">
+  </span>
+  <span class="ly-color-label">
+    #ff8800
+  </span>
+</button>
+--- markdown
+`#ff8800`
+--- text
+#ff8800
+
+=== case: every prop
+--- html
+<button class="ly-color" type="button" data-liyasa="color" data-value="rgb(255, 136, 0)" title="Copy rgb(255, 136, 0)">
+  <span class="ly-color-swatch" aria-hidden="true" style="background: rgb(255, 136, 0)">
+  </span>
+  <span class="ly-color-label">
+    Ember
+  </span>
+</button>
+--- markdown
+Ember (`rgb(255, 136, 0)`)
+--- text
+Ember rgb(255, 136, 0)
+
+=== case: unsafe value
+--- html
+<button class="ly-color" type="button" data-liyasa="color" data-value="red; background: url(//evil.example.com)" title="Copy red; background: url(//evil.example.com)">
+  <span class="ly-color-swatch" aria-hidden="true">
+  </span>
+  <span class="ly-color-label">
+    red; background: url(//evil.example.com)
+  </span>
+</button>
+--- markdown
+`red; background: url(//evil.example.com)`
+--- text
+red; background: url(//evil.example.com)
+
+=== case: missing required prop
+--- html
+<button class="ly-color" type="button" data-liyasa="color" data-value="" title="Copy ">
+  <span class="ly-color-swatch" aria-hidden="true">
+  </span>
+  <span class="ly-color-label">
+  </span>
+</button>
+--- markdown
+``
+--- text
+
+--- diagnostics
+E0314 `color` requires the `value` prop

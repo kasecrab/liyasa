@@ -1,0 +1,42 @@
+# visibility gallery
+
+=== case: agents only
+--- html
+
+--- markdown
+--- text
+
+
+=== case: humans only
+--- html
+<p>
+  For humans.
+</p>
+--- markdown
+For humans.
+--- text
+For humans.
+
+=== case: every prop
+--- html
+<div class="ly-visibility" data-liyasa="visibility" data-groups="staff" data-regions="eu" data-locales="de" data-versions="0.5">
+  <p>
+    Gated.
+  </p>
+</div>
+--- markdown
+Gated.
+--- text
+Gated.
+
+=== case: no audience named
+--- html
+<div class="ly-visibility" data-liyasa="visibility" data-groups="staff">
+  <p>
+    Both audiences.
+  </p>
+</div>
+--- markdown
+Both audiences.
+--- text
+Both audiences.
