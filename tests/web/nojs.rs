@@ -298,7 +298,6 @@ fn names_class(selector: &str, class: &str) -> bool {
 }
 
 #[test]
-#[ignore = "three theme controls override `[hidden]`: see NEEDS-INPUT, the fix is in crates/liyasa-theme/assets/css/"]
 fn a_control_the_markup_hides_is_not_displayed_anyway() {
     let site = site::build().expect("the reference site renders");
     let mut classes: Vec<&str> = Vec::new();

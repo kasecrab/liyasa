@@ -84,16 +84,11 @@ test("search offers a page rather than a dead button", async ({ page }) => {
   await expect(page.locator('noscript a[href="/search"]')).toHaveCount(1);
 });
 
-// The theme sets `display` on three controls it also renders `hidden`, which
-// beats the browser's own `[hidden]` rule, so a reader without a script is
-// shown a search button, a page-actions trigger, and a "Copy page as Markdown"
-// button that do nothing. The fix is three `[hidden]` rules in
-// `crates/liyasa-theme/assets/css/`, which WP-11 may not write; NEEDS-INPUT
-// carries it, and `tests/web/nojs.rs` asserts the same thing without a
-// browser. `test.fail()` rather than a skip, so this turns green by itself
-// when the theme is fixed.
+// A class that sets `display` beats the browser's own `[hidden]` rule, so a
+// control the markup hides is shown anyway and a reader without a script gets
+// a button that does nothing. `tests/web/nojs.rs` asserts the same thing
+// against the stylesheet, without a browser.
 test("nothing the markup hides is shown anyway", async ({ page }) => {
-  test.fail();
   await page.goto("/");
   const shown = await page.$$eval("[hidden]", (nodes) =>
     nodes
