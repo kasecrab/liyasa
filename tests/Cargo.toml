@@ -31,3 +31,7 @@ path = "src/bin/reference_site.rs"
 [[test]]
 name = "rx_12"
 path = "budget/rx_12.rs"
+
+[[test]]
+name = "rx_14_transfer"
+path = "budget/rx_14_transfer.rs"
