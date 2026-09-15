@@ -11,8 +11,12 @@ description = "Loading, validation, defaults, and migration of `liyasa.json` (PR
 workspace = true
 
 [build-dependencies]
-typify.workspace = true
+# typify 0.8 reads schemars 0.8's draft-07 model and re-exports none of it, so
+# the version has to be named here to hand it a schema (RFC 0004). Nothing links
+# it at run time; `schemars` below is the 1.2 the workspace pins.
+schemars_typify = { package = "schemars", version = "0.8", default-features = false }
 serde_json.workspace = true
+typify.workspace = true
 
 [dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0" }

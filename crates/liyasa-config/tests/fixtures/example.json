@@ -1,0 +1,47 @@
+{
+  "$schema": "https://liyasa.dev/schema/v1/liyasa.json",
+  "name": "Acme Docs",
+  "description": "Everything you need to build with Acme.",
+  "logo": { "light": "assets/logo.svg", "dark": "assets/logo-dark.svg", "href": "https://acme.com" },
+  "favicon": { "light": "assets/favicon.svg" },
+  "theme": {
+    "preset": "aurora",
+    "colors": { "primary": "#4F46E5", "light": "#818CF8", "dark": "#3730A3" },
+    "codeTheme": { "light": "github-light", "dark": "github-dark-dimmed" },
+    "fonts": { "heading": { "family": "Inter", "weight": "600 700" }, "body": { "family": "Inter" } },
+    "appearance": { "default": "system" },
+    "css": ["theme/custom.css"]
+  },
+  "navbar": {
+    "links": [{ "label": "Support", "href": "https://acme.com/support" }],
+    "primary": { "type": "button", "label": "Dashboard", "href": "https://app.acme.com" }
+  },
+  "navigation": [
+    { "tab": "Guides", "pages": [
+      { "group": "Get started", "expanded": true, "pages": ["index", "getting-started/quickstart", "getting-started/install"] },
+      { "directory": "guides" }
+    ]},
+    { "tab": "API reference", "pages": [
+      "api-reference/introduction",
+      { "openapi": "api", "groupBy": "tag" }
+    ]},
+    { "tab": "Changelog", "pages": ["changelog"] }
+  ],
+  "footer": { "socials": { "github": "https://github.com/acme", "x": "https://x.com/acme" }, "branding": false },
+  "seo": { "canonicalOrigin": "https://docs.acme.com", "indexing": "navigable" },
+  "versions": [{ "name": "v2", "default": true, "label": "latest" }, { "name": "v1", "label": "deprecated" }],
+  "locales": [{ "code": "en", "default": true }, { "code": "de" }],
+  "openapi": [{ "id": "api", "source": "openapi/api.yaml", "baseUrl": "https://api.acme.com" }],
+  "redirects": { "rules": [{ "source": "/docs/old/:slug", "destination": "/guides/:slug" }], "externalAllow": [] },
+  "verify": {
+    "policy": { "code": "error", "facts": "error", "links": "warn", "screenshots": "warn" },
+    "runners": { "sandbox": "container" },
+    "http": { "target": "mock" }
+  },
+  "ai": {
+    "assistant": { "enabled": true, "name": "Acme Assistant", "sampleQuestions": ["How do I authenticate?"] },
+    "models": { "assistant": "anthropic:claude-sonnet-5", "agent": "anthropic:claude-opus-5", "embeddings": "openai:text-embedding-3-small" }
+  },
+  "agents": { "llms": { "full": true }, "mcp": { "enabled": true } },
+  "regions": { "enabled": false }
+}
