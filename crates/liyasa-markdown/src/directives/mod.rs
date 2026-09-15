@@ -4,4 +4,5 @@
 //! comrak 0.55 owns container segmentation, so this module parses what comrak
 //! hands over and scans the two forms comrak does not know about.
 
+pub mod info;
 pub mod props;
