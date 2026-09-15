@@ -2,19 +2,23 @@
 //
 // The gate is performance at or above 98 and accessibility, best practices,
 // and SEO at exactly 100; the target is 100 in all four. Every run appends its
-// exact scores to `trend/lighthouse.jsonl`, so a one-point performance
-// regression is visible in the trend without failing the release.
+// exact scores to `trend/lighthouse.jsonl` and reports any category that
+// scored lower than the last run of the same route, so a one-point performance
+// regression is visible in the trend without failing the release. The gate and
+// the comparison are in `trend.ts`, where `test/trend.test.ts` can reach them.
 //
 // Lighthouse is part of the companion runtime (§6.12) rather than a dependency
 // of this package: when it is not installed the spec skips with the command
 // that installs it instead of failing a suite that has nothing to measure.
 
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 import { expect, test } from "@playwright/test";
 
-const GATE = { performance: 98, accessibility: 100, "best-practices": 100, seo: 100 };
+import { CATEGORIES, below, line, parse, slipped } from "./trend.ts";
+import type { Run, Scores } from "./trend.ts";
+
 const ROUTES = ["/", "/guide/install"];
 const TREND = new URL("trend/lighthouse.jsonl", import.meta.url);
 
@@ -53,12 +57,17 @@ function commit(): string {
   }
 }
 
-function record(route: string, scores: Record<string, number>): void {
+function history(): Run[] {
+  try {
+    return parse(readFileSync(TREND, "utf8"));
+  } catch {
+    return [];
+  }
+}
+
+function record(route: string, scores: Scores): void {
   mkdirSync(new URL(".", TREND), { recursive: true });
-  appendFileSync(
-    TREND,
-    `${JSON.stringify({ at: new Date().toISOString(), commit: commit(), route, ...scores })}\n`,
-  );
+  appendFileSync(TREND, line(route, scores, commit(), new Date().toISOString()));
 }
 
 test.describe("lighthouse", () => {
@@ -73,6 +82,7 @@ test.describe("lighthouse", () => {
       );
       if (tools === null) return;
 
+      const before = history();
       const chrome = await tools.launch({ chromeFlags: ["--headless=new", "--no-sandbox"] });
       try {
         const { lhr } = await tools.lighthouse.default(`${baseURL}${route}`, {
@@ -81,16 +91,17 @@ test.describe("lighthouse", () => {
           logLevel: "error",
         });
         const scores = Object.fromEntries(
-          Object.keys(GATE).map((name) => [
-            name,
-            Math.round((lhr.categories[name]?.score ?? 0) * 100),
-          ]),
-        );
+          CATEGORIES.map((name) => [name, Math.round((lhr.categories[name]?.score ?? 0) * 100)]),
+        ) as Scores;
         record(route, scores);
 
-        for (const [name, floor] of Object.entries(GATE)) {
-          expect(scores[name], `${name} on \`${route}\``).toBeGreaterThanOrEqual(floor);
+        // Visible in the report, and not a failure: a score over the gate that
+        // slipped is a trend to watch, not a release to block.
+        for (const slip of slipped(before, route, scores)) {
+          test.info().annotations.push({ type: "trend", description: `${route}: ${slip}` });
         }
+
+        expect(below(scores), `\`${route}\``).toEqual([]);
       } finally {
         await chrome.kill();
       }
