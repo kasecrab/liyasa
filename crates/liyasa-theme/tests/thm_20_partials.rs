@@ -3,7 +3,6 @@
 
 use std::collections::BTreeMap;
 
-use liyasa_theme::config::ThemeConfig;
 use liyasa_theme::context::{Mode, RenderContext, partial_names};
 use liyasa_theme::theme::{Overrides, Theme};
 
@@ -12,7 +11,7 @@ fn rendered_with(partial: &str, source: &str) -> String {
         partials: BTreeMap::from([(partial.to_owned(), source.to_owned())]),
         ..Overrides::default()
     };
-    let theme = Theme::with_overrides(&ThemeConfig::default(), &overrides)
+    let theme = Theme::with_overrides(&overrides)
         .unwrap_or_else(|error| panic!("`{partial}` override loads: {error}"));
     theme
         .render_page(&RenderContext::sample())
@@ -32,8 +31,7 @@ fn every_partial_thm_20_names_is_overridable() {
                 )]),
                 ..Overrides::default()
             };
-            let theme = Theme::with_overrides(&ThemeConfig::default(), &overrides)
-                .expect("the override loads");
+            let theme = Theme::with_overrides(&overrides).expect("the override loads");
             let html = theme
                 .render_partial(partial, &RenderContext::sample())
                 .expect("the partial renders");
@@ -51,7 +49,7 @@ fn every_partial_thm_20_names_is_overridable() {
 
 #[test]
 fn the_default_partial_is_used_when_there_is_no_override() {
-    let theme = Theme::new(&ThemeConfig::default()).expect("the theme builds");
+    let theme = Theme::new().expect("the theme builds");
     let html = theme
         .render_page(&RenderContext::sample())
         .expect("the page renders");
@@ -81,8 +79,7 @@ fn an_operator_can_add_a_mode() {
         )]),
         ..Overrides::default()
     };
-    let theme =
-        Theme::with_overrides(&ThemeConfig::default(), &overrides).expect("the layout loads");
+    let theme = Theme::with_overrides(&overrides).expect("the layout loads");
     let mut context = RenderContext::sample();
     context.page.mode = Mode::parse("gallery");
     let html = theme.render_page(&context).expect("the new mode renders");
@@ -96,8 +93,7 @@ fn an_operator_can_replace_a_built_in_layout() {
         layouts: BTreeMap::from([("wide".to_owned(), "<p>ours</p>".to_owned())]),
         ..Overrides::default()
     };
-    let theme =
-        Theme::with_overrides(&ThemeConfig::default(), &overrides).expect("the layout loads");
+    let theme = Theme::with_overrides(&overrides).expect("the layout loads");
     let mut context = RenderContext::sample();
     context.page.mode = Mode::Wide;
     assert_eq!(
@@ -108,7 +104,7 @@ fn an_operator_can_replace_a_built_in_layout() {
 
 #[test]
 fn a_mode_with_no_layout_is_a_diagnostic_not_a_panic() {
-    let theme = Theme::new(&ThemeConfig::default()).expect("the theme builds");
+    let theme = Theme::new().expect("the theme builds");
     let mut context = RenderContext::sample();
     context.page.mode = Mode::parse("nonexistent");
     let error = theme
@@ -125,8 +121,7 @@ fn a_broken_override_is_a_diagnostic_naming_the_partial() {
         partials: BTreeMap::from([("footer".to_owned(), "{% for %}".to_owned())]),
         ..Overrides::default()
     };
-    let error = Theme::with_overrides(&ThemeConfig::default(), &overrides)
-        .expect_err("a syntax error is reported");
+    let error = Theme::with_overrides(&overrides).expect_err("a syntax error is reported");
     let diagnostic = error.diagnostic();
     assert_eq!(diagnostic.code.as_str(), "E0202");
     assert!(

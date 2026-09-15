@@ -1,7 +1,6 @@
 //! CFG-71: the 404 page is a page of the site, and it never invites a crawler
 //! to index it.
 
-use liyasa_theme::config::ThemeConfig;
 use liyasa_theme::context::{RenderContext, Site};
 use liyasa_theme::strings::Strings;
 use liyasa_theme::theme::Theme;
@@ -13,7 +12,7 @@ fn site() -> Site {
 #[test]
 fn the_error_page_renders_with_the_sites_chrome() {
     let context = RenderContext::not_found(site(), Strings::default());
-    let html = Theme::new(&ThemeConfig::default())
+    let html = Theme::new()
         .expect("the theme builds")
         .render_page(&context)
         .expect("the 404 page renders");
@@ -33,7 +32,7 @@ fn the_error_page_renders_with_the_sites_chrome() {
 #[test]
 fn the_error_page_is_not_indexed_and_asks_for_no_feedback() {
     let context = RenderContext::not_found(site(), Strings::default());
-    let html = Theme::new(&ThemeConfig::default())
+    let html = Theme::new()
         .expect("the theme builds")
         .render_page(&context)
         .expect("the 404 page renders");
@@ -46,7 +45,7 @@ fn an_operators_own_body_replaces_the_default_text() {
     let mut context = RenderContext::not_found(site(), Strings::default());
     context.page.title = "Nothing here".to_owned();
     context.set_content("<p>Try the <a href=\"/search\">search</a>.</p>");
-    let html = Theme::new(&ThemeConfig::default())
+    let html = Theme::new()
         .expect("the theme builds")
         .render_page(&context)
         .expect("the 404 page renders");
@@ -66,7 +65,7 @@ fn every_string_on_it_is_rebrandable() {
         ..Strings::default()
     };
     let context = RenderContext::not_found(site(), strings);
-    let html = Theme::new(&ThemeConfig::default())
+    let html = Theme::new()
         .expect("the theme builds")
         .render_page(&context)
         .expect("the 404 page renders");

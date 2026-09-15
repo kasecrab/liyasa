@@ -1,11 +1,10 @@
 //! The page assembles, and every mode renders (RX-01, RX-20..23, THM-21).
 
-use liyasa_theme::config::ThemeConfig;
 use liyasa_theme::context::{Mode, RenderContext};
 use liyasa_theme::theme::Theme;
 
 fn theme() -> Theme {
-    Theme::new(&ThemeConfig::default()).expect("the default theme builds")
+    Theme::new().expect("the default theme builds")
 }
 
 #[test]

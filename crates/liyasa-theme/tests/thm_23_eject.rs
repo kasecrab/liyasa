@@ -3,7 +3,6 @@
 
 use std::collections::BTreeMap;
 
-use liyasa_theme::config::ThemeConfig;
 use liyasa_theme::context::partial_names;
 use liyasa_theme::theme::{Change, Overrides, Theme, diff, is_changed};
 
@@ -20,7 +19,7 @@ fn every_partial_can_be_ejected_to_a_path_the_theme_reads_back() {
             partials: BTreeMap::from([(partial.to_owned(), source.to_owned())]),
             ..Overrides::default()
         };
-        let theme = Theme::with_overrides(&ThemeConfig::default(), &overrides)
+        let theme = Theme::with_overrides(&overrides)
             .unwrap_or_else(|error| panic!("the ejected `{partial}` loads: {error}"));
         assert!(theme.is_overridden(partial));
     }

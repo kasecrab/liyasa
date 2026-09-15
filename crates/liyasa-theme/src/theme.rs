@@ -17,7 +17,6 @@ use minijinja::{
     escape_formatter,
 };
 
-use crate::config::ThemeConfig;
 use crate::context::{Mode, RenderContext, partial_names};
 use crate::strings::Strings;
 
@@ -133,13 +132,16 @@ impl std::fmt::Debug for Theme {
 
 impl Theme {
     /// The theme as it ships.
-    pub fn new(config: &ThemeConfig) -> Result<Self, ThemeError> {
-        Self::with_overrides(config, &Overrides::default())
+    pub fn new() -> Result<Self, ThemeError> {
+        Self::with_overrides(&Overrides::default())
     }
 
     /// The theme with an operator's overrides applied (THM-20, THM-21).
-    pub fn with_overrides(config: &ThemeConfig, overrides: &Overrides) -> Result<Self, ThemeError> {
-        let _ = config;
+    ///
+    /// The overrides are the files under `theme/partials/` and
+    /// `theme/layouts/`; reading them is the build's, because the theme does no
+    /// I/O of its own.
+    pub fn with_overrides(overrides: &Overrides) -> Result<Self, ThemeError> {
         let mut env = Environment::new();
         env.set_auto_escape_callback(|_| AutoEscape::Html);
         env.set_formatter(format_html);

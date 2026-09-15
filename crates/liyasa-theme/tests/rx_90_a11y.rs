@@ -8,7 +8,7 @@ use liyasa_theme::theme::Theme;
 use liyasa_theme::tokens::Tokens;
 
 fn page() -> String {
-    Theme::new(&ThemeConfig::default())
+    Theme::new()
         .expect("the theme builds")
         .render_page(&RenderContext::sample())
         .expect("the page renders")

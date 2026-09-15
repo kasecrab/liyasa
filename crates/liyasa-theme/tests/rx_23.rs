@@ -1,12 +1,11 @@
 //! RX-23: the right rail holds the table of contents, and a `:::panel`
 //! replaces its contents.
 
-use liyasa_theme::config::ThemeConfig;
 use liyasa_theme::context::{Mode, RenderContext};
 use liyasa_theme::theme::Theme;
 
 fn render(context: &RenderContext) -> String {
-    Theme::new(&ThemeConfig::default())
+    Theme::new()
         .expect("the theme builds")
         .render_page(context)
         .expect("the page renders")

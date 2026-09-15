@@ -24,7 +24,7 @@ fn attributes(html: &str) -> BTreeSet<String> {
 }
 
 fn rendered() -> BTreeSet<String> {
-    let theme = Theme::new(&ThemeConfig::default()).expect("the theme builds");
+    let theme = Theme::new().expect("the theme builds");
     let mut found = BTreeSet::new();
 
     let context = RenderContext::sample();

@@ -9,8 +9,8 @@ use liyasa_theme::stylesheet::Styles;
 use liyasa_theme::theme::Theme;
 use liyasa_theme::tokens::{Scheme as TokenScheme, Tokens, reference};
 
-fn render(config: &ThemeConfig, context: &RenderContext) -> String {
-    Theme::new(config)
+fn render(context: &RenderContext) -> String {
+    Theme::new()
         .expect("the theme builds")
         .render_page(context)
         .expect("the page renders")
@@ -18,7 +18,7 @@ fn render(config: &ThemeConfig, context: &RenderContext) -> String {
 
 #[test]
 fn the_scheme_is_decided_before_the_stylesheet_loads() {
-    let html = render(&ThemeConfig::default(), &RenderContext::sample());
+    let html = render(&RenderContext::sample());
     let bootstrap = html
         .find("data-liyasa=\"bootstrap\"")
         .expect("the bootstrap is inlined");
@@ -36,7 +36,7 @@ fn the_scheme_is_decided_before_the_stylesheet_loads() {
 fn the_inline_bootstrap_carries_the_nonce() {
     let mut context = RenderContext::sample();
     context.nonce = "abc123".to_owned();
-    let html = render(&ThemeConfig::default(), &context);
+    let html = render(&context);
     assert!(html.contains("<script nonce=\"abc123\" data-liyasa=\"bootstrap\">"));
     assert!(html.contains("<style nonce=\"abc123\" data-liyasa=\"critical\">"));
 }
@@ -54,7 +54,7 @@ fn a_strict_site_ships_neither_the_toggle_nor_its_module() {
     let mut context = RenderContext::sample();
     context.site.appearance.strict = true;
     context.site.appearance.default = "dark".to_owned();
-    let html = render(&config, &context);
+    let html = render(&context);
     assert!(!html.contains("data-ly-theme-toggle"));
     assert!(html.contains("data-ly-appearance-strict=\"true\""));
     assert!(html.contains("data-theme=\"dark\""));
@@ -97,7 +97,7 @@ fn an_image_pair_swaps_without_a_reload() {
             .contains("[data-theme=\"dark\"] [data-ly-scheme=\"light\"]")
     );
 
-    let html = render(&ThemeConfig::default(), &RenderContext::sample());
+    let html = render(&RenderContext::sample());
     assert!(html.contains("data-ly-scheme=\"light\""));
     assert!(html.contains("data-ly-scheme=\"dark\""));
 }

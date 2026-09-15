@@ -1,7 +1,6 @@
 //! RX-22: breadcrumbs match the tree, and previous and next follow navigation
 //! order across groups and tabs.
 
-use liyasa_theme::config::ThemeConfig;
 use liyasa_theme::context::RenderContext;
 use liyasa_theme::nav::{Breadcrumbs, Group, Item, Navigation, Tab};
 use liyasa_theme::theme::Theme;
@@ -70,7 +69,7 @@ fn page(route: &str) -> RenderContext {
 }
 
 fn render(route: &str) -> String {
-    Theme::new(&ThemeConfig::default())
+    Theme::new()
         .expect("the theme builds")
         .render_page(&page(route))
         .expect("the page renders")
@@ -127,7 +126,7 @@ fn the_eyebrow_replaces_the_trail_when_configured() {
     let mut context = page("/install/docker");
     context.nav.breadcrumbs = Breadcrumbs::Eyebrow;
     context.page.eyebrow = Some("Get started".to_owned());
-    let html = Theme::new(&ThemeConfig::default())
+    let html = Theme::new()
         .expect("the theme builds")
         .render_page(&context)
         .expect("the page renders");

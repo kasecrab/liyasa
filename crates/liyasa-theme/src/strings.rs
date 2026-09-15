@@ -1,8 +1,14 @@
 //! Every word the theme puts on screen (THM-40).
 //!
-//! No string is written into a template. An operator replaces any of them
-//! through `theme.strings` or a locale file, so re-branding never means
-//! ejecting a partial, and a locale never means a fork.
+//! No string is written into a template. An operator replaces any of them in
+//! `theme/strings.json`, or per locale in `theme/strings.<locale>.json`, so
+//! re-branding never means ejecting a partial and a locale never means a fork.
+//!
+//! A file rather than a config key: `schemas/liyasa.schema.json` has no
+//! `theme.strings`, the schema is the single source of truth for config keys
+//! (CFG-94), and the theme directory already holds `tokens.css`, `partials/`,
+//! and `layouts/`.
+// TODO(rfc-0012): revisit if the schema gains a key for interface strings.
 
 use std::collections::BTreeMap;
 
@@ -84,9 +90,16 @@ strings! {
 }
 
 impl Strings {
-    /// Applies `theme.strings` or a locale file. An unknown key is returned to
-    /// the caller rather than ignored, so a typo in a brand override is
-    /// reportable.
+    /// Where an operator's replacements live, relative to the project root.
+    pub const FILE: &'static str = "theme/strings.json";
+
+    /// The per-locale file for a locale, which wins over [`Strings::FILE`].
+    pub fn file_for(locale: &str) -> String {
+        format!("theme/strings.{locale}.json")
+    }
+
+    /// Applies one of those files. An unknown key is returned to the caller
+    /// rather than ignored, so a typo in a brand override is reportable.
     pub fn with_overrides(mut self, overrides: &BTreeMap<String, String>) -> (Self, Vec<String>) {
         let mut unknown = Vec::new();
         for (key, value) in overrides {
@@ -95,6 +108,32 @@ impl Strings {
             }
         }
         (self, unknown)
+    }
+}
+
+/// Why a strings file was rejected.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum StringsError {
+    #[error("`{file}` is not valid JSON: {message}")]
+    Json { file: String, message: String },
+}
+
+impl StringsError {
+    pub fn diagnostic(&self) -> liyasa_core::Diagnostic {
+        liyasa_core::Diagnostic::new(liyasa_core::diagnostics::code::E0101, self.to_string())
+    }
+}
+
+impl Strings {
+    /// Parses a strings file over these defaults, returning the keys it did not
+    /// recognize alongside the result.
+    pub fn parse(file: &str, json: &str) -> Result<(Self, Vec<String>), StringsError> {
+        let overrides: BTreeMap<String, String> =
+            serde_json::from_str(json).map_err(|error| StringsError::Json {
+                file: file.to_owned(),
+                message: error.to_string(),
+            })?;
+        Ok(Self::default().with_overrides(&overrides))
     }
 }
 
@@ -125,6 +164,21 @@ mod tests {
         assert_eq!(strings.built_with, "Docs by Acme");
         assert_eq!(strings.ask_ai, "Ask Acme");
         assert_eq!(unknown, vec!["notAKey".to_owned()]);
+    }
+
+    #[test]
+    fn a_strings_file_is_parsed_and_its_typos_reported() {
+        let (strings, unknown) = Strings::parse(
+            Strings::FILE,
+            r#"{"builtWith": "Docs by Acme", "bultWith": "typo"}"#,
+        )
+        .expect("the file parses");
+        assert_eq!(strings.built_with, "Docs by Acme");
+        assert_eq!(unknown, vec!["bultWith".to_owned()]);
+        assert_eq!(Strings::file_for("de"), "theme/strings.de.json");
+
+        let error = Strings::parse(Strings::FILE, "{").expect_err("invalid JSON is reported");
+        assert_eq!(error.diagnostic().code.as_str(), "E0101");
     }
 
     #[test]

@@ -1,7 +1,6 @@
 //! RX-01 and CMP-102: the HTML carries the whole page, no content script
 //! survives, and nothing is left for the client to render.
 
-use liyasa_theme::config::ThemeConfig;
 use liyasa_theme::context::RenderContext;
 use liyasa_theme::theme::Theme;
 
@@ -63,7 +62,7 @@ fn rendered() -> String {
                    reference, then write the first page.</p>";
     let mut context = RenderContext::sample();
     context.set_content(content);
-    Theme::new(&ThemeConfig::default())
+    Theme::new()
         .expect("the theme builds")
         .render_page(&context)
         .expect("the page renders")
@@ -132,7 +131,7 @@ fn a_script_in_content_never_reaches_the_page() {
     for diagnostic in &diagnostics {
         assert_eq!(diagnostic.code.as_str(), "E0304");
     }
-    let html = Theme::new(&ThemeConfig::default())
+    let html = Theme::new()
         .expect("the theme builds")
         .render_page(&context)
         .expect("the page renders");
