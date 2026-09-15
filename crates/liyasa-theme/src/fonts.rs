@@ -107,10 +107,8 @@ pub fn requests(fonts: &Fonts) -> (Vec<Request>, Diagnostics) {
         ("mono", &fonts.mono),
     ] {
         let Some(face) = face else { continue };
-        match request(role, face) {
-            Ok(Some(request)) => out.push(request),
-            Ok(None) => {}
-            Err(diagnostic) => diagnostics.push(diagnostic),
+        if let Some(request) = request(role, face, &mut diagnostics) {
+            out.push(request);
         }
     }
 
@@ -127,27 +125,30 @@ pub fn requests(fonts: &Fonts) -> (Vec<Request>, Diagnostics) {
     (out, diagnostics)
 }
 
-fn request(role: &str, face: &Face) -> Result<Option<Request>, Diagnostic> {
-    let Some(source) = face.source.as_deref().filter(|source| !source.is_empty()) else {
-        // A family with no source is a name for the stack, not a file to fetch.
-        return Ok(None);
-    };
+fn request(role: &str, face: &Face, diagnostics: &mut Diagnostics) -> Option<Request> {
+    // A family with no source is a name for the stack, not a file to fetch.
+    let source = face.source.as_deref().filter(|source| !source.is_empty())?;
     if source.starts_with("http://") || source.starts_with("https://") {
-        return Err(Diagnostic::new(
-            code::E0102,
-            format!("`theme.fonts.{role}.source` is a URL; give a Google Fonts family or a path in the repository"),
-        )
-        .help("fonts are downloaded at build time and served from the site's own origin (THM-32)"));
+        diagnostics.push(
+            Diagnostic::new(
+                code::E0102,
+                format!(
+                    "`theme.fonts.{role}.source` is a URL; give a Google Fonts family or a path in the repository"
+                ),
+            )
+            .help("fonts are downloaded at build time and served from the site's own origin (THM-32)"),
+        );
+        return None;
     }
     let remote = !source.contains('/') && !source.contains('.');
-    Ok(Some(Request {
+    Some(Request {
         role: role.to_owned(),
         family: face.family.clone().unwrap_or_else(|| source.to_owned()),
         source: source.to_owned(),
         weight: face.weight.as_ref().map(ToString::to_string),
         format: face.format.clone().unwrap_or_else(|| "woff2".to_owned()),
         remote,
-    }))
+    })
 }
 
 #[cfg(test)]
