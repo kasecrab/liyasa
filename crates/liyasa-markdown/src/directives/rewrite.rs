@@ -1,5 +1,5 @@
 //! The one line-based pass that runs before comrak
-//! (`plan/rfcs/0003-parser-spike.md`, `plan/rfcs/0026-a-colon-in-an-info-string.md`).
+//! (`plan/rfcs/0003-parser-spike.md`, `plan/rfcs/0303-a-colon-in-an-info-string.md`).
 //!
 //! It does two things, both of them because comrak cannot.
 //!

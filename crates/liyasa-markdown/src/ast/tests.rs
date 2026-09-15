@@ -354,7 +354,7 @@ fn malformed_pages_never_panic() {
 /// comrak 0.55 will not accept a colon anywhere in an info string, so a URL or
 /// a time in a container's props stopped the line being a directive at all.
 /// The props are taken out of the line before comrak sees it.
-/// See `plan/rfcs/0026-a-colon-in-an-info-string.md`.
+/// See `plan/rfcs/0303-a-colon-in-an-info-string.md`.
 #[test]
 fn a_container_prop_may_contain_a_colon() {
     for (source, key, value) in [

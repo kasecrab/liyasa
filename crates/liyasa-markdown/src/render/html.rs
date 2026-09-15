@@ -3,7 +3,7 @@
 //! The theme reaches this module through [`Blocks`] rather than through
 //! `Renderer` directly. The two methods of `Renderer` that matter here both
 //! need a `&mut RenderCtx`, which no crate outside `liyasa-core` can construct
-//! (`plan/rfcs/0025-render-ctx-is-unconstructible.md`), so a renderer written
+//! (`plan/rfcs/0302-render-ctx-is-unconstructible.md`), so a renderer written
 //! against `Renderer` could not be called by a test — or by anything else. The
 //! seam here is one the caller closes over its own context, which leaves the
 //! adapter in `super` as the only untestable line in the module.

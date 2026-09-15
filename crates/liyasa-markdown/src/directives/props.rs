@@ -150,7 +150,7 @@ fn pair(rest: &str) -> Result<Entry, Failure> {
     let before = gap.len() - gap.trim_start().len();
     if !gap[before..].starts_with('=') {
         // A prop with no value is the flag it looks like, as it is in the tag
-        // form and in HTML. See `plan/rfcs/0027-bare-flag-props.md`.
+        // form and in HTML. See `plan/rfcs/0304-bare-flag-props.md`.
         return Ok((key.to_owned(), PropValue::Bool(true), key_len));
     }
     let after = &gap[before + 1..];
