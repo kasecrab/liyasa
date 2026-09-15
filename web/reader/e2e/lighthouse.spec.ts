@@ -14,7 +14,7 @@
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-import { expect, test } from "@playwright/test";
+import { chromium, expect, test } from "@playwright/test";
 
 import { CATEGORIES, below, line, parse, slipped } from "./trend.ts";
 import type { Run, Scores } from "./trend.ts";
@@ -83,6 +83,10 @@ test.describe("lighthouse", () => {
       if (tools === null) return;
 
       const before = history();
+      // Lighthouse drives its own browser through chrome-launcher, which looks
+      // for a system Chrome. Point it at the one Playwright already installed
+      // rather than asking for a second browser on the machine.
+      process.env["CHROME_PATH"] ??= chromium.executablePath();
       const chrome = await tools.launch({ chromeFlags: ["--headless=new", "--no-sandbox"] });
       try {
         const { lhr } = await tools.lighthouse.default(`${baseURL}${route}`, {
