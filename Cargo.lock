@@ -1008,6 +1008,7 @@ name = "liyasa-build"
 version = "0.1.0"
 dependencies = [
  "liyasa-components",
+ "liyasa-config",
  "liyasa-core",
  "serde",
  "serde_json",
