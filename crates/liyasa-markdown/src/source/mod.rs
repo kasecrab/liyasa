@@ -7,6 +7,7 @@ pub mod filters;
 mod format;
 pub(crate) mod lines;
 pub mod mask;
+pub mod mdx;
 mod normalize;
 pub mod yaml;
 
@@ -19,6 +20,7 @@ mod wellformed;
 pub use escape::escape_untrusted_markdown;
 pub use expand::{Budget, ExpandOptions, Undefined, environment, expand, expand_with};
 pub use format::{FormatOptions, format, format_with, is_formatted};
+pub use mdx::from_mdx;
 pub use normalize::normalize;
 pub use route::{Ignore, external_of, href, is_routable, route_of};
 pub use scan::{body_start, scan};
