@@ -85,9 +85,12 @@ fn every_expected_diagnostic_is_raised() {
     assert!(failures.is_empty(), "\n{}", failures.join("\n"));
 }
 
-/// A case with no `diagnostics` section is one nobody has claimed raises
-/// anything; a registry-free diagnostic there is a rule that started firing
-/// unnoticed.
+/// A diagnostic nobody claimed is a rule that started firing unnoticed.
+///
+/// A case that writes a `diagnostics` section, even an empty one, has been
+/// looked at, so it is held to every code the parser raises. A case without one
+/// is held only to the codes that do not depend on a registry, because the
+/// corpus names components for illustration and ships no schema for them.
 #[test]
 fn no_case_raises_an_unclaimed_error() {
     let mut surprises = Vec::new();
@@ -104,12 +107,22 @@ fn no_case_raises_an_unclaimed_error() {
         {
             continue;
         }
-        let expected = case.diagnostics.clone().unwrap_or_default();
+        let held_to = if case.diagnostics.is_some() {
+            RAISED_HERE
+        } else {
+            REGISTRY_FREE
+        };
+        let mut expected = case.diagnostics.clone().unwrap_or_default();
         for raised in run(&case) {
-            if !REGISTRY_FREE.contains(&raised.as_str()) || expected.contains(&raised) {
+            if !held_to.contains(&raised.as_str()) {
                 continue;
             }
-            surprises.push(format!("{}: unexpected {raised}", case.id));
+            match expected.iter().position(|want| *want == raised) {
+                Some(at) => {
+                    expected.remove(at);
+                }
+                None => surprises.push(format!("{}: unexpected {raised}", case.id)),
+            }
         }
     }
     assert!(surprises.is_empty(), "\n{}", surprises.join("\n"));
