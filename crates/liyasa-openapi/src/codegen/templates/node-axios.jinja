@@ -1,0 +1,38 @@
+import axios from "axios";
+{% if req.body and req.body.kind == "multipart" %}
+const form = new FormData();
+{%- for field in req.body.fields %}
+form.append({{ field.name | dquote }}, {{ ("new File([], " ~ (field.value | dquote) ~ ")") if field.file else (field.value | dquote) }});
+{%- endfor %}
+{% endif %}
+const response = await axios({
+  method: {{ req.method | lower | dquote }},
+  url: {{ req.url | dquote }},
+{%- if req.headers or req.cookieHeader %}
+  headers: {
+{%- for header in req.headers %}
+    {{ header.name | dquote }}: {{ header.value | dquote }},
+{%- endfor %}
+{%- if req.cookieHeader %}
+    "Cookie": {{ req.cookieHeader | dquote }},
+{%- endif %}
+  },
+{%- endif %}
+{%- if req.body %}
+{%- if req.body.kind == "json" %}
+  data: {{ req.body.text | indent(2) }},
+{%- elif req.body.kind == "multipart" %}
+  data: form,
+{%- elif req.body.kind == "form" %}
+  data: new URLSearchParams({
+{%- for field in req.body.fields %}
+    {{ field.name | dquote }}: {{ field.value | dquote }},
+{%- endfor %}
+  }),
+{%- else %}
+  data: {{ req.body.text | dquote }},
+{%- endif %}
+{%- endif %}
+});
+
+console.log(response.data);

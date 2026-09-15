@@ -1,0 +1,26 @@
+package main
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+)
+
+func main() {
+	request, err := http.NewRequest("GET", "https://api.example.com/v1/search?q=red%20widget&limit=10&tags=new", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		panic(err)
+	}
+	defer response.Body.Close()
+
+	payload, err := io.ReadAll(response.Body)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(payload))
+}

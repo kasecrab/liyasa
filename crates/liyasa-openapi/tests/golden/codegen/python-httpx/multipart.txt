@@ -1,0 +1,11 @@
+import httpx
+
+url = "https://api.example.com/v1/uploads"
+payload = {
+    "file": open("file.bin", "rb"),
+    "caption": "A photo",
+}
+
+with httpx.Client() as client:
+    response = client.request("POST", url, files=payload)
+    print(response.json())

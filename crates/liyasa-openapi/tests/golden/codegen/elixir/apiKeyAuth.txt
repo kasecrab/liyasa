@@ -1,0 +1,12 @@
+headers = [
+  {"X-API-Key", "$API_KEY"},
+]
+
+response =
+  Req.request!(
+    method: :get,
+    url: "https://api.example.com/v1/keys",
+    headers: headers
+  )
+
+IO.inspect(response.body)

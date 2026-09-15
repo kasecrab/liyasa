@@ -1,0 +1,8 @@
+import axios from "axios";
+
+const response = await axios({
+  method: "get",
+  url: "https://api.example.com/v1/search?q=red%20widget&limit=10&tags=new",
+});
+
+console.log(response.data);

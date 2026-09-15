@@ -1,0 +1,11 @@
+use reqwest::Client;
+
+let client = Client::new();
+let response = client
+    .request(reqwest::Method::GET, "https://api.example.com/v1/trace")
+    .header("X-Request-Id", "00000000-0000-0000-0000-000000000000")
+    .header("Cookie", "session=s_1")
+    .send()
+    .await?;
+
+println!("{}", response.text().await?);

@@ -1,0 +1,6 @@
+curl -X {{ req.method }} {{ req.url | shell }}{% for header in req.headers %} \
+  -H {{ (header.name ~ ": " ~ header.value) | shell }}{% endfor %}{% if req.cookieHeader %} \
+  -H {{ ("Cookie: " ~ req.cookieHeader) | shell }}{% endif %}{% if req.body %}{% if req.body.kind == "multipart" %}{% for field in req.body.fields %} \
+  -F {{ (field.name ~ "=" ~ ("@" ~ field.value if field.file else field.value)) | shell }}{% endfor %}{% elif req.body.kind == "form" %}{% for field in req.body.fields %} \
+  --data-urlencode {{ (field.name ~ "=" ~ field.value) | shell }}{% endfor %}{% else %} \
+  -d {{ req.body.text | shell }}{% endif %}{% endif %}

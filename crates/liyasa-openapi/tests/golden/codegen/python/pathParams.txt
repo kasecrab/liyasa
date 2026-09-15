@@ -1,0 +1,6 @@
+import requests
+
+url = "https://api.example.com/v1/users/u_1/notes/7"
+
+response = requests.request("GET", url)
+print(response.json())

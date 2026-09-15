@@ -1,0 +1,9 @@
+using System.Net.Http;
+
+using var client = new HttpClient();
+using var request = new HttpRequestMessage(new HttpMethod("GET"), "https://api.example.com/v1/trace");
+request.Headers.Add("X-Request-Id", "00000000-0000-0000-0000-000000000000");
+request.Headers.Add("Cookie", "session=s_1");
+
+var response = await client.SendAsync(request);
+Console.WriteLine(await response.Content.ReadAsStringAsync());

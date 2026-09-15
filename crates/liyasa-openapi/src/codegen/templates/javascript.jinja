@@ -1,0 +1,37 @@
+{%- if req.body and req.body.kind == "multipart" %}
+const form = new FormData();
+{%- for field in req.body.fields %}
+form.append({{ field.name | dquote }}, {{ ("new File([], " ~ (field.value | dquote) ~ ")") if field.file else (field.value | dquote) }});
+{%- endfor %}
+
+{% endif -%}
+const response = await fetch({{ req.url | dquote }}, {
+  method: {{ req.method | dquote }},
+{%- if req.headers or req.cookieHeader %}
+  headers: {
+{%- for header in req.headers %}
+    {{ header.name | dquote }}: {{ header.value | dquote }},
+{%- endfor %}
+{%- if req.cookieHeader %}
+    "Cookie": {{ req.cookieHeader | dquote }},
+{%- endif %}
+  },
+{%- endif %}
+{%- if req.body %}
+{%- if req.body.kind == "json" %}
+  body: JSON.stringify({{ req.body.text | indent(2) }}),
+{%- elif req.body.kind == "form" %}
+  body: new URLSearchParams({
+{%- for field in req.body.fields %}
+    {{ field.name | dquote }}: {{ field.value | dquote }},
+{%- endfor %}
+  }),
+{%- elif req.body.kind == "multipart" %}
+  body: form,
+{%- else %}
+  body: {{ req.body.text | dquote }},
+{%- endif %}
+{%- endif %}
+});
+
+const data = await response.json();

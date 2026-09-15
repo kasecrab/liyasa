@@ -1,0 +1,11 @@
+require "net/http"
+require "uri"
+
+uri = URI("https://api.example.com/v1/keys")
+request = Net::HTTP::Get.new(uri)
+request["X-API-Key"] = "$API_KEY"
+
+response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|
+  http.request(request)
+end
+puts response.body

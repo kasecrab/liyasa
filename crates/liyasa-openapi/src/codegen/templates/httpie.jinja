@@ -1,0 +1,6 @@
+http {{ req.method }} {{ req.url | shell }}{% for header in req.headers %} \
+  {{ (header.name ~ ":" ~ header.value) | shell }}{% endfor %}{% if req.cookieHeader %} \
+  {{ ("Cookie:" ~ req.cookieHeader) | shell }}{% endif %}{% if req.body %}{% if req.body.kind == "multipart" %}{% for field in req.body.fields %} \
+  {{ (field.name ~ ("@" if field.file else "=") ~ field.value) | shell }}{% endfor %}{% elif req.body.kind == "form" %} --form{% for field in req.body.fields %} \
+  {{ (field.name ~ "=" ~ field.value) | shell }}{% endfor %}{% else %} \
+  --raw {{ req.body.text | shell }}{% endif %}{% endif %}

@@ -1,0 +1,10 @@
+import requests
+
+url = "https://api.example.com/v1/uploads"
+payload = {
+    "file": open("file.bin", "rb"),
+    "caption": "A photo",
+}
+
+response = requests.request("POST", url, files=payload)
+print(response.json())

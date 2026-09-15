@@ -1,0 +1,3 @@
+curl -X GET 'https://api.example.com/v1/trace' \
+  -H 'X-Request-Id: 00000000-0000-0000-0000-000000000000' \
+  -H 'Cookie: session=s_1'

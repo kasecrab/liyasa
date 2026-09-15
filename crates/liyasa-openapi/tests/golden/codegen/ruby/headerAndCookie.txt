@@ -1,0 +1,12 @@
+require "net/http"
+require "uri"
+
+uri = URI("https://api.example.com/v1/trace")
+request = Net::HTTP::Get.new(uri)
+request["X-Request-Id"] = "00000000-0000-0000-0000-000000000000"
+request["Cookie"] = "session=s_1"
+
+response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|
+  http.request(request)
+end
+puts response.body

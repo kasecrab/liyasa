@@ -1,0 +1,2 @@
+http GET 'https://api.example.com/v1/keys' \
+  'X-API-Key:$API_KEY'

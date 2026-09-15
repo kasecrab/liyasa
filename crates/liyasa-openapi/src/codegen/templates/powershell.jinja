@@ -1,0 +1,18 @@
+{%- set wire = req.headers | selectattr("name", "ne", "Content-Type") | list -%}
+{%- if wire or req.cookieHeader %}
+$headers = @{
+{%- for header in wire %}
+    {{ header.name | dquote }} = {{ header.value | dquote }}
+{%- endfor %}
+{%- if req.cookieHeader %}
+    "Cookie" = {{ req.cookieHeader | dquote }}
+{%- endif %}
+}
+{%- endif %}
+{%- if req.body %}
+$body = @'
+{{ req.body.text }}
+'@
+{%- endif %}
+
+Invoke-RestMethod -Method {{ req.method }} -Uri {{ req.url | dquote }}{% if wire or req.cookieHeader %} -Headers $headers{% endif %}{% if req.body %} -ContentType {{ req.body.mediaType | dquote }} -Body $body{% endif %}

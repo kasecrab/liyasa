@@ -1,0 +1,23 @@
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+HttpRequest request = HttpRequest.newBuilder()
+    .uri(URI.create({{ req.url | dquote }}))
+{%- for header in req.headers %}
+    .header({{ header.name | dquote }}, {{ header.value | dquote }})
+{%- endfor %}
+{%- if req.cookieHeader %}
+    .header("Cookie", {{ req.cookieHeader | dquote }})
+{%- endif %}
+{%- if req.body %}
+    .method({{ req.method | dquote }}, HttpRequest.BodyPublishers.ofString({{ req.body.text | dquote }}))
+{%- else %}
+    .method({{ req.method | dquote }}, HttpRequest.BodyPublishers.noBody())
+{%- endif %}
+    .build();
+
+HttpResponse<String> response = HttpClient.newHttpClient()
+    .send(request, HttpResponse.BodyHandlers.ofString());
+System.out.println(response.body());

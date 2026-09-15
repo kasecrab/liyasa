@@ -1,0 +1,10 @@
+import httpx
+
+url = "https://api.example.com/v1/me"
+headers = {
+    "Authorization": "Bearer $ACCESS_TOKEN",
+}
+
+with httpx.Client() as client:
+    response = client.request("GET", url, headers=headers)
+    print(response.json())

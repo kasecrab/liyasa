@@ -1,0 +1,22 @@
+{%- if req.headers or req.cookieHeader %}
+headers = [
+{%- for header in req.headers %}
+  {{ "{" }}{{ header.name | dquote }}, {{ header.value | dquote }}{{ "}" }},
+{%- endfor %}
+{%- if req.cookieHeader %}
+  {{ "{" }}"Cookie", {{ req.cookieHeader | dquote }}{{ "}" }},
+{%- endif %}
+]
+{%- else %}
+headers = []
+{%- endif %}
+
+response =
+  Req.request!(
+    method: :{{ req.method | lower }},
+    url: {{ req.url | dquote }},
+    headers: headers{% if req.body %},
+    body: {{ req.body.text | dquote }}{% endif %}
+  )
+
+IO.inspect(response.body)

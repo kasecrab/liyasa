@@ -1,0 +1,10 @@
+require "net/http"
+require "uri"
+
+uri = URI("https://api.example.com/v1/search?q=red%20widget&limit=10&tags=new")
+request = Net::HTTP::Get.new(uri)
+
+response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|
+  http.request(request)
+end
+puts response.body

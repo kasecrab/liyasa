@@ -1,0 +1,8 @@
+import Foundation
+
+var request = URLRequest(url: URL(string: "https://api.example.com/v1/me")!)
+request.httpMethod = "GET"
+request.setValue("Bearer $ACCESS_TOKEN", forHTTPHeaderField: "Authorization")
+
+let (data, _) = try await URLSession.shared.data(for: request)
+print(String(data: data, encoding: .utf8) ?? "")

@@ -1,0 +1,9 @@
+use reqwest::Client;
+
+let client = Client::new();
+let response = client
+    .request(reqwest::Method::GET, "https://api.example.com/v1/users/u_1/notes/7")
+    .send()
+    .await?;
+
+println!("{}", response.text().await?);

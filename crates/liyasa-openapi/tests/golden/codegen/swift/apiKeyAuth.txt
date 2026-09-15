@@ -1,0 +1,8 @@
+import Foundation
+
+var request = URLRequest(url: URL(string: "https://api.example.com/v1/keys")!)
+request.httpMethod = "GET"
+request.setValue("$API_KEY", forHTTPHeaderField: "X-API-Key")
+
+let (data, _) = try await URLSession.shared.data(for: request)
+print(String(data: data, encoding: .utf8) ?? "")

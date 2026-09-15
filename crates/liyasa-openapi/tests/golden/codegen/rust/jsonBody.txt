@@ -1,0 +1,11 @@
+use reqwest::Client;
+
+let client = Client::new();
+let response = client
+    .request(reqwest::Method::POST, "https://api.example.com/v1/notes")
+    .header("Content-Type", "application/json")
+    .body("{\n  \"text\": \"It's here\",\n  \"pinned\": true,\n  \"tags\": [\n    \"new\"\n  ]\n}")
+    .send()
+    .await?;
+
+println!("{}", response.text().await?);

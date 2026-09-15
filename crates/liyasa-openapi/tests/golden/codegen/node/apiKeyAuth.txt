@@ -1,0 +1,11 @@
+import axios from "axios";
+
+const response = await axios({
+  method: "get",
+  url: "https://api.example.com/v1/keys",
+  headers: {
+    "X-API-Key": "$API_KEY",
+  },
+});
+
+console.log(response.data);

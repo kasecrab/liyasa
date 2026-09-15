@@ -1,0 +1,9 @@
+curl -X POST 'https://api.example.com/v1/notes' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "text": "It'\''s here",
+  "pinned": true,
+  "tags": [
+    "new"
+  ]
+}'

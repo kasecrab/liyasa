@@ -1,0 +1,30 @@
+using System.Net.Http;
+
+using var client = new HttpClient();
+using var request = new HttpRequestMessage(new HttpMethod({{ req.method | dquote }}), {{ req.url | dquote }});
+{%- for header in req.headers %}
+{%- if header.name != "Content-Type" %}
+request.Headers.Add({{ header.name | dquote }}, {{ header.value | dquote }});
+{%- endif %}
+{%- endfor %}
+{%- if req.cookieHeader %}
+request.Headers.Add("Cookie", {{ req.cookieHeader | dquote }});
+{%- endif %}
+{%- if req.body %}
+{%- if req.body.kind == "multipart" %}
+var content = new MultipartFormDataContent();
+{%- for field in req.body.fields %}
+{%- if field.file %}
+content.Add(new StreamContent(File.OpenRead({{ field.value | dquote }})), {{ field.name | dquote }}, {{ field.value | dquote }});
+{%- else %}
+content.Add(new StringContent({{ field.value | dquote }}), {{ field.name | dquote }});
+{%- endif %}
+{%- endfor %}
+request.Content = content;
+{%- else %}
+request.Content = new StringContent({{ req.body.text | dquote }}, System.Text.Encoding.UTF8, {{ req.body.mediaType | dquote }});
+{%- endif %}
+{%- endif %}
+
+var response = await client.SendAsync(request);
+Console.WriteLine(await response.Content.ReadAsStringAsync());

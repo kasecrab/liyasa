@@ -1,0 +1,13 @@
+headers = [
+  {"X-Request-Id", "00000000-0000-0000-0000-000000000000"},
+  {"Cookie", "session=s_1"},
+]
+
+response =
+  Req.request!(
+    method: :get,
+    url: "https://api.example.com/v1/trace",
+    headers: headers
+  )
+
+IO.inspect(response.body)

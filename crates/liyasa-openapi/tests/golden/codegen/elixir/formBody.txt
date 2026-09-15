@@ -1,0 +1,13 @@
+headers = [
+  {"Content-Type", "application/x-www-form-urlencoded"},
+]
+
+response =
+  Req.request!(
+    method: :post,
+    url: "https://api.example.com/v1/subscribe",
+    headers: headers,
+    body: "email=user%40example.com&plan=free"
+  )
+
+IO.inspect(response.body)

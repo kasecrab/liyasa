@@ -1,0 +1,14 @@
+import httpx
+
+url = "https://api.example.com/v1/subscribe"
+headers = {
+    "Content-Type": "application/x-www-form-urlencoded",
+}
+payload = {
+    "email": "user@example.com",
+    "plan": "free",
+}
+
+with httpx.Client() as client:
+    response = client.request("POST", url, headers=headers, data=payload)
+    print(response.json())

@@ -1,0 +1,6 @@
+import requests
+
+url = "https://api.example.com/v1/search?q=red%20widget&limit=10&tags=new"
+
+response = requests.request("GET", url)
+print(response.json())

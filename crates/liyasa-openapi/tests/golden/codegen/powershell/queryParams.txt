@@ -1,0 +1,1 @@
+Invoke-RestMethod -Method GET -Uri "https://api.example.com/v1/search?q=red%20widget&limit=10&tags=new"

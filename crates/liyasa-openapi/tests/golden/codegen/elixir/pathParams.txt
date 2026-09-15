@@ -1,0 +1,10 @@
+headers = []
+
+response =
+  Req.request!(
+    method: :get,
+    url: "https://api.example.com/v1/users/u_1/notes/7",
+    headers: headers
+  )
+
+IO.inspect(response.body)

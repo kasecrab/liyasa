@@ -1,0 +1,15 @@
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+HttpRequest request = HttpRequest.newBuilder()
+    .uri(URI.create("https://api.example.com/v1/trace"))
+    .header("X-Request-Id", "00000000-0000-0000-0000-000000000000")
+    .header("Cookie", "session=s_1")
+    .method("GET", HttpRequest.BodyPublishers.noBody())
+    .build();
+
+HttpResponse<String> response = HttpClient.newHttpClient()
+    .send(request, HttpResponse.BodyHandlers.ofString());
+System.out.println(response.body());

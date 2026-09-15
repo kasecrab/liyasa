@@ -1,0 +1,18 @@
+<?php
+
+$curl = curl_init();
+
+curl_setopt_array($curl, [
+    CURLOPT_URL => "https://api.example.com/v1/trace",
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_CUSTOMREQUEST => "GET",
+    CURLOPT_HTTPHEADER => [
+        "X-Request-Id: 00000000-0000-0000-0000-000000000000",
+        "Cookie: session=s_1",
+    ],
+]);
+
+$response = curl_exec($curl);
+curl_close($curl);
+
+echo $response;

@@ -1,0 +1,8 @@
+using System.Net.Http;
+
+using var client = new HttpClient();
+using var request = new HttpRequestMessage(new HttpMethod("GET"), "https://api.example.com/v1/me");
+request.Headers.Add("Authorization", "Bearer $ACCESS_TOKEN");
+
+var response = await client.SendAsync(request);
+Console.WriteLine(await response.Content.ReadAsStringAsync());

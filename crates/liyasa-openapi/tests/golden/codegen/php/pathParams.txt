@@ -1,0 +1,14 @@
+<?php
+
+$curl = curl_init();
+
+curl_setopt_array($curl, [
+    CURLOPT_URL => "https://api.example.com/v1/users/u_1/notes/7",
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_CUSTOMREQUEST => "GET",
+]);
+
+$response = curl_exec($curl);
+curl_close($curl);
+
+echo $response;

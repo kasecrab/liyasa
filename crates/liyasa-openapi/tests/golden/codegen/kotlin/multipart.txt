@@ -1,0 +1,15 @@
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
+
+val client = OkHttpClient()
+
+val request = Request.Builder()
+    .url("https://api.example.com/v1/uploads")
+    .method("POST", "".toRequestBody("multipart/form-data".toMediaType()))
+    .build()
+
+client.newCall(request).execute().use { response ->
+    println(response.body?.string())
+}

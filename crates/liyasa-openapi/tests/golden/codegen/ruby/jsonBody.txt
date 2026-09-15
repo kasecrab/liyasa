@@ -1,0 +1,20 @@
+require "net/http"
+require "uri"
+
+uri = URI("https://api.example.com/v1/notes")
+request = Net::HTTP::Post.new(uri)
+request["Content-Type"] = "application/json"
+request.body = <<~'BODY'.chomp
+  {
+    "text": "It's here",
+    "pinned": true,
+    "tags": [
+      "new"
+    ]
+  }
+BODY
+
+response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|
+  http.request(request)
+end
+puts response.body

@@ -1,0 +1,81 @@
+package main
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+{%- if req.body %}
+{%- if req.body.kind == "multipart" %}
+	"bytes"
+	"mime/multipart"
+	"os"
+{%- else %}
+	"strings"
+{%- endif %}
+{%- endif %}
+)
+
+func main() {
+{%- if req.body and req.body.kind == "multipart" %}
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+{%- for field in req.body.fields %}
+{%- if field.file %}
+	file, err := os.Open({{ field.value | dquote }})
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	part, err := form.CreateFormFile({{ field.name | dquote }}, {{ field.value | dquote }})
+	if err != nil {
+		panic(err)
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		panic(err)
+	}
+{%- else %}
+	if err := form.WriteField({{ field.name | dquote }}, {{ field.value | dquote }}); err != nil {
+		panic(err)
+	}
+{%- endif %}
+{%- endfor %}
+	if err := form.Close(); err != nil {
+		panic(err)
+	}
+
+	request, err := http.NewRequest({{ req.method | dquote }}, {{ req.url | dquote }}, &body)
+	if err != nil {
+		panic(err)
+	}
+	request.Header.Set("Content-Type", form.FormDataContentType())
+{%- elif req.body %}
+	body := strings.NewReader({{ req.body.text | dquote }})
+	request, err := http.NewRequest({{ req.method | dquote }}, {{ req.url | dquote }}, body)
+	if err != nil {
+		panic(err)
+	}
+{%- else %}
+	request, err := http.NewRequest({{ req.method | dquote }}, {{ req.url | dquote }}, nil)
+	if err != nil {
+		panic(err)
+	}
+{%- endif %}
+{%- for header in req.headers %}
+	request.Header.Set({{ header.name | dquote }}, {{ header.value | dquote }})
+{%- endfor %}
+{%- if req.cookieHeader %}
+	request.Header.Set("Cookie", {{ req.cookieHeader | dquote }})
+{%- endif %}
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		panic(err)
+	}
+	defer response.Body.Close()
+
+	payload, err := io.ReadAll(response.Body)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(payload))
+}

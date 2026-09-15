@@ -1,0 +1,13 @@
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+HttpRequest request = HttpRequest.newBuilder()
+    .uri(URI.create("https://api.example.com/v1/search?q=red%20widget&limit=10&tags=new"))
+    .method("GET", HttpRequest.BodyPublishers.noBody())
+    .build();
+
+HttpResponse<String> response = HttpClient.newHttpClient()
+    .send(request, HttpResponse.BodyHandlers.ofString());
+System.out.println(response.body());

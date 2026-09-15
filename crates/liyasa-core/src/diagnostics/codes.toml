@@ -150,3 +150,5 @@ W0131 = { severity = "warning", crate = "liyasa-config", title = "No `seo.canoni
 E0132 = { severity = "error", crate = "liyasa-config", title = "Colour value is not one Liyasa can read" }
 E0133 = { severity = "error", crate = "liyasa-config", title = "Navigation binds a subtree to a version, locale, product, or spec that is not declared" }
 W0509 = { severity = "warning", crate = "liyasa-openapi", title = "Swagger 2.0 document converted to OpenAPI 3.1" }
+W0510 = { severity = "warning", crate = "liyasa-openapi", title = "Operation has no example for its request or response body" }
+W0511 = { severity = "warning", crate = "liyasa-openapi", title = "Spec feature not rendered by this release" }

@@ -1,0 +1,5 @@
+$headers = @{
+    "X-API-Key" = "$API_KEY"
+}
+
+Invoke-RestMethod -Method GET -Uri "https://api.example.com/v1/keys" -Headers $headers

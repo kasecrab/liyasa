@@ -1,0 +1,5 @@
+const response = await fetch("https://api.example.com/v1/users/u_1/notes/7", {
+  method: "GET",
+});
+
+const data = await response.json();

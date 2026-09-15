@@ -1,0 +1,10 @@
+const form = new FormData();
+form.append("file", new File([], "file.bin"));
+form.append("caption", "A photo");
+
+const response = await fetch("https://api.example.com/v1/uploads", {
+  method: "POST",
+  body: form,
+});
+
+const data = await response.json();

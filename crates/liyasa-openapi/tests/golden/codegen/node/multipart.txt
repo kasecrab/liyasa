@@ -1,0 +1,13 @@
+import axios from "axios";
+
+const form = new FormData();
+form.append("file", new File([], "file.bin"));
+form.append("caption", "A photo");
+
+const response = await axios({
+  method: "post",
+  url: "https://api.example.com/v1/uploads",
+  data: form,
+});
+
+console.log(response.data);

@@ -1,0 +1,11 @@
+using System.Net.Http;
+
+using var client = new HttpClient();
+using var request = new HttpRequestMessage(new HttpMethod("POST"), "https://api.example.com/v1/uploads");
+var content = new MultipartFormDataContent();
+content.Add(new StreamContent(File.OpenRead("file.bin")), "file", "file.bin");
+content.Add(new StringContent("A photo"), "caption");
+request.Content = content;
+
+var response = await client.SendAsync(request);
+Console.WriteLine(await response.Content.ReadAsStringAsync());

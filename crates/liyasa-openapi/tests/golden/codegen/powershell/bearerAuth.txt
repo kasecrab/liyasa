@@ -1,0 +1,5 @@
+$headers = @{
+    "Authorization" = "Bearer $ACCESS_TOKEN"
+}
+
+Invoke-RestMethod -Method GET -Uri "https://api.example.com/v1/me" -Headers $headers

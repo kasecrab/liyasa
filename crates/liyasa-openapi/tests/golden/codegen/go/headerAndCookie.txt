@@ -1,0 +1,28 @@
+package main
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+)
+
+func main() {
+	request, err := http.NewRequest("GET", "https://api.example.com/v1/trace", nil)
+	if err != nil {
+		panic(err)
+	}
+	request.Header.Set("X-Request-Id", "00000000-0000-0000-0000-000000000000")
+	request.Header.Set("Cookie", "session=s_1")
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		panic(err)
+	}
+	defer response.Body.Close()
+
+	payload, err := io.ReadAll(response.Body)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(payload))
+}

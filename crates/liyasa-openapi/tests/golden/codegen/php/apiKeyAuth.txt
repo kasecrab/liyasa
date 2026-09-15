@@ -1,0 +1,17 @@
+<?php
+
+$curl = curl_init();
+
+curl_setopt_array($curl, [
+    CURLOPT_URL => "https://api.example.com/v1/keys",
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_CUSTOMREQUEST => "GET",
+    CURLOPT_HTTPHEADER => [
+        "X-API-Key: \$API_KEY",
+    ],
+]);
+
+$response = curl_exec($curl);
+curl_close($curl);
+
+echo $response;
