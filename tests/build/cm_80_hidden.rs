@@ -67,6 +67,10 @@ fn site(name: &str) -> Project {
         .write(
             "internal/listed.md",
             "---\ntitle: Listed\nhidden: true\nnoindex: false\n---\n# Listed\n",
+        )
+        .write(
+            "internal/for-agents.md",
+            "---\ntitle: For agents\nhidden: true\nai: true\n---\n# For agents\n",
         );
     project
 }
@@ -148,4 +152,19 @@ fn the_manifest_says_which_pages_are_hidden() {
         .route(&liyasa_core::ids::Route::new("/"))
         .expect("the home page");
     assert!(!home.hidden);
+}
+
+#[test]
+fn ai_true_puts_a_hidden_page_back_in_the_agent_surfaces() {
+    let project = site("ai");
+    build(&project);
+    let llms = project.read_dist("llms.txt");
+    assert!(llms.contains("/internal/for-agents"), "{llms}");
+    assert!(
+        project.dist("internal/for-agents.md").exists(),
+        "its Markdown route is served again"
+    );
+    // The other switches stay off.
+    let sitemap = project.read_dist("sitemap.xml");
+    assert!(!sitemap.contains("/internal/for-agents"), "{sitemap}");
 }
