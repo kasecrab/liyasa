@@ -509,7 +509,11 @@ fn render_pages(
                 ..Reads::default()
             };
             let coordinates = Coordinates {
-                versions: page.front.versions.clone(),
+                versions: page
+                    .version
+                    .clone()
+                    .map(|version| vec![version])
+                    .unwrap_or_default(),
                 locales: page.front.locales.clone(),
                 products: page.front.product.iter().cloned().collect(),
             };

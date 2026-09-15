@@ -20,6 +20,7 @@ pub mod redirects;
 pub mod render;
 pub mod tree;
 pub mod variants;
+pub mod versions;
 pub mod watch;
 
 pub use liyasa_core::build::{

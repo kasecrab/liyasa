@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use liyasa_core::diagnostics::Diagnostics;
 use liyasa_core::frontmatter::{AiSetting, FrontmatterFields, SearchSetting};
-use liyasa_core::ids::{Fingerprint, Route};
+use liyasa_core::ids::{Fingerprint, Route, Version};
 use liyasa_core::source_map::SourceMap;
 use liyasa_core::vfs::{Vfs, VfsKind, VfsPath};
 use liyasa_markdown::source::route::{Ignore, PAGE_EXTENSIONS, is_routable, route_of};
@@ -88,7 +88,13 @@ impl Indexing {
 #[derive(Debug, Clone)]
 pub struct Page {
     pub path: VfsPath,
+    /// Where the page is served, version prefix and all.
     pub route: Route,
+    /// The route without a version prefix, which is what the version switcher
+    /// and the truth graph compare across versions (CM-91).
+    pub base_route: Route,
+    /// The version this page belongs to, once `versions::expand` has run.
+    pub version: Option<Version>,
     pub fingerprint: Fingerprint,
     pub front: FrontmatterFields,
     pub indexing: Indexing,
@@ -175,6 +181,8 @@ pub fn discover(vfs: &dyn Vfs, map: &mut SourceMap, options: &Options) -> Tree {
         let route = route_of(&path, Some(&front));
         tree.pages.push(Page {
             path,
+            base_route: route.clone(),
+            version: None,
             route,
             fingerprint,
             front,
