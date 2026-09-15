@@ -10,5 +10,6 @@ pub mod color;
 pub mod config;
 pub mod css;
 pub mod runtime;
+pub mod strings;
 pub mod stylesheet;
 pub mod tokens;

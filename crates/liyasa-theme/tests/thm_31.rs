@@ -20,7 +20,9 @@ fn compressed_len(text: &str) -> usize {
         return text.len();
     };
     if let Some(stdin) = child.stdin.as_mut() {
-        stdin.write_all(text.as_bytes()).expect("gzip accepts input");
+        stdin
+            .write_all(text.as_bytes())
+            .expect("gzip accepts input");
     }
     let output = child.wait_with_output().expect("gzip finishes");
     output.stdout.len()
