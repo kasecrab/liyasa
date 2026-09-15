@@ -1,0 +1,32 @@
+[package]
+name = "liyasa-search"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Search: section documents, the tantivy index, and the `liyasa-idx` browser format (PRD §12)."
+
+[lints]
+workspace = true
+
+[features]
+default = ["server"]
+# The tantivy half. Off for `wasm32`, where only `idx` is built
+# (plan/rfcs/0700-idx-inside-search.md).
+server = ["dep:tantivy"]
+# Dictionary-based CJK segmentation. A seam until `liyasa add dictionary`
+# can fetch one (plan/rfcs/0701-cjk-dictionaries.md); selects no crate yet.
+cjk-dict = []
+
+[dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+fst.workspace = true
+rust-stemmers.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tantivy = { workspace = true, optional = true }
+thiserror.workspace = true
+
+[dev-dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0", features = ["conformance"] }

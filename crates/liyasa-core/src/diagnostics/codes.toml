@@ -23,6 +23,7 @@
 "0700-0799" = { area = "Build, cache, assets, determinism", crate = "liyasa-build" }
 "0800-0899" = { area = "Server, auth, deployments, network", crate = "liyasa-server" }
 "0900-0999" = { area = "AI, agent, automations", crate = "liyasa-ai" }
+"1000-1099" = { area = "Search and the browser index", crate = "liyasa-search" }
 
 [codes]
 E0001 = { severity = "error", crate = "liyasa-cli", title = "Project root not found (no `liyasa.json` in this or any parent directory)" }
@@ -168,3 +169,9 @@ W0511 = { severity = "warning", crate = "liyasa-openapi", title = "Spec feature 
 W0512 = { severity = "warning", crate = "liyasa-openapi", title = "Overlay action matched nothing in the spec" }
 W0513 = { severity = "warning", crate = "liyasa-openapi", title = "Manual API page differs from the spec that describes the same path" }
 W0636 = { severity = "warning", crate = "liyasa-verify", title = "Prose rules Liyasa does not implement did not run" }
+W1001 = { severity = "warning", crate = "liyasa-search", title = "Locale has no Snowball algorithm; indexed without stemming" }
+E1002 = { severity = "error", crate = "liyasa-search", title = "Search index format is newer than this reader understands" }
+E1003 = { severity = "error", crate = "liyasa-search", title = "Search index is truncated or corrupt" }
+E1004 = { severity = "error", crate = "liyasa-search", title = "Search query is not well-formed (unbalanced quote or unknown field filter)" }
+W1005 = { severity = "warning", crate = "liyasa-search", title = "`search.boost` or `search.exclude` pattern matched no route" }
+E1006 = { severity = "error", crate = "liyasa-search", title = "CJK dictionary not installed for this locale (`liyasa add dictionary <lang>`)" }
