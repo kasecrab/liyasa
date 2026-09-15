@@ -1,14 +1,15 @@
-//! Liyasa Markdown: the Source Document, the templating pass, and the
-//! formatter (PRD §7.2, §7.3, §7.16).
+//! Liyasa Markdown (PRD §7.5, §7.16).
 //!
-//! The crate does no I/O: `scan` and `format` take text, `expand` takes a
-//! context the caller assembled, and snippets are resolved through a
-//! [`source::SnippetResolver`] the caller supplies. That is what lets the same
-//! code build for `wasm32-unknown-unknown` and run in the editor (§6.2).
+//! The crate turns a page's bytes into the two representations of §7.16: a
+//! lossless [`SourceDocument`](liyasa_core::SourceDocument) for the editor and
+//! the formatter, and a Rendered AST for the build. It performs no I/O, so it
+//! builds for `wasm32-unknown-unknown` (§6.2).
 //!
-//! The types these entry points exchange are frozen in `liyasa-core`
-//! (§34.9); this crate owns only their behaviour.
+//! The crate root is shared. WP-02 owns the file and contributes `source`;
+//! WP-03 contributes `ast`, `directives`, `render`, and `sanitize`. Append to
+//! it; do not rewrite it. `plan/rfcs/0004-markdown-crate-skeleton.md` records
+//! how the two halves met.
 
 pub mod source;
 
-pub use source::normalize;
+pub use source::{normalize, scan};

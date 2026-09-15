@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "The Source Document scanner, the templating pass, and the formatter (PRD §7.2, §7.3, §7.16)."
+description = "Liyasa Markdown: segmentation, expansion, directives, and the Rendered AST (PRD §7.5, §7.16)."
 
 [lints]
 workspace = true
