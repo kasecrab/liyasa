@@ -1,0 +1,26 @@
+[package]
+name = "liyasa-openapi"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "OpenAPI: the document model, the loader, reference pages, and request samples (PRD §13)."
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+minijinja.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# The document tree, not just YAML: `Mapping` is indexmap-backed, so a spec's
+# key order survives parsing, `$ref` splicing, and re-serialization to both
+# encodings. See plan/rfcs/0800-ordered-document-tree.md.
+serde_norway.workspace = true
+thiserror.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0", features = ["conformance"] }
