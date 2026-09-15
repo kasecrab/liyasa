@@ -17,9 +17,9 @@ use crate::doc::DocKind;
 use crate::error::SearchError;
 
 /// What a prefix or fuzzy expansion is worth next to the term as typed.
-const EXACT: f32 = 1.0;
-const PREFIX: f32 = 0.9;
-const FUZZY: f32 = 0.6;
+pub const EXACT: f32 = 1.0;
+pub const PREFIX: f32 = 0.9;
+pub const FUZZY: f32 = 0.6;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SearchOptions {
