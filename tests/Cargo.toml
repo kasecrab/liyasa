@@ -39,3 +39,7 @@ path = "budget/rx_14_transfer.rs"
 [[test]]
 name = "thm_31"
 path = "budget/thm_31.rs"
+
+[[test]]
+name = "web_reader"
+path = "web/reader.rs"

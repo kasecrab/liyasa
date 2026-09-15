@@ -84,3 +84,7 @@ result
 
 # not published
 /.github/pull_request_template.md
+
+# --- web/reader e2e output ---
+web/reader/test-results/
+web/reader/playwright-report/
