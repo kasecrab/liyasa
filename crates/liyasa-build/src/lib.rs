@@ -11,6 +11,7 @@ pub mod assets;
 pub mod cache;
 pub mod clock;
 pub mod git;
+pub mod images;
 pub mod redirects;
 pub mod tree;
 
