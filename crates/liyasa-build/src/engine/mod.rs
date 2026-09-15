@@ -586,8 +586,21 @@ pub fn check_determinism(
     root: &Path,
     options: &Options,
 ) -> Option<Diagnostic> {
-    let first = build_into(vfs, git, root, options, "determinism-a");
-    let second = build_into(vfs, git, root, options, "determinism-b");
+    let (first, first_failure) = build_into(vfs, git, root, options, "determinism-a");
+    let (second, second_failure) = build_into(vfs, git, root, options, "determinism-b");
+
+    // A build that could not write is not evidence of non-determinism: under a
+    // full disk the two runs differ by whichever file failed, which would
+    // accuse the engine of the machine's problem.
+    if let Some(failure) = first_failure.or(second_failure) {
+        return Some(
+            Diagnostic::new(
+                code::E0706,
+                format!("the determinism check could not run: {failure}"),
+            )
+            .help("the comparison says nothing until the build itself succeeds"),
+        );
+    }
     if first.is_empty() || second.is_empty() {
         // A check that compared nothing is not a check that passed.
         return Some(
@@ -628,13 +641,14 @@ pub fn check_determinism(
     )
 }
 
+/// One comparison build: what it wrote, and the first error it hit if any.
 fn build_into(
     vfs: &dyn Vfs,
     git: &dyn GitMeta,
     root: &Path,
     options: &Options,
     name: &str,
-) -> BTreeMap<String, Fingerprint> {
+) -> (BTreeMap<String, Fingerprint>, Option<String>) {
     let output =
         std::env::temp_dir().join(format!("liyasa-{name}-{}-{}", std::process::id(), name));
     let _ = std::fs::remove_dir_all(&output);
@@ -647,14 +661,35 @@ fn build_into(
             ..options.clone()
         },
     );
+    // The build's own error comes first: it is the cause, and a file missing
+    // afterwards is only its symptom.
+    let failure = report
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.is_error())
+        .map(|diagnostic| format!("{} {}", diagnostic.code.as_str(), diagnostic.message));
+    if let Some(failure) = failure {
+        let _ = std::fs::remove_dir_all(&output);
+        return (BTreeMap::new(), Some(failure));
+    }
+
     let mut out = BTreeMap::new();
     for path in &report.written {
-        if let Ok(bytes) = std::fs::read(output.join(path)) {
-            out.insert(path.clone(), Fingerprint::of(bytes));
+        match std::fs::read(output.join(path)) {
+            Ok(bytes) => {
+                out.insert(path.clone(), Fingerprint::of(bytes));
+            }
+            Err(error) => {
+                let _ = std::fs::remove_dir_all(&output);
+                return (
+                    out,
+                    Some(format!("{path} could not be read back ({error})")),
+                );
+            }
         }
     }
     let _ = std::fs::remove_dir_all(&output);
-    out
+    (out, None)
 }
 
 /// One page, rendered at every variant it has.

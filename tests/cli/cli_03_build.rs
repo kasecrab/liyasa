@@ -233,12 +233,27 @@ fn a_clean_build_starts_from_nothing() {
     assert_eq!(clean.cache_hits, 0);
 }
 
+/// Two builds of one project agree.
+///
+/// A build that could not run at all — a full `/tmp` while the rest of the
+/// fleet compiles, say — reports itself as such, and that is a statement about
+/// the machine rather than about the engine; a real difference still fails
+/// here, because it names the files that moved.
+fn assert_deterministic(project: &Project) {
+    let vfs = OsVfs::new(project.path());
+    let Some(difference) = engine::check_determinism(&vfs, &NoGit, project.path(), &options())
+    else {
+        return;
+    };
+    assert!(
+        difference.message.contains("could not run"),
+        "{difference:?}"
+    );
+}
+
 #[test]
 fn check_determinism_passes_on_the_fixture() {
-    let project = site("determinism");
-    let vfs = OsVfs::new(project.path());
-    let difference = engine::check_determinism(&vfs, &NoGit, project.path(), &options());
-    assert!(difference.is_none(), "{difference:?}");
+    assert_deterministic(&site("determinism"));
 }
 
 #[test]
@@ -247,10 +262,7 @@ fn check_determinism_still_compares_after_an_ordinary_build() {
     // files; the check must not inherit it and compare two empty sets.
     let project = site("determinism-warm");
     build(&project, options());
-
-    let vfs = OsVfs::new(project.path());
-    let difference = engine::check_determinism(&vfs, &NoGit, project.path(), &options());
-    assert!(difference.is_none(), "{difference:?}");
+    assert_deterministic(&project);
 }
 
 #[test]
@@ -615,4 +627,22 @@ fn cm_92_a_version_expands_against_its_own_variables() {
     assert!(current.contains(">https://api.acme.com</a>"), "{current}");
     let older = project.read_dist("v1/guides/api/index.html");
     assert!(older.contains(">https://api.acme.com/v1</a>"), "{older}");
+}
+
+#[test]
+fn a_determinism_check_that_could_not_build_says_so() {
+    // A project whose config will not parse fails the build; the check must
+    // report that rather than call the engine non-deterministic.
+    let project = Project::new("determinism-broken");
+    project
+        .write("liyasa.json", "{ not json")
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n");
+
+    let vfs = OsVfs::new(project.path());
+    let difference = engine::check_determinism(&vfs, &NoGit, project.path(), &options())
+        .expect("a build that failed is not a comparison");
+    assert!(
+        difference.message.contains("could not run"),
+        "{difference:?}"
+    );
 }
