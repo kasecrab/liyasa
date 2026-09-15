@@ -149,3 +149,4 @@ W0358 = { severity = "warning", crate = "liyasa-components", title = "Component 
 W0131 = { severity = "warning", crate = "liyasa-config", title = "No `seo.canonicalOrigin`; absolute URLs cannot be generated" }
 E0132 = { severity = "error", crate = "liyasa-config", title = "Colour value is not one Liyasa can read" }
 E0133 = { severity = "error", crate = "liyasa-config", title = "Navigation binds a subtree to a version, locale, product, or spec that is not declared" }
+W0509 = { severity = "warning", crate = "liyasa-openapi", title = "Swagger 2.0 document converted to OpenAPI 3.1" }
