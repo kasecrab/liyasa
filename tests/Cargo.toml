@@ -27,3 +27,7 @@ comrak.workspace = true
 [[bin]]
 name = "reference-site"
 path = "src/bin/reference_site.rs"
+
+[[test]]
+name = "rx_12"
+path = "budget/rx_12.rs"
