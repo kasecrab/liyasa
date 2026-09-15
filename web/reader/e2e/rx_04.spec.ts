@@ -13,20 +13,23 @@ async function prefetched(page: import("@playwright/test").Page): Promise<string
   );
 }
 
+// A route the sidebar does not list, so intersection has not already
+// prefetched it by the time the pointer arrives. Every sidebar link is in view
+// on a desktop viewport, which is the other half of RX-04 and is its own test.
+const HOVER_ONLY = "/reference/cli";
+
 test("a link the reader hovers is prefetched", async ({ page }) => {
   const requested: string[] = [];
   page.on("request", (request) => requested.push(new URL(request.url()).pathname));
 
   await page.goto("/");
-  const link = page.locator('main a[href="/guide/configuration"]').first();
+  const link = page.locator(`main a[href="${HOVER_ONLY}"]`).first();
   await expect(link).toBeVisible();
-  expect(await prefetched(page)).not.toContain("/guide/configuration");
+  expect(await prefetched(page)).not.toContain(HOVER_ONLY);
 
   await link.hover();
-  await expect
-    .poll(async () => await prefetched(page))
-    .toContain("/guide/configuration");
-  expect(requested).toContain("/guide/configuration");
+  await expect.poll(async () => await prefetched(page)).toContain(HOVER_ONLY);
+  expect(requested).toContain(HOVER_ONLY);
 });
 
 test("a link in the sidebar is prefetched when it comes into view", async ({ page }) => {
@@ -88,7 +91,7 @@ test("a page change is a navigation, not a swapped fragment", async ({ page }) =
   );
   expect(kind).toBe("navigate");
   // A router would have kept the first document; a navigation replaces it.
-  await expect(page.locator("h1")).toHaveText("Install Liyasa");
+  await expect(page.locator('[data-liyasa="page-title"]')).toHaveText("Install Liyasa");
 });
 
 test("a reader who asked for less motion gets no transition", async ({ page }) => {
