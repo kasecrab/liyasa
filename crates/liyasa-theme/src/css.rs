@@ -355,7 +355,7 @@ impl Parser<'_> {
                 _ => {}
             }
             let start = self.at;
-            let prelude = self.until_top_level(&[b'{', b';', b'}']);
+            let prelude = self.until_top_level(b"{;}");
             match self.peek() {
                 Some(b'{') => {
                     self.at += 1;
@@ -399,7 +399,7 @@ impl Parser<'_> {
                 _ => {}
             }
             let start = self.at;
-            let text = self.until_top_level(&[b'{', b';', b'}']);
+            let text = self.until_top_level(b"{;}");
             match self.peek() {
                 Some(b'{') => {
                     self.at += 1;
