@@ -20,4 +20,6 @@ serde_json.workspace = true
 url.workspace = true
 image.workspace = true
 minijinja.workspace = true
+rayon.workspace = true
+ulid.workspace = true
 thiserror.workspace = true

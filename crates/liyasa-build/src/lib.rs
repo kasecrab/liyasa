@@ -12,12 +12,16 @@ pub mod cache;
 pub mod clock;
 pub mod git;
 pub mod images;
+pub mod pool;
 pub mod redirects;
 pub mod render;
 pub mod tree;
 
 pub use liyasa_core::build::{
     ArtifactCache, BuildClock, CacheError, GcReport, OutputFormat, PoolMetrics, RenderBudget,
-    RenderJob, RenderMode, RenderPool, Rendered, Variant,
+    RenderJob, RenderMode, Rendered, Variant,
 };
+// TODO(rfc-0602): `RenderPool` is WP-06's implementation, not the `todo!()`
+// stub `liyasa-core` holds the signature in.
 pub use liyasa_core::ids::Fingerprint;
+pub use pool::RenderPool;
