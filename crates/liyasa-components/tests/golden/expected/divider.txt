@@ -1,0 +1,33 @@
+# divider gallery
+
+=== case: default
+--- html
+<hr class="ly-divider" data-liyasa="divider">
+--- markdown
+---
+--- text
+
+
+=== case: every prop
+--- html
+<div class="ly-divider" data-liyasa="divider" role="separator" aria-label="Since 0.4">
+  <span class="ly-divider-label" aria-hidden="true">
+    Since 0.4
+  </span>
+</div>
+--- markdown
+---
+
+**Since 0.4**
+--- text
+Since 0.4
+
+=== case: invalid prop
+--- html
+<hr class="ly-divider" data-liyasa="divider">
+--- markdown
+---
+--- text
+
+--- diagnostics
+W0316 `divider` has no prop `labels`

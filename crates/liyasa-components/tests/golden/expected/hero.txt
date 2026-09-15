@@ -1,0 +1,65 @@
+# hero gallery
+
+=== case: default
+--- html
+<section class="ly-hero" data-liyasa="hero">
+  <div class="ly-hero-text">
+    <h1 class="ly-hero-title" id="liyasa">
+      Liyasa
+    </h1>
+  </div>
+</section>
+--- markdown
+# Liyasa
+--- text
+Liyasa
+
+=== case: every prop
+--- html
+<section class="ly-hero" data-liyasa="hero">
+  <div class="ly-hero-text">
+    <h1 class="ly-hero-title" id="liyasa">
+      Liyasa
+    </h1>
+    <p class="ly-hero-subtitle">
+      Documentation that verifies itself.
+    </p>
+    <p>
+      Extra body copy.
+    </p>
+    <div class="ly-hero-actions">
+      <a class="ly-button ly-button-primary" href="/start">
+        Get started
+      </a>
+      <a class="ly-button ly-button-secondary" href="https://github.com/kasecrab/liyasa">
+        GitHub
+      </a>
+      <span class="ly-button ly-button-secondary">
+        Nothing here
+      </span>
+    </div>
+  </div>
+  <img class="ly-hero-image" src="/img/hero.svg" alt="">
+</section>
+--- markdown
+# Liyasa
+
+Documentation that verifies itself.
+
+Extra body copy.
+
+- [Get started](/start)
+- [GitHub](https://github.com/kasecrab/liyasa)
+- Nothing here
+--- text
+Liyasa Documentation that verifies itself. Get started GitHub Nothing here Extra body copy.
+
+=== case: empty body
+--- html
+<section class="ly-hero" data-liyasa="hero">
+  <div class="ly-hero-text">
+  </div>
+</section>
+--- markdown
+--- text
+

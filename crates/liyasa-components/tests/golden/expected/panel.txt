@@ -1,0 +1,23 @@
+# panel gallery
+
+=== case: default
+--- html
+<div class="ly-panel" data-liyasa="panel" data-slot="rail" hidden>
+  <p>
+    On this page
+  </p>
+</div>
+--- markdown
+On this page
+--- text
+On this page
+
+=== case: invalid prop
+--- html
+<div class="ly-panel" data-liyasa="panel" data-slot="rail" hidden>
+</div>
+--- markdown
+--- text
+
+--- diagnostics
+W0316 `panel` has no prop `title`

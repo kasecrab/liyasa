@@ -1,0 +1,53 @@
+# frame gallery
+
+=== case: default
+--- html
+<figure class="ly-frame" data-liyasa="frame" data-align="center" data-zoom>
+  <p>
+    <img src="/img/ui.png" alt="The dashboard">
+  </p>
+</figure>
+--- markdown
+![The dashboard](/img/ui.png)
+--- text
+The dashboard
+
+=== case: every prop
+--- html
+<figure class="ly-frame" data-liyasa="frame" data-align="full" data-video>
+  <p>
+    <img src="/img/ui.png" alt="The dashboard">
+  </p>
+  <figcaption class="ly-frame-caption">
+    The dashboard
+    <span class="ly-frame-hint">
+      Click to zoom
+    </span>
+  </figcaption>
+</figure>
+--- markdown
+![The dashboard](/img/ui.png)
+
+*The dashboard*
+
+Click to zoom
+--- text
+The dashboard Click to zoom The dashboard
+
+=== case: empty body
+--- html
+<figure class="ly-frame" data-liyasa="frame" data-align="center" data-zoom>
+</figure>
+--- markdown
+--- text
+
+
+=== case: invalid align
+--- html
+<figure class="ly-frame" data-liyasa="frame" data-align="middle" data-zoom>
+</figure>
+--- markdown
+--- text
+
+--- diagnostics
+E0315 `frame.align` is `middle`, which is not one of: left, center, right, full

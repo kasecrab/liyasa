@@ -2,6 +2,7 @@
 
 pub mod callout;
 pub mod card;
+pub mod frame;
 
 use crate::registry::Registry;
 
@@ -21,5 +22,9 @@ pub fn register_builtins(registry: &mut Registry) {
         .add(card::Columns)
         .add(card::Column)
         .add(card::Tiles)
-        .add(card::Tile);
+        .add(card::Tile)
+        .add(frame::Frame)
+        .add(frame::Panel)
+        .add(frame::Hero)
+        .add(frame::Divider);
 }
