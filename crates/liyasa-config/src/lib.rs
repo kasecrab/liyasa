@@ -8,6 +8,7 @@ pub mod load;
 pub mod merge;
 pub mod migrate;
 pub mod pages;
+pub mod project;
 pub mod schema;
 pub mod validate;
 pub mod vfs;
@@ -28,4 +29,5 @@ pub mod model {
 pub use load::{Load, Options, load};
 pub use model::SiteConfig;
 pub use pages::Pages;
+pub use project::{Checked, check};
 pub use validate::{Context, Mode, validate_load};
