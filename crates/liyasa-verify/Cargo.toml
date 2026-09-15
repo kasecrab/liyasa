@@ -1,0 +1,24 @@
+[package]
+name = "liyasa-verify"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The verification engine: in-process runners, link and structural checks, prose lint, output scrubbing, and the report formats (PRD §14, §30.2.4)."
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+jsonschema.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_norway.workspace = true
+thiserror.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0", features = ["conformance"] }

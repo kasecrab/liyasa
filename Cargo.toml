@@ -52,3 +52,4 @@ url = { version = "2.5", default-features = false, features = ["serde"] }
 zeroize = { version = "1.9", default-features = false, features = ["alloc"] }
 jsonschema = { version = "0.56", default-features = false }
 typify = { version = "0.8", default-features = false }
+regex = { version = "1.13", default-features = false, features = ["std", "unicode-perl", "unicode-case"] }   # Vale rule tokens and the `regex` runner (RFC 1300)
