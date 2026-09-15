@@ -12,6 +12,7 @@ pub mod config;
 pub mod example;
 pub mod load;
 pub mod model;
+pub mod nav;
 pub mod normalize;
 pub mod read;
 pub mod refs;
