@@ -123,7 +123,32 @@ impl Default for SearchSettings {
     }
 }
 
+/// The key the theme spells this string under in `theme/strings.json` and
+/// `theme/strings.<locale>.json` (THM-40).
+pub const THEME_PLACEHOLDER_KEY: &str = "searchPlaceholder";
+
 impl SearchSettings {
+    /// CFG-50, resolved for one locale. The schema gives the key one string,
+    /// and CFG-50 calls it localizable, so the localization is the theme's
+    /// per-locale strings file and this key is the site-wide default:
+    /// `theme/strings.<locale>.json`, then `search.placeholder`, then the
+    /// theme's own default. Most specific wins.
+    ///
+    /// `localized` is [`THEME_PLACEHOLDER_KEY`] as the operator wrote it for
+    /// the reader's locale, if they wrote one at all.
+    // TODO(rfc-0704): a localizable-value shape in §8.6 replaces the cascade.
+    pub fn placeholder_resolved<'a>(
+        &'a self,
+        localized: Option<&'a str>,
+        default: &'a str,
+    ) -> &'a str {
+        [localized, self.placeholder.as_deref()]
+            .into_iter()
+            .flatten()
+            .find(|text| !text.trim().is_empty())
+            .unwrap_or(default)
+    }
+
     /// CFG-52: is this route kept out of the index?
     pub fn excludes(&self, route: &str) -> bool {
         self.exclude

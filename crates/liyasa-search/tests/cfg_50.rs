@@ -127,3 +127,88 @@ fn sample(key: &str, property: &Value) -> Value {
         ),
     }
 }
+
+/// CFG-50 calls the placeholder localizable, and the schema gives it one
+/// string. `plan/rfcs/0704-localizable-placeholder.md` resolves that: the
+/// per-locale theme file localizes it, the config key is the site-wide
+/// default.
+mod placeholder {
+    use super::*;
+    use liyasa_search::config::THEME_PLACEHOLDER_KEY;
+
+    const THEME_DEFAULT: &str = "Search the documentation";
+
+    fn settings(placeholder: Option<&str>) -> SearchSettings {
+        SearchSettings {
+            placeholder: placeholder.map(str::to_owned),
+            ..SearchSettings::default()
+        }
+    }
+
+    #[test]
+    fn a_site_that_sets_nothing_gets_the_themes_words() {
+        assert_eq!(
+            settings(None).placeholder_resolved(None, THEME_DEFAULT),
+            THEME_DEFAULT
+        );
+    }
+
+    #[test]
+    fn the_config_key_is_the_site_wide_default() {
+        assert_eq!(
+            settings(Some("Search the API")).placeholder_resolved(None, THEME_DEFAULT),
+            "Search the API"
+        );
+    }
+
+    #[test]
+    fn a_locales_own_words_win_over_the_config_key() {
+        assert_eq!(
+            settings(Some("Search the API"))
+                .placeholder_resolved(Some("Dokumentation durchsuchen"), THEME_DEFAULT),
+            "Dokumentation durchsuchen",
+            "the more specific of the two wins"
+        );
+    }
+
+    #[test]
+    fn a_locale_without_a_translation_falls_back_to_the_key() {
+        // What `theme/strings.fr.json` looks like when it exists but leaves
+        // this string alone.
+        assert_eq!(
+            settings(Some("Search the API")).placeholder_resolved(None, THEME_DEFAULT),
+            "Search the API"
+        );
+    }
+
+    #[test]
+    fn an_empty_string_is_not_a_translation() {
+        assert_eq!(
+            settings(Some("Search the API")).placeholder_resolved(Some("  "), THEME_DEFAULT),
+            "Search the API"
+        );
+        assert_eq!(
+            settings(Some(" ")).placeholder_resolved(None, THEME_DEFAULT),
+            THEME_DEFAULT
+        );
+    }
+
+    #[test]
+    fn the_theme_key_this_cascade_reads_is_the_one_the_theme_publishes() {
+        assert_eq!(THEME_PLACEHOLDER_KEY, "searchPlaceholder");
+
+        // The theme owns the string table; this crate may not depend on it, so
+        // the check is on the file. A workspace without it still passes, which
+        // is what a package built on its own branch needs.
+        let theme = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../liyasa-theme/src/strings.rs"
+        );
+        if let Ok(text) = std::fs::read_to_string(theme) {
+            assert!(
+                text.contains(&format!("{THEME_PLACEHOLDER_KEY:?}")),
+                "the theme no longer publishes `{THEME_PLACEHOLDER_KEY}`"
+            );
+        }
+    }
+}
