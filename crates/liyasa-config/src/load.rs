@@ -83,7 +83,15 @@ pub fn load(vfs: &dyn Vfs, sources: &mut SourceMap, options: &Options) -> Load {
         &mut diagnostics,
     );
 
-    schema::declared_version(&value, &spans, &mut diagnostics);
+    if let Some(declared) = schema::declared_version(&value, &spans, &mut diagnostics)
+        && declared < schema::CONFIG_SCHEMA_VERSION
+    {
+        let hint = crate::migrate::upgrade_hint(declared);
+        diagnostics.push(match spans.value("/$schema") {
+            Some(span) => hint.at(span),
+            None => hint,
+        });
+    }
     let report = schema::check(&value, &spans);
     let had_errors = report.diagnostics.has_errors();
     diagnostics.extend(report.diagnostics);

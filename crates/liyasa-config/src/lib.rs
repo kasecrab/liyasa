@@ -6,6 +6,7 @@ pub mod color;
 pub mod json;
 pub mod load;
 pub mod merge;
+pub mod migrate;
 pub mod pages;
 pub mod schema;
 pub mod validate;
@@ -24,4 +25,7 @@ pub mod model {
     include!(concat!(env!("OUT_DIR"), "/model.rs"));
 }
 
+pub use load::{Load, Options, load};
 pub use model::SiteConfig;
+pub use pages::Pages;
+pub use validate::{Context, Mode, validate_load};

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://liyasa.dev/schema/v0/liyasa.json",
+  "name": "Acme Docs",
+  "description": "Everything you need to build with Acme.",
+  "logo": "assets/logo.svg",
+  "favicon": "assets/favicon.svg",
+  "colors": { "primary": "#4F46E5", "light": "#818CF8", "dark": "#3730A3" },
+  "font": { "headings": { "family": "Inter" }, "body": { "family": "Inter" } },
+  "modeToggle": { "default": "system", "isHidden": true },
+  "topbarLinks": [{ "name": "Support", "url": "https://acme.com/support" }],
+  "topbarCtaButton": { "type": "button", "name": "Dashboard", "url": "https://app.acme.com" },
+  "footerSocials": { "github": "https://github.com/acme", "x": "https://x.com/acme" },
+  "anchors": [{ "name": "Community", "url": "https://acme.com/community", "icon": "users" }],
+  "tabs": [{ "name": "Changelog", "url": "changelog" }],
+  "navigation": [{ "group": "Get started", "pages": ["index", "getting-started/quickstart"] }],
+  "openApi": "openapi/api.yaml",
+  "analytics": { "plausible": { "domain": "docs.acme.com" } },
+  "versions": ["v2", "v1"],
+  "somethingRetired": true
+}

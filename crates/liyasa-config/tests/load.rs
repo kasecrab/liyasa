@@ -204,3 +204,15 @@ fn an_unknown_key_is_dropped_so_the_config_still_builds() {
         "Acme"
     );
 }
+
+#[test]
+fn a_config_from_an_older_schema_is_told_to_migrate() {
+    let text = r#"{ "$schema": "https://liyasa.dev/schema/v0/liyasa.json", "name": "Acme" }"#;
+    let (load, _) = read(&[("liyasa.json", text)], None);
+    assert_eq!(codes(&load), vec!["E0102"]);
+    assert!(
+        load.diagnostics
+            .iter()
+            .any(|d| d.help.as_deref() == Some("run `liyasa migrate-config` to upgrade it"))
+    );
+}

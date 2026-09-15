@@ -21,6 +21,33 @@ pub const CONFIG_SCHEMA_ID: &str = "https://liyasa.dev/schema/v1/liyasa.json";
 /// The major version this build understands (CFG-91).
 pub const CONFIG_SCHEMA_VERSION: u32 = 1;
 
+/// One schema `liyasa schema <name>` can print (CLI-13).
+pub struct NamedSchema {
+    pub name: &'static str,
+    pub file: &'static str,
+    pub json: &'static str,
+}
+
+/// The schemas this build can emit. `components` joins them with the component
+/// registry, which does not exist yet; `liyasa schema components` reports that
+/// rather than printing something wrong.
+pub const SCHEMAS: &[NamedSchema] = &[
+    NamedSchema {
+        name: "config",
+        file: "liyasa.json",
+        json: CONFIG_SCHEMA,
+    },
+    NamedSchema {
+        name: "frontmatter",
+        file: "frontmatter.json",
+        json: include_str!("../../../schemas/frontmatter.json"),
+    },
+];
+
+pub fn named(name: &str) -> Option<&'static NamedSchema> {
+    SCHEMAS.iter().find(|schema| schema.name == name)
+}
+
 /// What one validation run found.
 #[derive(Debug, Clone, Default)]
 pub struct Report {

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://liyasa.dev/schema/v1/liyasa.json",
+  "description": "Everything you need to build with Acme.",
+  "favicon": {
+    "light": "assets/favicon.svg"
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/acme",
+      "x": "https://x.com/acme"
+    }
+  },
+  "integrations": {
+    "plausible": {
+      "domain": "docs.acme.com"
+    }
+  },
+  "logo": {
+    "light": "assets/logo.svg"
+  },
+  "name": "Acme Docs",
+  "navbar": {
+    "links": [
+      {
+        "href": "https://acme.com/support",
+        "label": "Support"
+      }
+    ],
+    "primary": {
+      "href": "https://app.acme.com",
+      "label": "Dashboard",
+      "type": "button"
+    }
+  },
+  "navigation": [
+    {
+      "group": "Get started",
+      "pages": [
+        "index",
+        "getting-started/quickstart"
+      ]
+    },
+    {
+      "pages": [
+        "changelog"
+      ],
+      "tab": "Changelog"
+    },
+    {
+      "anchor": "Community",
+      "href": "https://acme.com/community",
+      "icon": "users"
+    }
+  ],
+  "openapi": [
+    {
+      "id": "api",
+      "source": "openapi/api.yaml"
+    }
+  ],
+  "theme": {
+    "appearance": {
+      "default": "system",
+      "strict": true
+    },
+    "colors": {
+      "dark": "#3730A3",
+      "light": "#818CF8",
+      "primary": "#4F46E5"
+    },
+    "fonts": {
+      "body": {
+        "family": "Inter"
+      },
+      "heading": {
+        "family": "Inter"
+      }
+    }
+  },
+  "versions": [
+    "v2",
+    "v1"
+  ]
+}
