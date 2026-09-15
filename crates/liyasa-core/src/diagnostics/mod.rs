@@ -9,8 +9,7 @@ use crate::span::Span;
 
 include!(concat!(env!("OUT_DIR"), "/codes.rs"));
 
-/// Base for the generated help URL of a code with no explicit `url` row.
-pub const HELP_URL_BASE: &str = "https://kasecrab.github.io/liyasa/docs/errors/";
+pub use crate::site::HELP_URL_BASE;
 
 #[derive(
     Debug,
