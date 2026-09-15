@@ -6,13 +6,13 @@ beside them, which is what the licence requires.
 | File | Face | Source | Licence |
 |---|---|---|---|
 | `inter-variable.woff2` | Inter, variable 100–900 | [rsms/inter](https://github.com/rsms/inter), `docs/font-files/InterVariable.woff2` | `Inter-LICENSE.txt` |
-| `jetbrains-mono-variable.ttf` | JetBrains Mono, variable 100–800 | [JetBrains/JetBrainsMono](https://github.com/JetBrains/JetBrainsMono), `fonts/variable/JetBrainsMono[wght].ttf` | `JetBrainsMono-LICENSE.txt` |
+| `jetbrains-mono-variable.woff2` | JetBrains Mono, variable 100–800 | [JetBrains/JetBrainsMono](https://github.com/JetBrains/JetBrainsMono), `fonts/variable/JetBrainsMono[wght].ttf` | `JetBrainsMono-LICENSE.txt` |
 
-JetBrains publishes the variable face as TrueType only, and this machine has no
-`woff2_compress`, so the TTF ships as it is: about 300 KB, which a compressing
-host serves in roughly half that. Converting it is one command
-(`woff2_compress jetbrains-mono-variable.ttf`) and then one row in
-`fonts::bundled` — see `NEEDS-INPUT.md`.
+JetBrains publishes the variable face as TrueType only. It is converted on the
+way in with `woff2_compress JetBrainsMono[wght].ttf`, which takes the 300 KB TTF
+to 114 KB without touching the outlines: the round trip back through
+`woff2_decompress` returns the same table set, `fvar` axes and all. Re-run that
+one command when the upstream face is updated.
 
 Neither file is subset: `theme.fonts.subset` is accepted and ignored with
 `W0716` until the fontations subsetter exists (§6.2.1).

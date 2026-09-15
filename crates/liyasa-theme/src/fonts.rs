@@ -48,12 +48,11 @@ pub fn bundled() -> Vec<FaceFile> {
             unicode_range: None,
         },
         FaceFile {
-            // JetBrains publishes the variable face as TrueType only; a host
-            // that compresses serves it in about half its size, and the
-            // conversion is one command away (see `assets/fonts/README.md`).
+            // JetBrains publishes the variable face as TrueType only; it is
+            // converted on the way in (see `assets/fonts/README.md`).
             family: "JetBrains Mono".to_owned(),
-            file: "jetbrains-mono-variable.ttf".to_owned(),
-            format: "truetype".to_owned(),
+            file: "jetbrains-mono-variable.woff2".to_owned(),
+            format: "woff2".to_owned(),
             style: "normal".to_owned(),
             weight: "100 800".to_owned(),
             unicode_range: None,
@@ -65,8 +64,8 @@ pub fn bundled() -> Vec<FaceFile> {
 pub fn file(name: &str) -> Option<&'static [u8]> {
     match name {
         "inter-variable.woff2" => Some(include_bytes!("../assets/fonts/inter-variable.woff2")),
-        "jetbrains-mono-variable.ttf" => Some(include_bytes!(
-            "../assets/fonts/jetbrains-mono-variable.ttf"
+        "jetbrains-mono-variable.woff2" => Some(include_bytes!(
+            "../assets/fonts/jetbrains-mono-variable.woff2"
         )),
         _ => None,
     }
@@ -76,7 +75,7 @@ pub fn file(name: &str) -> Option<&'static [u8]> {
 pub fn licence(name: &str) -> Option<&'static str> {
     match name {
         "inter-variable.woff2" => Some(include_str!("../assets/fonts/Inter-LICENSE.txt")),
-        "jetbrains-mono-variable.ttf" => {
+        "jetbrains-mono-variable.woff2" => {
             Some(include_str!("../assets/fonts/JetBrainsMono-LICENSE.txt"))
         }
         _ => None,
@@ -198,8 +197,10 @@ mod tests {
         let css = css(&bundled(), "");
         assert!(css.contains("src:url(\"/_liyasa/fonts/inter-variable.woff2\") format(\"woff2\")"));
         assert!(
-            css.contains("format(\"truetype\")"),
-            "the mono face is a ttf"
+            css.contains(
+                "src:url(\"/_liyasa/fonts/jetbrains-mono-variable.woff2\") format(\"woff2\")"
+            ),
+            "the mono face is compressed too"
         );
         assert!(css.contains("font-weight:100 900"));
         assert!(css.contains("font-display:swap"));
