@@ -209,3 +209,15 @@ fn the_rewrite_map_survives_multibyte_content() {
         text.find("::image").expect("the directive is there")
     );
 }
+
+/// The one place the leaf path still needs comrak's container algorithm and
+/// does not have it: at a list item's content column plus four, the pass cannot
+/// tell a directive from indented code.
+#[test]
+fn a_leaf_deep_inside_a_list_is_missed() {
+    let out = run("- a\n  - b\n    - c\n      ::image{src=\"/a.png\"}\n");
+    assert!(
+        out.table.is_empty(),
+        "if this starts passing, the case is no longer pending"
+    );
+}

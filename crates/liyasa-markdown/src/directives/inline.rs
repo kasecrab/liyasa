@@ -101,20 +101,21 @@ fn tokenize(value: &str, out: &mut Vec<Inline>, stack: &mut Vec<Open>) {
             continue;
         }
         if bytes[at] == b']' && !stack.is_empty() {
+            // The text before the bracket belongs to the directive that is
+            // still open, so it is flushed before the stack is popped.
             text(out, stack, &value[literal..at]);
             let (props, used) = props_after(&value[at + 1..]);
-            let Some(open) = stack.pop() else {
-                unreachable!("the stack is not empty")
-            };
-            push(
-                out,
-                stack,
-                Inline::InlineComponent {
-                    name: open.name,
-                    props,
-                    children: merge(open.children),
-                },
-            );
+            if let Some(open) = stack.pop() {
+                push(
+                    out,
+                    stack,
+                    Inline::InlineComponent {
+                        name: open.name,
+                        props,
+                        children: merge(open.children),
+                    },
+                );
+            }
             at += 1 + used;
             literal = at;
             continue;

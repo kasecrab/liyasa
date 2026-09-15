@@ -5,8 +5,8 @@
 //! item's content column plus four spaces is indented code that this pass
 //! rewrites anyway, which is the one place the leaf path still needs comrak's
 //! container algorithm and does not have it.
-// TODO(rfc-0003): `spec/markdown/cm-50/leaf/indented-in-list.md` is pending on
-// that gap.
+// TODO(rfc-0003): `rewrite::tests::a_leaf_deep_inside_a_list_is_missed` pins
+// that gap, and fails the day it closes.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Split<'a> {
