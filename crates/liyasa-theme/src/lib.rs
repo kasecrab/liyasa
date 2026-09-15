@@ -7,3 +7,4 @@
 //! progressive-enhancement runtime.
 
 pub mod color;
+pub mod config;
