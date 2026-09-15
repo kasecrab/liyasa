@@ -119,15 +119,20 @@ impl<'r> Reference<'r> {
                 attrs,
                 highlighted,
             } => {
-                let options = crate::fence::CodeOptions::read(attrs);
-                let body = crate::text::of(&block.children);
-                crate::fence::render_html(
-                    out,
-                    lang.as_deref(),
-                    &raw_code(&block.children).unwrap_or(body),
-                    &options,
-                    highlighted.as_deref(),
-                );
+                let body =
+                    raw_code(&block.children).unwrap_or_else(|| crate::text::of(&block.children));
+                if lang.as_deref() == Some("mermaid") {
+                    crate::fence::render_mermaid(out, &body, attrs);
+                } else {
+                    let options = crate::fence::CodeOptions::read(attrs);
+                    crate::fence::render_html(
+                        out,
+                        lang.as_deref(),
+                        &body,
+                        &options,
+                        highlighted.as_deref(),
+                    );
+                }
             }
             BlockKind::HtmlBlock { html } => {
                 out.raw(html);
@@ -307,8 +312,7 @@ impl<'r> Reference<'r> {
                 out.write(&crate::md::escape_inline(text));
             }
             Inline::Code(text) => {
-                let ticks = "`".repeat(crate::md::fence_len(text) - 2);
-                out.write(&format!("{ticks}{text}{ticks}"));
+                out.write(&crate::md::code_span(text));
             }
             Inline::Emph(children) => self.wrap_markdown("*", children, out)?,
             Inline::Strong(children) => self.wrap_markdown("**", children, out)?,

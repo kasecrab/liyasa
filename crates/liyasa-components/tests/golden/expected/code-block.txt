@@ -1,0 +1,163 @@
+# code-block gallery
+
+=== case: plain
+--- html
+<div class="ly-terminal" data-liyasa="terminal" data-prompt="$ ">
+  <div class="ly-terminal-bar" aria-hidden="true">
+  </div>
+  <p class="ly-terminal-title">
+    plain
+  </p>
+  <div class="ly-terminal-body">
+    <div class="ly-code" data-liyasa="code-block" data-lang="rust">
+      <button class="ly-code-copy" type="button" data-liyasa="copy">
+        Copy
+      </button>
+      <pre class="ly-code-body">
+        <code class="language-rust">
+          fn main() {}
+        </code>
+      </pre>
+    </div>
+  </div>
+</div>
+--- markdown
+```rust
+fn main() {}
+```
+--- text
+plain fn main() {}
+
+=== case: every attribute
+--- html
+<div class="ly-terminal" data-liyasa="terminal" data-prompt="$ ">
+  <div class="ly-terminal-bar" aria-hidden="true">
+  </div>
+  <p class="ly-terminal-title">
+    every attribute
+  </p>
+  <div class="ly-terminal-body">
+    <div class="ly-code" data-liyasa="code-block" data-lang="rust" data-wrap data-expandable data-max-lines="20">
+      <div class="ly-code-title">
+        <span class="ly-icon" data-icon="rust" aria-hidden="true">
+        </span>
+        main.rs
+      </div>
+      <button class="ly-code-copy" type="button" data-liyasa="copy">
+        Copy
+      </button>
+      <pre class="ly-code-body">
+        <code class="language-rust">
+          <span class="ly-line ly-line-highlight" data-line="10">
+            let a = 1;
+          </span>
+          <span class="ly-line ly-line-focus" data-line="11">
+            let b = 2;
+          </span>
+          <span class="ly-line ly-line-highlight" data-line="12">
+            let c = 3;
+          </span>
+        </code>
+      </pre>
+    </div>
+  </div>
+</div>
+--- markdown
+```rust title="main.rs"
+let a = 1;
+let b = 2;
+let c = 3;
+```
+--- text
+every attribute let a = 1; let b = 2; let c = 3;
+
+=== case: diff
+--- html
+<div class="ly-terminal" data-liyasa="terminal" data-prompt="$ ">
+  <div class="ly-terminal-bar" aria-hidden="true">
+  </div>
+  <p class="ly-terminal-title">
+    diff
+  </p>
+  <div class="ly-terminal-body">
+    <div class="ly-code" data-liyasa="code-block" data-diff>
+      <button class="ly-code-copy" type="button" data-liyasa="copy">
+        Copy
+      </button>
+      <pre class="ly-code-body">
+        <code>
+          <span class="ly-line ly-line-del" data-change="del">
+            let a = 1;
+          </span>
+          <span class="ly-line ly-line-add" data-line="1" data-change="add">
+            let a = 2;
+          </span>
+          <span class="ly-line" data-line="2">
+            let b = 3;
+          </span>
+        </code>
+      </pre>
+    </div>
+  </div>
+</div>
+--- markdown
+```
+-let a = 1;
++let a = 2;
+ let b = 3;
+```
+--- text
+diff -let a = 1; +let a = 2; let b = 3;
+
+=== case: prompt and no copy
+--- html
+<div class="ly-terminal" data-liyasa="terminal" data-prompt="$ ">
+  <div class="ly-terminal-bar" aria-hidden="true">
+  </div>
+  <p class="ly-terminal-title">
+    prompt
+  </p>
+  <div class="ly-terminal-body">
+    <div class="ly-code" data-liyasa="code-block" data-lang="sh" data-prompt="$ ">
+      <pre class="ly-code-body">
+        <code class="language-sh">
+          $ liyasa build
+        </code>
+      </pre>
+    </div>
+  </div>
+</div>
+--- markdown
+```sh
+$ liyasa build
+```
+--- text
+prompt $ liyasa build
+
+=== case: unknown attribute
+--- html
+<div class="ly-terminal" data-liyasa="terminal" data-prompt="$ ">
+  <div class="ly-terminal-bar" aria-hidden="true">
+  </div>
+  <p class="ly-terminal-title">
+    unknown
+  </p>
+  <div class="ly-terminal-body">
+    <div class="ly-code" data-liyasa="code-block" data-lang="rust">
+      <button class="ly-code-copy" type="button" data-liyasa="copy">
+        Copy
+      </button>
+      <pre class="ly-code-body">
+        <code class="language-rust">
+          fn main() {}
+        </code>
+      </pre>
+    </div>
+  </div>
+</div>
+--- markdown
+```rust
+fn main() {}
+```
+--- text
+unknown fn main() {}

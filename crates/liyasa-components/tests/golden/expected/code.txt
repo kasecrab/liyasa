@@ -1,0 +1,31 @@
+# code gallery
+
+=== case: default
+--- html
+<code class="ly-code-inline" data-liyasa="code">
+  Vec&lt;u8&gt;
+</code>
+--- markdown
+`Vec<u8>`
+--- text
+Vec<u8>
+
+=== case: every prop
+--- html
+<code class="ly-code-inline language-rust" data-liyasa="code" data-lang="rust">
+  Vec&lt;u8&gt;
+</code>
+--- markdown
+`Vec<u8>`
+--- text
+Vec<u8>
+
+=== case: backticks in the body
+--- html
+<code class="ly-code-inline" data-liyasa="code">
+  a ` b
+</code>
+--- markdown
+``a ` b``
+--- text
+a ` b

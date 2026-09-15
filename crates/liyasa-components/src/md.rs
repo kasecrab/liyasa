@@ -231,6 +231,28 @@ pub fn fence_len(body: &str) -> usize {
     (longest + 1).max(3)
 }
 
+/// An inline code span with enough backticks to hold its own content, and a
+/// space of padding when the content starts or ends with one.
+pub fn code_span(text: &str) -> String {
+    let mut longest = 0;
+    let mut run = 0;
+    for ch in text.chars() {
+        if ch == '`' {
+            run += 1;
+            longest = longest.max(run);
+        } else {
+            run = 0;
+        }
+    }
+    let ticks = "`".repeat(longest + 1);
+    let pad = if text.starts_with('`') || text.ends_with('`') || text.starts_with(' ') {
+        " "
+    } else {
+        ""
+    };
+    format!("{ticks}{pad}{text}{pad}{ticks}")
+}
+
 /// Escapes the characters that would start a Markdown construct in inline text.
 pub fn escape_inline(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -338,6 +360,13 @@ mod tests {
             md.finish(),
             "| Name  | Type    |\n| ----- | ------- |\n| limit | integer |\n"
         );
+    }
+
+    #[test]
+    fn a_code_span_outgrows_its_content() {
+        assert_eq!(code_span("plain"), "`plain`");
+        assert_eq!(code_span("a ` b"), "``a ` b``");
+        assert_eq!(code_span("`x`"), "`` `x` ``");
     }
 
     #[test]

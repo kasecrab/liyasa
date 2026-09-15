@@ -1,0 +1,51 @@
+# mermaid gallery
+
+=== case: default
+--- html
+<div class="ly-terminal" data-liyasa="terminal" data-prompt="$ ">
+  <div class="ly-terminal-bar" aria-hidden="true">
+  </div>
+  <p class="ly-terminal-title">
+    default
+  </p>
+  <div class="ly-terminal-body">
+    <figure class="ly-mermaid" data-liyasa="mermaid" data-layout="dagre" data-diagram="flowchart">
+      <pre class="ly-mermaid-source">
+        flowchart LR
+  a --&gt; b
+      </pre>
+    </figure>
+  </div>
+</div>
+--- markdown
+```mermaid
+flowchart LR
+  a --> b
+```
+--- text
+default flowchart LR a --> b
+
+=== case: every attribute
+--- html
+<div class="ly-terminal" data-liyasa="terminal" data-prompt="$ ">
+  <div class="ly-terminal-bar" aria-hidden="true">
+  </div>
+  <p class="ly-terminal-title">
+    every attribute
+  </p>
+  <div class="ly-terminal-body">
+    <figure class="ly-mermaid" data-liyasa="mermaid" data-layout="elk" data-theme="dark" data-zoom data-pan data-fullscreen data-diagram="sequenceDiagram">
+      <pre class="ly-mermaid-source">
+        sequenceDiagram
+  A-&gt;&gt;B: hi
+      </pre>
+    </figure>
+  </div>
+</div>
+--- markdown
+```mermaid
+sequenceDiagram
+  A->>B: hi
+```
+--- text
+every attribute sequenceDiagram A->>B: hi

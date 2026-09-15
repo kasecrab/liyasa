@@ -1,0 +1,36 @@
+# snippet-from gallery
+
+=== case: default
+--- html
+<div class="ly-snippet" data-liyasa="snippet-from" data-file="src/lib.rs">
+</div>
+--- markdown
+```
+// from src/lib.rs
+```
+--- text
+src/lib.rs
+
+=== case: every prop
+--- html
+<div class="ly-snippet" data-liyasa="snippet-from" data-file="src/lib.rs" data-lines="10-25" data-symbol="parse" data-repo="kasecrab/liyasa" data-ref="v0.4.0" data-lang="rust" data-title="The parser">
+</div>
+--- markdown
+```rust
+// from src/lib.rs:10-25
+```
+--- text
+src/lib.rs
+
+=== case: missing required prop
+--- html
+<div class="ly-snippet" data-liyasa="snippet-from" data-file="">
+</div>
+--- markdown
+```
+// from 
+```
+--- text
+
+--- diagnostics
+E0314 `snippet-from` requires the `file` prop

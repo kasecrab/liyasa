@@ -2,6 +2,7 @@
 
 pub mod callout;
 pub mod card;
+pub mod code;
 pub mod disclosure;
 pub mod frame;
 pub mod steps;
@@ -40,5 +41,9 @@ pub fn register_builtins(registry: &mut Registry) {
         .add(steps::Steps)
         .add(steps::Step)
         .add(tree::Tree)
-        .add(tree::Toc);
+        .add(tree::Toc)
+        .add(code::CodeGroup)
+        .add(code::Code)
+        .add(code::Terminal)
+        .add(code::SnippetFrom);
 }

@@ -256,6 +256,41 @@ fn in_ranges(ranges: &[(u32, u32)], line: u32) -> bool {
         .any(|(first, last)| line >= *first && line <= *last)
 }
 
+/// A `mermaid` fence (CMP-60).
+///
+/// The source is always in the HTML: with the companion runtime the build
+/// replaces the `<pre>` with a pre-rendered SVG, and without it the bundled
+/// Mermaid build renders it in the browser. Either way a reader with no
+/// JavaScript sees the diagram's source rather than nothing.
+pub fn render_mermaid(out: &mut Html, body: &str, attrs: &liyasa_core::document::FenceAttrs) {
+    let kv = |key: &str| attrs.kv.get(key).map(String::as_str);
+    let flag = |key: &str| attrs.flags.contains(key) || kv(key).is_some_and(|v| v != "false");
+    out.open("figure")
+        .attr("class", "ly-mermaid")
+        .attr("data-liyasa", "mermaid")
+        .attr("data-layout", kv("layout").unwrap_or("dagre"))
+        .attr_if("data-theme", kv("theme"))
+        .flag_if("data-zoom", flag("zoom"))
+        .flag_if("data-pan", flag("pan"))
+        .flag_if("data-fullscreen", flag("fullscreen"))
+        .attr_if("data-diagram", Some(diagram_kind(body)))
+        .open("pre")
+        .attr("class", "ly-mermaid-source")
+        .text(body)
+        .close()
+        .close();
+}
+
+/// The first word of a Mermaid source, which names its diagram type and so
+/// which lazily loaded chunk renders it.
+pub fn diagram_kind(body: &str) -> &str {
+    body.lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty() && !line.starts_with("%%"))
+        .and_then(|line| line.split([' ', '-', ':']).next())
+        .unwrap_or("")
+}
+
 /// Renders a fence to HTML.
 ///
 /// `highlighted` is the syntax-highlighted body when the build produced one.
@@ -348,7 +383,9 @@ fn render_lines(out: &mut Html, body: &str, options: &CodeOptions, highlighted: 
             classes.push_str(change);
         }
         out.open("span").attr("class", &classes);
-        if options.numbers {
+        // A removed line has no number in the file the reader ends up with,
+        // and repeating the added line's number would say it does.
+        if options.numbers && change != "del" {
             out.attr("data-line", &number.to_string());
         }
         // A diff line keeps its marker out of the copied text.
@@ -469,6 +506,31 @@ mod tests {
         assert!(markup.contains(r#"data-line="10""#), "{markup}");
         assert!(markup.contains(r#"data-line="11""#), "{markup}");
         assert!(!markup.contains(r#"data-line="12""#), "{markup}");
+        let removed = markup.lines().find(|l| l.contains("ly-line-del"));
+        assert!(
+            removed.is_some_and(|line| !line.contains("data-line")),
+            "{markup}"
+        );
+    }
+
+    #[test]
+    fn a_mermaid_fence_keeps_its_source() {
+        let (parsed, _) = parse_info("mermaid layout=elk zoom");
+        let mut html = Html::new();
+        render_mermaid(&mut html, "flowchart LR\n  a --> b\n", &parsed.attrs);
+        let markup = html.finish();
+        assert!(markup.contains(r#"data-layout="elk""#), "{markup}");
+        assert!(markup.contains(r#"data-diagram="flowchart""#), "{markup}");
+        assert!(markup.contains("a --&gt; b"), "{markup}");
+    }
+
+    #[test]
+    fn a_comment_does_not_name_the_diagram() {
+        assert_eq!(
+            diagram_kind("%% a note\nsequenceDiagram\n"),
+            "sequenceDiagram"
+        );
+        assert_eq!(diagram_kind(""), "");
     }
 
     #[test]

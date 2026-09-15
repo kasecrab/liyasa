@@ -96,6 +96,17 @@ pub fn widget_for(ty: &PropType) -> Widget {
 
 #[doc(hidden)]
 #[macro_export]
+macro_rules! __component_deps {
+    ($inst:expr, $schema:expr) => {
+        $crate::deps::from_schema($inst, $schema)
+    };
+    ($inst:expr, $schema:expr, $extract:path) => {
+        $extract($inst)
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
 macro_rules! __prop_required {
     (Required) => {
         true
@@ -150,6 +161,7 @@ macro_rules! declare {
         editor = ($icon:literal, $category:literal);
         props = [ $( ($prop:literal, $ty:expr, $flag:ident $(($default:expr))?, $doc:literal) ),* $(,)? ];
         $(slots = [ $( ($slot:literal, $slot_required:literal, $slot_doc:literal) ),* $(,)? ];)?
+        $(deps = $extract:path;)?
     ) => {
         $(#[$meta])*
         #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -236,7 +248,7 @@ macro_rules! declare {
             }
 
             fn deps(&self, inst: &$crate::ComponentInst) -> ::std::vec::Vec<::liyasa_core::document::Dep> {
-                $crate::deps::from_schema(inst, Self::schema_of())
+                $crate::__component_deps!(inst, Self::schema_of() $(, $extract)?)
             }
         }
     };
