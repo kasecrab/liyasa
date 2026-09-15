@@ -2,7 +2,7 @@
 //!
 //! §34.9's `Component::render_html` takes a `&mut RenderCtx` that has no fields
 //! and no constructor, so it can neither be called nor written to from outside
-//! `liyasa-core`. Until that is resolved (`plan/rfcs/0004-component-render-sinks.md`)
+//! `liyasa-core`. Until that is resolved (`plan/rfcs/0030-component-render-sinks.md`)
 //! the sinks live here: a component writes into [`HtmlCtx`] or [`MarkdownCtx`],
 //! and the frozen methods are adapters.
 

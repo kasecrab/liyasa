@@ -82,6 +82,8 @@ One
 > Nope.
 --- text
 Nope.
+--- diagnostics
+E0354 `cards` holds `note`
 
 === case: cols out of range
 --- html
@@ -90,3 +92,5 @@ Nope.
 --- markdown
 --- text
 
+--- diagnostics
+W0358 `cards.cols` is 9; 1 to 4 is the range it documents

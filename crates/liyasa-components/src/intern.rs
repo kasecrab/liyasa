@@ -4,12 +4,12 @@
 //! `Component::aliases` as `&'static str`, and CMP-90 defines components in
 //! files, whose names are `String`s. Interning leaks each *distinct* string
 //! once, so a dev server that reloads `components/card.jinja` a thousand times
-//! allocates for it once. See `plan/rfcs/0005-user-component-schemas.md`.
+//! allocates for it once. See `plan/rfcs/0031-user-component-schemas.md`.
 
 use std::collections::BTreeSet;
 use std::sync::{Mutex, OnceLock};
 
-// TODO(rfc-0005): delete this module if §34.9 moves to `Cow<'static, str>`.
+// TODO(rfc-0031): delete this module if §34.9 moves to `Cow<'static, str>`.
 fn table() -> &'static Mutex<BTreeSet<&'static str>> {
     static TABLE: OnceLock<Mutex<BTreeSet<&'static str>>> = OnceLock::new();
     TABLE.get_or_init(|| Mutex::new(BTreeSet::new()))

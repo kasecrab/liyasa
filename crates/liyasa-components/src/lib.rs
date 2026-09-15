@@ -4,7 +4,7 @@
 //! Every component implements the frozen [`liyasa_core::components::Component`]
 //! contract and, because that contract has no usable output sink yet, the
 //! crate-local [`render::Render`] trait that carries one. See
-//! `plan/rfcs/0004-component-render-sinks.md`.
+//! `plan/rfcs/0030-component-render-sinks.md`.
 
 pub mod anchor;
 pub mod components;

@@ -84,7 +84,7 @@ declare! {
     kind = Container;
     editor = ("list-collapse", "Disclosure");
     props = [
-        // TODO(rfc-0006): the requirement row names the group without naming
+        // TODO(rfc-0032): the requirement row names the group without naming
         // the prop that turns one-open mode on.
         ("one", PropType::Bool, Optional, "Opening one accordion closes the others."),
     ];

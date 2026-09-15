@@ -130,7 +130,7 @@ declare! {
 }
 
 /// One `actions` entry: `Label -> /route`, or a label on its own.
-// TODO(rfc-0006): the requirement table names `actions` without a shape.
+// TODO(rfc-0032): the requirement table names `actions` without a shape.
 fn action_of(entry: &str) -> (&str, Option<&str>) {
     match entry.split_once("->") {
         Some((label, href)) => (label.trim(), Some(href.trim())),

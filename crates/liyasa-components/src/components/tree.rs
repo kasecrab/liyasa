@@ -174,7 +174,15 @@ impl Render for Toc {
             .attr("aria-label", "Table of contents")
             .attr(
                 "data-depth",
-                &props.int_in("depth", 1..=6).unwrap_or(3).to_string(),
+                &crate::props::clamped(
+                    inst,
+                    Self::schema_of(),
+                    "depth",
+                    1..=6,
+                    &mut ctx.shared.diagnostics,
+                )
+                .unwrap_or(3)
+                .to_string(),
             )
             .attr_if("data-from", props.url("from"))
             .close();

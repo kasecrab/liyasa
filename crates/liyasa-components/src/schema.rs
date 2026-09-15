@@ -214,7 +214,7 @@ macro_rules! declare {
                 inst: &$crate::ComponentInst,
                 _ctx: &mut ::liyasa_core::components::RenderCtx,
             ) -> ::std::result::Result<(), $crate::RenderError> {
-                // TODO(rfc-0004): `RenderCtx` has no sink, so the markup is
+                // TODO(rfc-0030): `RenderCtx` has no sink, so the markup is
                 // built and dropped. Unreachable in practice: no crate outside
                 // `liyasa-core` can construct the `RenderCtx` this needs.
                 let mut scratch = $crate::render::HtmlCtx::detached();
@@ -226,7 +226,7 @@ macro_rules! declare {
                 inst: &$crate::ComponentInst,
                 _ctx: &mut ::liyasa_core::components::MdCtx,
             ) -> ::std::result::Result<(), $crate::RenderError> {
-                // TODO(rfc-0004): as above.
+                // TODO(rfc-0030): as above.
                 let mut scratch = $crate::render::MarkdownCtx::detached();
                 $crate::render::Render::markdown(self, inst, &mut scratch)
             }

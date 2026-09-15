@@ -60,6 +60,9 @@ impl Gallery {
             component
                 .markdown(inst, &mut markdown)
                 .unwrap_or_else(|e| panic!("{label}: markdown: {e}"));
+            // What rendering found, not only what validation did: a grid
+            // reports the child it cannot hold while it is laying it out.
+            diagnostics.extend(html.shared.diagnostics.clone());
 
             let _ = write!(out, "\n=== case: {label}\n");
             let _ = write!(out, "--- html\n{}\n", pretty(&html.finish()));

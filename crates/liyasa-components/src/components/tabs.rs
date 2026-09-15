@@ -20,7 +20,7 @@ declare! {
     kind = Container;
     editor = ("folder-tree", "Disclosure");
     props = [
-        // TODO(rfc-0006): RX-61's "Install: npm" needs a name for the group;
+        // TODO(rfc-0032): RX-61's "Install: npm" needs a name for the group;
         // the requirement row does not give the prop it comes from.
         ("title", PropType::Str, Optional, "Names the group, e.g. `Install`; used to prefix tab titles in the agent output."),
         ("sync", PropType::Str, Optional, "Synchronizes every tab group with the same key site-wide and remembers the reader's choice."),

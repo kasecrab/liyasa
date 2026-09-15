@@ -23,3 +23,5 @@
 --- markdown
 --- text
 
+--- diagnostics
+W0358 `toc.depth` is 99; 1 to 6 is the range it documents

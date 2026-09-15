@@ -138,7 +138,7 @@ impl Render for CodeGroup {
 
     fn markdown(&self, inst: &ComponentInst, ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError> {
         // RX-61: consecutive fences, each carrying its title.
-        // TODO(rfc-0006): RX-61 says "title comments"; the title rides in the
+        // TODO(rfc-0032): RX-61 says "title comments"; the title rides in the
         // info string instead, which needs no per-language comment syntax.
         for (block, title, options) in blocks_of(inst) {
             let mut options = options;

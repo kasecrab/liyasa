@@ -157,7 +157,9 @@ pub(crate) fn grid_html(
     extra: &[(&str, &str)],
 ) -> Result<(), RenderError> {
     let props = Reader::of(inst, schema);
-    let cols = props.int_in("cols", 1..=4).unwrap_or(2);
+    let cols = crate::props::clamped(inst, schema, "cols", 1..=4, &mut ctx.shared.diagnostics)
+        .or_else(|| props.int("cols"))
+        .unwrap_or(2);
     let gap = props.str("gap");
 
     if !allowed.is_empty() {
@@ -251,17 +253,21 @@ declare! {
 
 impl Render for Column {
     fn html(&self, inst: &ComponentInst, ctx: &mut HtmlCtx<'_>) -> Result<(), RenderError> {
-        let props = Reader::of(inst, Self::schema_of());
         ctx.out
             .open("div")
             .attr("class", "ly-column")
             .attr("data-liyasa", "column")
             .attr_if(
                 "data-span",
-                props
-                    .int_in("span", 1..=4)
-                    .map(|n| n.to_string())
-                    .as_deref(),
+                crate::props::clamped(
+                    inst,
+                    Self::schema_of(),
+                    "span",
+                    1..=4,
+                    &mut ctx.shared.diagnostics,
+                )
+                .map(|n| n.to_string())
+                .as_deref(),
             );
         ctx.children(&inst.children)?;
         ctx.out.close();

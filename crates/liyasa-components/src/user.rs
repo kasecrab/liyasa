@@ -7,7 +7,7 @@
 //!
 //! `PropDef::name` and `Component::name` are `&'static str`, so every name read
 //! from a file goes through [`crate::intern`]; see
-//! `plan/rfcs/0005-user-component-schemas.md`.
+//! `plan/rfcs/0031-user-component-schemas.md`.
 
 use std::sync::Arc;
 
@@ -433,7 +433,7 @@ impl Component for UserComponent {
         inst: &ComponentInst,
         _ctx: &mut liyasa_core::components::RenderCtx,
     ) -> Result<(), RenderError> {
-        // TODO(rfc-0004): no sink on `RenderCtx`.
+        // TODO(rfc-0030): no sink on `RenderCtx`.
         let mut scratch = HtmlCtx::detached();
         Render::html(self, inst, &mut scratch)
     }
@@ -443,7 +443,7 @@ impl Component for UserComponent {
         inst: &ComponentInst,
         _ctx: &mut liyasa_core::components::MdCtx,
     ) -> Result<(), RenderError> {
-        // TODO(rfc-0004): as above.
+        // TODO(rfc-0030): as above.
         let mut scratch = MarkdownCtx::detached();
         Render::markdown(self, inst, &mut scratch)
     }

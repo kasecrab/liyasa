@@ -54,12 +54,6 @@ impl<'a> Reader<'a> {
         }
     }
 
-    /// A whole number, rounded toward zero and clamped into `range`.
-    pub fn int_in(&self, name: &str, range: std::ops::RangeInclusive<i64>) -> Option<i64> {
-        self.num(name)
-            .map(|n| (n as i64).clamp(*range.start(), *range.end()))
-    }
-
     pub fn int(&self, name: &str) -> Option<i64> {
         self.num(name).map(|n| n as i64)
     }
@@ -173,6 +167,37 @@ fn scheme_of(url: &str) -> Option<String> {
         return None;
     }
     Some(scheme.to_ascii_lowercase())
+}
+
+/// A whole-number prop clamped into `range`, warning when it had to be.
+///
+/// Silently clamping is what the renderer needs; `W0358` is how the author
+/// finds out that `cols=9` is not the four columns the grid can draw.
+pub fn clamped(
+    inst: &ComponentInst,
+    schema: &PropSchema,
+    name: &str,
+    range: std::ops::RangeInclusive<i64>,
+    out: &mut Diagnostics,
+) -> Option<i64> {
+    let reader = Reader::new(&inst.props, schema);
+    let given = reader.int(name)?;
+    let clamped = given.clamp(*range.start(), *range.end());
+    if clamped != given {
+        out.push(located(
+            Diagnostic::new(
+                code::W0358,
+                format!(
+                    "`{}.{name}` is {given}; {} to {} is the range it documents",
+                    inst.name,
+                    range.start(),
+                    range.end()
+                ),
+            ),
+            inst,
+        ));
+    }
+    Some(clamped)
 }
 
 /// Checks one instance's props against its schema.
