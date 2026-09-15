@@ -7,6 +7,7 @@
 
 pub mod agents;
 
+pub mod assets;
 pub mod cache;
 pub mod clock;
 pub mod git;

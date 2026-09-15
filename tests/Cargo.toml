@@ -85,3 +85,7 @@ path = "config/cfg_90_diagnostics.rs"
 [[test]]
 name = "cm_82_redirects"
 path = "build/cm_82_redirects.rs"
+
+[[test]]
+name = "cm_84_files"
+path = "build/cm_84_files.rs"
