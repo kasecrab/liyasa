@@ -66,6 +66,10 @@ pub fn commonmark(spec: &Path, version: &str, out: &Path) -> Result<usize, Strin
     Ok(written)
 }
 
+/// The tagfilter examples assert HTML escaping that Liyasa's sanitizer pass owns,
+/// and comrak's tagfilter option is deprecated in 0.55 and removed in 0.56.
+const TAGFILTER_PENDING: &str = "disallowed raw HTML is enforced by Liyasa's sanitizer pass over the Rendered AST, not by the parser (PRD \u{a7}7.5.1 item 3); comrak's tagfilter option is deprecated in 0.55 and removed in 0.56";
+
 pub fn gfm(spec: &Path, out: &Path) -> Result<usize, String> {
     let text = std::fs::read_to_string(spec).map_err(|e| format!("{}: {e}", spec.display()))?;
     let mut section = String::new();
@@ -121,6 +125,7 @@ pub fn gfm(spec: &Path, out: &Path) -> Result<usize, String> {
                     tags
                 },
                 origin: Some(format!("gfm#{number}")),
+                pending: (extension == "tagfilter").then(|| TAGFILTER_PENDING.to_owned()),
                 ..CaseHeader::default()
             },
             source,
