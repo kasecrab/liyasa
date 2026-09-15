@@ -6,6 +6,7 @@
 
 pub mod markdown;
 pub mod site;
+pub mod size;
 pub mod spec;
 
 pub use markdown::{Page, render_page};
