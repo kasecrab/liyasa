@@ -121,6 +121,12 @@
   color: var(--ly-color-text);
 }
 
+/* An author `display` beats the browser's own `[hidden]` whatever its
+   specificity, so every control the runtime reveals takes it back here. */
+.ly-icon-button[hidden] {
+  display: none;
+}
+
 .ly-search-trigger {
   display: inline-flex;
   align-items: center;
@@ -133,6 +139,10 @@
   border: var(--ly-border);
   border-radius: var(--ly-radius-sm);
   font-size: var(--ly-text-sm);
+}
+
+.ly-search-trigger[hidden] {
+  display: none;
 }
 
 .ly-search-trigger-label,

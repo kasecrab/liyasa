@@ -380,6 +380,10 @@
   text-decoration: none;
 }
 
+.ly-page-action[hidden] {
+  display: none;
+}
+
 .ly-page-action:hover {
   background: var(--ly-color-surface);
 }

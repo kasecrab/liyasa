@@ -1,12 +1,15 @@
 //! THM-31 and THM-32: the base bundle fits its budget, every lazy module fits
 //! its own, and nothing the theme ships fetches from another origin.
 
+use std::collections::BTreeSet;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
 use liyasa_theme::config::ThemeConfig;
+use liyasa_theme::context::{Mode, RenderContext};
 use liyasa_theme::runtime::{BASE_BUDGET, BOOTSTRAP, Runtime, budget_of, external_requests};
 use liyasa_theme::stylesheet::Styles;
+use liyasa_theme::theme::Theme;
 use liyasa_theme::tokens::Tokens;
 
 fn compressed_len(text: &str) -> usize {
@@ -112,4 +115,128 @@ fn every_module_guards_the_elements_it_enhances() {
     }
     assert!(runtime.base.matches("querySelectorAll").count() >= 6);
     assert!(runtime.base.contains("if (!dialog || !trigger) return;"));
+}
+
+/// Every class on an element the rendered markup marks `hidden`.
+fn hidden_classes(html: &str) -> BTreeSet<&str> {
+    let mut found = BTreeSet::new();
+    let mut rest = html;
+    while let Some(at) = rest.find('<') {
+        rest = &rest[at..];
+        let Some(end) = rest.find('>') else { break };
+        let tag = &rest[..=end];
+        rest = &rest[end..];
+        if !tag.contains(" hidden") {
+            continue;
+        }
+        let Some(class_at) = tag.find("class=\"") else {
+            continue;
+        };
+        let names = &tag[class_at + 7..];
+        let Some(close) = names.find('"') else {
+            continue;
+        };
+        found.extend(names[..close].split_whitespace());
+    }
+    found
+}
+
+/// Every `selector { declarations }` pair in `css`, at-rule wrappers walked
+/// into rather than treated as rules of their own.
+fn rules(css: &str) -> Vec<(&str, &str)> {
+    let bytes = css.as_bytes();
+    let mut out = Vec::new();
+    let mut selector_from = 0;
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'{' => {
+                let mut depth = 1;
+                let mut j = i + 1;
+                while j < bytes.len() && depth > 0 {
+                    match bytes[j] {
+                        b'{' => depth += 1,
+                        b'}' => depth -= 1,
+                        _ => {}
+                    }
+                    j += 1;
+                }
+                let body = &css[i + 1..j.saturating_sub(1)];
+                let selector = css[selector_from..i].trim();
+                if body.contains('{') {
+                    i += 1;
+                    selector_from = i;
+                    continue;
+                }
+                if !selector.starts_with('@') {
+                    out.push((selector, body));
+                }
+                i = j;
+                selector_from = i;
+            }
+            b'}' => {
+                i += 1;
+                selector_from = i;
+            }
+            _ => i += 1,
+        }
+    }
+    out
+}
+
+/// Does any selector in the list name exactly `.class`, with no suffix?
+fn names_class(selector: &str, class: &str) -> bool {
+    selector.split(',').any(|one| {
+        one.split_whitespace().any(|part| {
+            part.strip_prefix('.')
+                .and_then(|rest| rest.strip_prefix(class))
+                .is_some_and(str::is_empty)
+        })
+    })
+}
+
+#[test]
+fn a_control_the_markup_hides_is_not_displayed_anyway() {
+    // The browser's own `[hidden] { display: none }` is a user-agent rule, so
+    // any author rule setting `display` on the same element beats it whatever
+    // its specificity. A control the runtime reveals must therefore take its
+    // `display` back under `[hidden]`, or a reader without JavaScript is shown
+    // a button that does nothing.
+    let theme = Theme::new().expect("the theme builds");
+    let styles =
+        Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]).expect("the theme compiles");
+
+    let mut markup = theme
+        .render_page(&RenderContext::sample())
+        .expect("the page renders");
+    let mut with_assistant = RenderContext::sample();
+    with_assistant.page.mode = Mode::Assistant;
+    markup.push_str(
+        &theme
+            .render_page(&with_assistant)
+            .expect("the assistant page renders"),
+    );
+
+    let rules = rules(&styles.css);
+    let mut overriding = Vec::new();
+    for class in hidden_classes(&markup) {
+        let sets_display = rules
+            .iter()
+            .any(|(selector, body)| names_class(selector, class) && body.contains("display:"));
+        if !sets_display {
+            continue; // `[hidden]` from the browser's own stylesheet holds.
+        }
+        let neutralised = rules.iter().any(|(selector, body)| {
+            selector.contains(&format!(".{class}[hidden]")) && body.contains("display:")
+        });
+        if !neutralised {
+            overriding.push(class);
+        }
+    }
+
+    assert!(
+        overriding.is_empty(),
+        "these classes set `display` and never take it back under `[hidden]`, \
+         so the control is a dead button without a script: {overriding:?}"
+    );
 }
