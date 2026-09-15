@@ -169,6 +169,10 @@ pub struct Site {
     pub assistant: bool,
     /// THM-40: the OSS distribution may drop the line.
     pub built_with: bool,
+    /// Where the "built with" line points. Defaults to
+    /// [`liyasa_core::site::SITE_URL`]; a fork replaces it, and a site that
+    /// drops the line never renders it.
+    pub built_with_url: String,
     pub appearance: Appearance,
 }
 
@@ -371,7 +375,13 @@ pub fn reference() -> &'static [PartialDoc] {
         PartialDoc {
             partial: "footer",
             doc: "Footer columns, social links, and the built-with line.",
-            keys: &["site.footer", "site.builtWith", "site.name", "strings"],
+            keys: &[
+                "site.footer",
+                "site.builtWith",
+                "site.builtWithUrl",
+                "site.name",
+                "strings",
+            ],
         },
         PartialDoc {
             partial: "search",
@@ -592,6 +602,7 @@ impl RenderContext {
                 search: true,
                 assistant: true,
                 built_with: true,
+                built_with_url: liyasa_core::site::SITE_URL.to_owned(),
                 appearance: Appearance {
                     default: "system".to_owned(),
                     strict: false,

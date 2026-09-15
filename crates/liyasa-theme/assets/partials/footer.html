@@ -12,7 +12,7 @@
     {% endif %}
     <div class="ly-footer-note" data-liyasa="footer-note">
       {% if site.footer.note %}<p>{{ site.footer.note }}</p>{% endif %}
-      {% if site.builtWith %}<p>{{ strings.builtWith }}</p>{% endif %}
+      {% if site.builtWith %}<p>{% if site.builtWithUrl %}<a href="{{ site.builtWithUrl }}" rel="noopener">{{ strings.builtWith }}</a>{% else %}{{ strings.builtWith }}{% endif %}</p>{% endif %}
       {% if site.footer.social %}
       <ul class="ly-flex ly-gap-3">{% for link in site.footer.social %}<li><a href="{{ link.href }}" rel="noopener noreferrer">{{ link.label }}</a></li>{% endfor %}</ul>
       {% endif %}
