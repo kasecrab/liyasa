@@ -11,6 +11,7 @@ Three layers, each overridable on its own:
 | Partials | One minijinja template per region of the page | A same-named file in `theme/partials/` |
 | Layouts | One template per page mode (§7.7) | A file in `theme/layouts/`, including new modes |
 | Assets | One stylesheet, one runtime bundle | `theme.css` and `theme.js`, appended after the theme's |
+| Wording | Every string the chrome shows | `theme/strings.json`, or `theme/strings.<locale>.json` |
 
 ## What a build does with it
 
@@ -54,7 +55,9 @@ disagree in either direction.
   origin either way.
 - **RFCs raised.** 0009 (lightningcss is MPL-2.0 and `cargo deny` rejects it),
   0010 (the frozen `PageMeta` and `NavCtx` are empty, so the theme defines the
-  context types), 0011 (the endpoints behind the "open in" page actions).
+  context types), 0011 (the endpoints behind the "open in" page actions), 0012
+  (THM-40's interface strings have no key in the config schema, so they live in
+  `theme/strings.json`).
 
 ## Budgets
 
