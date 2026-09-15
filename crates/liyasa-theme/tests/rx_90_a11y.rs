@@ -1,6 +1,8 @@
 //! RX-90: landmarks, skip link, focus, ARIA, reduced motion, and the
 //! announcement channel for route changes.
 
+use std::ops::Range;
+
 use liyasa_theme::config::ThemeConfig;
 use liyasa_theme::context::RenderContext;
 use liyasa_theme::stylesheet::Styles;
@@ -320,4 +322,61 @@ fn every_button_has_a_name_the_stylesheet_cannot_take_away() {
         unnamed.is_empty(),
         "these buttons have no accessible name at every width: {unnamed:#?}"
     );
+}
+
+/// The span of the body of the `@media` block starting at `at`, braces
+/// balanced.
+fn block_at(css: &str, at: usize) -> Range<usize> {
+    let open = css[at..].find('{').expect("the block opens") + at;
+    let bytes = css.as_bytes();
+    let mut depth = 1;
+    let mut i = open + 1;
+    while i < bytes.len() && depth > 0 {
+        match bytes[i] {
+            b'{' => depth += 1,
+            b'}' => depth -= 1,
+            _ => {}
+        }
+        i += 1;
+    }
+    open + 1..i.saturating_sub(1)
+}
+
+#[test]
+fn the_reduced_motion_reset_outranks_the_rules_it_resets() {
+    // The reset selects `*`, so every class rule that sets a transition beats
+    // it on specificity and the animation a reader asked not to see plays
+    // anyway. Only `!important` puts the preference above the theme.
+    let styles =
+        Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]).expect("the theme compiles");
+    let at = styles
+        .css
+        .find("@media (prefers-reduced-motion:reduce)")
+        .expect("the reset is compiled");
+    let span = block_at(&styles.css, at);
+    let reset = &styles.css[span.clone()];
+    for property in ["animation-duration", "transition-duration"] {
+        let declaration = reset
+            .split(';')
+            .find(|part| part.contains(property))
+            .unwrap_or_else(|| panic!("the reset does not set `{property}`"));
+        assert!(
+            declaration.contains("!important"),
+            "`{declaration}` loses to any rule with a class in its selector"
+        );
+    }
+
+    // Nothing else may claim the same priority, or the reset is outranked
+    // again by whichever selector is more specific.
+    let elsewhere = format!("{}{}", &styles.css[..span.start], &styles.css[span.end..]);
+    for (found, _) in elsewhere.match_indices("!important") {
+        let declaration = elsewhere[..found]
+            .rsplit([';', '{'])
+            .next()
+            .unwrap_or_default();
+        assert!(
+            !declaration.contains("transition") && !declaration.contains("animation"),
+            "`{declaration}` is important outside the reduced-motion reset"
+        );
+    }
 }

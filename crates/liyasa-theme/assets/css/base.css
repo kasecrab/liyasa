@@ -264,14 +264,16 @@ body {
   }
 }
 
-/* Reduced motion is honoured globally: no transition outlives a preference. */
+/* Reduced motion is honoured globally: no transition outlives a preference.
+   The selector is `*`, so every rule naming a class beats it on specificity;
+   `!important` is what puts the reader's preference above the theme. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 1ms;
-    animation-iteration-count: 1;
-    transition-duration: 1ms;
-    scroll-behavior: auto;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }
