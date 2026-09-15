@@ -1,11 +1,13 @@
 //! Self-hosted faces (THM-03, CFG-06, THM-32).
 //!
-//! Every face the theme uses is served from the site's own origin: a Google
-//! Fonts family named in `theme.fonts` is downloaded at build time and emitted
-//! here as a local `@font-face`, so no page ever asks a third party for a font.
-//! Until a face's file is present the stack falls through to the reader's own
-//! system fonts, which is why each `@font-face` is emitted only when the build
-//! says the file exists.
+//! Every face the theme uses is served from the site's own origin: the two
+//! faces §34.11 inventories ship in `assets/fonts/`, and a Google Fonts family
+//! named in `theme.fonts` is downloaded at build time and emitted here as a
+//! local `@font-face`, so no page ever asks a third party for a font.
+//!
+//! [`bundled`] names what the theme carries and [`file`] hands over the bytes;
+//! writing them into the output is the build's, which is also why a face is
+//! only declared when the build says its file is there.
 
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use serde::{Deserialize, Serialize};
@@ -23,6 +25,8 @@ pub struct FaceFile {
     pub family: String,
     /// Path under [`DIRECTORY`], e.g. `inter-variable.woff2`.
     pub file: String,
+    /// The `format()` the `src` declares: `woff2` or `truetype`.
+    pub format: String,
     /// `normal` or `italic`.
     pub style: String,
     /// A single weight (`400`) or a variable range (`100 900`).
@@ -31,24 +35,52 @@ pub struct FaceFile {
     pub unicode_range: Option<String>,
 }
 
-/// The faces the theme ships when their files are present (§34.11).
+/// The faces the theme carries (§34.11), both SIL OFL 1.1 with their licence
+/// texts beside them in `assets/fonts/`.
 pub fn bundled() -> Vec<FaceFile> {
     vec![
         FaceFile {
             family: "InterVariable".to_owned(),
             file: "inter-variable.woff2".to_owned(),
+            format: "woff2".to_owned(),
             style: "normal".to_owned(),
             weight: "100 900".to_owned(),
             unicode_range: None,
         },
         FaceFile {
+            // JetBrains publishes the variable face as TrueType only; a host
+            // that compresses serves it in about half its size, and the
+            // conversion is one command away (see `assets/fonts/README.md`).
             family: "JetBrains Mono".to_owned(),
-            file: "jetbrains-mono-variable.woff2".to_owned(),
+            file: "jetbrains-mono-variable.ttf".to_owned(),
+            format: "truetype".to_owned(),
             style: "normal".to_owned(),
             weight: "100 800".to_owned(),
             unicode_range: None,
         },
     ]
+}
+
+/// The bytes of a bundled face, for the build to write into the output.
+pub fn file(name: &str) -> Option<&'static [u8]> {
+    match name {
+        "inter-variable.woff2" => Some(include_bytes!("../assets/fonts/inter-variable.woff2")),
+        "jetbrains-mono-variable.ttf" => Some(include_bytes!(
+            "../assets/fonts/jetbrains-mono-variable.ttf"
+        )),
+        _ => None,
+    }
+}
+
+/// The licence text that must ship with a bundled face (§34.11).
+pub fn licence(name: &str) -> Option<&'static str> {
+    match name {
+        "inter-variable.woff2" => Some(include_str!("../assets/fonts/Inter-LICENSE.txt")),
+        "jetbrains-mono-variable.ttf" => {
+            Some(include_str!("../assets/fonts/JetBrainsMono-LICENSE.txt"))
+        }
+        _ => None,
+    }
 }
 
 /// The `@font-face` block for the faces whose files `available` reports.
@@ -71,7 +103,9 @@ pub fn css(faces: &[FaceFile], base_path: &str) -> String {
         out.push_str(DIRECTORY);
         out.push('/');
         out.push_str(&face.file);
-        out.push_str("\") format(\"woff2\")");
+        out.push_str("\") format(\"");
+        out.push_str(&face.format);
+        out.push_str("\")");
         if let Some(range) = &face.unicode_range {
             out.push_str(";unicode-range:");
             out.push_str(range);
@@ -159,9 +193,35 @@ mod tests {
     fn a_face_is_served_from_the_sites_own_origin() {
         let css = css(&bundled(), "");
         assert!(css.contains("src:url(\"/_liyasa/fonts/inter-variable.woff2\") format(\"woff2\")"));
+        assert!(
+            css.contains("format(\"truetype\")"),
+            "the mono face is a ttf"
+        );
         assert!(css.contains("font-weight:100 900"));
         assert!(css.contains("font-display:swap"));
         assert!(crate::runtime::external_requests(&[&css]).is_empty());
+    }
+
+    #[test]
+    fn every_bundled_face_ships_with_its_bytes_and_its_licence() {
+        for face in bundled() {
+            let bytes = file(&face.file).unwrap_or_else(|| panic!("`{}` is bundled", face.file));
+            assert!(bytes.len() > 10_000, "`{}` looks truncated", face.file);
+            let magic = &bytes[..4];
+            match face.format.as_str() {
+                "woff2" => assert_eq!(magic, b"wOF2", "`{}` is not woff2", face.file),
+                "truetype" => assert_eq!(magic, &[0, 1, 0, 0], "`{}` is not a ttf", face.file),
+                other => panic!("`{other}` is not a format the theme emits"),
+            }
+            let licence =
+                licence(&face.file).unwrap_or_else(|| panic!("`{}` ships no licence", face.file));
+            assert!(
+                licence.contains("SIL Open Font License"),
+                "`{}` is not under the licence §34.11 records",
+                face.file
+            );
+        }
+        assert!(file("something-else.woff2").is_none());
     }
 
     #[test]

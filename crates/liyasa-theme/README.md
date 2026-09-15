@@ -49,10 +49,11 @@ disagree in either direction.
 - **Navigation.** The theme renders `nav::Navigation`; resolving the configured
   tree against the content (§8.4) is the build's, and hidden pages must already
   be gone when it arrives.
-- **Fonts.** `fonts::bundled()` names the two faces §34.11 inventories. The
-  files are not committed yet (see `NEEDS-INPUT.md`); until they are, the
-  stacks fall through to the reader's system fonts and no request leaves the
-  origin either way.
+- **Fonts.** `fonts::bundled()` names the two faces §34.11 inventories, and
+  they ship in `assets/fonts/` with their SIL OFL 1.1 texts; `fonts::file` and
+  `fonts::licence` hand the build the bytes to write. JetBrains Mono is still
+  the variable TTF rather than a woff2 (`assets/fonts/README.md` says why and
+  how to finish it).
 - **RFCs raised.** 0500 (lightningcss is MPL-2.0 and `cargo deny` rejected it —
   resolved: the licence is allowed and the theme compiles with lightningcss),
   0501 (the frozen `PageMeta` and `NavCtx` are empty, so the theme defines the
