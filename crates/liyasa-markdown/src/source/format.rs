@@ -155,7 +155,7 @@ fn expand_tabs(line: &str) -> String {
 ///
 /// Nesting decides the fence length, so the pass matches every pair first and
 /// then gives each container three colons plus the depth of what it holds.
-/// `plan/rfcs/0008-tag-form-directive-names.md` records how a name is spelled.
+/// `plan/rfcs/0022-tag-form-directive-names.md` records how a name is spelled.
 fn tag_form(text: &str) -> Result<String, Diagnostics> {
     let (document, diagnostics) = scan::scan(text, SourceId(0));
     if diagnostics
