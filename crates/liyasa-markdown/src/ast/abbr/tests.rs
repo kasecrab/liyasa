@@ -105,3 +105,16 @@ fn definitions_are_written_back() {
     assert_eq!(once, source);
     assert_eq!(crate::render::markdown::render(&document(&once).root), once);
 }
+
+/// A paragraph holds as many matches as it has words; one stack frame each
+/// would end the process rather than the page.
+#[test]
+fn a_page_full_of_matches_does_not_overflow_the_stack() {
+    let prose = "A ".repeat(50_000);
+    let ampere = "Ampere".to_owned();
+    let abbr = "A".to_owned();
+    let out = super::split(&prose, &[(&abbr, &ampere)]);
+    // Every match also leaves the space after it, so the run is twice as long
+    // as the number of abbreviations.
+    assert_eq!(out.len(), 100_000);
+}

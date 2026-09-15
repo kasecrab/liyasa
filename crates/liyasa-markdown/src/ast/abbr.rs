@@ -80,24 +80,29 @@ fn all(children: Vec<Inline>, definitions: &[(&String, &String)]) -> Vec<Inline>
         .collect()
 }
 
+/// Iterative rather than recursive: a page holds as many matches as it has
+/// words, and one stack frame each would end the process rather than the page.
 fn split(text: &str, definitions: &[(&String, &String)]) -> Vec<Inline> {
-    let Some((at, abbr, expansion)) = first_match(text, definitions) else {
-        return vec![Inline::Text(text.to_owned())];
-    };
     let mut out = Vec::new();
-    if at > 0 {
-        out.push(Inline::Text(text[..at].to_owned()));
+    let mut rest = text;
+    while let Some((at, abbr, expansion)) = first_match(rest, definitions) {
+        if at > 0 {
+            out.push(Inline::Text(rest[..at].to_owned()));
+        }
+        let mut props = Props::default();
+        props
+            .0
+            .insert("title".to_owned(), PropValue::Str((*expansion).clone()));
+        out.push(Inline::InlineComponent {
+            name: ABBR.to_owned(),
+            props,
+            children: vec![Inline::Text((*abbr).clone())],
+        });
+        rest = &rest[at + abbr.len()..];
     }
-    let mut props = Props::default();
-    props
-        .0
-        .insert("title".to_owned(), PropValue::Str((*expansion).clone()));
-    out.push(Inline::InlineComponent {
-        name: ABBR.to_owned(),
-        props,
-        children: vec![Inline::Text((*abbr).clone())],
-    });
-    out.extend(split(&text[at + abbr.len()..], definitions));
+    if !rest.is_empty() || out.is_empty() {
+        out.push(Inline::Text(rest.to_owned()));
+    }
     out
 }
 
