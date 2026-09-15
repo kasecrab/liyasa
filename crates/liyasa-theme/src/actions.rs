@@ -139,6 +139,10 @@ pub struct Action {
     /// The id of the element whose text the action copies.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub copy_target: Option<String>,
+    /// A same-origin URL the action fetches and copies. RX-14 forbids inlining
+    /// a page's Markdown into its HTML, so copying it means fetching it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub copy_url: Option<String>,
     pub external: bool,
 }
 
@@ -156,6 +160,7 @@ pub fn resolve(config: &Config, targets: &Targets, strings: &Strings) -> Vec<Act
                 icon: icon.clone().unwrap_or_else(|| "link".to_owned()),
                 href: Some(href.clone()),
                 copy_target: None,
+                copy_url: None,
                 external: is_external(href),
             }),
             Item::Named(name) => named(name, targets, strings),
@@ -183,14 +188,13 @@ fn named(name: &str, targets: &Targets, strings: &Strings) -> Option<Action> {
         external: href.as_deref().is_some_and(is_external),
         href,
         copy_target: copy,
+        copy_url: None,
     };
     match name {
-        "copy-markdown" => Some(action(
-            &strings.copy_page,
-            "clipboard",
-            None,
-            Some("ly-page-markdown".to_owned()),
-        )),
+        "copy-markdown" => (!targets.markdown_url.is_empty()).then(|| Action {
+            copy_url: Some(targets.markdown_url.clone()),
+            ..action(&strings.copy_page, "clipboard", None, None)
+        }),
         "view-markdown" => Some(action(
             &strings.view_markdown,
             "file-text",
@@ -287,6 +291,24 @@ mod tests {
                 "edit-on-github"
             ]
         );
+    }
+
+    #[test]
+    fn copying_the_page_fetches_it_rather_than_inlining_it() {
+        let actions = resolve(&Config::default(), &targets(), &Strings::default());
+        let copy = actions
+            .iter()
+            .find(|action| action.id == "copy-markdown")
+            .expect("copy is in the default menu");
+        assert_eq!(
+            copy.copy_url.as_deref(),
+            Some("https://docs.example/guide/install.md")
+        );
+        assert!(
+            copy.copy_target.is_none(),
+            "RX-14 forbids inlining the source"
+        );
+        assert!(copy.href.is_none(), "copying is not navigation");
     }
 
     #[test]

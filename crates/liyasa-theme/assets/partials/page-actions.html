@@ -6,7 +6,7 @@
       {% if action.href %}
       <a class="ly-page-action" href="{{ action.href }}"{% if action.external %} target="_blank" rel="noopener noreferrer"{% endif %} data-ly-action="{{ action.id }}">{{ action.label }}</a>
       {% else %}
-      <button type="button" class="ly-page-action" data-ly-action="{{ action.id }}" data-ly-copy="{{ action.copyTarget }}" data-ly-copied-label="{{ strings.copied }}" hidden>{{ action.label }}</button>
+      <button type="button" class="ly-page-action" data-ly-action="{{ action.id }}"{% if action.copyTarget %} data-ly-copy="{{ action.copyTarget }}"{% endif %}{% if action.copyUrl %} data-ly-copy-url="{{ action.copyUrl }}"{% endif %} data-ly-copied-label="{{ strings.copied }}" hidden>{{ action.label }}</button>
       {% endif %}
     </li>
     {% endfor %}

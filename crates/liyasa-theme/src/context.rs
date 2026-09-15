@@ -7,6 +7,8 @@
 // TODO(rfc-0010): `PageMeta` and `NavCtx` in liyasa-core are empty frozen
 // stubs; these are the types the partials actually receive.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::actions::{Action, Placement};
@@ -82,8 +84,22 @@ pub struct RenderContext {
     pub nav: Nav,
     pub assets: Assets,
     pub strings: Strings,
+    /// Who is reading, when the site knows (§19.3). Empty for a static build,
+    /// which is what every shared index and agent surface sees (§6.6.4).
+    pub reader: Reader,
+    /// Playground server variables (CMP-101).
+    pub playground: BTreeMap<String, String>,
     /// The CSP nonce for this response (RX-110).
     pub nonce: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Reader {
+    pub groups: Vec<String>,
+    pub region: Option<String>,
+    pub locale: Option<String>,
+    pub authenticated: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -264,6 +280,8 @@ pub fn reference() -> &'static [PartialDoc] {
                 "site.favicon",
                 "site.locale",
                 "site.appearance",
+                "reader",
+                "playground",
                 "assets.stylesheet",
                 "assets.critical",
                 "assets.bootstrap",
@@ -387,6 +405,35 @@ pub fn partial_names() -> Vec<&'static str> {
     reference().iter().map(|doc| doc.partial).collect()
 }
 
+/// What `window.liyasa` reads (CMP-101), as JSON safe to put inside a
+/// `<script type="application/json">`: `<` is escaped so no string in the
+/// payload can close the element.
+pub fn page_data(context: &RenderContext) -> String {
+    let payload = serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "page": {
+            "id": context.page.id,
+            "route": context.page.route,
+            "title": context.page.title,
+            "description": context.page.description,
+            "mode": context.page.mode.name(),
+            "markdownUrl": context.page.markdown_url,
+            "lastModified": context.page.last_modified,
+            "personalized": context.page.personalized,
+        },
+        "site": {
+            "name": context.site.name,
+            "origin": context.site.origin,
+            "basePath": context.site.base_path,
+            "version": context.site.version,
+            "locale": context.site.locale,
+        },
+        "reader": context.reader,
+        "playground": context.playground,
+    });
+    payload.to_string().replace('<', "\\u003c")
+}
+
 impl RenderContext {
     /// Sets the page body, removing anything CMP-102 forbids and reporting
     /// what it removed. Templates mark the body safe, so this is the point
@@ -436,7 +483,7 @@ impl RenderContext {
             }],
             ..Navigation::default()
         };
-        Self {
+        let mut context = Self {
             page: Page {
                 route: "/guide/install".to_owned(),
                 id: "01J0000000000000000000000".to_owned(),
@@ -532,11 +579,15 @@ impl RenderContext {
                 bootstrap: crate::runtime::BOOTSTRAP.to_owned(),
                 custom_css: vec!["/brand.css".to_owned()],
                 custom_js: vec!["/brand.js".to_owned()],
-                page_data: "{}".to_owned(),
+                page_data: String::new(),
             },
             strings,
+            reader: Reader::default(),
+            playground: BTreeMap::new(),
             nonce: "r4nd0mn0nc3".to_owned(),
-        }
+        };
+        context.assets.page_data = page_data(&context);
+        context
     }
 }
 
@@ -571,9 +622,37 @@ mod tests {
         keys.sort_unstable();
         assert_eq!(
             keys,
-            vec!["assets", "nav", "nonce", "page", "site", "strings"]
+            vec![
+                "assets",
+                "nav",
+                "nonce",
+                "page",
+                "playground",
+                "reader",
+                "site",
+                "strings"
+            ]
         );
         assert!(value["page"]["markdownUrl"].as_str().is_some());
+        let data: serde_json::Value =
+            serde_json::from_str(&RenderContext::sample().assets.page_data)
+                .expect("the page data is JSON");
+        assert_eq!(data["page"]["route"], serde_json::json!("/guide/install"));
+        assert!(data["version"].as_str().is_some());
         assert_eq!(value["site"]["builtWith"], serde_json::json!(true));
+    }
+
+    #[test]
+    fn the_page_data_cannot_close_its_own_script_element() {
+        let mut context = RenderContext::sample();
+        context.page.title = "</script><script>alert(1)</script>".to_owned();
+        let data = page_data(&context);
+        assert!(!data.contains("</script>"), "{data}");
+        assert!(data.contains("\\u003c/script"));
+        let parsed: serde_json::Value = serde_json::from_str(&data).expect("still JSON");
+        assert_eq!(
+            parsed["page"]["title"],
+            serde_json::json!("</script><script>alert(1)</script>")
+        );
     }
 }
