@@ -1010,6 +1010,7 @@ dependencies = [
  "liyasa-components",
  "liyasa-config",
  "liyasa-core",
+ "liyasa-markdown",
  "serde",
  "serde_json",
  "url",
