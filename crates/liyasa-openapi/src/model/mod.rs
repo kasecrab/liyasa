@@ -133,7 +133,7 @@ impl OperationRef<'_> {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Info {
     pub title: String,
@@ -146,7 +146,7 @@ pub struct Info {
     pub extensions: Extensions,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Contact {
     pub name: Option<String>,
@@ -154,7 +154,7 @@ pub struct Contact {
     pub email: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct License {
     pub name: String,
@@ -162,7 +162,7 @@ pub struct License {
     pub url: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Server {
     pub url: String,
@@ -196,7 +196,7 @@ impl Server {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerVariable {
     pub default: String,
@@ -204,7 +204,7 @@ pub struct ServerVariable {
     pub description: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tag {
     pub name: String,
