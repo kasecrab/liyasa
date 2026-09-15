@@ -55,4 +55,5 @@ jsonschema = { version = "0.56", default-features = false }
 typify = { version = "0.8", default-features = false }
 regex = { version = "1.13", default-features = false, features = ["std", "unicode-perl", "unicode-case"] }   # Vale rule tokens and the `regex` runner (RFC 1300)
 syntect = { version = "5.3", default-features = false, features = ["default-fancy"] }   # fancy-regex, not oniguruma: pure Rust, no C toolchain, and it still builds for wasm32.
+syntect = { version = "5.3", default-features = false, features = ["parsing", "dump-load", "html", "regex-fancy"] }   # fancy-regex, not oniguruma: pure Rust, no C toolchain. two-face supplies the syntaxes and themes as dumps, so `default-syntaxes`, `default-themes`, `yaml-load`, and `plist-load` stay off and their unmaintained transitives (yaml-rust, plist) stay out of the tree.
 two-face = { version = "0.5", default-features = false, features = ["syntect-fancy"] }  # bat's curated syntax and theme set (PRD §6.2.1).
