@@ -5,7 +5,19 @@ all-features = true
 yanked = "deny"
 
 [licenses]
-allow = ["Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib", "CC0-1.0"]
+# Unicode-DFS-2016 is the same Unicode data licence as Unicode-3.0, which is
+# already allowed; comrak reaches it through finl_unicode.
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "Unicode-DFS-2016",
+  "Zlib",
+  "CC0-1.0",
+]
 confidence-threshold = 0.9
 
 [bans]
