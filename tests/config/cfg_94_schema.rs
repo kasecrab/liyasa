@@ -2,8 +2,10 @@
 //! `liyasa schema config` emits it verbatim, the Rust type is generated from
 //! it, and every key the config surface names is in it.
 
+use liyasa_config::json::SpanIndex;
 use liyasa_config::{SiteConfig, schema};
-use serde_json::Value;
+use liyasa_core::span::SourceId;
+use serde_json::{Map, Value};
 
 const EXAMPLE: &str = include_str!("../../crates/liyasa-config/tests/fixtures/example.json");
 
@@ -343,4 +345,108 @@ fn a_redirect_says_permanent_by_its_status() {
     let schema = Schema::parse();
     assert!(schema.has("redirects.rules[].status"));
     assert!(!schema.has("redirects.rules[].permanent"));
+}
+
+impl Schema {
+    /// Every string enum the schema offers at an object path, as
+    /// `(["content", "html"], ["allow", "sanitize", "off"])`. Paths that step
+    /// through an array are skipped: the value needs a whole entry around it,
+    /// and the entries differ per list.
+    fn enums(&self) -> Vec<(Vec<String>, Vec<String>)> {
+        let mut found = Vec::new();
+        self.collect(&self.root, &mut Vec::new(), &mut Vec::new(), &mut found);
+        found
+    }
+
+    fn collect(
+        &self,
+        node: &Value,
+        path: &mut Vec<String>,
+        visiting: &mut Vec<String>,
+        found: &mut Vec<(Vec<String>, Vec<String>)>,
+    ) {
+        if let Some(reference) = node.get("$ref").and_then(Value::as_str) {
+            let name = reference.rsplit('/').next().unwrap_or_default().to_owned();
+            if visiting.contains(&name) {
+                return;
+            }
+            let Some(target) = self.root.pointer(&format!("/$defs/{name}")) else {
+                return;
+            };
+            visiting.push(name);
+            self.collect(target, path, visiting, found);
+            visiting.pop();
+            return;
+        }
+        if node.get("type").and_then(Value::as_str) == Some("string")
+            && let Some(Value::Array(values)) = node.get("enum")
+        {
+            let values: Vec<String> = values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect();
+            if !values.is_empty() && !path.is_empty() {
+                found.push((path.clone(), values));
+            }
+        }
+        for key in ["oneOf", "anyOf", "allOf"] {
+            if let Some(Value::Array(branches)) = node.get(key) {
+                for branch in branches {
+                    self.collect(branch, path, visiting, found);
+                }
+            }
+        }
+        if let Some(properties) = node.pointer("/properties").and_then(Value::as_object) {
+            for (name, property) in properties {
+                path.push(name.clone());
+                self.collect(property, path, visiting, found);
+                path.pop();
+            }
+        }
+    }
+}
+
+/// `{"name": "Acme", <path>: value}`.
+fn config_with(path: &[String], value: &str) -> Value {
+    let mut leaf = Value::String(value.to_owned());
+    for segment in path.iter().rev() {
+        let mut object = Map::new();
+        object.insert(segment.clone(), leaf);
+        leaf = Value::Object(object);
+    }
+    let Value::Object(mut object) = leaf else {
+        unreachable!("a path always nests at least one object")
+    };
+    object.insert("name".to_owned(), Value::String("Acme".to_owned()));
+    Value::Object(object)
+}
+
+/// CFG-94: the schema and the generated type cannot diverge, so every value the
+/// schema offers has to be one `SiteConfig` reads.
+#[test]
+fn every_enum_value_the_schema_offers_is_one_the_type_accepts() {
+    let schema = Schema::parse();
+    let enums = schema.enums();
+    assert!(enums.len() >= 28, "found only {} enums", enums.len());
+
+    for (path, values) in enums {
+        if path.iter().any(|segment| segment == "items") {
+            continue;
+        }
+        for value in values {
+            let config = config_with(&path, &value);
+            let text = serde_json::to_string(&config).expect("serializes");
+            let report = schema::check(&config, &SpanIndex::scan(SourceId(0), &text));
+            assert!(
+                report.diagnostics.is_empty() && report.unknown.is_empty(),
+                "{}: `{value}` does not validate: {:?}",
+                path.join("."),
+                report.diagnostics
+            );
+            serde_json::from_value::<SiteConfig>(config).unwrap_or_else(|e| {
+                panic!("{}: `{value}` is not in the type: {e}", path.join("."))
+            });
+        }
+    }
 }
