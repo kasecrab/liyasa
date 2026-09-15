@@ -5,4 +5,6 @@
 //! them. The writer is handed section documents and returns bytes; the reader
 //! is handed bytes and returns hits.
 
+pub mod field;
 pub mod tokenize;
+pub(crate) mod varint;
