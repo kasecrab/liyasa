@@ -4,7 +4,7 @@
 //! the same context the default does, and a change to these types is a
 //! breaking change under semver. [`reference`] documents each partial's keys
 //! and `tests/thm_22_context.rs` holds the two to each other.
-// TODO(rfc-0010): `PageMeta` and `NavCtx` in liyasa-core are empty frozen
+// TODO(rfc-0501): `PageMeta` and `NavCtx` in liyasa-core are empty frozen
 // stubs; these are the types the partials actually receive.
 
 use std::collections::BTreeMap;

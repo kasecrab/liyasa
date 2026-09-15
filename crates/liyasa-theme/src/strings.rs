@@ -8,7 +8,7 @@
 //! `theme.strings`, the schema is the single source of truth for config keys
 //! (CFG-94), and the theme directory already holds `tokens.css`, `partials/`,
 //! and `layouts/`.
-// TODO(rfc-0012): revisit if the schema gains a key for interface strings.
+// TODO(rfc-0503): revisit if the schema gains a key for interface strings.
 
 use std::collections::BTreeMap;
 

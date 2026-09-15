@@ -7,7 +7,7 @@
 //! against — `&` nesting, `@custom-media`, and minification — are implemented
 //! here behind [`Compiler`], and swapping lightningcss in once the licence row
 //! exists is one impl of that trait.
-// TODO(rfc-0009): replace the built-in transforms with lightningcss.
+// TODO(rfc-0500): replace the built-in transforms with lightningcss.
 
 use std::fmt::Write as _;
 

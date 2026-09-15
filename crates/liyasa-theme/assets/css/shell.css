@@ -492,23 +492,44 @@
   text-decoration: underline;
 }
 
-/* ---- mobile navigation drawer (THM-04) ---- */
+/* ---- mobile navigation drawer (THM-04) ----
+   The sidebar is the drawer: one copy of the navigation in the DOM, so no id
+   is duplicated and no tree can drift from the other. Below the `lg`
+   breakpoint it slides in, and `:target` opens it with JavaScript disabled. */
 
-.ly-drawer {
-  position: fixed;
-  inset: 0 auto 0 0;
-  z-index: var(--ly-z-drawer);
-  width: min(22rem, 86vw);
-  padding: var(--ly-space-5);
-  background: var(--ly-color-bg);
-  border-right: var(--ly-border);
-  overflow-y: auto;
-  transform: translateX(-100%);
-  transition: transform var(--ly-motion-slow) var(--ly-motion-ease-out);
+@media not all and (min-width: 64em) {
+  .ly-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: var(--ly-z-drawer);
+    width: min(22rem, 86vw);
+    padding: var(--ly-space-5);
+    background: var(--ly-color-bg);
+    border-right: var(--ly-border);
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform var(--ly-motion-slow) var(--ly-motion-ease-out);
+  }
+
+  .ly-sidebar:target,
+  .ly-sidebar[data-ly-open="true"] {
+    transform: translateX(0);
+  }
+
+  .ly-sidebar-inner {
+    position: static;
+    max-height: none;
+  }
+
+  .ly-sidebar-close {
+    display: block;
+    margin-bottom: var(--ly-space-3);
+    text-align: right;
+  }
 }
 
-.ly-drawer[aria-hidden="false"] {
-  transform: translateX(0);
+.ly-sidebar-close {
+  display: none;
 }
 
 .ly-scrim {
@@ -524,8 +545,7 @@
   opacity: 1;
 }
 
-.ly-scrim[hidden],
-.ly-drawer[hidden] {
+.ly-scrim[hidden] {
   display: none;
 }
 

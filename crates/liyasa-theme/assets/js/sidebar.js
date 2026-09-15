@@ -54,7 +54,9 @@
     active.scrollIntoView({ block: "nearest" });
   }
 
-  /* ---- drawer ---- */
+  /* ---- drawer ----
+     The sidebar is the drawer, and `#ly-sidebar` opens it without this module;
+     what the module adds is the scrim, the focus trap, and Escape. */
   var drawer = document.querySelector("[data-ly-drawer]");
   var scrim = document.querySelector("[data-ly-scrim]");
   var trigger = document.querySelector("[data-ly-drawer-trigger]");
@@ -70,12 +72,9 @@
 
   function open() {
     lastFocus = document.activeElement;
-    drawer.hidden = false;
     if (scrim) scrim.hidden = false;
-    window.requestAnimationFrame(function () {
-      drawer.setAttribute("aria-hidden", "false");
-      if (scrim) scrim.setAttribute("aria-hidden", "false");
-    });
+    drawer.setAttribute("data-ly-open", "true");
+    if (scrim) scrim.setAttribute("aria-hidden", "false");
     trigger.setAttribute("aria-expanded", "true");
     document.body.style.overflow = "hidden";
     var first = focusable()[0];
@@ -83,30 +82,42 @@
   }
 
   function close() {
-    drawer.setAttribute("aria-hidden", "true");
+    drawer.removeAttribute("data-ly-open");
     if (scrim) scrim.setAttribute("aria-hidden", "true");
     trigger.setAttribute("aria-expanded", "false");
     document.body.style.overflow = "";
     window.setTimeout(function () {
-      drawer.hidden = true;
       if (scrim) scrim.hidden = true;
     }, 200);
     if (lastFocus) lastFocus.focus();
+    if (window.location.hash === "#ly-sidebar") {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
   }
 
-  trigger.addEventListener("click", function () {
-    if (drawer.hidden) open();
-    else close();
+  trigger.addEventListener("click", function (event) {
+    event.preventDefault();
+    if (drawer.getAttribute("data-ly-open") === "true") close();
+    else open();
   });
+
+  var closer = drawer.querySelector("[data-ly-drawer-close]");
+  if (closer) {
+    closer.addEventListener("click", function (event) {
+      event.preventDefault();
+      close();
+    });
+  }
 
   if (scrim) scrim.addEventListener("click", close);
 
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && drawer.getAttribute("data-ly-open") === "true") close();
+  });
+
   drawer.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") {
-      close();
-      return;
-    }
     if (event.key !== "Tab") return;
+    if (drawer.getAttribute("data-ly-open") !== "true") return;
     var items = focusable();
     if (items.length === 0) return;
     var first = items[0];

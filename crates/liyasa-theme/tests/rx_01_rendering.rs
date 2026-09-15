@@ -141,6 +141,27 @@ fn a_script_in_content_never_reaches_the_page() {
 }
 
 #[test]
+fn the_navigation_opens_on_a_phone_without_javascript() {
+    // The sidebar is the drawer and `#ly-sidebar` opens it through `:target`,
+    // so a reader on a narrow screen with no JavaScript still has navigation
+    // (THM-04, THM-31).
+    let html = rendered();
+    assert!(html.contains("href=\"#ly-sidebar\" data-ly-drawer-trigger"));
+    assert!(html.contains("id=\"ly-sidebar\""));
+    assert!(
+        !html.contains("<button type=\"button\" class=\"ly-icon-button ly-drawer-trigger\""),
+        "the trigger works before its module loads, so it is a link"
+    );
+
+    let styles = liyasa_theme::stylesheet::Styles::build(
+        &liyasa_theme::config::ThemeConfig::default(),
+        &liyasa_theme::tokens::Tokens::aurora(),
+        &[],
+    );
+    assert!(styles.css.contains(".ly-sidebar:target"));
+}
+
+#[test]
 fn the_page_is_readable_with_javascript_disabled() {
     let html = rendered();
     // Everything a reader needs is markup: the content, the navigation, the

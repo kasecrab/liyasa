@@ -53,9 +53,9 @@ disagree in either direction.
   files are not committed yet (see `NEEDS-INPUT.md`); until they are, the
   stacks fall through to the reader's system fonts and no request leaves the
   origin either way.
-- **RFCs raised.** 0009 (lightningcss is MPL-2.0 and `cargo deny` rejects it),
-  0010 (the frozen `PageMeta` and `NavCtx` are empty, so the theme defines the
-  context types), 0011 (the endpoints behind the "open in" page actions), 0012
+- **RFCs raised.** 0500 (lightningcss is MPL-2.0 and `cargo deny` rejects it),
+  0501 (the frozen `PageMeta` and `NavCtx` are empty, so the theme defines the
+  context types), 0502 (the endpoints behind the "open in" page actions), 0503
   (THM-40's interface strings have no key in the config schema, so they live in
   `theme/strings.json`).
 

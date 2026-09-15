@@ -321,7 +321,7 @@ impl CoreRenderer for PageRenderer<'_> {
     /// `PartialCtx` carries the envelope — site, variant, nonce — while the
     /// page and navigation it declares are empty stubs in the frozen contract,
     /// so the page comes from the context this renderer was built with.
-    // TODO(rfc-0010): read `ctx.page` and `ctx.nav` once they carry fields.
+    // TODO(rfc-0501): read `ctx.page` and `ctx.nav` once they carry fields.
     fn partial(&self, name: &str, ctx: &PartialCtx) -> Result<String, RenderError> {
         let _ = ctx;
         self.theme
@@ -459,6 +459,7 @@ pub const ELEMENTS: &[&str] = &[
     "panel",
     "rail",
     "runtime",
+    "scrim",
     "search",
     "search-trigger",
     "shell",

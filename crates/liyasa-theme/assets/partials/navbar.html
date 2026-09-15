@@ -1,5 +1,5 @@
 <header class="ly-navbar" data-liyasa="navbar">
-  <button type="button" class="ly-icon-button ly-drawer-trigger" data-ly-drawer-trigger aria-expanded="false" aria-controls="ly-drawer" aria-label="{{ strings.menu }}" data-liyasa="drawer-trigger">≡</button>
+  <a class="ly-icon-button ly-drawer-trigger" href="#ly-sidebar" data-ly-drawer-trigger aria-expanded="false" aria-controls="ly-sidebar" aria-label="{{ strings.menu }}" data-liyasa="drawer-trigger">≡</a>
   <a class="ly-navbar-logo" href="{{ site.logo.href or '/' }}" data-liyasa="logo">
     {% if site.logo.light %}<img src="{{ site.logo.light }}" alt="{{ site.logo.alt or site.name }}" data-ly-scheme="light">{% endif %}
     {% if site.logo.dark %}<img src="{{ site.logo.dark }}" alt="{{ site.logo.alt or site.name }}" data-ly-scheme="dark">{% endif %}

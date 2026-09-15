@@ -1,5 +1,6 @@
-<aside class="ly-sidebar" data-liyasa="sidebar">
+<aside class="ly-sidebar" id="ly-sidebar" data-ly-drawer data-liyasa="sidebar">
   <div class="ly-sidebar-inner">
+    <p class="ly-sidebar-close"><a href="#ly-main" data-ly-drawer-close>{{ strings.close }}</a></p>
     {% if nav.navigation.versions or nav.navigation.locales %}
     <div class="ly-switchers" data-liyasa="switchers">
       {% if nav.navigation.versions %}
