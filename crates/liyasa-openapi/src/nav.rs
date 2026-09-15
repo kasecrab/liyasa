@@ -185,12 +185,12 @@ pub fn place(
     config: &SpecConfig,
     selector: &str,
     base: &str,
-) -> Result<Entry, Diagnostic> {
+) -> Result<Entry, crate::SpecError> {
     let mut taken = Vec::new();
     spec.operations()
         .find(|operation| operation.selector() == selector)
         .map(|operation| entry(&operation, base, &mut taken))
-        .ok_or_else(|| missing(&config.id, selector))
+        .ok_or_else(|| Box::new(missing(&config.id, selector)))
 }
 
 fn missing(id: &str, selector: &str) -> Diagnostic {

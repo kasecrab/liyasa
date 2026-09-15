@@ -33,9 +33,14 @@ paths:
 
 fn fixture() -> (liyasa_openapi::Spec, SpecConfig) {
     let loaded = load::from_bytes("api", "api.yaml", SPEC.as_bytes()).expect("the spec loads");
-    assert!(!loaded.diagnostics.has_errors(), "{:?}", loaded.diagnostics.as_slice());
-    let config = SpecConfig::parse(&serde_json::json!({ "id": "api", "source": "openapi/api.yaml" }))
-        .expect("the config reads");
+    assert!(
+        !loaded.diagnostics.has_errors(),
+        "{:?}",
+        loaded.diagnostics.as_slice()
+    );
+    let config =
+        SpecConfig::parse(&serde_json::json!({ "id": "api", "source": "openapi/api.yaml" }))
+            .expect("the config reads");
     (loaded.spec, config)
 }
 
@@ -54,7 +59,11 @@ fn a_node_generates_a_page_per_operation_grouped_by_tag() {
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.as_slice());
     assert_eq!(reference.entries().count(), 3);
     assert_eq!(
-        reference.groups.iter().map(|g| g.title.as_str()).collect::<Vec<_>>(),
+        reference
+            .groups
+            .iter()
+            .map(|g| g.title.as_str())
+            .collect::<Vec<_>>(),
         vec!["Widgets", "Admin"]
     );
     assert_eq!(
@@ -92,7 +101,11 @@ fn configured_group_order_and_display_names_are_what_the_page_shows() {
         },
     );
     assert_eq!(
-        reference.groups.iter().map(|g| g.title.as_str()).collect::<Vec<_>>(),
+        reference
+            .groups
+            .iter()
+            .map(|g| g.title.as_str())
+            .collect::<Vec<_>>(),
         vec!["Operations", "Widgets"]
     );
     assert!(reference.groups[0].collapsed);
@@ -101,8 +114,7 @@ fn configured_group_order_and_display_names_are_what_the_page_shows() {
 #[test]
 fn one_operation_can_be_placed_anywhere_by_selector() {
     let (spec, config) = fixture();
-    let (id, selector) =
-        nav::parse_selector("api:GET /widgets/{id}").expect("the selector parses");
+    let (id, selector) = nav::parse_selector("api:GET /widgets/{id}").expect("the selector parses");
     assert_eq!(id, "api");
 
     let entry = nav::place(&spec, &config, selector, nav::DEFAULT_BASE).expect("it resolves");
