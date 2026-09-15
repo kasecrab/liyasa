@@ -28,10 +28,10 @@ interface Vitals {
 
 test.describe("core web vitals", () => {
   test.skip(({ browserName }) => browserName !== "chromium", "the profile needs CDP");
-  // A throttled measurement that shares the machine with five other browsers
-  // measures the machine. The release gate runs `npm run e2e:gate`, which is
-  // this suite with one worker; serial mode is the half that can be enforced
-  // from inside the file.
+  // A throttled measurement that shares the machine measures the machine, and
+  // Lighthouse drives a second browser of its own. `npm run e2e:gate` runs
+  // this suite with one worker and Lighthouse afterwards in its own pass;
+  // serial mode is the half that can be enforced from inside the file.
   test.describe.configure({ mode: "serial" });
 
   for (const route of ["/", "/guide/configuration"]) {

@@ -14,7 +14,7 @@
     "serve": "node e2e/serve.mjs",
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "site": "cd ../.. && cargo run -q -p liyasa-tests --bin reference-site -- target/reference-site",
-    "e2e:gate": "playwright test --config e2e/playwright.config.ts --workers=1"
+    "e2e:gate": "playwright test --config e2e/playwright.config.ts --workers=1 --grep-invert lighthouse && playwright test --config e2e/playwright.config.ts --workers=1 --grep lighthouse"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
