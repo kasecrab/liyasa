@@ -167,10 +167,10 @@ const KEYS: &[&str] = &[
     "versions[].name",
 ];
 
-/// The keys the build engine asks for and the schema does not have yet
-/// (RFC 0105). The file is WP-00's owned path, so this records the gap rather
-/// than closing it; when the rows land, this test fails and the RFC closes.
-const OPEN_GAPS: &[&str] = &["redirects.rules[].permanent", "versions[].tag"];
+/// What RFC 0105 decided the schema is still missing. The file is WP-00's
+/// owned path, so this records the gap rather than closing it; when the row
+/// lands, the test below fails and the RFC closes.
+const OPEN_GAPS: &[&str] = &["versions[].tag"];
 
 struct Schema {
     root: Value,
@@ -307,7 +307,7 @@ fn the_generated_type_round_trips_the_example() {
 }
 
 #[test]
-fn the_keys_the_build_engine_needs_are_still_missing() {
+fn the_row_the_version_badges_wait_on_is_still_missing() {
     let schema = Schema::parse();
     let present: Vec<&str> = OPEN_GAPS
         .iter()
@@ -317,19 +317,30 @@ fn the_keys_the_build_engine_needs_are_still_missing() {
     assert_eq!(
         present,
         Vec::<&str>::new(),
-        "RFC 0105 can close: the schema now carries these, so add them to KEYS \
-         and delete OPEN_GAPS"
+        "RFC 0105 and RFC 0601 can close: the schema now carries this, so move \
+         it into KEYS and delete OPEN_GAPS"
     );
+}
+
+#[test]
+fn turning_asset_hashing_off_is_still_unsayable() {
+    let hashing = Schema::parse()
+        .root
+        .pointer("/properties/build/properties/hashing/enum")
+        .and_then(Value::as_array)
+        .cloned()
+        .expect("`build.hashing` is an enum");
     assert!(
-        !schema_hashing_allows_none(&schema),
+        !hashing.iter().any(|value| value == "none"),
         "RFC 0105 can close: `build.hashing` now allows \"none\""
     );
 }
 
-fn schema_hashing_allows_none(schema: &Schema) -> bool {
-    schema
-        .root
-        .pointer("/properties/build/properties/hashing/enum")
-        .and_then(Value::as_array)
-        .is_some_and(|values| values.iter().any(|value| value == "none"))
+/// RFC 0105: CM-82 writes `permanent`, the schema writes `status`, and one
+/// spelling is the point of CFG-94. `status` is the one that stays.
+#[test]
+fn a_redirect_says_permanent_by_its_status() {
+    let schema = Schema::parse();
+    assert!(schema.has("redirects.rules[].status"));
+    assert!(!schema.has("redirects.rules[].permanent"));
 }
