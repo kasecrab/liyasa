@@ -2,6 +2,7 @@
 //! against `schemas/liyasa.schema.json`, defaults, and migration between schema
 //! versions (PRD §8).
 
+pub mod color;
 pub mod json;
 pub mod load;
 pub mod merge;

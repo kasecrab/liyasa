@@ -146,3 +146,6 @@ W0355 = { severity = "warning", crate = "liyasa-components", title = "Component 
 E0356 = { severity = "error", crate = "liyasa-components", title = "User component file is not a valid component definition" }
 E0357 = { severity = "error", crate = "liyasa-components", title = "Embed provider is not in the allow list" }
 W0358 = { severity = "warning", crate = "liyasa-components", title = "Component prop value is outside the range the schema documents" }
+W0131 = { severity = "warning", crate = "liyasa-config", title = "No `seo.canonicalOrigin`; absolute URLs cannot be generated" }
+E0132 = { severity = "error", crate = "liyasa-config", title = "Colour value is not one Liyasa can read" }
+E0133 = { severity = "error", crate = "liyasa-config", title = "Navigation binds a subtree to a version, locale, product, or spec that is not declared" }
