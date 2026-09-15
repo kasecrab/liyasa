@@ -7,6 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+use tantivy::merge_policy::{LogMergePolicy, NoMergePolicy};
 use tantivy::schema::Value;
 use tantivy::tokenizer::{PreTokenizedString, Token};
 use tantivy::{Index, IndexWriter, TantivyDocument, Term};
@@ -86,9 +87,24 @@ struct Indexed {
     terms: BTreeSet<String>,
 }
 
+/// How segments are merged (SRC-11).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Merges {
+    /// Production: the build writes the index once into an immutable,
+    /// content-addressed bundle and the server opens it read-only, so there is
+    /// nothing to merge while it is being served.
+    #[default]
+    Never,
+    /// `liyasa dev`: a log merge policy whose merges are deferred to idle time,
+    /// so a rebuild never waits on one and §6.6's reload budget is not charged
+    /// for indexing.
+    Deferred,
+}
+
 pub struct ServerIndex {
     pub index: Index,
     pub schema: SearchSchema,
+    merges: Merges,
     stats: IndexStats,
     indexed: BTreeMap<String, Indexed>,
 }
@@ -99,6 +115,7 @@ impl ServerIndex {
         Self {
             index: Index::create_in_ram(schema.schema.clone()),
             schema,
+            merges: Merges::default(),
             stats: IndexStats::default(),
             indexed: BTreeMap::new(),
         }
@@ -111,13 +128,46 @@ impl ServerIndex {
         Ok(Self {
             index: Index::create_in_dir(path, schema.schema.clone())?,
             schema,
+            merges: Merges::default(),
             stats: IndexStats::default(),
             indexed: BTreeMap::new(),
         })
     }
 
+    #[must_use]
+    pub fn with_merges(mut self, merges: Merges) -> Self {
+        self.merges = merges;
+        self
+    }
+
+    pub fn merges(&self) -> Merges {
+        self.merges
+    }
+
     pub fn stats(&self) -> &IndexStats {
         &self.stats
+    }
+
+    /// A writer with this index's merge policy applied.
+    fn writer(&self) -> tantivy::Result<IndexWriter> {
+        let writer: IndexWriter = self.index.writer(50_000_000)?;
+        match self.merges {
+            Merges::Never => writer.set_merge_policy(Box::new(NoMergePolicy)),
+            Merges::Deferred => writer.set_merge_policy(Box::new(LogMergePolicy::default())),
+        }
+        Ok(writer)
+    }
+
+    /// Runs the merges `Merges::Deferred` put off, at a moment the caller
+    /// judges idle. A no-op in production, where nothing is deferred.
+    pub fn merge_now(&self) -> tantivy::Result<()> {
+        if self.merges == Merges::Never {
+            return Ok(());
+        }
+        let mut writer: IndexWriter = self.index.writer(50_000_000)?;
+        writer.set_merge_policy(Box::new(LogMergePolicy::default()));
+        writer.commit()?;
+        Ok(())
     }
 
     /// Keys currently in the index, in order. SRC-07 compares this with the
@@ -132,7 +182,7 @@ impl ServerIndex {
 
     /// Adds or replaces every document, then commits.
     pub fn index_all(&mut self, documents: &[SectionDocument]) -> tantivy::Result<()> {
-        let mut writer: IndexWriter = self.index.writer(50_000_000)?;
+        let mut writer = self.writer()?;
         for document in documents {
             self.write(&mut writer, document);
         }
@@ -149,7 +199,7 @@ impl ServerIndex {
         documents: &[SectionDocument],
         changed: &dyn Fn(&SectionDocument) -> bool,
     ) -> tantivy::Result<Vec<String>> {
-        let mut writer: IndexWriter = self.index.writer(50_000_000)?;
+        let mut writer = self.writer()?;
         let mut written = Vec::new();
         let present: Vec<String> = documents.iter().map(SectionDocument::key).collect();
 

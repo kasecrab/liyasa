@@ -10,4 +10,4 @@ pub mod writer;
 
 pub use schema::SearchSchema;
 pub use searcher::{ServerSearcher, hybrid};
-pub use writer::{IndexStats, ServerIndex};
+pub use writer::{IndexStats, Merges, ServerIndex};

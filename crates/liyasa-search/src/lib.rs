@@ -16,6 +16,7 @@ pub mod doc;
 pub mod error;
 // TODO(rfc-0700): `idx` becomes the crate `liyasa-idx` once it may be committed.
 pub mod idx;
+pub mod incremental;
 pub mod section;
 #[cfg(feature = "server")]
 pub mod server;
