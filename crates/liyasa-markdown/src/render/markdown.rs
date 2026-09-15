@@ -10,7 +10,9 @@
 
 use std::fmt::Write as _;
 
-use liyasa_core::document::{Block, BlockKind, Inline, Node, Props};
+use std::collections::BTreeMap;
+
+use liyasa_core::document::{Block, BlockKind, Inline, Node, PropValue, Props};
 use liyasa_core::markdown::Audience;
 
 use crate::directives::render_value;
@@ -22,7 +24,68 @@ pub fn render(root: &Block) -> String {
     if trimmed.is_empty() {
         return String::new();
     }
-    format!("{trimmed}\n")
+    let mut out = format!("{trimmed}\n");
+    // CM-40: the definitions are not blocks in the tree, so they are rebuilt
+    // from the abbreviations that used them. A page that loses them on a
+    // round trip would expand nothing on the next build.
+    let definitions = abbreviations(root);
+    if !definitions.is_empty() {
+        out.push('\n');
+        for (abbr, expansion) in definitions {
+            let _ = writeln!(out, "*[{abbr}]: {expansion}");
+        }
+    }
+    out
+}
+
+/// Every abbreviation the page expanded, by abbreviation.
+fn abbreviations(root: &Block) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    collect_abbreviations(&root.children, &mut out);
+    out
+}
+
+fn collect_abbreviations(nodes: &[Node], out: &mut BTreeMap<String, String>) {
+    for node in nodes {
+        match node {
+            Node::Block(block) => collect_abbreviations(&block.children, out),
+            Node::Inline(inline) => collect_abbreviation(inline, out),
+        }
+    }
+}
+
+fn collect_abbreviation(inline: &Inline, out: &mut BTreeMap<String, String>) {
+    match inline {
+        Inline::InlineComponent {
+            name,
+            props,
+            children,
+        } if name == crate::ast::abbr::ABBR => {
+            if let Some(PropValue::Str(title)) = props.get("title") {
+                out.insert(plain_text(children), title.clone());
+            }
+        }
+        Inline::Emph(children)
+        | Inline::Strong(children)
+        | Inline::Strike(children)
+        | Inline::Link { children, .. }
+        | Inline::InlineComponent { children, .. } => {
+            for child in children {
+                collect_abbreviation(child, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn plain_text(children: &[Inline]) -> String {
+    children
+        .iter()
+        .map(|child| match child {
+            Inline::Text(text) => text.clone(),
+            _ => String::new(),
+        })
+        .collect()
 }
 
 /// `Audience::Agent` is served the same Markdown; §11.7's extra framing is the
@@ -282,6 +345,13 @@ fn inline_out(inline: &Inline, out: &mut String) {
         Inline::HardBreak => out.push_str("\\\n"),
         Inline::Math(src) => {
             let _ = write!(out, "${src}$");
+        }
+        // CM-40: an expanded abbreviation is written as the word the author
+        // typed; the definition is appended once at the end of the page.
+        Inline::InlineComponent { name, children, .. } if name == crate::ast::abbr::ABBR => {
+            for child in children {
+                inline_out(child, out);
+            }
         }
         Inline::InlineComponent {
             name,

@@ -162,6 +162,13 @@ pub fn registry() -> Registry {
         ),
         component("divider", &[], Leaf, Vec::new(), Vec::new()),
         component("kbd", &["Kbd"], Inline, Vec::new(), Vec::new()),
+        component(
+            "abbr",
+            &[],
+            Inline,
+            vec![prop("title", PropType::Str, true)],
+            Vec::new(),
+        ),
         component("sup", &[], Inline, Vec::new(), Vec::new()),
         component("sub", &[], Inline, Vec::new(), Vec::new()),
         component("mark", &[], Inline, Vec::new(), Vec::new()),

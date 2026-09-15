@@ -5,6 +5,7 @@
 //! question that needs page-wide context. The passes are separate because each
 //! is a different kind of mistake to make.
 
+pub mod abbr;
 pub mod anchors;
 pub mod build;
 #[cfg(test)]
@@ -84,6 +85,7 @@ pub fn parse(
     let mut document = builder.document(root);
     diagnostics.extend(std::mem::take(&mut builder.diagnostics));
 
+    abbr::apply(&mut document, &rewritten.abbreviations);
     crate::directives::slots::lift(&mut document, &mut diagnostics);
     identity::assign(&mut document, &mut diagnostics);
     crate::directives::validate::check(&mut document, registry, &builder.written, &mut diagnostics);

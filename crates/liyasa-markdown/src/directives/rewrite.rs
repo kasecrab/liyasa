@@ -49,6 +49,8 @@ pub struct Rewritten {
     pub table: DirectiveTable,
     /// The table row for each container open, by its 1-based line.
     pub containers: BTreeMap<u32, usize>,
+    /// `*[ABBR]: expansion`, by abbreviation.
+    pub abbreviations: BTreeMap<String, String>,
     pub diagnostics: Diagnostics,
 }
 
@@ -68,6 +70,7 @@ pub fn rewrite(expanded: &Expanded, nonce: [u8; 16]) -> Rewritten {
     // Tag-form opens still waiting for their close, so `</Card>` with nothing
     // above it stays the raw HTML comrak made of it.
     let mut tags: Vec<String> = Vec::new();
+    let mut abbreviations: BTreeMap<String, String> = BTreeMap::new();
     let outermost = tag_fence_length(&expanded.text);
     let mut diagnostics = Diagnostics::new();
     let mut fence = mask::Fences::default();
@@ -92,6 +95,18 @@ pub fn rewrite(expanded: &Expanded, nonce: [u8; 16]) -> Rewritten {
 
         if fence.step(content, indent) {
             emit(&mut out, &mut map, &mut delta, raw, raw);
+            continue;
+        }
+
+        if let Some((abbr, expansion)) = abbreviation_of(content) {
+            abbreviations.insert(abbr, expansion);
+            emit(
+                &mut out,
+                &mut map,
+                &mut delta,
+                raw,
+                &format!("{}{eol}", " ".repeat(line.len())),
+            );
             continue;
         }
 
@@ -212,6 +227,7 @@ pub fn rewrite(expanded: &Expanded, nonce: [u8; 16]) -> Rewritten {
         map: RewriteMap(map),
         table: DirectiveTable(table),
         containers,
+        abbreviations,
         diagnostics,
     }
 }
@@ -236,6 +252,21 @@ pub fn marker_id(html: &str, nonce: [u8; 16]) -> Option<usize> {
 /// replacement short enough to fit inside `<Ab>` — the shortest tag anyone
 /// writes. A tag too short for its fence is left as the HTML comrak made of it.
 const TAG_NAME: &str = "x";
+
+/// `*[ABBR]: expansion` (CM-40).
+///
+/// The abbreviation may be anything but `]`; the expansion is the rest of the
+/// line, and an empty one is not a definition.
+fn abbreviation_of(content: &str) -> Option<(String, String)> {
+    let rest = content.strip_prefix("*[")?;
+    let end = rest.find(']')?;
+    let abbr = rest[..end].trim();
+    let expansion = rest[end + 1..].strip_prefix(':')?.trim();
+    if abbr.is_empty() || expansion.is_empty() {
+        return None;
+    }
+    Some((abbr.to_owned(), expansion.to_owned()))
+}
 
 /// The fence length the outermost block tag gets.
 ///
