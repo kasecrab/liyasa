@@ -12,6 +12,9 @@
 //! path, so it is a module here instead, written so the split is a directory
 //! move. See `plan/rfcs/0700-idx-inside-search.md`.
 
+pub mod analytics;
+pub mod api;
+pub mod cli;
 pub mod config;
 pub mod doc;
 pub mod error;
