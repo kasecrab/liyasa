@@ -9,6 +9,7 @@
 pub mod allof;
 pub mod codegen;
 pub mod config;
+pub mod download;
 pub mod example;
 pub mod field;
 pub mod load;
@@ -25,6 +26,7 @@ pub mod source;
 pub mod tree;
 pub mod validate;
 pub mod version;
+pub mod visibility;
 
 pub use model::{Method, Operation, OperationRef, Schema, Spec};
 pub use version::SpecVersion;
