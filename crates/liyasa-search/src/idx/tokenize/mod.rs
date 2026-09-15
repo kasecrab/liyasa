@@ -11,7 +11,7 @@ mod stem;
 
 pub use cjk::{Script, cjk_bigram, script_of};
 pub use code::code;
-pub use stem::{Algorithm, STEMMED_LOCALES, algorithm_for, stem};
+pub use stem::{Algorithm, STEMMED_LOCALES, algorithm_for, stem, stemmer};
 
 /// One indexed term with everything the index needs: the term itself, its
 /// ordinal for phrase matching, and the byte range it came from for snippet
@@ -54,13 +54,19 @@ impl Tokenizer {
         let mut out = Vec::new();
         let mut position = 0u32;
         let mut word: Option<(usize, usize)> = None;
+        // One stemmer for the whole stream: building it per token is what
+        // turns a snippet into a millisecond.
+        let stemmer = stemmer(self.algorithm);
 
         let flush =
             |word: &mut Option<(usize, usize)>, out: &mut Vec<Token>, position: &mut u32| {
                 if let Some((start, end)) = word.take() {
                     let lowered = text[start..end].to_lowercase();
                     out.push(Token {
-                        text: stem(&lowered, self.algorithm).into_owned(),
+                        text: match &stemmer {
+                            Some(stemmer) => stemmer.stem(&lowered).into_owned(),
+                            None => lowered,
+                        },
                         position: *position,
                         start: start as u32,
                         end: end as u32,

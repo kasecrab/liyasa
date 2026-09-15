@@ -106,6 +106,10 @@ pub fn search(
         return Ok(Vec::new());
     }
     let mut docs: BTreeMap<u32, Accumulator> = BTreeMap::new();
+    // Positions are needed only to prove a phrase is adjacent, and keeping
+    // them for every term of every hit dominates the query budget on a large
+    // shard. A query with no phrase keeps none.
+    let phrase_terms: Vec<&str> = query.phrases.iter().flatten().map(String::as_str).collect();
 
     for (at, term) in query.terms.iter().enumerate() {
         for (expansion, damp) in expansions(reader, term, options) {
@@ -124,8 +128,16 @@ pub fn search(
                     frequencies[field] = posting.term_frequency(field);
                 }
                 let contribution = damp * score::term_score(stats, &lengths, idf, &frequencies);
+                let wants_positions = phrase_terms.contains(&expansion.as_str());
                 let accumulator = docs.entry(posting.doc).or_default();
-                accumulator.record(at, query.terms.len(), contribution, &expansion, &posting);
+                accumulator.record(
+                    at,
+                    query.terms.len(),
+                    contribution,
+                    &expansion,
+                    &posting,
+                    wants_positions,
+                );
             }
         }
     }
@@ -134,13 +146,13 @@ pub fn search(
     // whatever the arithmetic says; only fall back to partial matches when
     // nothing has them all.
     let complete = docs.values().any(|a| a.matched() == query.terms.len());
-    let mut hits = Vec::with_capacity(docs.len().min(options.max_results * 4));
+    let mut candidates = Vec::with_capacity(docs.len().min(options.max_results * 4));
 
     for (doc, accumulator) in docs {
         if complete && accumulator.matched() < query.terms.len() {
             continue;
         }
-        let Some(stats_of) = reader.stats(doc) else {
+        let (Some(stats_of), Some(meta)) = (reader.stats(doc), reader.meta(doc)) else {
             continue;
         };
         let facets = reader.facets();
@@ -149,9 +161,10 @@ pub fn search(
                 .filter_map(|&id| from.get(id as usize).cloned())
                 .collect()
         };
-        let groups = names(&stats_of.groups, &facets.groups);
-        let regions = names(&stats_of.regions, &facets.regions);
-        if !options.reader.admits(&groups, &regions) {
+        if !options.reader.admits(
+            &names(&stats_of.groups, &facets.groups),
+            &names(&stats_of.regions, &facets.regions),
+        ) {
             continue;
         }
         let tab = stats_of
@@ -179,46 +192,92 @@ pub fn search(
                 total += score::phrase_bonus(stats, field, accumulator.adjacent(phrase, field));
             }
         }
-        let total = score::with_boost(total, stats_of.boost);
 
-        let Some(meta) = reader.meta(doc) else {
+        candidates.push(Candidate {
+            doc,
+            url: meta.url(),
+            score: score::with_boost(total, stats_of.boost),
+            updated: stats_of.updated,
+            matched: accumulator.matched(),
+            terms: accumulator.matched_terms,
+            kind: stats_of.kind,
+            tab,
+            version,
+            locale,
+        });
+    }
+
+    // Ranking first, rendering second: cutting a shard's worth of candidates
+    // down to `max_results` before tokenizing any snippet is the difference
+    // between SRC-05's 50 ms budget and missing it by an order of magnitude.
+    score::rank(&mut candidates);
+    candidates.truncate(options.max_results);
+
+    let mut hits = Vec::with_capacity(candidates.len());
+    for candidate in candidates {
+        let Some(meta) = reader.meta(candidate.doc) else {
             continue;
         };
         let snippet = options
             .snippets
             .then(|| {
-                reader.snippet(doc).map(|text| {
+                reader.snippet(candidate.doc).map(|text| {
                     snippet(
                         text,
-                        &accumulator.matched_terms,
-                        locale.as_deref().unwrap_or("en"),
+                        &candidate.terms,
+                        candidate.locale.as_deref().unwrap_or("en"),
                         options.snippet_chars,
                     )
                 })
             })
             .flatten();
-
         hits.push(Hit {
-            url: meta.url(),
+            url: candidate.url,
             route: meta.route.clone(),
             anchor: meta.anchor.clone(),
             title: meta.title.clone(),
             section: meta.section.clone(),
             breadcrumb: meta.breadcrumb.clone(),
-            kind: stats_of.kind,
-            tab,
-            version,
-            locale,
-            score: total,
-            updated: stats_of.updated,
-            matched: accumulator.matched(),
+            kind: candidate.kind,
+            tab: candidate.tab,
+            version: candidate.version,
+            locale: candidate.locale,
+            score: candidate.score,
+            updated: candidate.updated,
+            matched: candidate.matched,
             snippet,
         });
     }
-
-    score::rank(&mut hits);
-    hits.truncate(options.max_results);
     Ok(hits)
+}
+
+/// A hit before it is rendered: everything ranking needs and nothing it does
+/// not.
+struct Candidate {
+    doc: u32,
+    url: String,
+    score: f32,
+    updated: Option<u64>,
+    matched: usize,
+    terms: Vec<String>,
+    kind: DocKind,
+    tab: Option<String>,
+    version: Option<String>,
+    locale: Option<String>,
+}
+
+impl Ranked for Candidate {
+    fn score(&self) -> f32 {
+        self.score
+    }
+
+    fn updated(&self) -> Option<u64> {
+        self.updated
+    }
+
+    fn tiebreak_key(&self) -> &str {
+        &self.url
+    }
 }
 
 /// The index terms one query term reaches, best first.
@@ -292,6 +351,7 @@ impl Accumulator {
         contribution: f32,
         expansion: &str,
         posting: &super::postings::Posting,
+        wants_positions: bool,
     ) {
         if self.best.len() < total {
             self.best.resize(total, 0.0);
@@ -304,13 +364,15 @@ impl Accumulator {
         if contribution > 0.0 && !self.matched_terms.iter().any(|t| t == expansion) {
             self.matched_terms.push(expansion.to_owned());
         }
-        for field in Field::ALL {
-            let found = posting.positions(field);
-            if !found.is_empty() {
-                self.positions
-                    .entry((expansion.to_owned(), field.id()))
-                    .or_default()
-                    .extend_from_slice(found);
+        if wants_positions {
+            for field in Field::ALL {
+                let found = posting.positions(field);
+                if !found.is_empty() {
+                    self.positions
+                        .entry((expansion.to_owned(), field.id()))
+                        .or_default()
+                        .extend_from_slice(found);
+                }
             }
         }
     }

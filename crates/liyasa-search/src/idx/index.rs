@@ -43,6 +43,19 @@ impl Index {
         self.files.get(name).map(Vec::as_slice)
     }
 
+    /// What a reader downloads before it can show a first result: the
+    /// manifest, the shard's term dictionary, and the ranking prefix of its
+    /// `docs-<n>.bin`. Postings arrive afterwards, as one range per query
+    /// term, and the display half and snippets later still (§12.2, SRC-05).
+    pub fn first_result_bytes(&self, shard: &Shard) -> u64 {
+        let of = |name: &str| self.files.get(name).map_or(0, |f| f.len() as u64);
+        of(MANIFEST) + of(&shard.files.terms) + shard.stats_bytes
+    }
+
+    pub fn total_bytes(&self) -> u64 {
+        self.files.values().map(|f| f.len() as u64).sum()
+    }
+
     pub fn stats(&self) -> Stats {
         Stats {
             documents: self.manifest.documents,
@@ -77,9 +90,10 @@ impl Index {
         options: &SearchOptions,
     ) -> Result<Vec<Hit>, SearchError> {
         let stats = self.stats();
-        let chosen: Vec<&Shard> = match self.manifest.shard_for(context) {
-            Some(shard) if context != &Context::default() => vec![shard],
-            _ => self.manifest.all_shards().iter().collect(),
+        let chosen: Vec<&Shard> = if context == &Context::default() {
+            self.manifest.all_shards().iter().collect()
+        } else {
+            self.manifest.shards_for(context)
         };
         let mut hits = Vec::new();
         for shard in chosen {

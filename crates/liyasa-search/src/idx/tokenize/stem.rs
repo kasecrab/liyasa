@@ -51,9 +51,19 @@ pub fn algorithm_for(locale: &str) -> Option<Algorithm> {
 
 /// Stems an already-lowercased term. `None` returns it unchanged, which is how
 /// the languages Snowball has no algorithm for are indexed.
+///
+/// Building the `Stemmer` is not free, so a caller with more than one term to
+/// stem holds one across them; [`Tokenizer::tokenize`] does.
+///
+/// [`Tokenizer::tokenize`]: super::Tokenizer::tokenize
 pub fn stem(lowercased: &str, algorithm: Option<Algorithm>) -> Cow<'_, str> {
     match algorithm {
         Some(algorithm) => Cow::Owned(Stemmer::create(algorithm).stem(lowercased).into_owned()),
         None => Cow::Borrowed(lowercased),
     }
+}
+
+/// The stemmer for an algorithm, built once and reused across a token stream.
+pub fn stemmer(algorithm: Option<Algorithm>) -> Option<Stemmer> {
+    algorithm.map(Stemmer::create)
 }

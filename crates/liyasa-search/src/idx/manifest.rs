@@ -58,22 +58,45 @@ pub struct Context {
 }
 
 impl ShardSelector {
+    /// A dimension excludes a shard only when the reader pins it to something
+    /// the shard does not hold. A reader who names a locale but no version is
+    /// served every version's shard for that locale, which is what a version
+    /// switcher's "search everywhere" needs.
     pub fn matches(&self, context: &Context) -> bool {
         fn holds(allowed: &[String], value: Option<&String>) -> bool {
-            allowed.is_empty() || value.is_some_and(|v| allowed.iter().any(|a| a == v))
+            match value {
+                None => true,
+                Some(value) => allowed.is_empty() || allowed.iter().any(|a| a == value),
+            }
         }
         holds(&self.locales, context.locale.as_ref())
             && holds(&self.versions, context.version.as_ref())
             && holds(&self.tabs, context.tab.as_ref())
     }
 
-    /// How many dimensions this selector pins. The reader prefers the most
-    /// specific shard that matches, so a merged catch-all is the fallback
-    /// rather than the first hit.
+    /// How many dimensions this selector pins at all.
     pub fn specificity(&self) -> usize {
         usize::from(!self.locales.is_empty())
             + usize::from(!self.versions.is_empty())
             + usize::from(!self.tabs.is_empty())
+    }
+
+    /// How many dimensions this selector pins *to what the reader asked for*.
+    ///
+    /// Not the same as [`specificity`]: a reader who names no locale is not
+    /// better served by the German shard than by the catch-all, so a
+    /// dimension the reader left open counts for nothing.
+    ///
+    /// [`specificity`]: Self::specificity
+    pub fn relevance(&self, context: &Context) -> usize {
+        fn pins(allowed: &[String], value: Option<&String>) -> usize {
+            usize::from(
+                !allowed.is_empty() && value.is_some_and(|v| allowed.iter().any(|a| a == v)),
+            )
+        }
+        pins(&self.locales, context.locale.as_ref())
+            + pins(&self.versions, context.version.as_ref())
+            + pins(&self.tabs, context.tab.as_ref())
     }
 }
 
@@ -109,9 +132,13 @@ pub struct Shard {
     pub selector: ShardSelector,
     pub documents: u64,
     pub files: ShardFiles,
-    /// Uncompressed total of the four files, which is what the builder sizes
-    /// against `search.shardSize`.
+    /// `terms-<n>.fst` plus `postings-<n>.bin`: the part `search.shardSize`
+    /// caps, because §12.2's Loading row caps "whole `postings` files … at
+    /// 2 MB per shard by the build, which splits larger shards".
     pub bytes: u64,
+    /// All four files. Informational: `docs` and `snippets` are fetched after
+    /// the results are known, so they are not on the first-result path.
+    pub total_bytes: u64,
     /// Length of `docs-<n>.bin`'s ranking prefix. The worker range-requests
     /// `bytes=0-<stats_bytes - 1>` before the first result and the rest once
     /// it knows which documents it is showing (§12.2, SRC-05).
@@ -246,13 +273,35 @@ impl Manifest {
         }
     }
 
-    /// The shard to search from `context`: the most specific match, and the
-    /// catch-all when nothing pins the context.
+    /// The shard to fetch first for `context`: the most specific match, and
+    /// the catch-all when nothing pins the context.
     pub fn shard_for(&self, context: &Context) -> Option<&Shard> {
-        self.shards
+        self.shards_for(context).into_iter().next()
+    }
+
+    /// Every shard that serves `context`, at the one specificity that wins.
+    ///
+    /// A context needs more than one when its own documents exceeded
+    /// `search.shardSize.max` and the builder chunked them; the reader
+    /// searches all of them, and scores stay comparable because the
+    /// statistics are global.
+    pub fn shards_for(&self, context: &Context) -> Vec<&Shard> {
+        let matching: Vec<&Shard> = self
+            .shards
             .iter()
             .filter(|shard| shard.selector.matches(context))
-            .max_by_key(|shard| shard.selector.specificity())
+            .collect();
+        let Some(best) = matching
+            .iter()
+            .map(|shard| shard.selector.relevance(context))
+            .max()
+        else {
+            return Vec::new();
+        };
+        matching
+            .into_iter()
+            .filter(|shard| shard.selector.relevance(context) == best)
+            .collect()
     }
 
     /// Every shard, which is what a query with no context searches.
@@ -272,6 +321,7 @@ mod tests {
             documents: 1,
             files: ShardFiles::of(id),
             bytes: 1,
+            total_bytes: 1,
             stats_bytes: 1,
             hash: "blake3:0".to_owned(),
         }
@@ -319,9 +369,49 @@ mod tests {
             ..Context::default()
         }));
         assert!(
-            !selector.matches(&Context::default()),
-            "a reader with no locale cannot be served a locale-pinned shard"
+            selector.matches(&Context::default()),
+            "a reader who names no locale searches every locale's shard"
         );
+    }
+
+    #[test]
+    fn an_unpinned_dimension_does_not_exclude_a_shard() {
+        let selector = ShardSelector {
+            locales: vec!["en".to_owned()],
+            versions: vec!["v2".to_owned()],
+            ..ShardSelector::default()
+        };
+        // The reader is on an English page and has not chosen a version.
+        assert!(selector.matches(&Context {
+            locale: Some("en".to_owned()),
+            ..Context::default()
+        }));
+        assert!(!selector.matches(&Context {
+            locale: Some("de".to_owned()),
+            ..Context::default()
+        }));
+    }
+
+    #[test]
+    fn a_chunked_context_returns_every_one_of_its_shards() {
+        let selector = ShardSelector {
+            locales: vec!["en".to_owned()],
+            ..ShardSelector::default()
+        };
+        let manifest = Manifest {
+            shards: vec![
+                shard(0, selector.clone()),
+                shard(1, selector.clone()),
+                shard(2, ShardSelector::default()),
+            ],
+            ..Manifest::default()
+        };
+        let english = Context {
+            locale: Some("en".to_owned()),
+            ..Context::default()
+        };
+        let ids: Vec<u32> = manifest.shards_for(&english).iter().map(|s| s.id).collect();
+        assert_eq!(ids, [0, 1], "the catch-all is less specific and loses");
     }
 
     #[test]
@@ -345,8 +435,9 @@ mod tests {
         };
         assert_eq!(manifest.shard_for(&german).map(|s| s.id), Some(1));
         assert_eq!(
-            manifest.shard_for(&Context::default()).map(|s| s.id),
-            Some(0)
+            manifest.shards_for(&Context::default()).len(),
+            2,
+            "a reader who names nothing searches everything"
         );
     }
 

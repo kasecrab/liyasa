@@ -262,3 +262,185 @@ fn list(value: &str) -> Vec<String> {
 pub fn lengths(values: [u32; 6]) -> ByField<u32> {
     ByField(values)
 }
+
+/// A deterministic pseudo-random source, so the reference site is the same
+/// site on every machine and a budget number means something.
+struct Rng(u64);
+
+impl Rng {
+    fn next(&mut self) -> u64 {
+        // The multiplier is Knuth's for a 64-bit linear congruential
+        // generator; the quality needed here is "not a pattern", not
+        // cryptographic.
+        self.0 = self
+            .0
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1);
+        self.0 >> 33
+    }
+
+    fn pick<'a>(&mut self, from: &[&'a str]) -> &'a str {
+        from[self.next() as usize % from.len()]
+    }
+}
+
+const VOCABULARY: &[&str] = &[
+    "account",
+    "allow",
+    "api",
+    "authentication",
+    "batch",
+    "budget",
+    "cache",
+    "callback",
+    "client",
+    "cluster",
+    "configuration",
+    "connection",
+    "credential",
+    "dashboard",
+    "deploy",
+    "endpoint",
+    "environment",
+    "error",
+    "event",
+    "export",
+    "field",
+    "filter",
+    "gateway",
+    "header",
+    "identity",
+    "import",
+    "instance",
+    "integration",
+    "key",
+    "latency",
+    "limit",
+    "locale",
+    "message",
+    "metadata",
+    "migration",
+    "namespace",
+    "node",
+    "organization",
+    "parameter",
+    "payload",
+    "permission",
+    "pipeline",
+    "policy",
+    "project",
+    "query",
+    "queue",
+    "quota",
+    "rate",
+    "region",
+    "request",
+    "resource",
+    "response",
+    "retry",
+    "role",
+    "schema",
+    "scope",
+    "secret",
+    "session",
+    "snapshot",
+    "status",
+    "storage",
+    "stream",
+    "subscription",
+    "tenant",
+    "threshold",
+    "timeout",
+    "token",
+    "trace",
+    "transaction",
+    "usage",
+    "user",
+    "version",
+    "webhook",
+    "workspace",
+];
+
+const HEADINGS: &[&str] = &[
+    "Overview",
+    "Getting started",
+    "Configuration",
+    "Limits",
+    "Errors",
+    "Examples",
+    "Reference",
+    "Troubleshooting",
+];
+
+/// The 1,000-page reference site SRC-05's budgets are measured against: three
+/// sections per page, prose drawn from a documentation vocabulary so term
+/// frequencies look like a real corpus rather than like random bytes.
+pub fn reference_site(pages: usize) -> Vec<SectionDocument> {
+    let mut rng = Rng(0x5eed);
+    let mut out = Vec::with_capacity(pages * 3);
+
+    for page in 0..pages {
+        let area = VOCABULARY[page % VOCABULARY.len()];
+        let route = format!("/docs/{area}/page-{page}");
+        let title = format!("{} {page}", capitalize(area));
+
+        for at in 0..3 {
+            let heading = if at == 0 {
+                title.clone()
+            } else {
+                HEADINGS[(page + at) % HEADINGS.len()].to_owned()
+            };
+            let anchor = if at == 0 {
+                String::new()
+            } else {
+                format!("s{at}")
+            };
+            let mut body = String::with_capacity(700);
+            for word in 0..110 {
+                if word > 0 {
+                    body.push(if word % 18 == 0 { '.' } else { ' ' });
+                    if word % 18 == 0 {
+                        body.push(' ');
+                    }
+                }
+                body.push_str(rng.pick(VOCABULARY));
+            }
+            let mut document = section(&route, &anchor, &title, &heading, &body);
+            document.breadcrumb = vec!["Docs".to_owned(), capitalize(area)];
+            if at == 2 {
+                document.code = format!(
+                    "const {area} = await client.get{}ById(id);",
+                    capitalize(area)
+                );
+            }
+            out.push(document);
+        }
+    }
+    out
+}
+
+fn capitalize(word: &str) -> String {
+    let mut chars = word.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
+}
+
+/// The same site spread over `locales` locales and `versions` versions, for
+/// the sharding rules of §12.2.
+pub fn multi_context(pages: usize, locales: &[&str], versions: &[&str]) -> Vec<SectionDocument> {
+    let mut out = Vec::new();
+    for locale in locales {
+        for version in versions {
+            for mut document in reference_site(pages) {
+                document.route =
+                    Route::new(format!("/{locale}/{version}{}", document.route.as_str()));
+                document.locale = Locale::new(*locale);
+                document.version = Some(Version::new(*version));
+                out.push(document);
+            }
+        }
+    }
+    out
+}

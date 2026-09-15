@@ -60,14 +60,6 @@ impl BuiltIndex {
     pub fn total_bytes(&self) -> u64 {
         self.files.values().map(|f| f.len() as u64).sum()
     }
-
-    /// What a reader downloads before it can show a first result: the
-    /// manifest, the shard's term dictionary, and the ranking prefix of its
-    /// `docs-<n>.bin`. The postings arrive as ranges per query term.
-    pub fn first_result_bytes(&self, shard: &Shard) -> u64 {
-        let of = |name: &str| self.files.get(name).map_or(0, |f| f.len() as u64);
-        of(MANIFEST) + of(&shard.files.terms) + shard.stats_bytes
-    }
 }
 
 pub fn build(documents: &[SectionDocument], options: &WriterOptions) -> BuiltIndex {
@@ -75,7 +67,7 @@ pub fn build(documents: &[SectionDocument], options: &WriterOptions) -> BuiltInd
     let stats = corpus_stats(&analyzed);
 
     let (key, groups) = partition(&analyzed, options);
-    let groups = merge_small(&analyzed, groups, options);
+    let groups = chunk_large(&analyzed, merge_small(&analyzed, groups, options), options);
 
     let mut files = BTreeMap::new();
     let mut shards = Vec::with_capacity(groups.len());
@@ -92,10 +84,8 @@ pub fn build(documents: &[SectionDocument], options: &WriterOptions) -> BuiltInd
             bytes.docs.bytes.as_slice(),
             bytes.snippets.as_slice(),
         ]);
-        let total = (bytes.terms.len()
-            + bytes.postings.len()
-            + bytes.docs.bytes.len()
-            + bytes.snippets.len()) as u64;
+        let sized = (bytes.terms.len() + bytes.postings.len()) as u64;
+        let total = sized + (bytes.docs.bytes.len() + bytes.snippets.len()) as u64;
 
         shard_terms.push(
             members
@@ -112,7 +102,8 @@ pub fn build(documents: &[SectionDocument], options: &WriterOptions) -> BuiltInd
             selector: group.selector,
             documents: members.len() as u64,
             files: names,
-            bytes: total,
+            bytes: sized,
+            total_bytes: total,
             stats_bytes: bytes.docs.stats_bytes,
             hash: hash.to_string(),
         });
@@ -260,21 +251,60 @@ struct Group {
     members: Vec<usize>,
 }
 
-/// The coarsest key under which no shard exceeds `shard_max_bytes`, and the
-/// finest one if none of them fit (the alternative is refusing to build).
+/// The coarsest key under which no shard exceeds `shard_max_bytes`.
+///
+/// When no key fits — a large site in one locale, one version, and one tab has
+/// no context to cut along — the key that comes closest wins and
+/// [`chunk_large`] splits what is left. Escalating past that would label the
+/// index `localeVersionTab` while producing exactly the groups `single` did.
 fn partition(analyzed: &[Analyzed], options: &WriterOptions) -> (ShardKey, Vec<Group>) {
-    let mut last = None;
+    let mut best: Option<(ShardKey, Vec<Group>, u64)> = None;
     for key in ShardKey::ESCALATION {
         let groups = group_by(analyzed, key);
-        let fits = groups
+        let largest = groups
             .iter()
-            .all(|group| estimate(analyzed, group) <= options.shard_max_bytes);
-        if fits {
+            .map(|group| estimate(analyzed, group))
+            .max()
+            .unwrap_or(0);
+        if largest <= options.shard_max_bytes {
             return (key, groups);
         }
-        last = Some((key, groups));
+        if best
+            .as_ref()
+            .is_none_or(|(_, _, previous)| largest < *previous)
+        {
+            best = Some((key, groups, largest));
+        }
     }
-    last.unwrap_or((ShardKey::Single, group_by(analyzed, ShardKey::Single)))
+    match best {
+        Some((key, groups, _)) => (key, groups),
+        None => (ShardKey::Single, group_by(analyzed, ShardKey::Single)),
+    }
+}
+
+/// Splits a group that is still over the cap into equal chunks that share its
+/// selector, so §12.2's "capped at 2 MB per shard by the build, which splits
+/// larger shards" holds even where there is no context to shard by. The
+/// reader fetches every chunk its context matches.
+fn chunk_large(analyzed: &[Analyzed], groups: Vec<Group>, options: &WriterOptions) -> Vec<Group> {
+    let cap = options.shard_max_bytes.max(1);
+    let mut out = Vec::with_capacity(groups.len());
+    for group in groups {
+        let size = estimate(analyzed, &group);
+        if size <= cap || group.members.len() < 2 {
+            out.push(group);
+            continue;
+        }
+        let chunks = size.div_ceil(cap).max(2) as usize;
+        let per = group.members.len().div_ceil(chunks);
+        for members in group.members.chunks(per) {
+            out.push(Group {
+                selector: group.selector.clone(),
+                members: members.to_vec(),
+            });
+        }
+    }
+    out
 }
 
 fn group_by(analyzed: &[Analyzed], key: ShardKey) -> Vec<Group> {
@@ -365,28 +395,25 @@ fn merge_selectors(into: &mut ShardSelector, other: ShardSelector) {
     }
 }
 
-/// Bytes a group would occupy, close enough to choose a key by. Term text and
-/// prose dominate every shard, and both are counted exactly.
+/// Bytes the term dictionary and postings of a group would occupy — the part
+/// `search.shardSize` caps. Close enough to choose a key by: a posting is a
+/// handful of varints and the estimate counts them.
 fn estimate(analyzed: &[Analyzed], group: &Group) -> u64 {
     group
         .members
         .iter()
         .map(|&at| {
             let entry = &analyzed[at];
-            let document = entry.document;
-            let postings: usize = entry
+            entry
                 .terms
                 .iter()
                 .map(|(term, positions)| {
-                    term.len() + 4 + positions.0.iter().map(|p| p.len() * 2).sum::<usize>()
+                    let occurrences: usize = positions.0.iter().map(Vec::len).sum();
+                    // Term text in the FST, the block header, and two bytes
+                    // for each delta-encoded position.
+                    (term.len() + 6 + occurrences * 2) as u64
                 })
-                .sum();
-            (postings
-                + document.body.len()
-                + document.route.as_str().len()
-                + document.title.len()
-                + document.section.len()
-                + 64) as u64
+                .sum::<u64>()
         })
         .sum()
 }
