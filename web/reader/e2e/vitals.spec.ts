@@ -28,6 +28,11 @@ interface Vitals {
 
 test.describe("core web vitals", () => {
   test.skip(({ browserName }) => browserName !== "chromium", "the profile needs CDP");
+  // A throttled measurement that shares the machine with five other browsers
+  // measures the machine. The release gate runs `npm run e2e:gate`, which is
+  // this suite with one worker; serial mode is the half that can be enforced
+  // from inside the file.
+  test.describe.configure({ mode: "serial" });
 
   for (const route of ["/", "/guide/configuration"]) {
     test(`\`${route}\` stays inside its budget`, async ({ page, context }) => {
@@ -38,8 +43,11 @@ test.describe("core web vitals", () => {
       await page.addInitScript(COLLECTOR);
 
       await page.goto(route, { waitUntil: "load" });
-      // One interaction, so INP has something to report.
-      await page.locator("main a").first().hover();
+      // One interaction, so INP has something to report. A keypress rather
+      // than a pointer: INP counts keydown, and on a phone viewport the first
+      // link in the prose is wrapped across lines, so hovering it is a fight
+      // with whatever inline element shares the hit point.
+      await page.keyboard.press("Tab");
       await page.keyboard.press("Tab");
       await page.waitForTimeout(1_000);
 

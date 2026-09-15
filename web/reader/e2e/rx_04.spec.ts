@@ -32,11 +32,23 @@ test("a link the reader hovers is prefetched", async ({ page }) => {
   expect(requested).toContain(HOVER_ONLY);
 });
 
-test("a link in the sidebar is prefetched when it comes into view", async ({ page }) => {
+test("a link in the sidebar is prefetched when it comes into view", async ({ viewport, page }) => {
+  // On a phone the sidebar is a closed drawer translated off-screen, so it
+  // never intersects and nothing is prefetched. That is the requirement
+  // working, not failing, and it is the next test.
+  test.skip((viewport?.width ?? 0) < 900, "the sidebar is a drawer on a phone");
   await page.goto("/");
   await expect
     .poll(async () => (await prefetched(page)).length, { timeout: 5_000 })
     .toBeGreaterThan(0);
+});
+
+test("a link the reader cannot see is not prefetched", async ({ viewport, page }) => {
+  test.skip((viewport?.width ?? 0) >= 900, "the sidebar is always in view on a desktop");
+  await page.goto("/");
+  await page.waitForTimeout(1_000);
+  // Nothing from the closed drawer: RX-04 prefetches what is in the viewport.
+  expect(await prefetched(page)).not.toContain("/guide/configuration");
 });
 
 test("a reader who asked for less data is prefetched nothing", async ({ page }) => {
@@ -81,7 +93,8 @@ test("the browser is told to transition between pages", async ({ page }) => {
 
 test("a page change is a navigation, not a swapped fragment", async ({ page }) => {
   await page.goto("/");
-  await page.locator('a[href="/guide/install"]').first().click();
+  // From the page body: on a phone the sidebar's copy is in a closed drawer.
+  await page.locator('main a[href="/guide/install"]').first().click();
   await page.waitForURL("**/guide/install");
 
   const kind = await page.evaluate(
