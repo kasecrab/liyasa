@@ -9,8 +9,8 @@ fn every_named_schema_is_valid_json_with_its_published_id() {
             serde_json::from_str(named.json).unwrap_or_else(|e| panic!("{}: {e}", named.name));
         assert_eq!(
             parsed["$id"],
-            format!("https://liyasa.dev/schema/v1/{}", named.file),
-            "{} publishes the wrong $id",
+            schema::schema_url(named),
+            "{} publishes an $id outside the base the config schema sets",
             named.name
         );
     }

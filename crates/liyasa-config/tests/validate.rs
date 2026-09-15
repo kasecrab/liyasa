@@ -183,7 +183,7 @@ fn a_low_contrast_primary_is_a_warning_naming_the_ratio() {
     assert_eq!(
         contrast.severity,
         liyasa_core::diagnostics::Severity::Warning,
-        "RFC 0006"
+        "RFC 0102"
     );
     assert!(contrast.message.contains("2.98"), "{}", contrast.message);
     assert!(contrast.message.contains("4.5"), "{}", contrast.message);

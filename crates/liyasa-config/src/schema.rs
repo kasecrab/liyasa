@@ -16,7 +16,22 @@ use crate::json::SpanIndex;
 pub const CONFIG_SCHEMA: &str = include_str!("../../../schemas/liyasa.schema.json");
 
 /// The `$id` the schema publishes, and the `$schema` a config should carry.
-pub const CONFIG_SCHEMA_ID: &str = "https://liyasa.dev/schema/v1/liyasa.json";
+///
+/// Read out of the schema rather than written here: where the schemas are
+/// hosted has already moved once, and a constant that disagrees with the file
+/// would stamp the wrong URL into every migrated config.
+pub fn config_schema_id() -> &'static str {
+    config_schema()
+        .get("$id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+}
+
+/// Everything before `<file>` in a published `$id`.
+pub fn schema_base() -> &'static str {
+    let id = config_schema_id();
+    id.rsplit_once('/').map_or(id, |(base, _)| base)
+}
 
 /// The major version this build understands (CFG-91).
 pub const CONFIG_SCHEMA_VERSION: u32 = 1;
@@ -44,6 +59,11 @@ pub const SCHEMAS: &[NamedSchema] = &[
     },
 ];
 
+/// The published URL of one named schema.
+pub fn schema_url(schema: &NamedSchema) -> String {
+    format!("{}/{}", schema_base(), schema.file)
+}
+
 pub fn named(name: &str) -> Option<&'static NamedSchema> {
     SCHEMAS.iter().find(|schema| schema.name == name)
 }
@@ -53,7 +73,7 @@ pub fn named(name: &str) -> Option<&'static NamedSchema> {
 pub struct Report {
     pub diagnostics: Diagnostics,
     /// JSON Pointers of keys the schema does not know. They are warnings, not
-    /// errors (RFC 0006), and must be removed before deserializing.
+    /// errors (RFC 0102), and must be removed before deserializing.
     pub unknown: Vec<String>,
 }
 

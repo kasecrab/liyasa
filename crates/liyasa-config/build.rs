@@ -2,7 +2,7 @@
 //!
 //! The schema is the single source of truth (CFG-94); nothing here may change
 //! what it means. typify 0.8 reads schemars 0.8's draft-07 model, so the copy it
-//! is handed is normalized first — see `plan/rfcs/0004-typify-schema-input.md`
+//! is handed is normalized first — see `plan/rfcs/0100-typify-schema-input.md`
 //! for why `$defs` moves, why `pattern` is dropped, and why `oneOf` branches are
 //! given titles.
 
@@ -33,7 +33,7 @@ fn main() {
     ] {
         assert!(
             !used,
-            "the generated config types now need `{what}`; RFC 0004 keeps them dependency-free"
+            "the generated config types now need `{what}`; RFC 0100 keeps them dependency-free"
         );
     }
 
@@ -104,7 +104,7 @@ fn declared_names(generated: &str) -> BTreeSet<String> {
     out
 }
 
-/// The 2020-12 schema as schemars 0.8 expects to read it (RFC 0004).
+/// The 2020-12 schema as schemars 0.8 expects to read it (RFC 0100).
 fn normalize(text: &str) -> String {
     let mut root: Value = serde_json::from_str(text).expect("the config schema is valid JSON");
     drop_patterns(&mut root);

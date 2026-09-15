@@ -1,4 +1,4 @@
-//! `liyasa migrate-config` (CLI-14, CFG-91). v0 is defined by RFC 0007.
+//! `liyasa migrate-config` (CLI-14, CFG-91). v0 is defined by RFC 0103.
 
 use liyasa_config::json::SpanIndex;
 use liyasa_config::{migrate, schema};
@@ -22,6 +22,13 @@ fn a_v0_config_becomes_the_golden_v1_config() {
         migrated.diagnostics
     );
     assert_eq!(migrated.json.trim_end(), GOLDEN.trim_end());
+    // The golden carries the published `$id` of the day; where the schemas are
+    // hosted has moved once already, so the URL is asserted against the schema
+    // rather than against a constant.
+    assert_eq!(
+        migrated.value.pointer("/$schema").and_then(Value::as_str),
+        Some(liyasa_config::schema::config_schema_id())
+    );
 }
 
 #[test]

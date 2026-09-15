@@ -1,5 +1,5 @@
 {
-  "$schema": "https://liyasa.dev/schema/v1/liyasa.json",
+  "$schema": "https://kasecrab.github.io/liyasa/schema/v1/liyasa.json",
   "description": "Everything you need to build with Acme.",
   "favicon": {
     "light": "assets/favicon.svg"

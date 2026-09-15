@@ -2,13 +2,13 @@
 //!
 //! Migrations are an ordered chain, one step per schema major version, so the
 //! next one is an entry rather than a rewrite. What v0 is, and why it had to be
-//! defined here at all, is `plan/rfcs/0007-config-schema-v0.md`.
+//! defined here at all, is `plan/rfcs/0103-config-schema-v0.md`.
 
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use serde_json::{Map, Value, json};
 
 use crate::json::SpanIndex;
-use crate::schema::{CONFIG_SCHEMA_ID, CONFIG_SCHEMA_VERSION, declared_version};
+use crate::schema::{CONFIG_SCHEMA_VERSION, config_schema_id, declared_version};
 
 /// One rewrite the command prints. An empty `to` means the key had no home in
 /// the new version and was dropped.
@@ -72,7 +72,7 @@ pub fn migrate(config: &Value, spans: &SpanIndex) -> Migrated {
     if !changes.is_empty()
         && let Some(object) = value.as_object_mut()
     {
-        object.insert("$schema".to_owned(), json!(CONFIG_SCHEMA_ID));
+        object.insert("$schema".to_owned(), json!(config_schema_id()));
     }
 
     Migrated {
@@ -98,7 +98,7 @@ fn pretty(value: &Value) -> String {
     json
 }
 
-/// RFC 0007's table.
+/// RFC 0103's table.
 fn v0_to_v1(config: &Value, changes: &mut Vec<Change>) -> Value {
     let Some(old) = config.as_object() else {
         return config.clone();

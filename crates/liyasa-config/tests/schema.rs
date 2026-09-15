@@ -8,7 +8,7 @@ use liyasa_core::span::SourceId;
 
 const SOURCE: SourceId = SourceId(0);
 const EXAMPLE: &str = include_str!("fixtures/example.json");
-/// PRD §34.2 byte for byte. Two of its keys do not validate; RFC 0005.
+/// PRD §34.2 byte for byte. Two of its keys do not validate; RFC 0101.
 const EXAMPLE_PRD: &str = include_str!("fixtures/example-prd.json");
 
 fn check(text: &str) -> Diagnostics {
@@ -38,7 +38,7 @@ fn the_schema_is_a_2020_12_document_with_the_published_id() {
         parsed["$schema"], "https://json-schema.org/draft/2020-12/schema",
         "CFG-94 pins JSON Schema 2020-12"
     );
-    assert_eq!(parsed["$id"], schema::CONFIG_SCHEMA_ID);
+    assert_eq!(parsed["$id"], schema::config_schema_id());
 }
 
 #[test]
@@ -53,9 +53,9 @@ fn the_prd_example_still_drifts_in_exactly_two_places() {
     assert_eq!(
         codes(&diagnostics),
         vec!["E0102", "E0103", "E0103"],
-        "RFC 0005: §34.2 writes `weight` as an array, which the schema rejects, \
+        "RFC 0101: §34.2 writes `weight` as an array, which the schema rejects, \
          and `versions[].tag`, which it does not know. If this fails, the schema \
-         was fixed and RFC 0005 can be closed. Got {messages:?}"
+         was fixed and RFC 0101 can be closed. Got {messages:?}"
     );
     assert!(
         diagnostics.iter().any(|d| d.message.contains("600")),
@@ -76,9 +76,9 @@ fn an_unknown_key_is_a_warning_and_is_dropped() {
     let value = serde_json::from_str(text).expect("valid JSON");
     let report = schema::check(&value, &SpanIndex::scan(SOURCE, text));
 
-    assert_eq!(codes(&report.diagnostics), vec!["E0103"], "RFC 0006");
+    assert_eq!(codes(&report.diagnostics), vec!["E0103"], "RFC 0102");
     let diagnostic = report.diagnostics.iter().next().expect("one diagnostic");
-    assert_eq!(diagnostic.severity, Severity::Warning, "RFC 0006");
+    assert_eq!(diagnostic.severity, Severity::Warning, "RFC 0102");
     let span = diagnostic.span.expect("the key is located");
     assert_eq!(
         &text[span.start as usize..span.end as usize],

@@ -3,7 +3,7 @@
 use liyasa_config::SiteConfig;
 use liyasa_config::model::{Navigation, NavigationNode};
 
-/// PRD §34.2, with the two keys RFC 0005 records as schema drift written the
+/// PRD §34.2, with the two keys RFC 0101 records as schema drift written the
 /// way the schema accepts them.
 const EXAMPLE: &str = include_str!("fixtures/example.json");
 
