@@ -8,18 +8,33 @@
 //! and remote access through [`net::HttpClient`], both injected by the caller,
 //! so the whole crate builds for `wasm32-unknown-unknown` (§6.2).
 //!
-//! `net`, `build`, `server`, `verify`, `ai`, `store`, `components`, and
-//! `markdown` hold the §34.9 contracts that §6.11 assigns to other crates;
-//! those crates re-export from here. See `plan/rfcs/0002-contract-home-crate.md`.
+//! `ai`, `build`, `components`, `markdown`, `net`, `server`, `store`, and
+//! `verify` hold the §34.9 contracts that §6.11 assigns to crates that do not
+//! exist until M1; those crates re-export from here, which costs nothing
+//! because §34.7 already makes `liyasa-core` the root of the dependency tree.
+//! See `plan/rfcs/0002-contract-home-crate.md`.
 
+pub mod ai; // TODO(rfc-0002): re-exported by liyasa-ai
+pub mod build; // TODO(rfc-0002): re-exported by liyasa-build
+pub mod components; // TODO(rfc-0002): re-exported by liyasa-components
 pub mod diagnostics;
+pub mod document;
+pub mod frontmatter;
 pub mod ids;
+pub mod markdown; // TODO(rfc-0002): re-exported by liyasa-markdown
 pub mod net; // TODO(rfc-0002): re-exported by liyasa-net
+pub mod serde_time;
+pub mod server; // TODO(rfc-0002): re-exported by liyasa-server
 pub mod source_map;
 pub mod span;
+pub mod store; // TODO(rfc-0002): re-exported by liyasa-store
+pub mod verify; // TODO(rfc-0002): re-exported by liyasa-verify
 pub mod vfs;
+pub mod yaml;
 
 pub use diagnostics::{Code, Diagnostic, Diagnostics, Severity};
+pub use document::{Block, BlockKind, Document, Inline, Node, Origin, Segment, SourceDocument};
+pub use frontmatter::{Frontmatter, FrontmatterFields};
 pub use ids::{BlockId, BuildId, Fingerprint, Locale, PageId, Route, Version};
 pub use net::{BoxFut, BoxStream, HttpClient};
 pub use source_map::{SourceFile, SourceMap};
