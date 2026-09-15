@@ -109,6 +109,7 @@ fn schema(value: &mut Value) {
     exclusive_bound(map, "exclusiveMinimum", "minimum");
     exclusive_bound(map, "exclusiveMaximum", "maximum");
     single_example(map);
+    tuple_items(map);
 
     for key in ["items", "not", "additionalProperties", "propertyNames"] {
         if let Some(found) = map.get_mut(key) {
@@ -120,13 +121,29 @@ fn schema(value: &mut Value) {
             for_each_value(found, schema);
         }
     }
-    for key in ["allOf", "oneOf", "anyOf"] {
+    for key in ["allOf", "oneOf", "anyOf", "prefixItems"] {
         if let Some(Value::Sequence(items)) = map.get_mut(key) {
             for item in items {
                 schema(item);
             }
         }
     }
+}
+
+/// Draft-04's array form of `items` is 2020-12's `prefixItems`.
+///
+/// `items: [A, B]` is tuple validation: the first element is an `A` and the
+/// second a `B`. 2020-12 gave that spelling to `prefixItems` and left `items`
+/// meaning "every element". Slack's published document uses the old form, and
+/// reading it as the new one would say something the spec does not.
+fn tuple_items(map: &mut Map) {
+    let Some(Value::Sequence(_)) = map.get("items") else {
+        return;
+    };
+    let Some(items) = map.shift_remove("items") else {
+        return;
+    };
+    map.insert(Value::from("prefixItems"), items);
 }
 
 /// `nullable: true` becomes `null` among the permitted types.

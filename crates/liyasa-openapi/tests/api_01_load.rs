@@ -369,3 +369,60 @@ fn an_ordinary_document_is_unchanged_by_the_second_pass() {
         "the first pass still reads what it always read"
     );
 }
+
+/// Draft-04 spelled tuple validation `items: [A, B]`; 2020-12 calls it
+/// `prefixItems`. Slack's published document uses the old form.
+#[test]
+fn draft_four_tuple_items_become_prefix_items() {
+    const TUPLE: &str = r##"
+openapi: 3.0.3
+info: { title: Widgets, version: "1" }
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pair:
+                    type: array
+                    items:
+                      - { type: string, nullable: true }
+                      - { type: integer }
+"##;
+    let loaded = load::from_bytes("api", "api.yaml", TUPLE.as_bytes()).expect("loads");
+    assert!(
+        !loaded.diagnostics.has_errors(),
+        "{:?}",
+        loaded.diagnostics.as_slice()
+    );
+    let operation = loaded
+        .spec
+        .by_operation_id("listWidgets")
+        .expect("the operation is there");
+    let (_, media) = operation
+        .operation
+        .responses
+        .values()
+        .next()
+        .and_then(|response| response.preferred())
+        .expect("the response has a body");
+    let pair = media
+        .schema
+        .as_ref()
+        .and_then(|schema| schema.properties.get("pair"))
+        .expect("the property survived");
+
+    assert!(pair.items.is_none(), "the array form is not `items`");
+    assert_eq!(pair.prefix_items.len(), 2);
+    assert!(
+        pair.prefix_items[0].is(SchemaType::String) && pair.prefix_items[0].is_nullable(),
+        "and the members are still normalized in turn"
+    );
+    assert!(pair.prefix_items[1].is(SchemaType::Integer));
+}
