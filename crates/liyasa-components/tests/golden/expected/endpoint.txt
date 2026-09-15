@@ -48,3 +48,15 @@ DELETE /v1/items/{id} Removes an item.
 FETCH
 --- diagnostics
 E0315 `endpoint.method` is `fetch`, which is not one of: get, post, put, patch, delete, head, options, trace
+
+=== case: empty body
+--- html
+<div class="ly-endpoint" data-liyasa="endpoint" data-method="get" id="get">
+  <span class="ly-endpoint-method">
+    GET
+  </span>
+</div>
+--- markdown
+`GET`
+--- text
+GET

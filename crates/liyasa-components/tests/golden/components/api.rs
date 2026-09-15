@@ -120,6 +120,35 @@ fn response_field() {
                 .prop("example", str("itm_1"))
                 .build(),
         )
+        .case(
+            "empty body",
+            inst::new("response-field").prop("name", str("id")).build(),
+        )
+        .case(
+            "nesting",
+            inst::new("response-field")
+                .prop("name", str("owner"))
+                .prop("type", str("object"))
+                .child(inst::nested(
+                    inst::new("expandable")
+                        .prop("title", str("owner properties"))
+                        .child(inst::nested(
+                            inst::new("response-field")
+                                .prop("name", str("email"))
+                                .prop("type", str("string"))
+                                .child(nodes::paragraph("Where to reach them.")),
+                        )),
+                ))
+                .build(),
+        )
+        .case(
+            "invalid prop",
+            inst::new("response-field")
+                .prop("name", str("id"))
+                .prop("required", str("yes"))
+                .prop("kind", str("typo"))
+                .build(),
+        )
         .check();
 }
 
@@ -146,6 +175,31 @@ fn examples() {
                 .build(),
         )
         .case("empty request", inst::new("request-example").build())
+        .case(
+            "request with a status",
+            inst::new("request-example")
+                .prop("lang", str("python"))
+                .prop("title", str("Python"))
+                .prop("status", str("201"))
+                .child(nodes::code_block(Some("python"), "requests.post(url)\n"))
+                .build(),
+        )
+        .case(
+            "titled response",
+            inst::new("response-example")
+                .prop("lang", str("json"))
+                .prop("title", str("Created"))
+                .prop("status", str("201"))
+                .child(nodes::code_block(Some("json"), "{\"id\": \"itm_1\"}\n"))
+                .build(),
+        )
+        .case(
+            "invalid prop",
+            inst::new("response-example")
+                .prop("status", PropValue::Num(200.0))
+                .prop("code", str("typo"))
+                .build(),
+        )
         .check();
 }
 
@@ -173,6 +227,7 @@ fn endpoint() {
             "invalid method",
             inst::new("endpoint").prop("method", str("fetch")).build(),
         )
+        .case("empty body", inst::new("endpoint").build())
         .check();
 }
 
