@@ -269,14 +269,52 @@
   margin-bottom: var(--ly-space-4);
 }
 
-.ly-switchers select {
-  width: 100%;
-  padding: var(--ly-space-1) var(--ly-space-2);
-  background: var(--ly-color-bg);
-  color: var(--ly-color-text);
+.ly-switcher {
+  flex: 1;
+  position: relative;
   border: var(--ly-border);
   border-radius: var(--ly-radius-sm);
+  background: var(--ly-color-bg);
   font-size: var(--ly-text-xs);
+}
+
+.ly-switcher summary {
+  padding: var(--ly-space-1) var(--ly-space-2);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ly-switcher-label {
+  color: var(--ly-color-text-subtle);
+}
+
+.ly-switcher ul {
+  position: absolute;
+  z-index: var(--ly-z-raised);
+  left: 0;
+  right: 0;
+  margin: var(--ly-space-1) 0 0;
+  padding: var(--ly-space-1);
+  list-style: none;
+  background: var(--ly-color-elevated);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-sm);
+  box-shadow: var(--ly-shadow-md);
+}
+
+.ly-switcher a {
+  display: block;
+  padding: var(--ly-space-1) var(--ly-space-2);
+  border-radius: var(--ly-radius-xs);
+  color: var(--ly-color-text);
+  text-decoration: none;
+}
+
+.ly-switcher a:hover,
+.ly-switcher a[aria-current="true"] {
+  background: var(--ly-color-surface);
 }
 
 /* ---- right rail: table of contents, page actions, feedback (RX-23) ---- */

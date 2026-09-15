@@ -2,18 +2,28 @@
   <div class="ly-sidebar-inner">
     <p class="ly-sidebar-close"><a href="#ly-main" data-ly-drawer-close>{{ strings.close }}</a></p>
     {% if nav.navigation.versions or nav.navigation.locales %}
+    {# Disclosures rather than a select with an inline handler: a select needs
+       script to navigate, and an inline handler is blocked by the CSP. #}
     <div class="ly-switchers" data-liyasa="switchers">
       {% if nav.navigation.versions %}
-      <label class="ly-visually-hidden" for="ly-version">{{ strings.version }}</label>
-      <select id="ly-version" data-ly-switcher="version" onchange="location.href=this.value">
-        {% for choice in nav.navigation.versions %}<option value="{{ choice.href }}"{% if choice.current %} selected{% endif %}>{{ choice.label }}</option>{% endfor %}
-      </select>
+      <details class="ly-switcher" data-ly-switcher="version">
+        <summary><span class="ly-switcher-label">{{ strings.version }}</span> {% for choice in nav.navigation.versions %}{% if choice.current %}{{ choice.label }}{% endif %}{% endfor %}</summary>
+        <ul>
+          {% for choice in nav.navigation.versions %}
+          <li><a href="{{ choice.href }}"{% if choice.current %} aria-current="true"{% endif %}>{{ choice.label }}</a></li>
+          {% endfor %}
+        </ul>
+      </details>
       {% endif %}
       {% if nav.navigation.locales %}
-      <label class="ly-visually-hidden" for="ly-locale">{{ strings.language }}</label>
-      <select id="ly-locale" data-ly-switcher="locale" onchange="location.href=this.value">
-        {% for choice in nav.navigation.locales %}<option value="{{ choice.href }}"{% if choice.current %} selected{% endif %}>{{ choice.label }}</option>{% endfor %}
-      </select>
+      <details class="ly-switcher" data-ly-switcher="locale">
+        <summary><span class="ly-switcher-label">{{ strings.language }}</span> {% for choice in nav.navigation.locales %}{% if choice.current %}{{ choice.label }}{% endif %}{% endfor %}</summary>
+        <ul>
+          {% for choice in nav.navigation.locales %}
+          <li><a href="{{ choice.href }}"{% if choice.current %} aria-current="true"{% endif %}>{{ choice.label }}</a></li>
+          {% endfor %}
+        </ul>
+      </details>
       {% endif %}
     </div>
     {% endif %}
