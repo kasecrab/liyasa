@@ -1,0 +1,14 @@
+require "net/http"
+require "uri"
+
+uri = URI("https://api.example.com/v1/uploads")
+request = Net::HTTP::Post.new(uri)
+request.set_form_data({
+  "file" => "file.bin",
+  "caption" => "A photo",
+})
+
+response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|
+  http.request(request)
+end
+puts response.body

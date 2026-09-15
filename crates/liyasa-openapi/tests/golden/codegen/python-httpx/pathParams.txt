@@ -1,0 +1,7 @@
+import httpx
+
+url = "https://api.example.com/v1/users/u_1/notes/7"
+
+with httpx.Client() as client:
+    response = client.request("GET", url)
+    print(response.json())

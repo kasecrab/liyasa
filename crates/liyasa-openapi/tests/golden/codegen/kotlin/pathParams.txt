@@ -1,0 +1,13 @@
+import okhttp3.OkHttpClient
+import okhttp3.Request
+
+val client = OkHttpClient()
+
+val request = Request.Builder()
+    .url("https://api.example.com/v1/users/u_1/notes/7")
+    .method("GET", null)
+    .build()
+
+client.newCall(request).execute().use { response ->
+    println(response.body?.string())
+}

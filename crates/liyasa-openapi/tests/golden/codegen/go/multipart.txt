@@ -1,0 +1,51 @@
+package main
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"bytes"
+	"mime/multipart"
+	"os"
+)
+
+func main() {
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	file, err := os.Open("file.bin")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	part, err := form.CreateFormFile("file", "file.bin")
+	if err != nil {
+		panic(err)
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		panic(err)
+	}
+	if err := form.WriteField("caption", "A photo"); err != nil {
+		panic(err)
+	}
+	if err := form.Close(); err != nil {
+		panic(err)
+	}
+
+	request, err := http.NewRequest("POST", "https://api.example.com/v1/uploads", &body)
+	if err != nil {
+		panic(err)
+	}
+	request.Header.Set("Content-Type", form.FormDataContentType())
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		panic(err)
+	}
+	defer response.Body.Close()
+
+	payload, err := io.ReadAll(response.Body)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(payload))
+}

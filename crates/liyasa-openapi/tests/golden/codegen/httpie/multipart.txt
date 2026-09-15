@@ -1,0 +1,3 @@
+http POST 'https://api.example.com/v1/uploads' \
+  'file@file.bin' \
+  'caption=A photo'

@@ -1,0 +1,39 @@
+<?php
+
+$curl = curl_init();
+{% if req.body and req.body.kind not in ["form", "multipart"] %}
+$body = <<<'BODY'
+{{ req.body.text }}
+BODY;
+{% endif %}
+curl_setopt_array($curl, [
+    CURLOPT_URL => {{ req.url | php_string }},
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_CUSTOMREQUEST => {{ req.method | php_string }},
+{%- if req.headers or req.cookieHeader %}
+    CURLOPT_HTTPHEADER => [
+{%- for header in req.headers %}
+        {{ (header.name ~ ": " ~ header.value) | php_string }},
+{%- endfor %}
+{%- if req.cookieHeader %}
+        {{ ("Cookie: " ~ req.cookieHeader) | php_string }},
+{%- endif %}
+    ],
+{%- endif %}
+{%- if req.body %}
+{%- if req.body.kind in ["form", "multipart"] %}
+    CURLOPT_POSTFIELDS => [
+{%- for field in req.body.fields %}
+        {{ field.name | php_string }} => {{ (("@" ~ field.value) if field.file else field.value) | php_string }},
+{%- endfor %}
+    ],
+{%- else %}
+    CURLOPT_POSTFIELDS => $body,
+{%- endif %}
+{%- endif %}
+]);
+
+$response = curl_exec($curl);
+curl_close($curl);
+
+echo $response;

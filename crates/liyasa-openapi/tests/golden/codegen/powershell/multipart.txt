@@ -1,0 +1,5 @@
+$body = @'
+
+'@
+
+Invoke-RestMethod -Method POST -Uri "https://api.example.com/v1/uploads" -ContentType "multipart/form-data" -Body $body

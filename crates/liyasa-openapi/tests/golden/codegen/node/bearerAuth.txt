@@ -1,0 +1,11 @@
+import axios from "axios";
+
+const response = await axios({
+  method: "get",
+  url: "https://api.example.com/v1/me",
+  headers: {
+    "Authorization": "Bearer $ACCESS_TOKEN",
+  },
+});
+
+console.log(response.data);

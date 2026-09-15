@@ -1,0 +1,9 @@
+use reqwest::Client;
+
+let client = Client::new();
+let response = client
+    .request(reqwest::Method::GET, "https://api.example.com/v1/search?q=red%20widget&limit=10&tags=new")
+    .send()
+    .await?;
+
+println!("{}", response.text().await?);

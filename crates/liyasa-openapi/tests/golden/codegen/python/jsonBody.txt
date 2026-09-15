@@ -1,0 +1,16 @@
+import requests
+
+url = "https://api.example.com/v1/notes"
+headers = {
+    "Content-Type": "application/json",
+}
+payload = {
+    "text": "It's here",
+    "pinned": True,
+    "tags": [
+        "new"
+    ]
+}
+
+response = requests.request("POST", url, headers=headers, json=payload)
+print(response.json())

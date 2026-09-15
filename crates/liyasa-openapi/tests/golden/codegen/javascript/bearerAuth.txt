@@ -1,0 +1,8 @@
+const response = await fetch("https://api.example.com/v1/me", {
+  method: "GET",
+  headers: {
+    "Authorization": "Bearer $ACCESS_TOKEN",
+  },
+});
+
+const data = await response.json();

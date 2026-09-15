@@ -1,0 +1,11 @@
+$body = @'
+{
+  "text": "It's here",
+  "pinned": true,
+  "tags": [
+    "new"
+  ]
+}
+'@
+
+Invoke-RestMethod -Method POST -Uri "https://api.example.com/v1/notes" -ContentType "application/json" -Body $body

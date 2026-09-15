@@ -1,0 +1,12 @@
+headers = [
+  {"Authorization", "Bearer $ACCESS_TOKEN"},
+]
+
+response =
+  Req.request!(
+    method: :get,
+    url: "https://api.example.com/v1/me",
+    headers: headers
+  )
+
+IO.inspect(response.body)

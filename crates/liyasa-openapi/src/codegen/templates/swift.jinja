@@ -1,0 +1,16 @@
+import Foundation
+
+var request = URLRequest(url: URL(string: {{ req.url | dquote }})!)
+request.httpMethod = {{ req.method | dquote }}
+{%- for header in req.headers %}
+request.setValue({{ header.value | dquote }}, forHTTPHeaderField: {{ header.name | dquote }})
+{%- endfor %}
+{%- if req.cookieHeader %}
+request.setValue({{ req.cookieHeader | dquote }}, forHTTPHeaderField: "Cookie")
+{%- endif %}
+{%- if req.body %}
+request.httpBody = {{ req.body.text | dquote }}.data(using: .utf8)
+{%- endif %}
+
+let (data, _) = try await URLSession.shared.data(for: request)
+print(String(data: data, encoding: .utf8) ?? "")

@@ -1,0 +1,3 @@
+http GET 'https://api.example.com/v1/trace' \
+  'X-Request-Id:00000000-0000-0000-0000-000000000000' \
+  'Cookie:session=s_1'

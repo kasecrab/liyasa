@@ -1,0 +1,9 @@
+import Foundation
+
+var request = URLRequest(url: URL(string: "https://api.example.com/v1/trace")!)
+request.httpMethod = "GET"
+request.setValue("00000000-0000-0000-0000-000000000000", forHTTPHeaderField: "X-Request-Id")
+request.setValue("session=s_1", forHTTPHeaderField: "Cookie")
+
+let (data, _) = try await URLSession.shared.data(for: request)
+print(String(data: data, encoding: .utf8) ?? "")

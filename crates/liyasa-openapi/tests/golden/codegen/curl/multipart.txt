@@ -1,0 +1,3 @@
+curl -X POST 'https://api.example.com/v1/uploads' \
+  -F 'file=@file.bin' \
+  -F 'caption=A photo'

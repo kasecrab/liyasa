@@ -1,0 +1,9 @@
+http POST 'https://api.example.com/v1/notes' \
+  'Content-Type:application/json' \
+  --raw '{
+  "text": "It'\''s here",
+  "pinned": true,
+  "tags": [
+    "new"
+  ]
+}'

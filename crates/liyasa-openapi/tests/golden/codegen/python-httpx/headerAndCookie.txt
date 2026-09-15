@@ -1,0 +1,11 @@
+import httpx
+
+url = "https://api.example.com/v1/trace"
+headers = {
+    "X-Request-Id": "00000000-0000-0000-0000-000000000000",
+    "Cookie": "session=s_1",
+}
+
+with httpx.Client() as client:
+    response = client.request("GET", url, headers=headers)
+    print(response.json())

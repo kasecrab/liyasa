@@ -1,0 +1,8 @@
+using System.Net.Http;
+
+using var client = new HttpClient();
+using var request = new HttpRequestMessage(new HttpMethod("GET"), "https://api.example.com/v1/keys");
+request.Headers.Add("X-API-Key", "$API_KEY");
+
+var response = await client.SendAsync(request);
+Console.WriteLine(await response.Content.ReadAsStringAsync());

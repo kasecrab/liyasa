@@ -1,0 +1,7 @@
+using System.Net.Http;
+
+using var client = new HttpClient();
+using var request = new HttpRequestMessage(new HttpMethod("GET"), "https://api.example.com/v1/search?q=red%20widget&limit=10&tags=new");
+
+var response = await client.SendAsync(request);
+Console.WriteLine(await response.Content.ReadAsStringAsync());

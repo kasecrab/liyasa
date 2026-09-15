@@ -1,0 +1,30 @@
+import httpx
+
+url = {{ req.url | dquote }}
+{%- if req.headers or req.cookieHeader %}
+headers = {
+{%- for header in req.headers %}
+    {{ header.name | dquote }}: {{ header.value | dquote }},
+{%- endfor %}
+{%- if req.cookieHeader %}
+    "Cookie": {{ req.cookieHeader | dquote }},
+{%- endif %}
+}
+{%- endif %}
+{%- if req.body %}
+{%- if req.body.kind == "json" %}
+payload = {{ req.body.text | python_value | indent(0) }}
+{%- elif req.body.kind in ["form", "multipart"] %}
+payload = {
+{%- for field in req.body.fields %}
+    {{ field.name | dquote }}: {{ ("open(" ~ (field.value | dquote) ~ ", \"rb\")") if field.file else (field.value | dquote) }},
+{%- endfor %}
+}
+{%- else %}
+payload = {{ req.body.text | dquote }}
+{%- endif %}
+{%- endif %}
+
+with httpx.Client() as client:
+    response = client.request({{ req.method | dquote }}, url{% if req.headers or req.cookieHeader %}, headers=headers{% endif %}{% if req.body %}{% if req.body.kind == "json" %}, json=payload{% elif req.body.kind == "form" %}, data=payload{% elif req.body.kind == "multipart" %}, files=payload{% else %}, content=payload{% endif %}{% endif %})
+    print(response.json())

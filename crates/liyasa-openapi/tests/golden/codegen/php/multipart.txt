@@ -1,0 +1,18 @@
+<?php
+
+$curl = curl_init();
+
+curl_setopt_array($curl, [
+    CURLOPT_URL => "https://api.example.com/v1/uploads",
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_CUSTOMREQUEST => "POST",
+    CURLOPT_POSTFIELDS => [
+        "file" => "@file.bin",
+        "caption" => "A photo",
+    ],
+]);
+
+$response = curl_exec($curl);
+curl_close($curl);
+
+echo $response;

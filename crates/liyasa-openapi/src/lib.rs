@@ -7,11 +7,15 @@
 //! and single `type` never leave this crate.
 
 pub mod allof;
+pub mod codegen;
+pub mod config;
+pub mod example;
 pub mod load;
 pub mod model;
 pub mod normalize;
 pub mod read;
 pub mod refs;
+pub mod sample;
 pub mod source;
 pub mod tree;
 pub mod version;

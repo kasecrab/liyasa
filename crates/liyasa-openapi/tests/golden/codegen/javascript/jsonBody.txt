@@ -1,0 +1,15 @@
+const response = await fetch("https://api.example.com/v1/notes", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    "text": "It's here",
+    "pinned": true,
+    "tags": [
+      "new"
+    ]
+  }),
+});
+
+const data = await response.json();

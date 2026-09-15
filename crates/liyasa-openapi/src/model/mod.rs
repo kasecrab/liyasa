@@ -8,7 +8,7 @@ pub mod map;
 pub mod schema;
 pub mod security;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub use ext::{Extensions, XLiyasa};
 pub use map::OrderedMap;
@@ -352,7 +352,9 @@ pub struct CodeSample {
     pub source: String,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum ParameterIn {
     #[default]

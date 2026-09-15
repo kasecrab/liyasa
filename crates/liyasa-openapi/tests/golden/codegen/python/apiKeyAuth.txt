@@ -1,0 +1,9 @@
+import requests
+
+url = "https://api.example.com/v1/keys"
+headers = {
+    "X-API-Key": "$API_KEY",
+}
+
+response = requests.request("GET", url, headers=headers)
+print(response.json())

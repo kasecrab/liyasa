@@ -1,0 +1,7 @@
+import Foundation
+
+var request = URLRequest(url: URL(string: "https://api.example.com/v1/users/u_1/notes/7")!)
+request.httpMethod = "GET"
+
+let (data, _) = try await URLSession.shared.data(for: request)
+print(String(data: data, encoding: .utf8) ?? "")

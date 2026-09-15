@@ -1,0 +1,29 @@
+require "net/http"
+require "uri"
+
+uri = URI({{ req.url | dquote }})
+request = Net::HTTP::{{ req.method | lower | capitalize }}.new(uri)
+{%- for header in req.headers %}
+request[{{ header.name | dquote }}] = {{ header.value | dquote }}
+{%- endfor %}
+{%- if req.cookieHeader %}
+request["Cookie"] = {{ req.cookieHeader | dquote }}
+{%- endif %}
+{%- if req.body %}
+{%- if req.body.kind in ["form", "multipart"] %}
+request.set_form_data({
+{%- for field in req.body.fields %}
+  {{ field.name | dquote }} => {{ field.value | dquote }},
+{%- endfor %}
+})
+{%- else %}
+request.body = <<~'BODY'.chomp
+{{ req.body.text | indent(2, true) }}
+BODY
+{%- endif %}
+{%- endif %}
+
+response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|
+  http.request(request)
+end
+puts response.body

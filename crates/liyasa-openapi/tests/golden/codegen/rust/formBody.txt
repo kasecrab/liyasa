@@ -1,0 +1,11 @@
+use reqwest::Client;
+
+let client = Client::new();
+let response = client
+    .request(reqwest::Method::POST, "https://api.example.com/v1/subscribe")
+    .header("Content-Type", "application/x-www-form-urlencoded")
+    .body("email=user%40example.com&plan=free")
+    .send()
+    .await?;
+
+println!("{}", response.text().await?);

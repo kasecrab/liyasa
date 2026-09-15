@@ -1,0 +1,10 @@
+headers = []
+
+response =
+  Req.request!(
+    method: :get,
+    url: "https://api.example.com/v1/search?q=red%20widget&limit=10&tags=new",
+    headers: headers
+  )
+
+IO.inspect(response.body)
