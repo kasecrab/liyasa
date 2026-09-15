@@ -20,7 +20,7 @@ use crate::error::SearchError;
 use crate::idx::field::{ByField, Field};
 use crate::idx::query::Query;
 use crate::idx::score::{self, Ranked, Stats};
-use crate::idx::search::SearchOptions;
+use crate::idx::search::{self, Hit, SearchOptions, Snippet};
 
 /// One server-side hit. The section document is the stored payload, so a
 /// caller renders it exactly as the build wrote it.
@@ -30,6 +30,31 @@ pub struct ServerHit {
     pub document: SectionDocument,
     pub score: f32,
     pub matched: usize,
+    /// Cut from the stored section text, by the same function the browser
+    /// reader uses, so a result reads the same either way.
+    pub snippet: Option<Snippet>,
+}
+
+impl From<ServerHit> for Hit {
+    fn from(hit: ServerHit) -> Self {
+        let document = hit.document;
+        Self {
+            url: hit.key,
+            route: document.route.as_str().to_owned(),
+            anchor: document.anchor,
+            title: document.title,
+            section: document.section,
+            breadcrumb: document.breadcrumb,
+            kind: document.kind,
+            tab: document.tab,
+            version: document.version.map(|v| v.as_str().to_owned()),
+            locale: Some(document.locale.as_str().to_owned()),
+            score: hit.score,
+            updated: document.updated,
+            matched: hit.matched,
+            snippet: hit.snippet,
+        }
+    }
 }
 
 impl Ranked for ServerHit {
@@ -177,10 +202,19 @@ impl<'a> ServerSearcher<'a> {
                     );
                 }
             }
+            let snippet = options.snippets.then(|| {
+                search::snippet(
+                    &document.body,
+                    &accumulator.matched_terms(),
+                    document.locale.as_str(),
+                    options.snippet_chars,
+                )
+            });
             hits.push(ServerHit {
                 key: document.key(),
                 score: score::with_boost(total, document.boost),
                 matched: accumulator.matched(),
+                snippet,
                 document,
             });
         }
@@ -385,6 +419,18 @@ impl Accumulator {
         self.best.iter().sum()
     }
 
+    /// The expansions that actually hit, for the snippet's highlights.
+    fn matched_terms(&self) -> Vec<String> {
+        let mut out: Vec<String> = self
+            .frequencies
+            .iter()
+            .map(|found| found.text.clone())
+            .collect();
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
     fn matched(&self) -> usize {
         let mut seen: Vec<usize> = self.frequencies.iter().map(|found| found.term).collect();
         seen.sort_unstable();
@@ -409,6 +455,24 @@ impl Accumulator {
                 })
             })
             .count() as u32
+    }
+}
+
+/// The server answers the REST endpoint and the MCP tool through the same
+/// entry point the browser index does. `Context` picks a shard, and the server
+/// index has none, so it is the one argument this engine ignores.
+impl crate::api::Engine for ServerSearcher<'_> {
+    fn run(
+        &self,
+        query: &crate::idx::query::Query,
+        _context: &crate::idx::manifest::Context,
+        options: &SearchOptions,
+    ) -> Result<Vec<Hit>, SearchError> {
+        Ok(self
+            .search(query, options)?
+            .into_iter()
+            .map(Hit::from)
+            .collect())
     }
 }
 

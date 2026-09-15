@@ -371,3 +371,122 @@ fn the_endpoint_names_one_path_for_the_server_and_the_docs() {
     assert!(api::REST_PATH.starts_with('/'));
     assert!(!api::REST_PATH.ends_with('/'));
 }
+
+/// SRC-06: a private or hybrid site answers the same two surfaces from the
+/// tantivy index. The engine changes; the ranking does not.
+#[cfg(feature = "server")]
+mod server {
+    use liyasa_search::server::{ServerIndex, ServerSearcher};
+
+    use super::*;
+
+    fn server_index() -> ServerIndex {
+        let mut index = ServerIndex::in_memory();
+        index.index_all(&corpus::documents()).expect("indexes");
+        index
+    }
+
+    fn top(body: &Value, count: usize) -> Vec<String> {
+        urls(body).into_iter().take(count).collect()
+    }
+
+    #[test]
+    fn the_rest_endpoint_ranks_the_same_on_either_engine() {
+        let server = server_index();
+        let searcher = ServerSearcher::new(&server).expect("opens");
+        let settings = SearchSettings::default();
+
+        for query_string in [
+            "q=rate+limits",
+            "q=api+key",
+            "q=%22burst+limits%22",
+            "q=rotat",
+            "q=auth&filters.type=page",
+        ] {
+            let browser = api::rest(&index(), query_string, &settings, &ReaderScope::default()).0;
+            let served = api::rest(&searcher, query_string, &settings, &ReaderScope::default()).0;
+
+            assert_eq!(browser.status, served.status, "{query_string}");
+            assert_eq!(
+                top(&browser.body, 5),
+                top(&served.body, 5),
+                "{query_string} ranks differently on the two engines"
+            );
+        }
+    }
+
+    #[test]
+    fn the_tool_answers_from_the_server_index_too() {
+        let server = server_index();
+        let searcher = ServerSearcher::new(&server).expect("opens");
+        let result = api::tool_call(
+            &searcher,
+            api::TOOL_NAME,
+            &json!({ "query": "rate limits" }),
+            &SearchSettings::default(),
+            &ReaderScope::default(),
+        )
+        .0;
+
+        assert_eq!(result["isError"], false);
+        assert!(!urls(&result["structuredContent"]).is_empty());
+    }
+
+    #[test]
+    fn a_served_result_carries_the_snippet_a_reader_sees() {
+        let server = server_index();
+        let searcher = ServerSearcher::new(&server).expect("opens");
+        let response = api::rest(
+            &searcher,
+            "q=rate+limits",
+            &SearchSettings::default(),
+            &ReaderScope::default(),
+        )
+        .0;
+
+        let first = &response.body["results"][0];
+        let snippet = first["snippet"].as_str().expect("a snippet");
+        assert!(!snippet.is_empty());
+        assert!(
+            first["highlights"]
+                .as_array()
+                .is_some_and(|ranges| !ranges.is_empty()),
+            "the matched words are marked: {first}"
+        );
+    }
+
+    #[test]
+    fn the_server_keeps_a_grouped_section_from_an_agent() {
+        let server = server_index();
+        let searcher = ServerSearcher::new(&server).expect("opens");
+        let settings = SearchSettings::default();
+
+        let anonymous = api::rest(
+            &searcher,
+            "q=raising+a+limit",
+            &settings,
+            &ReaderScope::default(),
+        )
+        .0;
+        assert!(
+            !urls(&anonymous.body)
+                .iter()
+                .any(|url| url.starts_with("/internal/")),
+            "{:?}",
+            urls(&anonymous.body)
+        );
+
+        let staff = ReaderScope {
+            groups: vec!["staff".to_owned()],
+            region: None,
+        };
+        let privileged = api::rest(&searcher, "q=raising+a+limit", &settings, &staff).0;
+        assert!(
+            urls(&privileged.body)
+                .iter()
+                .any(|url| url.starts_with("/internal/")),
+            "{:?}",
+            urls(&privileged.body)
+        );
+    }
+}

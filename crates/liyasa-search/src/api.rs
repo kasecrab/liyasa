@@ -12,7 +12,7 @@ use crate::doc::DocKind;
 use crate::error::SearchError;
 use crate::idx::Index;
 use crate::idx::manifest::Context;
-use crate::idx::query::{self, Filters, ReaderScope};
+use crate::idx::query::{self, Filters, Query, ReaderScope};
 use crate::idx::search::{Hit, SearchOptions};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -119,10 +119,32 @@ pub struct SearchResponse {
     pub total: usize,
 }
 
-/// Runs a request against the browser index. The server runs the same request
-/// through `server::ServerSearcher`; both rank with `idx::score`.
-pub fn search(
-    index: &Index,
+/// What a surface searches. The browser index and the server index both
+/// implement it and both rank with `idx::score`, so "the same ranking" (SRC-10)
+/// holds for a private site as well as a static one.
+pub trait Engine {
+    fn run(
+        &self,
+        query: &Query,
+        context: &Context,
+        options: &SearchOptions,
+    ) -> Result<Vec<Hit>, SearchError>;
+}
+
+impl Engine for Index {
+    fn run(
+        &self,
+        query: &Query,
+        context: &Context,
+        options: &SearchOptions,
+    ) -> Result<Vec<Hit>, SearchError> {
+        self.search(query, context, options)
+    }
+}
+
+/// Runs a request against an index. Both engines rank with `idx::score`.
+pub fn search<E: Engine + ?Sized>(
+    index: &E,
     request: &SearchRequest,
     settings: &SearchSettings,
     reader: &ReaderScope,
@@ -151,7 +173,7 @@ pub fn search(
         ..settings.search_options()
     };
 
-    let hits = index.search(&parsed, &context, &options)?;
+    let hits = index.run(&parsed, &context, &options)?;
     let event = SearchEvent::of(
         &request.query,
         request.locale.as_deref(),
@@ -238,8 +260,8 @@ pub fn request_from_query_string(query_string: &str) -> Result<SearchRequest, Se
 /// Answers the REST endpoint. The event is `None` when the request never
 /// reached the index, so a refused call is not counted as something a reader
 /// searched for.
-pub fn rest(
-    index: &Index,
+pub fn rest<E: Engine + ?Sized>(
+    index: &E,
     query_string: &str,
     settings: &SearchSettings,
     reader: &ReaderScope,
@@ -266,8 +288,8 @@ pub fn tools_list() -> serde_json::Value {
 /// The MCP `tools/call` handler. A caller's mistake comes back as a tool
 /// result with `isError`, which is what the protocol asks for: the model reads
 /// it and retries, rather than the transport failing under it.
-pub fn tool_call(
-    index: &Index,
+pub fn tool_call<E: Engine + ?Sized>(
+    index: &E,
     name: &str,
     arguments: &serde_json::Value,
     settings: &SearchSettings,

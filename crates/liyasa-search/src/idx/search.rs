@@ -409,7 +409,7 @@ impl Accumulator {
 /// A window of section text around the first matched term, with the matches
 /// marked. Tokenizing the snippet is exact by construction: it is the same
 /// function that produced the terms in the index.
-fn snippet(text: &str, matched: &[String], locale: &str, chars: usize) -> Snippet {
+pub(crate) fn snippet(text: &str, matched: &[String], locale: &str, chars: usize) -> Snippet {
     let tokens = Tokenizer::for_locale(locale).tokenize(text);
     let first = tokens
         .iter()
