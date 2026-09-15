@@ -588,6 +588,16 @@ pub fn check_determinism(
 ) -> Option<Diagnostic> {
     let first = build_into(vfs, git, root, options, "determinism-a");
     let second = build_into(vfs, git, root, options, "determinism-b");
+    if first.is_empty() || second.is_empty() {
+        // A check that compared nothing is not a check that passed.
+        return Some(
+            Diagnostic::new(
+                code::E0706,
+                "the determinism check produced no output to compare",
+            )
+            .help("the build wrote nothing; check the project root and `build.output`"),
+        );
+    }
     let differences: Vec<String> = first
         .keys()
         .chain(second.keys())

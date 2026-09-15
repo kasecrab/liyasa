@@ -242,6 +242,18 @@ fn check_determinism_passes_on_the_fixture() {
 }
 
 #[test]
+fn check_determinism_still_compares_after_an_ordinary_build() {
+    // A build leaves a log of what it wrote so a rebuild can skip unchanged
+    // files; the check must not inherit it and compare two empty sets.
+    let project = site("determinism-warm");
+    build(&project, options());
+
+    let vfs = OsVfs::new(project.path());
+    let difference = engine::check_determinism(&vfs, &NoGit, project.path(), &options());
+    assert!(difference.is_none(), "{difference:?}");
+}
+
+#[test]
 fn the_build_id_changes_only_when_an_input_does() {
     let project = site("build-id");
     let first = build(&project, options()).build_id;
