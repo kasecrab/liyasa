@@ -28,6 +28,18 @@ pub const MEASURE: &str = include_str!("../../web/reader/dist/measure.js");
 /// Where the reference site is published (§33.1 item 8: there is no domain).
 pub const ORIGIN: &str = "https://kasecrab.github.io";
 
+/// Without a `<link rel="icon">` the browser asks for `/favicon.ico`, and the
+/// 404 it gets is a console error Lighthouse counts against best practices
+/// (RX-10). The reference site therefore ships one, like any real site.
+pub const FAVICON_URL: &str = "/favicon.svg";
+
+pub const FAVICON: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">"#,
+    r##"<rect width="16" height="16" rx="3" fill="#1f2933"/>"##,
+    r##"<path d="M5 4v8h6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="square"/>"##,
+    "</svg>\n"
+);
+
 pub const STYLESHEET_URL: &str = "/_liyasa/theme.css";
 pub const SCRIPT_URL: &str = "/_liyasa/base.js";
 pub const READER_URL: &str = "/_liyasa/reader.js";
@@ -142,7 +154,7 @@ pub fn build() -> Result<Site, Box<dyn std::error::Error>> {
             href: Some("/".to_owned()),
             ..Logo::default()
         };
-        context.site.favicon = None;
+        context.site.favicon = Some(FAVICON_URL.to_owned());
         context.site.llms_txt = None;
         context.site.version = None;
         context.site.assistant = false;
