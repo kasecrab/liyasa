@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+# Shared append-only files: keep both sides, never conflict.
+Cargo.toml merge=union
+crates/liyasa-core/src/diagnostics/codes.toml merge=union
+
+*.png binary
+*.jpg binary
+*.woff2 binary

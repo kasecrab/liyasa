@@ -1,0 +1,83 @@
+# --- build output ---
+/target/
+target/
+**/*.rs.bk
+*.pdb
+/dist/
+/out/
+**/pkg/
+*.wasm
+
+# --- rust ---
+Cargo.lock.orig
+.cargo/config.local.toml
+
+# --- node / web ---
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+.vite/
+.turbo/
+.next/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- python tooling ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# --- liyasa runtime ---
+.liyasa/
+*.liyasa-cache
+/snapshots/
+/playwright-report/
+/test-results/
+
+# --- secrets and local config ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.toml
+.liyasa-auth
+
+# --- planning material, never published ---
+/PRD.md
+/PRD-REVIEW.md
+/features.md
+/requirements.json
+/plan/
+/wp/
+/rfcs/
+/CLAUDE.md
+/AGENTS.md
+/NEEDS-INPUT.md
+/spec/markdown/
+
+# --- editors and os ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- misc ---
+*.log
+*.tmp
+.direnv/
+result
