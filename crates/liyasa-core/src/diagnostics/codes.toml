@@ -162,3 +162,4 @@ W0410 = { severity = "warning", crate = "liyasa-build", title = "Implemented spe
 W0411 = { severity = "warning", crate = "liyasa-build", title = "Agent-readiness run reports an interaction effect rather than the underlying check failures" }
 W0412 = { severity = "warning", crate = "liyasa-build", title = "Agent-readiness run computed from a partial sample; more than 20% of page fetches failed" }
 E0322 = { severity = "error", crate = "liyasa-markdown", title = "Page nests blocks or inlines deeper than the parser will walk" }
+W0509 = { severity = "warning", crate = "liyasa-openapi", title = "Swagger 2.0 document converted to OpenAPI 3.1" }
