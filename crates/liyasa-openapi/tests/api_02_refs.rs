@@ -194,3 +194,197 @@ paths:
         "one bad field does not lose the operation"
     );
 }
+
+// ---- remote references ----
+
+mod remote {
+    use std::time::Duration;
+
+    use liyasa_core::conformance::block_on;
+    use liyasa_core::conformance::fixtures::MemoryVfs;
+    use liyasa_core::diagnostics::code;
+    use liyasa_core::net::{
+        BoxFut, DenyReason, HostPattern, HostSet, HttpClient, HttpPolicy, HttpRequest,
+        HttpResponse, NetError, Purpose,
+    };
+    use liyasa_core::vfs::Bytes;
+    use liyasa_openapi::load;
+    use liyasa_openapi::model::SchemaType;
+    use liyasa_openapi::source::{Fetcher, Location};
+
+    /// Serves canned documents, and refuses a host the policy does not list so
+    /// the test exercises the policy rather than a second allow list.
+    struct Canned(Vec<(&'static str, &'static str)>);
+
+    impl HttpClient for Canned {
+        fn fetch<'a>(
+            &'a self,
+            request: HttpRequest,
+            policy: &'a HttpPolicy,
+        ) -> BoxFut<'a, Result<HttpResponse, NetError>> {
+            let url = request.url;
+            Box::pin(async move {
+                let host = url.host_str().unwrap_or_default().to_owned();
+                if !policy.allow_hosts.matches(&host) {
+                    return Err(NetError::PolicyDenied {
+                        reason: DenyReason::HostNotAllowed(host),
+                    });
+                }
+                let body = self
+                    .0
+                    .iter()
+                    .find(|(at, _)| *at == url.as_str())
+                    .map(|(_, body)| *body)
+                    .ok_or(NetError::Status(404))?;
+                Ok(HttpResponse {
+                    status: 200,
+                    headers: Vec::new(),
+                    body: Bytes::from_static(body.as_bytes()),
+                    final_url: url,
+                })
+            })
+        }
+    }
+
+    fn policy() -> HttpPolicy {
+        HttpPolicy {
+            allow_hosts: HostSet(vec![HostPattern::Exact("schemas.example.com".to_owned())]),
+            deny_hosts: HostSet::default(),
+            allow_private: false,
+            max_redirects: 2,
+            max_bytes: 1 << 20,
+            timeout: Duration::from_secs(5),
+            purpose: Purpose::SpecRef,
+        }
+    }
+
+    const ROOT: &str = r##"
+openapi: 3.1.0
+info: { title: Test, version: "1" }
+paths:
+  /a:
+    get:
+      operationId: getA
+      parameters:
+        - $ref: "shared/params.yaml#/Id"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allowed: { $ref: "https://schemas.example.com/user.yaml#/User" }
+                  refused: { $ref: "https://elsewhere.example.net/evil.yaml#/X" }
+                  broken: { $ref: "shared/params.yaml#/Nope" }
+"##;
+
+    fn load_spec(
+        http: Option<&dyn HttpClient>,
+    ) -> (liyasa_openapi::Spec, liyasa_core::Diagnostics) {
+        let vfs = MemoryVfs::new().with("openapi/api.yaml", ROOT).with(
+            "openapi/shared/params.yaml",
+            "Id:\n  name: id\n  in: query\n  schema: { type: string }\n",
+        );
+        let policy = policy();
+        let fetcher = Fetcher::new(&vfs, http, &policy);
+        let at = Location::parse("openapi/api.yaml");
+        let loaded = block_on(load::from_source("api", &at, &fetcher)).expect("the spec loads");
+        (loaded.spec, loaded.diagnostics)
+    }
+
+    fn property(spec: &liyasa_openapi::Spec, name: &str) -> Option<liyasa_openapi::Schema> {
+        let operation = spec.by_operation_id("getA")?;
+        let response = operation.operation.responses.get("200")?;
+        let (_, media) = response.preferred()?;
+        media.schema.as_ref()?.properties.get(name).cloned()
+    }
+
+    #[test]
+    fn a_reference_into_a_sibling_file_resolves_through_the_vfs() {
+        let client = Canned(vec![(
+            "https://schemas.example.com/user.yaml",
+            "User: { type: object, properties: { id: { type: string } } }\n",
+        )]);
+        let (spec, _) = load_spec(Some(&client));
+        let operation = spec
+            .by_operation_id("getA")
+            .expect("the operation is there");
+        let parameters = operation.parameters();
+        assert_eq!(parameters.len(), 1);
+        assert_eq!(parameters[0].name, "id");
+    }
+
+    #[test]
+    fn a_remote_reference_inside_the_allow_list_resolves() {
+        let client = Canned(vec![(
+            "https://schemas.example.com/user.yaml",
+            "User: { type: object, properties: { id: { type: string } } }\n",
+        )]);
+        let (spec, _) = load_spec(Some(&client));
+        let allowed = property(&spec, "allowed").expect("the allowed property reads");
+        assert!(allowed.is(SchemaType::Object));
+        assert!(allowed.properties.get("id").is_some());
+    }
+
+    #[test]
+    fn a_remote_reference_outside_the_allow_list_is_e0806() {
+        let client = Canned(vec![(
+            "https://schemas.example.com/user.yaml",
+            "User: { type: object }\n",
+        )]);
+        let (_, diagnostics) = load_spec(Some(&client));
+        let denied: Vec<_> = diagnostics
+            .iter()
+            .filter(|d| d.code == code::E0806)
+            .collect();
+        assert_eq!(denied.len(), 1, "{:?}", diagnostics.as_slice());
+        assert!(
+            denied[0].message.contains("elsewhere.example.net"),
+            "{}",
+            denied[0].message
+        );
+    }
+
+    #[test]
+    fn a_pointer_that_names_nothing_is_e0502_with_the_pointer_of_the_reference() {
+        let client = Canned(vec![(
+            "https://schemas.example.com/user.yaml",
+            "User: { type: object }\n",
+        )]);
+        let (_, diagnostics) = load_spec(Some(&client));
+        let broken: Vec<_> = diagnostics
+            .iter()
+            .filter(|d| d.code == code::E0502 && d.message.contains("shared/params.yaml#/Nope"))
+            .collect();
+        assert_eq!(broken.len(), 1, "{:?}", diagnostics.as_slice());
+        assert!(
+            broken[0].message.contains("/properties/broken"),
+            "{}",
+            broken[0].message
+        );
+    }
+
+    #[test]
+    fn local_schema_refuses_every_remote_reference_without_reaching_the_network() {
+        let (_, diagnostics) = load_spec(None);
+        let refused: Vec<_> = diagnostics
+            .iter()
+            .filter(|d| d.code == code::E0806)
+            .collect();
+        assert_eq!(
+            refused.len(),
+            2,
+            "both hosts are refused: {:?}",
+            diagnostics.as_slice()
+        );
+        assert!(
+            refused.iter().all(|d| d
+                .help
+                .as_deref()
+                .is_some_and(|h| h.contains("--local-schema"))),
+            "the diagnostic names the flag that caused it"
+        );
+    }
+}
