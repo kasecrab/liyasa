@@ -85,8 +85,10 @@ pub fn rewrite(source: &str, id: SourceId, nonce: [u8; 16]) -> Rewritten {
                 delta: &mut i32,
                 raw: &str,
                 rewritten: &str| {
-        *delta += rewritten.len() as i32 - raw.len() as i32;
+        // The entry for a line start carries the delta accumulated by the lines
+        // *before* it; this line's own change applies from the next line on.
         map.push((out.len() as u32, *delta));
+        *delta += rewritten.len() as i32 - raw.len() as i32;
         out.push_str(rewritten);
     };
 

@@ -263,7 +263,10 @@ fn collect(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
         let path = entry.map_err(|e| format!("{}: {e}", dir.display()))?.path();
         if path.is_dir() {
             collect(&path, out)?;
-        } else if path.extension().is_some_and(|e| e == "md") {
+        } else if path.extension().is_some_and(|e| e == "md")
+            && path.file_name().is_some_and(|n| n != "README.md")
+        {
+            // README.md is the corpus's own documentation, not a case.
             out.push(path);
         }
     }

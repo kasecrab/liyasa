@@ -14,8 +14,13 @@ use super::scan::{self, MARKER_PREFIX, MarkerRole};
 
 pub struct Parsed<'a> {
     pub root: &'a AstNode<'a>,
+    /// The text comrak actually parsed, in rewritten coordinates.
+    pub text: String,
     pub map: RewriteMap,
     pub table: DirectiveTable,
+    /// Every marker comrak reported, as `(rewritten line, marker id)`. Filled
+    /// during re-parenting, when the node and its ID are both in hand.
+    pub reported: Vec<(usize, usize)>,
     pub diagnostics: Diagnostics,
 }
 
@@ -27,11 +32,13 @@ pub fn parse<'a>(
 ) -> Parsed<'a> {
     let rewritten = scan::rewrite(source, SourceId(0), nonce);
     let root = comrak::parse_document(arena, &rewritten.text, options);
-    reparent(root, &rewritten);
+    let reported = reparent(root, &rewritten);
     Parsed {
         root,
+        text: rewritten.text,
         map: rewritten.map,
         table: rewritten.table,
+        reported,
         diagnostics: rewritten.diagnostics,
     }
 }
@@ -41,7 +48,8 @@ pub fn parse<'a>(
 /// Both markers of a directive always sit in the same parent, because the
 /// scanner refuses a pair whose lines are at different container depths
 /// (§7.5.1 item 7), so this never crosses a list or blockquote boundary.
-fn reparent<'a>(root: &'a AstNode<'a>, rewritten: &scan::Rewritten) {
+fn reparent<'a>(root: &'a AstNode<'a>, rewritten: &scan::Rewritten) -> Vec<(usize, usize)> {
+    let mut reported = Vec::new();
     let mut parents: Vec<&'a AstNode<'a>> = vec![root];
     while let Some(parent) = parents.pop() {
         let children: Vec<_> = parent.children().collect();
@@ -52,6 +60,7 @@ fn reparent<'a>(root: &'a AstNode<'a>, rewritten: &scan::Rewritten) {
             let Some((role, id)) = marker_of(child) else {
                 continue;
             };
+            reported.push((child.data.borrow().sourcepos.start.line, id));
             match role {
                 MarkerRole::Open => open.push((id, child)),
                 MarkerRole::Leaf => {
@@ -89,6 +98,8 @@ fn reparent<'a>(root: &'a AstNode<'a>, rewritten: &scan::Rewritten) {
             }
         }
     }
+    reported.sort_unstable();
+    reported
 }
 
 fn directive_node(name: &str) -> NodeValue {
@@ -122,48 +133,60 @@ fn marker_of(node: &AstNode<'_>) -> Option<(MarkerRole, usize)> {
 }
 
 /// The property §7.5.1 item 2 promises: every position comrak reports on a
-/// marker line composes back to the directive's recorded source span.
+/// marker line composes back, through the `RewriteMap`, to the byte offset the
+/// scanner recorded for that directive.
 ///
-/// Returns the offending marker IDs, so a corpus case names what broke.
-pub fn position_round_trip(parsed: &Parsed<'_>, source: &str) -> Vec<usize> {
-    let line_starts: Vec<u32> = std::iter::once(0)
-        .chain(
-            source
-                .bytes()
-                .enumerate()
-                .filter(|(_, b)| *b == b'\n')
-                .map(|(at, _)| at as u32 + 1),
-        )
-        .collect();
+/// The spike does no template expansion, so expanded and source coordinates are
+/// the same space and the composition is two of the three hops; the third hop
+/// is the expansion span map, which is tested separately.
+///
+/// Returns one message per marker that did not round-trip.
+pub fn position_round_trip(parsed: &Parsed<'_>, source: &str) -> Vec<String> {
+    let rewritten_lines = line_starts(&parsed.text);
+    let source_lines = line_starts(source);
     let mut broken = Vec::new();
-    for node in parsed.root.descendants() {
-        let data = node.data.borrow();
-        let NodeValue::BlockDirective(_) = &data.value else {
+
+    for (line, id) in &parsed.reported {
+        let Some(directive) = parsed.table.get(*id) else {
+            broken.push(format!("marker {id} is not in the directive table"));
             continue;
         };
-        let line = data.sourcepos.start.line;
-        let Some(&expected_line_start) = line_starts.get(line.saturating_sub(1)) else {
+        let Some(&rewritten_line_start) = rewritten_lines.get(line.saturating_sub(1)) else {
+            broken.push(format!(
+                "marker {id} reported line {line}, which is past the text"
+            ));
             continue;
         };
-        // comrak reports (line, column) in the rewritten text; the rewrite
-        // preserves line numbers, so the composed offset must land on the same
-        // source line the directive was recorded on.
-        let recorded = parsed.table.0.iter().position(|d| {
-            d.span.start >= expected_line_start
-                && d.span.start < expected_line_start + line_length(source, expected_line_start)
-        });
-        match recorded {
-            Some(_) => {}
-            None => broken.push(line),
+        let composed = parsed.map.to_expanded(rewritten_line_start);
+        if composed != directive.span.start {
+            broken.push(format!(
+                "marker {id} on rewritten line {line} composed to byte {composed}, \
+                 but the scanner recorded the directive at byte {}",
+                directive.span.start
+            ));
+            continue;
+        }
+        // …and the composed offset must land on the line the author wrote it on.
+        let source_line = source_lines.partition_point(|start| *start <= composed);
+        let recorded_line = source_lines.partition_point(|start| *start <= directive.span.start);
+        if source_line != recorded_line {
+            broken.push(format!(
+                "marker {id} composed to source line {source_line}, not {recorded_line}"
+            ));
         }
     }
     broken
 }
 
-fn line_length(source: &str, from: u32) -> u32 {
-    source[from as usize..]
-        .find('\n')
-        .map_or_else(|| source.len() as u32 - from, |at| at as u32 + 1)
+fn line_starts(text: &str) -> Vec<u32> {
+    std::iter::once(0)
+        .chain(
+            text.bytes()
+                .enumerate()
+                .filter(|(_, b)| *b == b'\n')
+                .map(|(at, _)| at as u32 + 1),
+        )
+        .collect()
 }
 
 /// Composes a rewritten byte offset all the way back to a source span.

@@ -145,7 +145,10 @@ impl Engine for ComrakMarkers {
         let parsed = crate::spike::markers::parse(&arena, &case.source, &options, NONCE);
         let broken = crate::spike::markers::position_round_trip(&parsed, &case.source);
         if !broken.is_empty() {
-            return Err(format!("position composition failed on line(s) {broken:?}"));
+            return Err(format!(
+                "position composition failed: {}",
+                broken.join("; ")
+            ));
         }
         let mut html = String::new();
         comrak::format_html(parsed.root, &options, &mut html).map_err(|e| e.to_string())?;

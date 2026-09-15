@@ -75,9 +75,10 @@ pub struct TemplateContext {
 /// lengths but never line numbers (§7.5.1 item 2).
 ///
 /// Each entry is `(rewritten line start, delta)` where the delta is
-/// **cumulative**: for any offset at or after that line start,
-/// `expanded = rewritten - delta`. Entries are sorted by line start, and a
-/// line whose length the rewrite did not change needs no entry.
+/// **cumulative over the lines before it**: for any offset on that line,
+/// `expanded = rewritten - delta`. A line's own change in length therefore
+/// applies from the next entry on, never to its own bytes. Entries are sorted
+/// by line start, and a line the rewrite left alone needs no entry.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RewriteMap(pub Vec<(u32, i32)>);
 
