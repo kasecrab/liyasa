@@ -56,8 +56,10 @@ pub fn escape_untrusted_markdown(value: &str, at_line_start: bool) -> Result<Str
     let leading_digits = trimmed.bytes().take_while(u8::is_ascii_digit).count();
 
     for (at, ch) in trimmed.char_indices() {
-        let starts_line = at_line_start && at == 0 && out.is_empty();
-        let opens_block = starts_line && BLOCK_OPENERS.contains(&ch);
+        // Up to three spaces of indentation do not stop a block from opening,
+        // so the first *content* character is the one that has to be escaped,
+        // even when a space now precedes it.
+        let opens_block = at_line_start && at == 0 && BLOCK_OPENERS.contains(&ch);
         // `1.` and `1)` open an ordered list, so the punctuation after a
         // leading digit run is escaped even though it is not at column zero.
         let ordered =
@@ -96,6 +98,10 @@ mod tests {
     /// here.
     fn assert_inert(value: &str) {
         let text = format!("{}\n", escaped(value));
+        assert!(
+            !opens_a_block(&text),
+            "{value:?} escaped to {text:?}, which still opens a block"
+        );
         let (document, diagnostics) = crate::source::scan(&text, SourceId(0));
         assert!(
             document.segments.iter().all(|segment| matches!(
@@ -114,6 +120,30 @@ mod tests {
             structural.is_empty(),
             "{value:?} escaped to {text:?} and reported {structural:?}"
         );
+    }
+
+    /// Stated independently of the escaper: whether the line could still open
+    /// a Markdown block. The scanner alone cannot answer this, because a
+    /// heading and a paragraph are both one `Markdown` segment.
+    fn opens_a_block(text: &str) -> bool {
+        let line = text.trim_end_matches('\n');
+        // Leading indentation in columns; an interior tab opens nothing.
+        let indent = line
+            .chars()
+            .take_while(|ch| *ch == ' ' || *ch == '\t')
+            .fold(
+                0usize,
+                |at, ch| if ch == '\t' { at + 4 - at % 4 } else { at + 1 },
+            );
+        if indent >= 4 {
+            return true;
+        }
+        let rest = line.trim_start_matches([' ', '\t']);
+        let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
+        matches!(
+            rest.as_bytes().first(),
+            Some(b'#' | b'>' | b'-' | b'+' | b'*' | b':' | b'~' | b'`' | b'=' | b'_')
+        ) || (digits > 0 && matches!(rest.as_bytes().get(digits), Some(b'.' | b')')))
     }
 
     #[test]
@@ -163,7 +193,7 @@ mod tests {
     fn leading_indentation_collapses_to_one_space() {
         assert_eq!(escaped("    code"), " code");
         assert_eq!(escaped("\t\tcode"), " code");
-        assert_eq!(escaped("  # heading"), " # heading");
+        assert_eq!(escaped("  # heading"), " \\# heading");
     }
 
     #[test]

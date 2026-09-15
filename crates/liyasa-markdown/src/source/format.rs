@@ -74,10 +74,14 @@ pub fn format_with(source: &str, options: &FormatOptions) -> Result<String, Diag
     let all = lines::split(&text, 0);
     for (at, line) in all.iter().enumerate() {
         let raw = &text[line.start..line.end];
-        let inside_code = verbatim
-            .iter()
-            .any(|(start, end)| line.start >= *start as usize && line.start < *end as usize);
-        if inside_code {
+        // Front matter and code blocks are copied byte for byte. Collapsing a
+        // blank line inside a YAML block scalar, or turning its tabs into
+        // spaces, would change the value rather than the formatting.
+        let verbatim_line = line.start < front_end as usize
+            || verbatim
+                .iter()
+                .any(|(start, end)| line.start >= *start as usize && line.start < *end as usize);
+        if verbatim_line {
             blank_run = 0;
             out.push_str(raw);
             out.push('\n');
@@ -99,8 +103,7 @@ pub fn format_with(source: &str, options: &FormatOptions) -> Result<String, Diag
         // Two trailing spaces are a hard break, and only when a line follows.
         // A block statement or a directive line is structure, not prose, so
         // its trailing space is spacing to normalize (CM-21).
-        if line.start >= front_end as usize
-            && !is_structural(trimmed)
+        if !is_structural(trimmed)
             && expanded.len() >= trimmed.len() + 2
             && all
                 .get(at + 1)
@@ -397,6 +400,12 @@ mod tests {
     #[test]
     fn front_matter_keeps_its_keys_and_order() {
         let text = "---\nzebra: 1\nalpha: 2\n---\n\nbody\n";
+        assert_eq!(formatted(text), text);
+    }
+
+    #[test]
+    fn a_block_scalar_in_front_matter_keeps_its_blank_lines() {
+        let text = "---\nbody: |\n  one\n\n\n  four\n---\n\ntext\n";
         assert_eq!(formatted(text), text);
     }
 
