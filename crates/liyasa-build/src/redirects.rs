@@ -78,8 +78,7 @@ impl Table {
                 continue;
             }
             let pattern = parse_source(&source);
-            let names = declared(&pattern);
-            if let Err(diagnostic) = check_destination(&input.destination, &names, external_allow) {
+            if let Some(diagnostic) = check_destination(&input.destination, external_allow) {
                 diagnostics.push(diagnostic);
                 continue;
             }
@@ -204,29 +203,14 @@ fn parse_source(source: &str) -> Vec<Segment> {
         .collect()
 }
 
-fn declared(pattern: &[Segment]) -> Vec<String> {
-    pattern
-        .iter()
-        .filter_map(|segment| match segment {
-            Segment::Param(name) => Some(name.clone()),
-            Segment::Splat => Some(SPLAT.to_owned()),
-            Segment::Literal(_) => None,
-        })
-        .collect()
-}
-
+/// The reason a destination is refused, or `None` when it is allowed.
+///
 /// A destination is a path unless it carries a scheme or starts `//`, in which
 /// case its host must be allow-listed and may not be interpolated.
-fn check_destination(
-    destination: &str,
-    _names: &[String],
-    external_allow: &[String],
-) -> Result<(), Diagnostic> {
-    let Some((scheme, authority)) = split_absolute(destination) else {
-        return Ok(());
-    };
+fn check_destination(destination: &str, external_allow: &[String]) -> Option<Diagnostic> {
+    let (scheme, authority) = split_absolute(destination)?;
     let refuse = |reason: &str| {
-        Err(
+        Some(
             Diagnostic::new(code::E0109, format!("`{destination}` {reason}")).help(
                 "a parameter may appear in the path of a destination, never in its scheme or host",
             ),
@@ -242,13 +226,17 @@ fn check_destination(
     let host = authority.rsplit('@').next().unwrap_or(authority);
     let host = host.split(':').next().unwrap_or(host);
     if external_allow.iter().any(|allowed| allowed == host) {
-        return Ok(());
+        return None;
     }
-    Err(Diagnostic::new(
-        code::E0109,
-        format!("`{destination}` points at `{host}`, which is not in `redirects.externalAllow`"),
+    Some(
+        Diagnostic::new(
+            code::E0109,
+            format!(
+                "`{destination}` points at `{host}`, which is not in `redirects.externalAllow`"
+            ),
+        )
+        .help("add the host to `redirects.externalAllow`, or make the destination path-relative"),
     )
-    .help("add the host to `redirects.externalAllow`, or make the destination path-relative"))
 }
 
 /// `(scheme, authority)` of an absolute destination, or `None` for a path.
@@ -397,21 +385,21 @@ mod tests {
 
     #[test]
     fn a_relative_destination_never_needs_the_allow_list() {
-        assert!(check_destination("/guides/install", &[], &[]).is_ok());
-        assert!(check_destination("/guides/:slug", &["slug".to_owned()], &[]).is_ok());
+        assert!(check_destination("/guides/install", &[]).is_none());
+        assert!(check_destination("/guides/:slug", &[]).is_none());
     }
 
     #[test]
     fn a_scheme_relative_destination_is_still_a_host() {
-        let error = check_destination("//evil.example/docs", &[], &[]).expect_err("refused");
+        let error = check_destination("//evil.example/docs", &[]).expect("refused");
         assert_eq!(error.code.as_str(), "E0109");
-        assert!(check_destination("//ok.example/docs", &[], &["ok.example".to_owned()]).is_ok());
+        assert!(check_destination("//ok.example/docs", &["ok.example".to_owned()]).is_none());
     }
 
     #[test]
     fn a_port_does_not_defeat_the_allow_list() {
         assert!(
-            check_destination("https://ok.example:8443/d", &[], &["ok.example".to_owned()]).is_ok()
+            check_destination("https://ok.example:8443/d", &["ok.example".to_owned()]).is_none()
         );
     }
 
@@ -419,10 +407,9 @@ mod tests {
     fn userinfo_does_not_smuggle_a_host_past_the_allow_list() {
         let error = check_destination(
             "https://ok.example@evil.example/d",
-            &[],
             &["ok.example".to_owned()],
         )
-        .expect_err("refused");
+        .expect("refused");
         assert_eq!(error.code.as_str(), "E0109");
     }
 }
