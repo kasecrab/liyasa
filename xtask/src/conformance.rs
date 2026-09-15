@@ -113,6 +113,7 @@ fn run_case(
     };
 
     let mut failures = Vec::new();
+    let mut failed_kinds = Vec::new();
     let mut skipped = 0;
     let mut checked = 0;
     for kind in case.asserted() {
@@ -127,6 +128,7 @@ fn run_case(
             Ok(()) => entry.0 += 1,
             Err(detail) => {
                 entry.1 += 1;
+                failed_kinds.push(kind);
                 failures.push(format!("{kind}: {detail}"));
             }
         }
@@ -149,9 +151,20 @@ fn run_case(
     } else {
         String::new()
     };
+    let verdict = verdict_for(case, verdict);
+    if verdict == Verdict::Pending {
+        // The per-kind breakdown counted this case's expectations as failures
+        // before the pending note downgraded the verdict; take them back out so
+        // the breakdown and the totals agree.
+        for kind in failed_kinds {
+            if let Some(entry) = coverage.get_mut(kind) {
+                entry.1 -= 1;
+            }
+        }
+    }
     Outcome {
         id: case.header.id.clone(),
-        verdict: verdict_for(case, verdict),
+        verdict,
         detail,
     }
 }
