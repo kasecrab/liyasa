@@ -1,0 +1,265 @@
+/* Reset, document defaults, and prose. Everything here is driven by tokens. */
+
+@custom-media --sm (min-width: 30em);
+@custom-media --md (min-width: 48em);
+@custom-media --lg (min-width: 64em);
+@custom-media --xl (min-width: 80em);
+@custom-media --wide (min-width: 120em);
+@custom-media --motion-ok (prefers-reduced-motion: no-preference);
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: auto;
+}
+
+@media (--motion-ok) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--ly-color-bg);
+  color: var(--ly-color-text);
+  font-family: var(--ly-font-sans);
+  font-size: var(--ly-text-base);
+  line-height: var(--ly-text-leading-normal);
+  font-variation-settings: "opsz" var(--ly-font-optical-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  hanging-punctuation: first last;
+}
+
+::selection {
+  background: var(--ly-color-selection);
+}
+
+:where(h1, h2, h3, h4, h5, h6) {
+  margin: 0;
+  font-family: var(--ly-font-heading);
+  font-weight: var(--ly-font-weight-semibold);
+  line-height: var(--ly-text-leading-snug);
+  letter-spacing: var(--ly-text-tracking-tight);
+  font-variation-settings: "opsz" var(--ly-font-optical-display);
+  text-wrap: balance;
+}
+
+:where(p, ul, ol, dl, pre, blockquote, table, figure) {
+  margin: 0;
+}
+
+:where(img, svg, video, canvas) {
+  max-width: 100%;
+  height: auto;
+}
+
+:where(a) {
+  color: var(--ly-color-primary-text);
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+  text-decoration-thickness: from-font;
+}
+
+:where(a:hover) {
+  text-decoration-thickness: 2px;
+}
+
+:where(button, input, select, textarea) {
+  font: inherit;
+  color: inherit;
+}
+
+:where(button) {
+  cursor: pointer;
+}
+
+/* One focus treatment for the whole theme (RX-90). */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--ly-border-width-strong) solid var(--ly-color-focus);
+  outline-offset: 2px;
+  border-radius: var(--ly-radius-xs);
+}
+
+:where(:focus:not(:focus-visible)) {
+  outline: none;
+}
+
+.ly-skip-link {
+  position: fixed;
+  top: var(--ly-space-2);
+  left: var(--ly-space-2);
+  z-index: var(--ly-z-skip-link);
+  padding: var(--ly-space-2) var(--ly-space-4);
+  background: var(--ly-color-elevated);
+  color: var(--ly-color-text);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-sm);
+  box-shadow: var(--ly-shadow-md);
+  transform: translateY(calc(-100% - var(--ly-space-4)));
+}
+
+.ly-skip-link:focus {
+  transform: translateY(0);
+}
+
+.ly-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- prose ---- */
+
+.ly-prose {
+  font-size: var(--ly-text-base);
+  line-height: var(--ly-text-leading-normal);
+}
+
+.ly-prose > * + * {
+  margin-top: var(--ly-space-4);
+}
+
+.ly-prose :where(h2, h3, h4) {
+  margin-top: var(--ly-space-6);
+  scroll-margin-top: var(--ly-layout-scroll-margin);
+}
+
+.ly-prose h1 {
+  font-size: var(--ly-text-3xl);
+}
+
+.ly-prose h2 {
+  font-size: var(--ly-text-2xl);
+  padding-bottom: var(--ly-space-2);
+  border-bottom: var(--ly-border-subtle);
+}
+
+.ly-prose h3 {
+  font-size: var(--ly-text-xl);
+}
+
+.ly-prose h4 {
+  font-size: var(--ly-text-lg);
+}
+
+.ly-prose :where(ul, ol) {
+  padding-left: var(--ly-space-5);
+}
+
+.ly-prose li + li {
+  margin-top: var(--ly-space-1);
+}
+
+.ly-prose blockquote {
+  padding-left: var(--ly-space-4);
+  border-left: var(--ly-border-width-strong) solid var(--ly-color-border);
+  color: var(--ly-color-text-muted);
+}
+
+.ly-prose hr {
+  border: 0;
+  border-top: var(--ly-border-subtle);
+  margin-block: var(--ly-space-6);
+}
+
+.ly-prose :where(code):not(pre code) {
+  padding: 0.15em 0.35em;
+  background: var(--ly-color-surface);
+  border-radius: var(--ly-radius-xs);
+  font-family: var(--ly-font-mono);
+  font-size: 0.9em;
+}
+
+.ly-prose .ly-heading-anchor {
+  margin-left: var(--ly-space-2);
+  color: var(--ly-color-text-subtle);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity var(--ly-motion-fast) var(--ly-motion-ease);
+}
+
+.ly-prose :where(h2, h3, h4):hover .ly-heading-anchor,
+.ly-prose .ly-heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+/* ---- tables: tabular numerals, scrollable on narrow screens ---- */
+
+.ly-table-wrap {
+  overflow-x: auto;
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+}
+
+.ly-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--ly-text-sm);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: var(--ly-font-features-tabular);
+}
+
+.ly-prose :where(th, td) {
+  padding: var(--ly-space-2) var(--ly-space-3);
+  text-align: left;
+  border-bottom: var(--ly-border-subtle);
+}
+
+.ly-prose th {
+  background: var(--ly-color-bg-subtle);
+  font-weight: var(--ly-font-weight-semibold);
+}
+
+.ly-prose tr:last-child :where(th, td) {
+  border-bottom: 0;
+}
+
+/* ---- images with a light and a dark variant (RX-40) ---- */
+
+[data-ly-scheme="dark"] {
+  display: none;
+}
+
+[data-theme="dark"] [data-ly-scheme="dark"] {
+  display: initial;
+}
+
+[data-theme="dark"] [data-ly-scheme="light"] {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) [data-ly-scheme="dark"] {
+    display: initial;
+  }
+
+  :root:not([data-theme="light"]) [data-ly-scheme="light"] {
+    display: none;
+  }
+}
+
+/* Reduced motion is honoured globally: no transition outlives a preference. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+    transition-duration: 1ms;
+    scroll-behavior: auto;
+  }
+}

@@ -1,0 +1,70 @@
+/* THM-06: a clean document. No chrome, link URLs visible, nothing clipped. */
+
+@media print {
+  :root {
+    --ly-color-bg: #ffffff;
+    --ly-color-text: #000000;
+    --ly-color-text-muted: #333333;
+  }
+
+  .ly-navbar,
+  .ly-sidebar,
+  .ly-rail,
+  .ly-footer,
+  .ly-banner,
+  .ly-pagination,
+  .ly-feedback,
+  .ly-page-actions,
+  .ly-drawer,
+  .ly-scrim,
+  .ly-dialog,
+  .ly-assistant,
+  .ly-skip-link,
+  .ly-code-copy {
+    display: none !important;
+  }
+
+  .ly-shell {
+    display: block;
+    max-width: none;
+    padding: 0;
+  }
+
+  .ly-main {
+    max-width: none;
+  }
+
+  body {
+    background: #ffffff;
+    color: #000000;
+    font-size: 11pt;
+  }
+
+  /* The URL of a link the reader cannot click. */
+  .ly-prose a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+
+  .ly-prose :where(h2, h3, h4) {
+    break-after: avoid;
+  }
+
+  .ly-code,
+  .ly-callout,
+  .ly-prose table,
+  .ly-prose figure {
+    break-inside: avoid;
+    border: 1pt solid #cccccc;
+  }
+
+  .ly-code pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .ly-prose abbr[title]::after {
+    content: " (" attr(title) ")";
+  }
+}

@@ -1,0 +1,399 @@
+/* Content components: code blocks, callouts, tabs, accordions, cards, badges,
+   steps, and the right-rail panel. Every one is readable without JavaScript. */
+
+/* ---- code blocks (RX-41: both schemes live in the --ly-code-* tokens) ---- */
+
+.ly-code {
+  position: relative;
+  margin-block: var(--ly-space-4);
+  background: var(--ly-code-bg);
+  border: var(--ly-border-width) solid var(--ly-code-border);
+  border-radius: var(--ly-radius-md);
+  overflow: hidden;
+}
+
+.ly-code-header {
+  display: flex;
+  align-items: center;
+  gap: var(--ly-space-2);
+  padding: var(--ly-space-2) var(--ly-space-3);
+  background: var(--ly-color-bg-subtle);
+  border-bottom: var(--ly-border-width) solid var(--ly-code-border);
+  font-size: var(--ly-text-xs);
+  color: var(--ly-color-text-muted);
+}
+
+.ly-code-title {
+  font-weight: var(--ly-font-weight-medium);
+  color: var(--ly-color-text);
+}
+
+.ly-code-lang {
+  margin-inline-start: auto;
+  font-family: var(--ly-font-mono);
+}
+
+.ly-code pre {
+  margin: 0;
+  padding: var(--ly-space-3) var(--ly-space-4);
+  overflow-x: auto;
+  color: var(--ly-code-fg);
+  font-family: var(--ly-font-mono);
+  font-size: var(--ly-code-font-size);
+  line-height: var(--ly-code-leading);
+  tab-size: 2;
+}
+
+.ly-code code {
+  font: inherit;
+}
+
+.ly-code-line {
+  display: block;
+  padding-inline: var(--ly-space-4);
+  margin-inline: calc(var(--ly-space-4) * -1);
+}
+
+.ly-code-line[data-ly-highlight="true"] {
+  background: var(--ly-code-line-highlight);
+  box-shadow: inset var(--ly-border-width-strong) 0 0 var(--ly-color-primary);
+}
+
+.ly-code-line::before {
+  content: attr(data-ly-line);
+  display: inline-block;
+  width: 2.5em;
+  margin-right: var(--ly-space-3);
+  color: var(--ly-code-gutter);
+  text-align: right;
+  user-select: none;
+}
+
+.ly-code:not([data-ly-numbers="true"]) .ly-code-line::before {
+  content: none;
+  display: none;
+}
+
+.ly-code-copy {
+  position: absolute;
+  top: var(--ly-space-2);
+  right: var(--ly-space-2);
+  padding: var(--ly-space-1) var(--ly-space-2);
+  background: var(--ly-color-elevated);
+  color: var(--ly-color-text-muted);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-sm);
+  font-size: var(--ly-text-xs);
+  opacity: 0;
+  transition: opacity var(--ly-motion-fast) var(--ly-motion-ease);
+}
+
+.ly-code:hover .ly-code-copy,
+.ly-code-copy:focus-visible {
+  opacity: 1;
+}
+
+.ly-code-copy[data-ly-copied="true"] {
+  color: var(--ly-color-success-text);
+  border-color: var(--ly-color-success);
+  opacity: 1;
+}
+
+/* Syntax tokens: one class per token type, coloured only by variables. */
+.ly-tok-comment { color: var(--ly-code-token-comment); font-style: italic; }
+.ly-tok-keyword { color: var(--ly-code-token-keyword); }
+.ly-tok-string { color: var(--ly-code-token-string); }
+.ly-tok-number { color: var(--ly-code-token-number); }
+.ly-tok-function { color: var(--ly-code-token-function); }
+.ly-tok-variable { color: var(--ly-code-token-variable); }
+.ly-tok-type { color: var(--ly-code-token-type); }
+.ly-tok-operator { color: var(--ly-code-token-operator); }
+.ly-tok-punctuation { color: var(--ly-code-token-punctuation); }
+.ly-tok-tag { color: var(--ly-code-token-tag); }
+.ly-tok-attribute { color: var(--ly-code-token-attribute); }
+.ly-tok-deleted { color: var(--ly-code-token-deleted); }
+.ly-tok-inserted { color: var(--ly-code-token-inserted); }
+
+/* ---- callouts ---- */
+
+.ly-callout {
+  display: flex;
+  gap: var(--ly-space-3);
+  margin-block: var(--ly-space-4);
+  padding: var(--ly-space-3) var(--ly-space-4);
+  background: var(--ly-color-surface);
+  border: var(--ly-border);
+  border-left: var(--ly-border-width-strong) solid var(--ly-color-border-strong);
+  border-radius: var(--ly-radius-md);
+}
+
+.ly-callout-body > * + * {
+  margin-top: var(--ly-space-2);
+}
+
+.ly-callout-title {
+  font-weight: var(--ly-font-weight-semibold);
+}
+
+.ly-callout[data-ly-tone="info"] {
+  background: var(--ly-color-primary-subtle);
+  border-left-color: var(--ly-color-primary);
+}
+
+.ly-callout[data-ly-tone="success"] {
+  background: var(--ly-color-success-subtle);
+  border-left-color: var(--ly-color-success);
+}
+
+.ly-callout[data-ly-tone="warning"] {
+  background: var(--ly-color-warning-subtle);
+  border-left-color: var(--ly-color-warning);
+}
+
+.ly-callout[data-ly-tone="danger"] {
+  background: var(--ly-color-danger-subtle);
+  border-left-color: var(--ly-color-danger);
+}
+
+/* ---- tabs: a tablist with JavaScript, a stack of sections without ---- */
+
+.ly-tabs {
+  margin-block: var(--ly-space-4);
+}
+
+.ly-tablist {
+  display: flex;
+  gap: var(--ly-space-1);
+  overflow-x: auto;
+  border-bottom: var(--ly-border-subtle);
+}
+
+.ly-tab {
+  padding: var(--ly-space-2) var(--ly-space-3);
+  background: none;
+  border: 0;
+  border-bottom: var(--ly-border-width-strong) solid transparent;
+  color: var(--ly-color-text-muted);
+  font-size: var(--ly-text-sm);
+  white-space: nowrap;
+  transition: color var(--ly-motion-fast) var(--ly-motion-ease);
+}
+
+.ly-tab[aria-selected="true"] {
+  border-bottom-color: var(--ly-color-primary);
+  color: var(--ly-color-text);
+  font-weight: var(--ly-font-weight-medium);
+}
+
+.ly-tabpanel {
+  padding-top: var(--ly-space-3);
+}
+
+.ly-tabpanel[hidden] {
+  display: none;
+}
+
+.ly-tabpanel-title {
+  font-size: var(--ly-text-sm);
+  font-weight: var(--ly-font-weight-semibold);
+}
+
+.ly-tabs[data-ly-enhanced="true"] .ly-tabpanel-title {
+  display: none;
+}
+
+/* ---- accordions: a details element, styled ---- */
+
+.ly-accordion {
+  margin-block: var(--ly-space-4);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+  overflow: hidden;
+}
+
+.ly-accordion + .ly-accordion {
+  margin-top: var(--ly-space-2);
+}
+
+.ly-accordion summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ly-space-2);
+  padding: var(--ly-space-3) var(--ly-space-4);
+  background: var(--ly-color-bg-subtle);
+  font-weight: var(--ly-font-weight-medium);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ly-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.ly-accordion summary .ly-chevron {
+  margin-inline-start: auto;
+  transition: transform var(--ly-motion-base) var(--ly-motion-ease);
+}
+
+.ly-accordion[open] summary .ly-chevron {
+  transform: rotate(90deg);
+}
+
+.ly-accordion-body {
+  padding: var(--ly-space-4);
+  border-top: var(--ly-border-subtle);
+}
+
+/* ---- cards, badges, steps ---- */
+
+.ly-cards {
+  display: grid;
+  gap: var(--ly-space-4);
+  margin-block: var(--ly-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.ly-card {
+  display: block;
+  padding: var(--ly-space-4);
+  background: var(--ly-color-bg);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color var(--ly-motion-fast) var(--ly-motion-ease),
+    box-shadow var(--ly-motion-fast) var(--ly-motion-ease);
+}
+
+.ly-card:hover {
+  border-color: var(--ly-color-border-strong);
+  box-shadow: var(--ly-shadow-sm);
+}
+
+.ly-card-title {
+  font-weight: var(--ly-font-weight-semibold);
+}
+
+.ly-card-body {
+  margin-top: var(--ly-space-1);
+  color: var(--ly-color-text-muted);
+  font-size: var(--ly-text-sm);
+}
+
+.ly-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ly-space-1);
+  padding: 0 var(--ly-space-2);
+  background: var(--ly-color-surface);
+  border-radius: var(--ly-radius-full);
+  font-size: var(--ly-text-2xs);
+  font-weight: var(--ly-font-weight-medium);
+  letter-spacing: var(--ly-text-tracking-wide);
+  text-transform: uppercase;
+}
+
+.ly-steps {
+  margin-block: var(--ly-space-4);
+  padding-left: var(--ly-space-6);
+  border-left: var(--ly-border-subtle);
+  list-style: none;
+  counter-reset: ly-step;
+}
+
+.ly-step {
+  position: relative;
+  padding-bottom: var(--ly-space-5);
+  counter-increment: ly-step;
+}
+
+.ly-step::before {
+  content: counter(ly-step);
+  position: absolute;
+  left: calc(var(--ly-space-6) * -1 - 0.9rem);
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: var(--ly-color-primary);
+  color: var(--ly-color-primary-contrast);
+  border-radius: var(--ly-radius-full);
+  font-size: var(--ly-text-xs);
+  font-weight: var(--ly-font-weight-semibold);
+}
+
+/* ---- the panel component replaces the rail's contents (RX-23) ---- */
+
+.ly-panel {
+  padding: var(--ly-space-4);
+  background: var(--ly-color-bg-subtle);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+  font-size: var(--ly-text-sm);
+}
+
+.ly-panel > * + * {
+  margin-top: var(--ly-space-3);
+}
+
+/* ---- page actions (RX-100) ---- */
+
+.ly-page-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--ly-space-2);
+}
+
+.ly-page-actions-menu {
+  position: absolute;
+  top: calc(100% + var(--ly-space-1));
+  right: 0;
+  z-index: var(--ly-z-dialog);
+  min-width: 15rem;
+  margin: 0;
+  padding: var(--ly-space-1);
+  background: var(--ly-color-elevated);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+  box-shadow: var(--ly-shadow-md);
+  list-style: none;
+}
+
+.ly-page-actions-menu[hidden] {
+  display: none;
+}
+
+.ly-page-action {
+  display: flex;
+  align-items: center;
+  gap: var(--ly-space-2);
+  width: 100%;
+  padding: var(--ly-space-2) var(--ly-space-3);
+  background: none;
+  border: 0;
+  border-radius: var(--ly-radius-sm);
+  color: var(--ly-color-text);
+  font-size: var(--ly-text-sm);
+  text-align: left;
+  text-decoration: none;
+}
+
+.ly-page-action:hover {
+  background: var(--ly-color-surface);
+}
+
+.ly-rail .ly-page-actions {
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: var(--ly-space-4);
+}
+
+.ly-rail .ly-page-actions-menu {
+  position: static;
+  border: 0;
+  box-shadow: none;
+  background: none;
+  padding: 0;
+}

@@ -1,0 +1,602 @@
+/* The page shell: navbar, sidebar, content, right rail, footer.
+   Responsive from 320 px to 2560 px (THM-04). Critical CSS is this file plus
+   the shell tokens, so the first paint has the layout and nothing else. */
+
+.ly-page {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.ly-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ly-space-3);
+  min-height: var(--ly-layout-banner);
+  padding: var(--ly-space-1) var(--ly-layout-gutter);
+  background: var(--ly-color-primary-subtle);
+  color: var(--ly-color-text);
+  border-bottom: var(--ly-border-subtle);
+  font-size: var(--ly-text-sm);
+  text-align: center;
+}
+
+.ly-banner p {
+  margin: 0;
+}
+
+.ly-banner-dismiss {
+  background: none;
+  border: 0;
+  padding: var(--ly-space-1);
+  color: var(--ly-color-text-muted);
+  line-height: 1;
+}
+
+.ly-navbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--ly-z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--ly-space-4);
+  height: var(--ly-layout-navbar);
+  padding-inline: var(--ly-layout-gutter);
+  background: color-mix(in srgb, var(--ly-color-bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: var(--ly-border-subtle);
+  transition:
+    height var(--ly-motion-base) var(--ly-motion-ease),
+    box-shadow var(--ly-motion-base) var(--ly-motion-ease);
+}
+
+/* The compact header: set by the scroll module, and harmless without it. */
+.ly-navbar[data-ly-compact="true"] {
+  height: calc(var(--ly-layout-navbar) * 0.75);
+  box-shadow: var(--ly-shadow-sm);
+}
+
+.ly-navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--ly-space-2);
+  font-weight: var(--ly-font-weight-semibold);
+  color: var(--ly-color-text);
+  text-decoration: none;
+}
+
+.ly-navbar-logo img {
+  max-height: calc(var(--ly-layout-navbar) * 0.5);
+}
+
+.ly-navbar-links {
+  display: none;
+  align-items: center;
+  gap: var(--ly-space-4);
+  margin-inline-start: auto;
+  font-size: var(--ly-text-sm);
+}
+
+.ly-navbar-links a {
+  color: var(--ly-color-text-muted);
+  text-decoration: none;
+}
+
+.ly-navbar-links a:hover,
+.ly-navbar-links a[aria-current="true"] {
+  color: var(--ly-color-text);
+}
+
+.ly-navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ly-space-2);
+  margin-inline-start: auto;
+}
+
+.ly-navbar-links + .ly-navbar-actions {
+  margin-inline-start: 0;
+}
+
+.ly-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  background: transparent;
+  color: var(--ly-color-text-muted);
+  border: var(--ly-border-width) solid transparent;
+  border-radius: var(--ly-radius-sm);
+  transition:
+    background var(--ly-motion-fast) var(--ly-motion-ease),
+    color var(--ly-motion-fast) var(--ly-motion-ease);
+}
+
+.ly-icon-button:hover {
+  background: var(--ly-color-surface);
+  color: var(--ly-color-text);
+}
+
+.ly-search-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ly-space-2);
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding-inline: var(--ly-space-2);
+  background: var(--ly-color-surface);
+  color: var(--ly-color-text-muted);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-sm);
+  font-size: var(--ly-text-sm);
+}
+
+.ly-search-trigger-label,
+.ly-search-trigger kbd {
+  display: none;
+}
+
+.ly-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ly-space-6);
+  width: 100%;
+  max-width: var(--ly-layout-max);
+  margin-inline: auto;
+  padding-inline: var(--ly-layout-gutter);
+  padding-block: var(--ly-space-5) var(--ly-space-8);
+}
+
+.ly-main {
+  min-width: 0;
+  max-width: var(--ly-layout-content);
+}
+
+.ly-mode-wide .ly-main {
+  max-width: none;
+}
+
+.ly-mode-center .ly-main,
+.ly-mode-custom .ly-main {
+  max-width: var(--ly-layout-content);
+  margin-inline: auto;
+}
+
+/* ---- sidebar ---- */
+
+.ly-sidebar {
+  font-size: var(--ly-text-sm);
+}
+
+.ly-sidebar-inner {
+  position: sticky;
+  top: calc(var(--ly-layout-navbar) + var(--ly-space-4));
+  max-height: calc(100vh - var(--ly-layout-navbar) - var(--ly-space-6));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: var(--ly-space-2);
+}
+
+.ly-sidebar-group + .ly-sidebar-group {
+  margin-top: var(--ly-space-4);
+}
+
+.ly-sidebar-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--ly-space-2);
+  width: 100%;
+  padding: var(--ly-space-1) var(--ly-space-2);
+  background: none;
+  border: 0;
+  color: var(--ly-color-text);
+  font-size: var(--ly-text-xs);
+  font-weight: var(--ly-font-weight-semibold);
+  letter-spacing: var(--ly-text-tracking-wide);
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.ly-sidebar-group-header .ly-chevron {
+  margin-inline-start: auto;
+  transition: transform var(--ly-motion-base) var(--ly-motion-ease);
+}
+
+.ly-sidebar-group-header[aria-expanded="false"] .ly-chevron {
+  transform: rotate(-90deg);
+}
+
+.ly-sidebar-group-header[aria-expanded="false"] + .ly-sidebar-list {
+  display: none;
+}
+
+.ly-sidebar-list {
+  margin: var(--ly-space-1) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ly-sidebar-list .ly-sidebar-list {
+  margin-left: var(--ly-space-3);
+  padding-left: var(--ly-space-2);
+  border-left: var(--ly-border-subtle);
+}
+
+.ly-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: var(--ly-space-2);
+  padding: var(--ly-space-1) var(--ly-space-2);
+  border-radius: var(--ly-radius-sm);
+  color: var(--ly-color-text-muted);
+  text-decoration: none;
+  transition:
+    background var(--ly-motion-fast) var(--ly-motion-ease),
+    color var(--ly-motion-fast) var(--ly-motion-ease);
+}
+
+.ly-sidebar-link:hover {
+  background: var(--ly-color-surface);
+  color: var(--ly-color-text);
+}
+
+.ly-sidebar-link[aria-current="page"] {
+  background: var(--ly-color-primary-subtle);
+  color: var(--ly-color-primary-text);
+  font-weight: var(--ly-font-weight-medium);
+}
+
+.ly-sidebar-item[data-ly-ancestor="true"] > .ly-sidebar-link {
+  color: var(--ly-color-text);
+}
+
+.ly-sidebar-tag {
+  margin-inline-start: auto;
+  padding: 0 var(--ly-space-1);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-full);
+  font-size: var(--ly-text-2xs);
+  color: var(--ly-color-text-subtle);
+}
+
+.ly-switchers {
+  display: flex;
+  gap: var(--ly-space-2);
+  margin-bottom: var(--ly-space-4);
+}
+
+.ly-switchers select {
+  width: 100%;
+  padding: var(--ly-space-1) var(--ly-space-2);
+  background: var(--ly-color-bg);
+  color: var(--ly-color-text);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-sm);
+  font-size: var(--ly-text-xs);
+}
+
+/* ---- right rail: table of contents, page actions, feedback (RX-23) ---- */
+
+.ly-rail {
+  display: none;
+  font-size: var(--ly-text-sm);
+}
+
+.ly-rail-inner {
+  position: sticky;
+  top: calc(var(--ly-layout-navbar) + var(--ly-space-4));
+  max-height: calc(100vh - var(--ly-layout-navbar) - var(--ly-space-6));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ly-rail-title {
+  margin-bottom: var(--ly-space-2);
+  font-size: var(--ly-text-xs);
+  font-weight: var(--ly-font-weight-semibold);
+  letter-spacing: var(--ly-text-tracking-wide);
+  text-transform: uppercase;
+  color: var(--ly-color-text-muted);
+}
+
+.ly-toc-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: var(--ly-border-subtle);
+}
+
+.ly-toc-list .ly-toc-list {
+  border-left: 0;
+}
+
+.ly-toc-link {
+  display: block;
+  padding: var(--ly-space-1) var(--ly-space-3);
+  margin-left: -1px;
+  border-left: var(--ly-border-width-strong) solid transparent;
+  color: var(--ly-color-text-muted);
+  text-decoration: none;
+}
+
+.ly-toc-item[data-ly-depth="3"] .ly-toc-link {
+  padding-left: var(--ly-space-5);
+  font-size: var(--ly-text-xs);
+}
+
+.ly-toc-link:hover {
+  color: var(--ly-color-text);
+}
+
+.ly-toc-link[aria-current="true"] {
+  border-left-color: var(--ly-color-primary);
+  color: var(--ly-color-primary-text);
+}
+
+.ly-back-to-top {
+  margin-top: var(--ly-space-4);
+  font-size: var(--ly-text-xs);
+}
+
+/* ---- breadcrumbs, page header, pagination, footer ---- */
+
+.ly-breadcrumbs {
+  margin-bottom: var(--ly-space-2);
+  font-size: var(--ly-text-xs);
+  color: var(--ly-color-text-subtle);
+}
+
+.ly-breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ly-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ly-breadcrumbs li::after {
+  content: "/";
+  margin-left: var(--ly-space-1);
+  color: var(--ly-color-border-strong);
+}
+
+.ly-breadcrumbs li:last-child::after {
+  content: none;
+}
+
+.ly-breadcrumbs a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ly-page-header {
+  margin-bottom: var(--ly-space-5);
+}
+
+.ly-eyebrow {
+  font-size: var(--ly-text-xs);
+  font-weight: var(--ly-font-weight-semibold);
+  letter-spacing: var(--ly-text-tracking-wide);
+  text-transform: uppercase;
+  color: var(--ly-color-primary-text);
+}
+
+.ly-page-title {
+  font-size: var(--ly-text-3xl);
+}
+
+.ly-page-description {
+  margin-top: var(--ly-space-2);
+  font-size: var(--ly-text-lg);
+  color: var(--ly-color-text-muted);
+}
+
+.ly-page-meta {
+  margin-top: var(--ly-space-2);
+  font-size: var(--ly-text-xs);
+  color: var(--ly-color-text-subtle);
+}
+
+.ly-pagination {
+  display: grid;
+  gap: var(--ly-space-3);
+  margin-top: var(--ly-space-7);
+  padding-top: var(--ly-space-5);
+  border-top: var(--ly-border-subtle);
+}
+
+.ly-pagination a {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ly-space-1);
+  padding: var(--ly-space-3) var(--ly-space-4);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+  text-decoration: none;
+  color: var(--ly-color-text);
+  transition: border-color var(--ly-motion-fast) var(--ly-motion-ease);
+}
+
+.ly-pagination a:hover {
+  border-color: var(--ly-color-border-strong);
+}
+
+.ly-pagination-next {
+  text-align: right;
+}
+
+.ly-pagination-label {
+  font-size: var(--ly-text-xs);
+  color: var(--ly-color-text-subtle);
+}
+
+.ly-feedback {
+  display: flex;
+  align-items: center;
+  gap: var(--ly-space-2);
+  margin-top: var(--ly-space-6);
+  font-size: var(--ly-text-sm);
+  color: var(--ly-color-text-muted);
+}
+
+.ly-footer {
+  padding: var(--ly-space-6) var(--ly-layout-gutter);
+  background: var(--ly-color-bg-subtle);
+  border-top: var(--ly-border-subtle);
+  font-size: var(--ly-text-sm);
+  color: var(--ly-color-text-muted);
+}
+
+.ly-footer-inner {
+  display: grid;
+  gap: var(--ly-space-5);
+  max-width: var(--ly-layout-max);
+  margin-inline: auto;
+}
+
+.ly-footer-columns {
+  display: grid;
+  gap: var(--ly-space-5);
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.ly-footer h2 {
+  margin-bottom: var(--ly-space-2);
+  font-size: var(--ly-text-xs);
+  letter-spacing: var(--ly-text-tracking-wide);
+  text-transform: uppercase;
+}
+
+.ly-footer ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ly-footer li + li {
+  margin-top: var(--ly-space-1);
+}
+
+.ly-footer a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ly-footer a:hover {
+  color: var(--ly-color-text);
+  text-decoration: underline;
+}
+
+/* ---- mobile navigation drawer (THM-04) ---- */
+
+.ly-drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: var(--ly-z-drawer);
+  width: min(22rem, 86vw);
+  padding: var(--ly-space-5);
+  background: var(--ly-color-bg);
+  border-right: var(--ly-border);
+  overflow-y: auto;
+  transform: translateX(-100%);
+  transition: transform var(--ly-motion-slow) var(--ly-motion-ease-out);
+}
+
+.ly-drawer[aria-hidden="false"] {
+  transform: translateX(0);
+}
+
+.ly-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ly-z-overlay);
+  background: var(--ly-color-overlay);
+  opacity: 0;
+  transition: opacity var(--ly-motion-slow) var(--ly-motion-ease);
+}
+
+.ly-scrim[aria-hidden="false"] {
+  opacity: 1;
+}
+
+.ly-scrim[hidden],
+.ly-drawer[hidden] {
+  display: none;
+}
+
+/* ---- breakpoints ---- */
+
+@media (--md) {
+  .ly-navbar-links {
+    display: flex;
+  }
+
+  .ly-search-trigger {
+    min-width: 12rem;
+    justify-content: flex-start;
+  }
+
+  .ly-search-trigger-label {
+    display: inline;
+  }
+
+  .ly-search-trigger kbd {
+    display: inline-block;
+    margin-inline-start: auto;
+    padding: 0 var(--ly-space-1);
+    border: var(--ly-border);
+    border-radius: var(--ly-radius-xs);
+    font-family: var(--ly-font-mono);
+    font-size: var(--ly-text-2xs);
+  }
+
+  .ly-pagination {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (--lg) {
+  .ly-shell {
+    grid-template-columns: var(--ly-layout-sidebar) minmax(0, 1fr);
+  }
+
+  .ly-mode-custom .ly-shell,
+  .ly-mode-center .ly-shell,
+  .ly-mode-frame .ly-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ly-drawer-trigger {
+    display: none;
+  }
+}
+
+@media (--xl) {
+  .ly-shell {
+    grid-template-columns: var(--ly-layout-sidebar) minmax(0, 1fr) var(--ly-layout-toc);
+  }
+
+  .ly-rail {
+    display: block;
+  }
+
+  .ly-mode-wide .ly-shell {
+    grid-template-columns: var(--ly-layout-sidebar) minmax(0, 1fr);
+  }
+
+  .ly-mode-wide .ly-rail {
+    display: none;
+  }
+}
+
+/* Past 1920 px the shell stops growing and the gutters take the rest. */
+@media (--wide) {
+  .ly-shell {
+    --ly-layout-gutter: var(--ly-space-8);
+  }
+}

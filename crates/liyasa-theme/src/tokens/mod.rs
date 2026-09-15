@@ -257,6 +257,30 @@ impl Tokens {
         out
     }
 
+    /// The shell's tokens alone, minified, for the inlined critical block
+    /// (THM-30). The full set arrives with the cached stylesheet.
+    pub fn critical_css(&self) -> String {
+        let wanted = |name: &str| aurora::CRITICAL.contains(&name);
+        let mut light = String::new();
+        let mut dark = String::new();
+        for (name, light_value, dark_value) in &self.values {
+            if !wanted(name) {
+                continue;
+            }
+            let _ = write!(light, "{name}:{light_value};");
+            if light_value != dark_value {
+                let _ = write!(dark, "{name}:{dark_value};");
+            }
+        }
+        let light = light.trim_end_matches(';');
+        let dark = dark.trim_end_matches(';');
+        format!(
+            ":root{{{light};color-scheme:light dark}}\
+             @media (prefers-color-scheme:dark){{:root:not([data-theme=\"light\"]){{{dark}}}}}\
+             [data-theme=\"dark\"]{{{dark}}}"
+        )
+    }
+
     fn declarations(&self, scheme: Scheme, indent: &str) -> String {
         let mut out = String::new();
         for (name, light, dark) in &self.values {

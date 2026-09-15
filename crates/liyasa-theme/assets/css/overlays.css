@@ -1,0 +1,144 @@
+/* Overlays: the search palette, the assistant panel, and toasts. Each is
+   hidden until its module opens it, and each is closed by Escape (RX-90). */
+
+.ly-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ly-z-dialog);
+  display: grid;
+  place-items: start center;
+  padding: var(--ly-space-6) var(--ly-space-4);
+}
+
+.ly-dialog[hidden] {
+  display: none;
+}
+
+.ly-dialog-panel {
+  width: min(40rem, 100%);
+  max-height: min(32rem, 80vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--ly-color-elevated);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-lg);
+  box-shadow: var(--ly-shadow-lg);
+  overflow: hidden;
+  transform: translateY(-0.5rem);
+  opacity: 0;
+  transition:
+    transform var(--ly-motion-slow) var(--ly-motion-ease-out),
+    opacity var(--ly-motion-slow) var(--ly-motion-ease-out);
+}
+
+.ly-dialog[data-ly-open="true"] .ly-dialog-panel {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.ly-search-input {
+  width: 100%;
+  padding: var(--ly-space-4);
+  background: none;
+  border: 0;
+  border-bottom: var(--ly-border-subtle);
+  font-size: var(--ly-text-lg);
+}
+
+.ly-search-results {
+  margin: 0;
+  padding: var(--ly-space-2);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.ly-search-group-title {
+  padding: var(--ly-space-2) var(--ly-space-3) var(--ly-space-1);
+  font-size: var(--ly-text-xs);
+  letter-spacing: var(--ly-text-tracking-wide);
+  text-transform: uppercase;
+  color: var(--ly-color-text-muted);
+}
+
+.ly-search-result {
+  display: block;
+  padding: var(--ly-space-2) var(--ly-space-3);
+  border-radius: var(--ly-radius-sm);
+  color: inherit;
+  text-decoration: none;
+}
+
+.ly-search-result[aria-selected="true"],
+.ly-search-result:hover {
+  background: var(--ly-color-primary-subtle);
+}
+
+.ly-search-result mark {
+  background: var(--ly-color-warning-subtle);
+  color: inherit;
+  border-radius: var(--ly-radius-xs);
+}
+
+.ly-search-empty {
+  padding: var(--ly-space-6);
+  text-align: center;
+  color: var(--ly-color-text-muted);
+}
+
+.ly-search-footer {
+  display: flex;
+  gap: var(--ly-space-3);
+  padding: var(--ly-space-2) var(--ly-space-4);
+  border-top: var(--ly-border-subtle);
+  font-size: var(--ly-text-xs);
+  color: var(--ly-color-text-subtle);
+}
+
+.ly-assistant {
+  position: fixed;
+  inset: auto 0 0 auto;
+  z-index: var(--ly-z-dialog);
+  width: min(26rem, 100vw);
+  height: min(36rem, 100dvh);
+  display: flex;
+  flex-direction: column;
+  background: var(--ly-color-elevated);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-lg) 0 0 0;
+  box-shadow: var(--ly-shadow-lg);
+}
+
+.ly-assistant[hidden] {
+  display: none;
+}
+
+.ly-assistant-header {
+  display: flex;
+  align-items: center;
+  gap: var(--ly-space-2);
+  padding: var(--ly-space-3) var(--ly-space-4);
+  border-bottom: var(--ly-border-subtle);
+  font-weight: var(--ly-font-weight-semibold);
+}
+
+.ly-assistant-body {
+  flex: 1;
+  padding: var(--ly-space-4);
+  overflow-y: auto;
+}
+
+.ly-toast {
+  position: fixed;
+  inset: auto var(--ly-space-4) var(--ly-space-4) auto;
+  z-index: var(--ly-z-toast);
+  padding: var(--ly-space-2) var(--ly-space-4);
+  background: var(--ly-color-neutral-12);
+  color: var(--ly-color-text-inverse);
+  border-radius: var(--ly-radius-sm);
+  font-size: var(--ly-text-sm);
+  box-shadow: var(--ly-shadow-md);
+}
+
+.ly-toast[hidden] {
+  display: none;
+}
