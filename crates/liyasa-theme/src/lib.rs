@@ -6,6 +6,7 @@
 //! every region of the page, and the assets are the compiled stylesheet and the
 //! progressive-enhancement runtime.
 
+pub mod actions;
 pub mod color;
 pub mod config;
 pub mod css;

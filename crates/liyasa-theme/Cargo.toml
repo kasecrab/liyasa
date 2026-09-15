@@ -16,6 +16,7 @@ minijinja.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+url.workspace = true
 
 [dev-dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0", features = ["conformance"] }

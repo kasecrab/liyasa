@@ -149,8 +149,13 @@ mod tests {
 
     #[test]
     fn strict_appearance_ships_no_toggle_module() {
-        let mut config = ThemeConfig::default();
-        config.appearance.strict = true;
+        let config = ThemeConfig {
+            appearance: crate::config::Appearance {
+                strict: true,
+                ..crate::config::Appearance::default()
+            },
+            ..ThemeConfig::default()
+        };
         let runtime = Runtime::build(&config);
         assert!(!runtime.base.contains("liyasa:theme\""));
         assert!(runtime.base.contains("window.liyasa = liyasa"));
