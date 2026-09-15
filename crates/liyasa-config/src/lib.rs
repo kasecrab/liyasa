@@ -3,6 +3,7 @@
 //! versions (PRD §8).
 
 pub mod json;
+pub mod schema;
 pub mod vfs;
 
 /// The config types, generated from `schemas/liyasa.schema.json` by typify
