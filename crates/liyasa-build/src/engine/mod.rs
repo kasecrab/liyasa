@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 use liyasa_components::registry::Registry;
 use liyasa_core::build::{ArtifactCache, Variant};
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
-use liyasa_core::ids::{BuildId, Fingerprint, Locale, Route};
+use liyasa_core::ids::{BuildId, Fingerprint, Locale, Route, Version};
 use liyasa_core::markdown::{SiteMeta, TemplateContext};
 use liyasa_core::net::Url;
 use liyasa_core::source_map::SourceMap;
@@ -955,6 +955,9 @@ fn template_context(
                 url => settings.canonical_origin.clone(),
                 basePath => settings.base_path.clone(),
             },
+            vars => minijinja::Value::from_serialize(
+                settings.variables_for(variant.version.as_ref().map(Version::as_str)),
+            ),
             page => minijinja::context! {
                 title => page.front.title.clone(),
                 description => page.front.description.clone(),

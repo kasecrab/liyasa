@@ -38,6 +38,11 @@ pub struct Settings {
     pub incremental_budget: std::time::Duration,
     pub versions: Vec<VersionDecl>,
     pub locales: Vec<String>,
+    /// `variables` (CM-24), with `variables.versions.<name>` held back as the
+    /// per-version overrides of CM-92
+    /// (`plan/rfcs/0606-per-version-variables.md`).
+    pub variables: serde_json::Map<String, Value>,
+    per_version_variables: serde_json::Map<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -99,6 +104,8 @@ impl Default for Settings {
             incremental_budget: std::time::Duration::from_secs(10),
             versions: Vec::new(),
             locales: Vec::new(),
+            variables: serde_json::Map::new(),
+            per_version_variables: serde_json::Map::new(),
         }
     }
 }
@@ -167,6 +174,7 @@ impl Settings {
             settings.incremental_budget = budget;
         }
         (settings.redirects, settings.external_allow) = redirects(value);
+        (settings.variables, settings.per_version_variables) = variables(value);
         settings.versions = versions(value);
         settings.locales = locales(value);
         if let Some(first) = settings.locales.first() {
@@ -180,6 +188,23 @@ impl Settings {
             .iter()
             .find(|version| version.default)
             .or_else(|| self.versions.first())
+    }
+
+    /// The variables one version's pages expand against: the base, with that
+    /// version's overrides on top (CM-92).
+    // TODO(rfc-0606): `variables.versions.<name>` is the spelling this package
+    // chose; the schema has no key of its own yet.
+    pub fn variables_for(&self, version: Option<&str>) -> serde_json::Map<String, Value> {
+        let mut out = self.variables.clone();
+        let Some(version) = version else {
+            return out;
+        };
+        if let Some(Value::Object(overrides)) = self.per_version_variables.get(version) {
+            for (key, value) in overrides {
+                out.insert(key.clone(), value.clone());
+            }
+        }
+        out
     }
 
     pub fn asset_options(&self) -> crate::assets::Options {
@@ -288,6 +313,24 @@ fn redirects(value: &Value) -> (Vec<RedirectInput>, Vec<String>) {
         })
         .collect();
     (rules, allow)
+}
+
+/// `(base variables, per-version overrides)`.
+fn variables(
+    value: &Value,
+) -> (
+    serde_json::Map<String, Value>,
+    serde_json::Map<String, Value>,
+) {
+    let Some(Value::Object(map)) = at(value, &["variables"]) else {
+        return (serde_json::Map::new(), serde_json::Map::new());
+    };
+    let mut base = map.clone();
+    let per_version = match base.remove("versions") {
+        Some(Value::Object(versions)) => versions,
+        _ => serde_json::Map::new(),
+    };
+    (base, per_version)
 }
 
 fn versions(value: &Value) -> Vec<VersionDecl> {
@@ -473,6 +516,25 @@ mod tests {
         assert_eq!(duration("2h"), Some(std::time::Duration::from_secs(7_200)));
         assert_eq!(duration("1d"), Some(std::time::Duration::from_secs(86_400)));
         assert_eq!(duration("soon"), None);
+    }
+
+    #[test]
+    fn variables_are_read_and_a_version_may_override_them() {
+        let settings = Settings::from_value(&value(
+            r#"{"variables":{"apiUrl":"https://api.acme.com","tier":"cloud",
+                 "versions":{"v1":{"apiUrl":"https://api.acme.com/v1"}}}}"#,
+        ));
+        assert_eq!(settings.variables.len(), 2, "the reserved key is held back");
+
+        let base = settings.variables_for(None);
+        assert_eq!(base["apiUrl"], "https://api.acme.com");
+
+        let older = settings.variables_for(Some("v1"));
+        assert_eq!(older["apiUrl"], "https://api.acme.com/v1");
+        assert_eq!(older["tier"], "cloud", "an override does not drop the rest");
+
+        let current = settings.variables_for(Some("v2"));
+        assert_eq!(current["apiUrl"], "https://api.acme.com");
     }
 
     #[test]

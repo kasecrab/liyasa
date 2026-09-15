@@ -578,3 +578,29 @@ fn a_changed_environment_variable_says_why_the_cache_collapsed() {
     );
     assert_ne!(first.build_id, second.build_id);
 }
+
+#[test]
+fn cm_92_a_version_expands_against_its_own_variables() {
+    let project = Project::new("version-variables");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs",
+                "versions":[{"name":"v2","default":true},{"name":"v1"}],
+                "variables":{"apiUrl":"https://api.acme.com",
+                  "versions":{"v1":{"apiUrl":"https://api.acme.com/v1"}}}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n")
+        .write(
+            "guides/api.md",
+            "---\ntitle: API\n---\n# API\n\nPost to {{ vars.apiUrl }}.\n",
+        );
+
+    let report = build(&project, options());
+    assert!(!report.failed(false), "{:?}", report.diagnostics);
+    // The URL autolinks, so the value is the anchor's text.
+    let current = project.read_dist("guides/api/index.html");
+    assert!(current.contains(">https://api.acme.com</a>"), "{current}");
+    let older = project.read_dist("v1/guides/api/index.html");
+    assert!(older.contains(">https://api.acme.com/v1</a>"), "{older}");
+}
