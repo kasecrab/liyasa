@@ -179,3 +179,72 @@ fn an_external_link_is_left_as_written() {
             .contains("https://status.acme.com")
     );
 }
+
+#[test]
+fn a_page_id_link_survives_a_rename() {
+    // `page:<id>` is the form CM-36 gives an author who expects to move a
+    // page. The sanitizer lets it through on a Markdown link only (WP-03's
+    // `INTERNAL_SCHEMES`), and the build rewrites it to the route.
+    let project = Project::new("page-id");
+    project
+        .write("liyasa.json", r#"{"name":"Acme docs"}"#)
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n")
+        .write(
+            "guides/upgrade.md",
+            "---\ntitle: Upgrade\nid: 01J0000000000000000000000A\n---\n# Upgrade\n",
+        )
+        .write(
+            "guides/install.md",
+            "---\ntitle: Install\n---\n# Install\n\n\
+             [Upgrade](page:01J0000000000000000000000A)\n",
+        );
+
+    let report = build(&project);
+    assert!(!report.failed(false), "{:?}", report.diagnostics);
+    let page = project.read_dist("guides/install/index.html");
+    assert!(page.contains("href=\"/guides/upgrade\""), "{page}");
+    assert!(!page.contains("page:"), "{page}");
+}
+
+#[test]
+fn a_page_id_that_names_nothing_is_reported() {
+    let project = Project::new("page-id-missing");
+    project
+        .write("liyasa.json", r#"{"name":"Acme docs"}"#)
+        .write(
+            "index.md",
+            "---\ntitle: Home\n---\n# Home\n\n[Gone](page:01J0000000000000000000000B)\n",
+        );
+    let report = build(&project);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code.as_str() == "E0401"),
+        "{:?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn an_image_may_not_use_the_page_scheme() {
+    // Deliberate asymmetry: only a Markdown link is rewritten, so an image
+    // `src` carrying `page:` is refused during parse rather than shipped as a
+    // dead URL.
+    let project = Project::new("page-id-image");
+    project
+        .write("liyasa.json", r#"{"name":"Acme docs"}"#)
+        .write(
+            "index.md",
+            "---\ntitle: Home\n---\n# Home\n\n![Diagram](page:01J0000000000000000000000A)\n",
+        );
+    let report = build(&project);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code.as_str() == "E0304"),
+        "{:?}",
+        report.diagnostics
+    );
+}

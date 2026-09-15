@@ -5,6 +5,11 @@
 //! resolution lands here. A reference that resolves is rewritten to the route
 //! it points at and recorded on the node; one that does not is `E0401`,
 //! `E0402`, or `E0403`.
+//!
+//! `page:id` reaches this pass on a Markdown link and nowhere else: the
+//! sanitizer widens its allow list by `INTERNAL_SCHEMES` at that one site, so
+//! an image `src` or a raw `<a href>` carrying `page:` is still `E0304`
+//! (`plan/rfcs/0605-page-scheme-is-stripped.md`).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -160,6 +165,8 @@ impl Pass<'_> {
                 }
                 None
             }
+            // Only a Markdown link carries this form past the sanitizer, and
+            // this is the pass that rewrites it (RFC 0605).
             Form::PageId => {
                 let id = links::page_id_of(href)?;
                 match PageId::parse(id).and_then(|id| self.table.by_id.get(&id).cloned()) {
@@ -360,6 +367,25 @@ mod tests {
         }
     }
 
+    /// Every raw HTML block and inline of a document, concatenated.
+    fn raw_html_of(document: &liyasa_core::document::Document) -> String {
+        fn walk(block: &Block, out: &mut String) {
+            if let BlockKind::HtmlBlock { html } = &block.kind {
+                out.push_str(html);
+            }
+            for child in &block.children {
+                match child {
+                    Node::Block(child) => walk(child, out),
+                    Node::Inline(Inline::HtmlInline(html)) => out.push_str(html),
+                    _ => {}
+                }
+            }
+        }
+        let mut out = String::new();
+        walk(&document.root, &mut out);
+        out
+    }
+
     fn links_of(document: &liyasa_core::document::Document) -> Vec<String> {
         let mut out = Vec::new();
         hrefs(&document.root, &mut out);
@@ -509,12 +535,62 @@ mod tests {
     }
 
     #[test]
-    fn todo_rfc_0605_the_sanitizer_strips_the_page_scheme_before_resolution() {
+    fn a_markdown_page_link_reaches_resolution_and_becomes_a_route() {
         let id = PageId(ulid::Ulid::from_parts(1, 2));
-        let parsed = document(&format!("[Upgrade](page:{id})\n"));
-        // Until `page` is in the sanitizer's scheme list the href is gone by
-        // the time the build sees it, which is what RFC 0605 asks to change.
-        assert_eq!(links_of(&parsed), [""]);
+        let mut table = table();
+        table.by_id.insert(id, Route::new("/guides/upgrade"));
+        let mut parsed = document(&format!("[Upgrade](page:{id})\n"));
+        // The sanitizer lets `page:` through on a Markdown link, and only
+        // there (`plan/rfcs/0605-page-scheme-is-stripped.md`).
+        assert_eq!(links_of(&parsed), [format!("page:{id}")]);
+
+        let diagnostics = resolve(
+            &mut parsed.root,
+            &Route::new("/guides/install"),
+            &VfsPath::new("guides/install.md"),
+            &table,
+            Strictness::Error,
+        );
+        assert!(!diagnostics.has_errors(), "{diagnostics:?}");
+        assert_eq!(links_of(&parsed), ["/guides/upgrade"]);
+    }
+
+    /// The asymmetry is deliberate: `liyasa_build::links` rewrites a Markdown
+    /// link and nothing else, so an image `src` or a raw `<a href>` carrying
+    /// `page:` would reach a reader as a dead URL. Both are rejected during
+    /// parse, and this test exists so that nobody "fixes" the inconsistency by
+    /// putting `page` in `SCHEMES`.
+    #[test]
+    fn an_image_src_and_raw_html_still_refuse_the_page_scheme() {
+        let id = PageId(ulid::Ulid::from_parts(1, 2));
+
+        let image = document(&format!("![Diagram](page:{id})\n"));
+        assert_eq!(links_of(&image), [""], "an image src is cleared");
+        assert!(
+            image
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code.as_str() == "E0304"),
+            "{:?}",
+            image.diagnostics
+        );
+
+        // The control: raw HTML does reach the build, and an ordinary scheme
+        // survives it, so the assertion below is about `page:` and not about
+        // an empty haystack.
+        let kept = document("<a href=\"https://status.acme.com\">Status</a>\n");
+        assert!(
+            raw_html_of(&kept).contains("https://status.acme.com"),
+            "{}",
+            raw_html_of(&kept)
+        );
+
+        let raw = document(&format!("<a href=\"page:{id}\">Upgrade</a>\n"));
+        let html = raw_html_of(&raw);
+        assert!(
+            !html.contains("page:"),
+            "raw html keeps no `page:` href: {html}"
+        );
     }
 
     #[test]
