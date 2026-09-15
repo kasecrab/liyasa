@@ -87,6 +87,16 @@ test.describe("lighthouse", () => {
       // for a system Chrome. Point it at the one Playwright already installed
       // rather than asking for a second browser on the machine.
       process.env["CHROME_PATH"] ??= chromium.executablePath();
+
+      // The first request of a run pays for the static server's first read of
+      // every file, and a cold time to first byte is the server warming up
+      // rather than the page being slow: an unwarmed first route has scored 25
+      // where the next run of the same page scores 100. Warm it, then measure.
+      for (let i = 0; i < 2; i += 1) {
+        const warm = await fetch(`${baseURL}${route}`);
+        await warm.arrayBuffer();
+      }
+
       const chrome = await tools.launch({ chromeFlags: ["--headless=new", "--no-sandbox"] });
       try {
         const { lhr } = await tools.lighthouse.default(`${baseURL}${route}`, {
