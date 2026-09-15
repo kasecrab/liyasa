@@ -6,6 +6,7 @@
 
 pub mod continuation;
 pub mod feeds;
+pub mod geo;
 pub mod llms;
 pub mod markdown;
 pub mod notfound;
