@@ -20,6 +20,8 @@ use super::spell::SpellChecker;
 use ini::{Override, ValeIni};
 use rule::{CapStyle, Level, Rule, RuleKind};
 
+pub use rule::{Exhausted, Found, Pattern, Trust};
+
 pub use ini::Section;
 pub use package::{Package, Vocabulary, load as load_package};
 pub use rule::{Rule as ProseRule, RuleError};
@@ -114,6 +116,16 @@ impl Finding {
 
 /// A rule Liyasa parsed but does not run, which VER-61 sends to the Vale
 /// binary in the companion runtime when there is one.
+/// What one run of the linter produced: what it found, and what it could not
+/// look for.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Report {
+    pub findings: Vec<Finding>,
+    /// Rules that produced no answer — a type Liyasa does not implement, a
+    /// pattern it may not compile, or a match that ran out of budget.
+    pub not_run: Vec<Delegated>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Delegated {
     pub rule: String,
@@ -191,7 +203,23 @@ impl Linter {
         passages: &[Passage],
         speller: Option<&SpellChecker>,
     ) -> Vec<Finding> {
+        self.check_report(path, passages, speller).findings
+    }
+
+    /// The same run, plus the rules that did not produce an answer.
+    ///
+    /// `check` returns findings alone, which cannot distinguish "no rule
+    /// matched" from "a rule never ran". A caller that reports prose lint to a
+    /// person wants this one: `not_run` is every rule that was skipped, and
+    /// `vale::not_run` turns it into `W0636`.
+    pub fn check_report(
+        &self,
+        path: &str,
+        passages: &[Passage],
+        speller: Option<&SpellChecker>,
+    ) -> Report {
         let mut out = Vec::new();
+        let mut not_run: Vec<Delegated> = Vec::new();
         for rule in &self.rules {
             let Some(level) = self.enabled(path, rule) else {
                 continue;
@@ -204,14 +232,18 @@ impl Linter {
             match &rule.kind {
                 RuleKind::Existence { pattern } => {
                     for passage in &chosen {
-                        for found in pattern.find_iter(&passage.text) {
+                        let Ok(hits) = pattern.find_iter(&passage.text) else {
+                            exhausted(&mut not_run, rule);
+                            break;
+                        };
+                        for found in hits {
                             push(
                                 &mut out,
                                 rule,
                                 severity,
                                 passage,
-                                found.start(),
-                                found.as_str(),
+                                found.at,
+                                &found.text,
                                 None,
                             );
                         }
@@ -219,18 +251,22 @@ impl Linter {
                 }
                 RuleKind::Substitution { pattern, swap } => {
                     for passage in &chosen {
-                        for found in pattern.find_iter(&passage.text) {
+                        let Ok(hits) = pattern.find_iter(&passage.text) else {
+                            exhausted(&mut not_run, rule);
+                            break;
+                        };
+                        for found in hits {
                             let suggestion = swap
                                 .iter()
-                                .find(|(from, _)| from.is_match(found.as_str()))
+                                .find(|(from, _)| from.is_match(&found.text).unwrap_or(false))
                                 .map(|(_, to)| to.as_str());
                             push(
                                 &mut out,
                                 rule,
                                 severity,
                                 passage,
-                                found.start(),
-                                found.as_str(),
+                                found.at,
+                                &found.text,
                                 suggestion,
                             );
                         }
@@ -238,12 +274,15 @@ impl Linter {
                 }
                 RuleKind::Occurrence { pattern, max, min } => {
                     for passage in &chosen {
-                        let hits: Vec<_> = pattern.find_iter(&passage.text).collect();
+                        let Ok(hits) = pattern.find_iter(&passage.text) else {
+                            exhausted(&mut not_run, rule);
+                            break;
+                        };
                         let over = max.is_some_and(|max| hits.len() > max);
                         let under = min.is_some_and(|min| hits.len() < min);
                         if over || under {
-                            let at = hits.first().map_or(0, |m| m.start());
-                            let found = hits.first().map_or("", |m| m.as_str());
+                            let at = hits.first().map_or(0, |m| m.at);
+                            let found = hits.first().map_or("", |m| m.text.as_str());
                             push(&mut out, rule, severity, passage, at, found, None);
                         }
                     }
@@ -267,7 +306,9 @@ impl Linter {
                     };
                     for passage in &chosen {
                         for miss in speller.check(&passage.text) {
-                            if filters.iter().any(|f| f.is_match(&miss.word))
+                            if filters
+                                .iter()
+                                .any(|f| f.is_match(&miss.word).unwrap_or(false))
                                 || ignore.iter().any(|i| i.eq_ignore_ascii_case(&miss.word))
                             {
                                 continue;
@@ -280,10 +321,18 @@ impl Linter {
                     for (first, second, a, b) in either {
                         // Consistency is about the document, not one passage:
                         // both spellings anywhere in it is the finding.
-                        let uses_first = chosen.iter().find(|p| first.is_match(&p.text));
-                        let uses_second = chosen.iter().find(|p| second.is_match(&p.text));
+                        let uses_first = chosen
+                            .iter()
+                            .find(|p| first.is_match(&p.text).unwrap_or(false));
+                        let uses_second = chosen
+                            .iter()
+                            .find(|p| second.is_match(&p.text).unwrap_or(false));
                         if let (Some(_), Some(passage)) = (uses_first, uses_second) {
-                            let at = second.find(&passage.text).map_or(0, |m| m.start());
+                            let at = second
+                                .find_iter(&passage.text)
+                                .ok()
+                                .and_then(|hits| hits.first().map(|m| m.at))
+                                .unwrap_or(0);
                             let mut finding =
                                 finding(rule, severity, passage, at, b, Some(a.as_str()));
                             finding.message = rule.message_for(b, Some(a));
@@ -296,12 +345,30 @@ impl Linter {
                         out.extend(sequence_hits(rule, severity, passage, patterns));
                     }
                 }
-                RuleKind::Unsupported(_) => {}
+                RuleKind::Unsupported(extends) => not_run.push(Delegated {
+                    rule: rule.name.clone(),
+                    extends: extends.clone(),
+                }),
             }
         }
         out.retain(|f| !rule_excepted(&self.rules, f));
-        out
+        Report {
+            findings: out,
+            not_run,
+        }
     }
+}
+
+/// A rule whose pattern gave up mid-match is reported the same way a rule
+/// Liyasa cannot run at all is: named, once, never silently.
+fn exhausted(not_run: &mut Vec<Delegated>, rule: &Rule) {
+    if not_run.iter().any(|d| d.rule == rule.name) {
+        return;
+    }
+    not_run.push(Delegated {
+        rule: rule.name.clone(),
+        extends: "backtrack budget".to_owned(),
+    });
 }
 
 fn in_scope(rule: &Rule, passage: &Passage) -> bool {
@@ -354,7 +421,7 @@ fn sequence_hits(
     rule: &Rule,
     severity: Severity,
     passage: &Passage,
-    patterns: &[regex::Regex],
+    patterns: &[Pattern],
 ) -> Vec<Finding> {
     let words: Vec<(usize, &str)> = passage
         .text
@@ -372,7 +439,7 @@ fn sequence_hits(
         if window
             .iter()
             .zip(patterns)
-            .all(|((_, word), pattern)| pattern.is_match(word))
+            .all(|((_, word), pattern)| pattern.is_match(word).unwrap_or(false))
         {
             let at = window[0].0;
             let end = window[window.len() - 1].0 + window[window.len() - 1].1.len();

@@ -3,6 +3,7 @@ use liyasa_core::diagnostics::code;
 
 use super::*;
 use crate::core::prose::rule::RuleKind;
+use crate::core::prose::rule::Trust;
 use crate::core::prose::{Linter, Passage, Scope};
 
 const PASSIVE: &str = r#"
@@ -38,7 +39,12 @@ fn a_style_directory_becomes_rules_named_for_it() {
         .with("styles/Google/Passive.yml", PASSIVE)
         .with("styles/Microsoft/Wordiness.yml", WORDINESS);
 
-    let package = load(&vfs, &ini_with(&["Google", "Microsoft"]), &root());
+    let package = load(
+        &vfs,
+        &ini_with(&["Google", "Microsoft"]),
+        &root(),
+        Trust::Trusted,
+    );
 
     let names: Vec<&str> = package.rules.iter().map(|r| r.name.as_str()).collect();
     assert_eq!(names, ["Google.Passive", "Microsoft.Wordiness"]);
@@ -48,7 +54,7 @@ fn a_style_directory_becomes_rules_named_for_it() {
 #[test]
 fn a_yaml_file_is_read_whichever_extension_it_has() {
     let vfs = MemoryVfs::new().with("styles/Google/Passive.yaml", PASSIVE);
-    let package = load(&vfs, &ini_with(&["Google"]), &root());
+    let package = load(&vfs, &ini_with(&["Google"]), &root(), Trust::Trusted);
     assert_eq!(package.rules.len(), 1);
     assert_eq!(package.rules[0].name, "Google.Passive");
 }
@@ -60,7 +66,7 @@ fn a_file_that_is_not_a_rule_is_left_alone() {
         .with("styles/Google/README.md", "# Google's style")
         .with("styles/Google/meta.json", "{}");
 
-    let package = load(&vfs, &ini_with(&["Google"]), &root());
+    let package = load(&vfs, &ini_with(&["Google"]), &root(), Trust::Trusted);
 
     assert_eq!(package.rules.len(), 1);
     assert!(package.problems.is_empty(), "{:?}", package.problems);
@@ -75,7 +81,7 @@ fn a_rule_that_does_not_parse_is_reported_and_the_rest_still_load() {
             "extends: existence\ntokens: [\"(\"]\n",
         );
 
-    let package = load(&vfs, &ini_with(&["Google"]), &root());
+    let package = load(&vfs, &ini_with(&["Google"]), &root(), Trust::Trusted);
 
     assert_eq!(package.rules.len(), 1, "the good rule still loads");
     assert_eq!(package.problems.len(), 1);
@@ -92,7 +98,12 @@ fn a_rule_that_does_not_parse_is_reported_and_the_rest_still_load() {
 fn a_style_the_config_names_and_the_directory_does_not_hold_is_reported() {
     let vfs = MemoryVfs::new().with("styles/Google/Passive.yml", PASSIVE);
 
-    let package = load(&vfs, &ini_with(&["Google", "Microsoft"]), &root());
+    let package = load(
+        &vfs,
+        &ini_with(&["Google", "Microsoft"]),
+        &root(),
+        Trust::Trusted,
+    );
 
     let messages: Vec<&str> = package
         .problems
@@ -109,7 +120,12 @@ fn the_two_styles_that_need_no_directory_are_not_missing() {
     // `Vale` is the binary's own built-in style and `Liyasa` is compiled into
     // this crate; neither is ever on disk.
     let vfs = MemoryVfs::new().with("styles/Google/Passive.yml", PASSIVE);
-    let package = load(&vfs, &ini_with(&["Vale", "Liyasa", "Google"]), &root());
+    let package = load(
+        &vfs,
+        &ini_with(&["Vale", "Liyasa", "Google"]),
+        &root(),
+        Trust::Trusted,
+    );
     assert!(package.problems.is_empty(), "{:?}", package.problems);
 }
 
@@ -119,7 +135,12 @@ fn the_reserved_directories_are_not_styles() {
         .with("styles/config/vocabularies/Project/accept.txt", "Liyasa\n")
         .with("styles/Vocab/Legacy/accept.txt", "Liyasa\n");
 
-    let package = load(&vfs, &ValeIni::parse("StylesPath = styles\n"), &root());
+    let package = load(
+        &vfs,
+        &ValeIni::parse("StylesPath = styles\n"),
+        &root(),
+        Trust::Trusted,
+    );
 
     assert!(package.rules.is_empty(), "{:?}", package.rules.len());
     assert!(package.problems.is_empty(), "{:?}", package.problems);
@@ -133,7 +154,7 @@ fn a_vocabulary_accepts_the_words_it_lists() {
     );
     let ini = ValeIni::parse("StylesPath = styles\nVocab = Project\n");
 
-    let package = load(&vfs, &ini, &root());
+    let package = load(&vfs, &ini, &root(), Trust::Trusted);
 
     assert_eq!(package.vocabulary.accept.len(), 3);
     assert!(package.vocabulary.accept.contains("comrak"));
@@ -145,7 +166,7 @@ fn a_vale_two_vocabulary_is_read_where_vale_two_put_it() {
     let vfs = MemoryVfs::new().with("styles/Vocab/Project/accept.txt", "Liyasa\n");
     let ini = ValeIni::parse("StylesPath = styles\nVocab = Project\n");
 
-    let package = load(&vfs, &ini, &root());
+    let package = load(&vfs, &ini, &root(), Trust::Trusted);
 
     assert!(package.vocabulary.accept.contains("liyasa"));
 }
@@ -160,7 +181,7 @@ fn a_rejected_word_becomes_a_rule_that_finds_it() {
         );
     let ini = ValeIni::parse("StylesPath = styles\nVocab = Project\n");
 
-    let package = load(&vfs, &ini, &root());
+    let package = load(&vfs, &ini, &root(), Trust::Trusted);
 
     assert_eq!(package.vocabulary.reject, ["sanity check", "wizard"]);
     let rule = package
@@ -172,8 +193,8 @@ fn a_rejected_word_becomes_a_rule_that_finds_it() {
     let RuleKind::Existence { pattern } = &rule.kind else {
         panic!("a reject list is an existence rule");
     };
-    assert!(pattern.is_match("run a sanity check first"));
-    assert!(!pattern.is_match("insanity is not the word"));
+    assert_eq!(pattern.is_match("run a sanity check first"), Ok(true));
+    assert_eq!(pattern.is_match("insanity is not the word"), Ok(false));
 }
 
 #[test]
@@ -181,7 +202,7 @@ fn a_rejected_word_is_matched_literally() {
     let vfs = MemoryVfs::new().with("styles/config/vocabularies/P/reject.txt", "C++\n");
     let ini = ValeIni::parse("StylesPath = styles\nVocab = P\n");
 
-    let package = load(&vfs, &ini, &root());
+    let package = load(&vfs, &ini, &root(), Trust::Trusted);
 
     let rule = package
         .rules
@@ -191,8 +212,8 @@ fn a_rejected_word_is_matched_literally() {
     let RuleKind::Existence { pattern } = &rule.kind else {
         panic!("a reject list is an existence rule");
     };
-    assert!(pattern.is_match("written in C++ today"));
-    assert!(!pattern.is_match("written in CCC today"));
+    assert_eq!(pattern.is_match("written in C++ today"), Ok(true));
+    assert_eq!(pattern.is_match("written in CCC today"), Ok(false));
 }
 
 #[test]
@@ -201,7 +222,7 @@ fn a_vocabulary_the_config_names_and_the_directory_does_not_hold_is_reported() {
     let ini =
         ValeIni::parse("StylesPath = styles\nVocab = Project\n[*.md]\nBasedOnStyles = Google\n");
 
-    let package = load(&vfs, &ini, &root());
+    let package = load(&vfs, &ini, &root(), Trust::Trusted);
 
     assert_eq!(package.problems.len(), 1);
     assert_eq!(package.problems.as_slice()[0].code, code::E0633);
@@ -216,7 +237,12 @@ fn a_vocabulary_the_config_names_and_the_directory_does_not_hold_is_reported() {
 fn a_styles_path_that_is_not_there_loads_nothing_and_complains_about_nothing() {
     let vfs = MemoryVfs::new().with("docs/index.md", "# hello");
 
-    let package = load(&vfs, &ValeIni::parse("StylesPath = styles\n"), &root());
+    let package = load(
+        &vfs,
+        &ValeIni::parse("StylesPath = styles\n"),
+        &root(),
+        Trust::Trusted,
+    );
 
     assert!(package.rules.is_empty());
     assert!(package.problems.is_empty(), "{:?}", package.problems);
@@ -227,7 +253,7 @@ fn the_styles_path_is_relative_to_the_config_file() {
     let vfs = MemoryVfs::new().with("docs/.vale/Google/Passive.yml", PASSIVE);
     let ini = ValeIni::parse("StylesPath = .vale\n[*.md]\nBasedOnStyles = Google\n");
 
-    let package = load(&vfs, &ini, &VfsPath::new("docs"));
+    let package = load(&vfs, &ini, &VfsPath::new("docs"), Trust::Trusted);
 
     assert_eq!(package.rules.len(), 1);
     assert_eq!(package.rules[0].name, "Google.Passive");
@@ -238,7 +264,7 @@ fn a_loaded_package_runs_through_the_linter_that_reads_the_same_config() {
     let vfs = MemoryVfs::new().with("styles/Google/Wordiness.yml", WORDINESS);
     let ini = ini_with(&["Google"]);
 
-    let package = load(&vfs, &ini, &root());
+    let package = load(&vfs, &ini, &root(), Trust::Trusted);
     let linter = Linter::new(package.rules).with_ini(ini);
     let findings = linter.check(
         "docs/index.md",
@@ -318,13 +344,30 @@ fn rule_files(root: &Path) -> usize {
         .count()
 }
 
-fn load_third_party(root: &Path) -> (Package, ValeIni) {
+fn load_third_party_as(root: &Path, trust: Trust) -> (Package, ValeIni) {
     let vfs = memory_from(root);
     let ini = ValeIni::parse(
         &std::fs::read_to_string(root.join(".vale.ini")).unwrap_or_else(|_| String::new()),
     );
-    let package = load(&vfs, &ini, &VfsPath::new(""));
+    let package = load(&vfs, &ini, &VfsPath::new(""), trust);
     (package, ini)
+}
+
+fn load_third_party(root: &Path) -> (Package, ValeIni) {
+    load_third_party_as(root, Trust::Trusted)
+}
+
+fn delegated_for(root: &Path, trust: Trust) -> (usize, Vec<String>) {
+    let (package, ini) = load_third_party_as(root, trust);
+    let supported = package.rules.iter().filter(|r| r.is_supported()).count();
+    let linter = Linter::new(package.rules).with_ini(ini);
+    let mut reasons: Vec<String> = linter
+        .delegated("docs/index.md")
+        .into_iter()
+        .map(|d| d.extends)
+        .collect();
+    reasons.sort();
+    (supported, reasons)
 }
 
 #[test]
@@ -366,26 +409,42 @@ fn ver_61_every_rule_liyasa_cannot_run_is_delegated_rather_than_dropped() {
     // Nothing may be lost between the two: a rule either runs here or is
     // named for the Vale binary, and the arithmetic is the assertion.
     assert_eq!(supported + delegated.len(), total);
+}
 
-    // At the pinned commits the two packages are 83 rules: 64 existence, 14
-    // substitution, 2 capitalization, 1 occurrence, 2 `conditional`. Two rule
-    // types are delegated for two different reasons — `conditional` is a type
-    // Liyasa does not implement, and fourteen rules of types it does
-    // implement are written with look-around, which the `regex` crate has no
-    // engine for.
-    let mut reasons: Vec<&str> = delegated.iter().map(|d| d.extends.as_str()).collect();
-    reasons.sort_unstable();
-    reasons.dedup();
+/// At the pinned commits the two packages are 83 rules: 64 `existence`, 14
+/// `substitution`, 2 `capitalization`, 1 `occurrence`, 2 `conditional`. Two
+/// things are delegated for two different reasons — `conditional` is a type
+/// Liyasa does not implement, and fourteen rules of types it does implement
+/// are written with look-around, which only a backtracking engine has.
+#[test]
+fn ver_61_a_trusted_package_runs_every_rule_the_engine_allows() {
+    let Some(root) = third_party() else { return };
+    let (supported, reasons) = delegated_for(&root, Trust::Trusted);
+
+    if cfg!(feature = "fancy") {
+        assert_eq!(reasons, ["conditional", "conditional"]);
+        assert_eq!(supported, 81, "look-around compiles for the trust plane");
+    } else {
+        assert_eq!(supported, 67);
+        assert_eq!(reasons.len(), 16);
+    }
+}
+
+/// The security assertion, and it must hold in both builds: a rule package
+/// from the branch being built never reaches an engine without a linear-time
+/// guarantee (RFC 1307). CFG-95 does not put `.vale.ini` or `StylesPath` in
+/// the trust plane, so in an untrusted build these files are a contributor's.
+#[test]
+fn ver_61_an_untrusted_package_never_reaches_the_backtracking_engine() {
+    let Some(root) = third_party() else { return };
+    let (supported, reasons) = delegated_for(&root, Trust::Untrusted);
+
+    assert_eq!(supported, 67, "the same 67 whether or not `fancy` is on");
+    assert_eq!(reasons.len(), 16);
     assert_eq!(
-        reasons,
-        [
-            "conditional",
-            "existence (look-around)",
-            "substitution (look-around)"
-        ]
+        reasons.iter().filter(|r| r.contains("look-around")).count(),
+        14
     );
-    assert_eq!(delegated.len(), 16, "{delegated:?}");
-    assert_eq!(supported, 67);
 }
 
 #[test]

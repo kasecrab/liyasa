@@ -1123,6 +1123,7 @@ dependencies = [
 name = "liyasa-verify"
 version = "0.1.0"
 dependencies = [
+ "fancy-regex 0.19.2",
  "jsonschema",
  "liyasa-core",
  "regex",

@@ -18,7 +18,7 @@
 //! literals, so an operator can read one, copy it into their own style, and
 //! change it.
 
-use super::rule::Rule;
+use super::rule::{Rule, Trust};
 
 /// `(name, source)` for every bundled rule.
 pub const RULES: &[(&str, &str)] = &[
@@ -55,7 +55,9 @@ pub const RULES: &[(&str, &str)] = &[
 pub fn liyasa() -> Vec<Rule> {
     RULES
         .iter()
-        .filter_map(|(name, source)| Rule::parse(name, source).ok())
+        // Compiled into the binary, so it is trust-plane content by
+        // construction (RFC 1307).
+        .filter_map(|(name, source)| Rule::parse(name, source, Trust::Trusted).ok())
         .collect()
 }
 

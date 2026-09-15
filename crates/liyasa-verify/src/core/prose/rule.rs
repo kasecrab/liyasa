@@ -17,6 +17,119 @@ use serde::Deserialize;
 /// under a ceiling (RFC 1300).
 const SIZE_LIMIT: usize = 1 << 20;
 
+/// How many backtracking steps one match may take before it is abandoned
+/// (RFC 1307). The `regex` crate needs no such number — it cannot backtrack —
+/// and this one exists so that even a trusted rule written badly costs a
+/// bounded amount of time instead of the build.
+#[cfg(feature = "fancy")]
+const BACKTRACK_LIMIT: usize = 1_000_000;
+
+/// Where a rule package came from, which is what decides whether a pattern may
+/// reach a backtracking engine (RFC 1307).
+///
+/// CFG-95 puts the `verify` config section in the trust plane and says nothing
+/// about `.vale.ini` or the files under its `StylesPath`, so in an untrusted
+/// build those arrive from the branch being built — a fork pull request can
+/// write them. `Untrusted` is the default for that reason: a caller that
+/// forgets to say gets the safe answer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Trust {
+    /// The deploy branch's committed state, or compiled into the binary.
+    Trusted,
+    /// The branch being built.
+    #[default]
+    Untrusted,
+}
+
+/// One match: where it starts in the text, and what it matched.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Found {
+    pub at: usize,
+    pub text: String,
+}
+
+/// A match abandoned at [`BACKTRACK_LIMIT`]. It is an error rather than an
+/// empty result because "found nothing" and "gave up looking" are the two
+/// answers RFC 1305 exists to keep apart.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("`{pattern}` ran out of backtracking budget before it finished")]
+pub struct Exhausted {
+    pub pattern: String,
+}
+
+/// A compiled rule pattern.
+///
+/// `regex` matches in time linear in the subject and cannot be made to
+/// backtrack, which is why it is the only engine an untrusted rule package
+/// ever reaches. The other arm exists for look-around, which `regex` has no
+/// syntax for, and is compiled only for a package from the trust plane.
+#[derive(Debug, Clone)]
+pub struct Pattern {
+    source: String,
+    engine: Engine,
+}
+
+#[derive(Debug, Clone)]
+enum Engine {
+    Linear(Regex),
+    #[cfg(feature = "fancy")]
+    Backtracking(fancy_regex::Regex),
+}
+
+impl Pattern {
+    pub fn as_str(&self) -> &str {
+        &self.source
+    }
+
+    /// Whether this pattern reached for an engine without a linear-time
+    /// guarantee, which only a trust-plane package can do.
+    pub fn is_backtracking(&self) -> bool {
+        match self.engine {
+            Engine::Linear(_) => false,
+            #[cfg(feature = "fancy")]
+            Engine::Backtracking(_) => true,
+        }
+    }
+
+    pub fn find_iter(&self, text: &str) -> Result<Vec<Found>, Exhausted> {
+        match &self.engine {
+            Engine::Linear(regex) => Ok(regex
+                .find_iter(text)
+                .map(|found| Found {
+                    at: found.start(),
+                    text: found.as_str().to_owned(),
+                })
+                .collect()),
+            #[cfg(feature = "fancy")]
+            Engine::Backtracking(regex) => regex
+                .find_iter(text)
+                .map(|found| {
+                    found.map(|found| Found {
+                        at: found.start(),
+                        text: found.as_str().to_owned(),
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| self.exhausted()),
+        }
+    }
+
+    pub fn is_match(&self, text: &str) -> Result<bool, Exhausted> {
+        match &self.engine {
+            Engine::Linear(regex) => Ok(regex.is_match(text)),
+            #[cfg(feature = "fancy")]
+            Engine::Backtracking(regex) => regex.is_match(text).map_err(|_| self.exhausted()),
+        }
+    }
+
+    #[cfg(feature = "fancy")]
+    fn exhausted(&self) -> Exhausted {
+        Exhausted {
+            pattern: self.source.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Level {
@@ -89,22 +202,22 @@ pub struct Rule {
     pub scope: Vec<String>,
     pub kind: RuleKind,
     /// Matches that are never reported, whatever the rule says.
-    pub exceptions: Option<Regex>,
+    pub exceptions: Option<Pattern>,
 }
 
 #[derive(Debug, Clone)]
 pub enum RuleKind {
     /// Any match is a finding.
-    Existence { pattern: Regex },
+    Existence { pattern: Pattern },
     /// A match is a finding, and the replacement goes in the message.
     Substitution {
-        pattern: Regex,
+        pattern: Pattern,
         /// Replacements in the same order as the pattern's alternatives.
-        swap: Vec<(Regex, String)>,
+        swap: Vec<(Pattern, String)>,
     },
     /// More (or fewer) than this many matches in one scope.
     Occurrence {
-        pattern: Regex,
+        pattern: Pattern,
         max: Option<usize>,
         min: Option<usize>,
     },
@@ -116,15 +229,15 @@ pub enum RuleKind {
     Spelling {
         dictionaries: Vec<String>,
         ignore: Vec<String>,
-        filters: Vec<Regex>,
+        filters: Vec<Pattern>,
     },
     /// Both spellings used in one document.
     Consistency {
-        either: Vec<(Regex, Regex, String, String)>,
+        either: Vec<(Pattern, Pattern, String, String)>,
     },
     /// Consecutive tokens. Vale's part-of-speech `tag` is not read; a rule
     /// that uses one is `Unsupported` (RFC 1305).
-    Sequence { patterns: Vec<Regex> },
+    Sequence { patterns: Vec<Pattern> },
     /// `extends` names a type Liyasa does not implement.
     Unsupported(String),
 }
@@ -139,13 +252,18 @@ pub enum CapStyle {
 }
 
 impl Rule {
-    pub fn parse(name: &str, yaml: &str) -> Result<Self, RuleError> {
+    /// Parses a rule from a package of known provenance.
+    ///
+    /// `trust` decides only one thing: whether a pattern that needs
+    /// look-around may be compiled at all (RFC 1307). Everything else is the
+    /// same for both.
+    pub fn parse(name: &str, yaml: &str, trust: Trust) -> Result<Self, RuleError> {
         let common: Common =
             serde_norway::from_str(yaml).map_err(|e| RuleError::Yaml(e.to_string()))?;
         let extends = common.extends.clone().ok_or(RuleError::NoKind)?;
-        let built = build(&extends, &common).and_then(|kind| {
+        let built = build(&extends, &common, trust).and_then(|kind| {
             let exceptions = (!common.exceptions.is_empty())
-                .then(|| compile(&alternation(&common.exceptions, false), true))
+                .then(|| compile(&alternation(&common.exceptions, false), true, trust))
                 .transpose()?;
             Ok((kind, exceptions))
         });
@@ -183,6 +301,7 @@ impl Rule {
         level: Level,
         message: &str,
         words: &[String],
+        trust: Trust,
     ) -> Result<Self, RuleError> {
         if words.is_empty() {
             return Err(RuleError::Incomplete {
@@ -198,7 +317,7 @@ impl Rule {
             link: None,
             scope: Vec::new(),
             kind: RuleKind::Existence {
-                pattern: compile(&format!("(?:{})", body.join("|")), false)?,
+                pattern: compile(&format!("(?:{})", body.join("|")), false, trust)?,
             },
             exceptions: None,
         })
@@ -215,7 +334,7 @@ impl Rule {
     pub fn excepted(&self, text: &str) -> bool {
         self.exceptions
             .as_ref()
-            .is_some_and(|pattern| pattern.is_match(text))
+            .is_some_and(|pattern| pattern.is_match(text).unwrap_or(false))
     }
 
     /// Vale fills `%s` in a rule's message with the match, then with the
@@ -240,10 +359,10 @@ impl Rule {
     }
 }
 
-fn build(extends: &str, common: &Common) -> Result<RuleKind, RuleError> {
+fn build(extends: &str, common: &Common, trust: Trust) -> Result<RuleKind, RuleError> {
     match extends {
         "existence" => Ok(RuleKind::Existence {
-            pattern: word_pattern(common, &collect(common))?,
+            pattern: word_pattern(common, &collect(common), trust)?,
         }),
         "substitution" => {
             if common.swap.is_empty() {
@@ -258,13 +377,13 @@ fn build(extends: &str, common: &Common) -> Result<RuleKind, RuleError> {
                 .iter()
                 .map(|(from, to)| {
                     Ok((
-                        word_pattern(common, std::slice::from_ref(from))?,
+                        word_pattern(common, std::slice::from_ref(from), trust)?,
                         to.clone(),
                     ))
                 })
                 .collect::<Result<Vec<_>, RuleError>>()?;
             Ok(RuleKind::Substitution {
-                pattern: word_pattern(common, &froms)?,
+                pattern: word_pattern(common, &froms, trust)?,
                 swap,
             })
         }
@@ -280,7 +399,7 @@ fn build(extends: &str, common: &Common) -> Result<RuleKind, RuleError> {
                 });
             }
             Ok(RuleKind::Occurrence {
-                pattern: compile(&token, common.ignorecase)?,
+                pattern: compile(&token, common.ignorecase, trust)?,
                 max: common.max,
                 min: common.min,
             })
@@ -298,7 +417,7 @@ fn build(extends: &str, common: &Common) -> Result<RuleKind, RuleError> {
                     "$upper" => CapStyle::Upper,
                     other => {
                         // Compiling now so a broken pattern is a parse error.
-                        compile(other, common.ignorecase)?;
+                        compile(other, common.ignorecase, trust)?;
                         CapStyle::Pattern(other.to_owned())
                     }
                 },
@@ -311,7 +430,7 @@ fn build(extends: &str, common: &Common) -> Result<RuleKind, RuleError> {
             filters: common
                 .filters
                 .iter()
-                .map(|f| compile(f, false))
+                .map(|f| compile(f, false, trust))
                 .collect::<Result<_, _>>()?,
         }),
         "consistency" => {
@@ -327,8 +446,8 @@ fn build(extends: &str, common: &Common) -> Result<RuleKind, RuleError> {
                     .iter()
                     .map(|(a, b)| {
                         Ok((
-                            word_pattern(common, std::slice::from_ref(a))?,
-                            word_pattern(common, std::slice::from_ref(b))?,
+                            word_pattern(common, std::slice::from_ref(a), trust)?,
+                            word_pattern(common, std::slice::from_ref(b), trust)?,
                             a.clone(),
                             b.clone(),
                         ))
@@ -346,7 +465,7 @@ fn build(extends: &str, common: &Common) -> Result<RuleKind, RuleError> {
             Ok(RuleKind::Sequence {
                 patterns: tokens
                     .iter()
-                    .map(|t| compile(t, common.ignorecase))
+                    .map(|t| compile(t, common.ignorecase, trust))
                     .collect::<Result<_, _>>()?,
             })
         }
@@ -378,14 +497,18 @@ fn collect(common: &Common) -> Vec<String> {
         .collect()
 }
 
-fn word_pattern(common: &Common, tokens: &[String]) -> Result<Regex, RuleError> {
+fn word_pattern(common: &Common, tokens: &[String], trust: Trust) -> Result<Pattern, RuleError> {
     if tokens.is_empty() {
         return Err(RuleError::Incomplete {
             kind: common.extends.clone().unwrap_or_default(),
             missing: "`tokens` or `raw`".to_owned(),
         });
     }
-    compile(&alternation(tokens, !common.nonword), common.ignorecase)
+    compile(
+        &alternation(tokens, !common.nonword),
+        common.ignorecase,
+        trust,
+    )
 }
 
 fn alternation(tokens: &[String], word_bounded: bool) -> String {
@@ -420,21 +543,58 @@ fn is_escaped(pattern: &str, at: usize) -> bool {
         == 1
 }
 
-fn compile(pattern: &str, ignorecase: bool) -> Result<Regex, RuleError> {
+fn compile(pattern: &str, ignorecase: bool, trust: Trust) -> Result<Pattern, RuleError> {
     if needs_backtracking(pattern) {
-        return Err(RuleError::LookAround {
-            pattern: pattern.to_owned(),
-        });
+        return backtracking(pattern, ignorecase, trust);
     }
     RegexBuilder::new(pattern)
         .case_insensitive(ignorecase)
         .size_limit(SIZE_LIMIT)
         .dfa_size_limit(SIZE_LIMIT)
         .build()
+        .map(|regex| Pattern {
+            source: pattern.to_owned(),
+            engine: Engine::Linear(regex),
+        })
         .map_err(|error| RuleError::Pattern {
             pattern: pattern.to_owned(),
             error: error.to_string(),
         })
+}
+
+/// The one place a pattern can reach an engine without a linear-time
+/// guarantee, and the one place the trust plane is consulted (RFC 1307).
+///
+/// An untrusted package never gets here: the rule is `Unsupported` and goes to
+/// the Vale binary, which is the same answer it got before this arm existed.
+#[cfg(feature = "fancy")]
+fn backtracking(pattern: &str, ignorecase: bool, trust: Trust) -> Result<Pattern, RuleError> {
+    if trust != Trust::Trusted {
+        return Err(RuleError::LookAround {
+            pattern: pattern.to_owned(),
+        });
+    }
+    fancy_regex::RegexBuilder::new(pattern)
+        .case_insensitive(ignorecase)
+        .backtrack_limit(BACKTRACK_LIMIT)
+        .delegate_size_limit(SIZE_LIMIT)
+        .delegate_dfa_size_limit(SIZE_LIMIT)
+        .build()
+        .map(|regex| Pattern {
+            source: pattern.to_owned(),
+            engine: Engine::Backtracking(regex),
+        })
+        .map_err(|error| RuleError::Pattern {
+            pattern: pattern.to_owned(),
+            error: error.to_string(),
+        })
+}
+
+#[cfg(not(feature = "fancy"))]
+fn backtracking(pattern: &str, _ignorecase: bool, _trust: Trust) -> Result<Pattern, RuleError> {
+    Err(RuleError::LookAround {
+        pattern: pattern.to_owned(),
+    })
 }
 
 /// One literal word, escaped, with a word boundary only on the sides that can

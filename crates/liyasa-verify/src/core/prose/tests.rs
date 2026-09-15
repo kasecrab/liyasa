@@ -2,10 +2,11 @@ use liyasa_core::document::Origin;
 use liyasa_core::span::SourceId;
 
 use super::*;
+use crate::core::prose::rule::Trust;
 use crate::core::spell::Dictionary;
 
 fn rule(name: &str, yaml: &str) -> Rule {
-    Rule::parse(name, yaml).unwrap_or_else(|e| panic!("{name}: {e}"))
+    Rule::parse(name, yaml, Trust::Trusted).unwrap_or_else(|e| panic!("{name}: {e}"))
 }
 
 fn passage(scope: Scope, text: &str) -> Passage {
@@ -103,7 +104,8 @@ fn a_substitution_rule_names_the_replacement_first() {
 
 #[test]
 fn a_substitution_rule_without_swap_is_a_parse_error() {
-    let error = Rule::parse("S.R", "extends: substitution\nmessage: x\n").expect_err("rejected");
+    let error = Rule::parse("S.R", "extends: substitution\nmessage: x\n", Trust::Trusted)
+        .expect_err("rejected");
     assert!(matches!(error, RuleError::Incomplete { .. }), "{error}");
 }
 
@@ -300,6 +302,7 @@ fn a_sequence_rule_written_against_part_of_speech_tags_is_delegated() {
     let rule = Rule::parse(
         "Google.Passive",
         "extends: sequence\nmessage: \"passive voice\"\ntokens:\n  - tag: MD\n",
+        Trust::Trusted,
     );
     // A `tag`-only sequence has no plain patterns, so it parses as one Liyasa
     // does not run rather than as a rule that silently matches nothing.
@@ -334,14 +337,18 @@ fn a_rule_type_liyasa_does_not_implement_is_reported_not_run() {
 
 #[test]
 fn a_rule_without_extends_is_a_parse_error() {
-    let error = Rule::parse("S.R", "message: nothing\n").expect_err("rejected");
+    let error = Rule::parse("S.R", "message: nothing\n", Trust::Trusted).expect_err("rejected");
     assert_eq!(error, RuleError::NoKind);
 }
 
 #[test]
 fn a_rule_with_a_broken_pattern_names_the_pattern() {
-    let error =
-        Rule::parse("S.R", "extends: existence\nraw:\n  - '(unclosed'\n").expect_err("rejected");
+    let error = Rule::parse(
+        "S.R",
+        "extends: existence\nraw:\n  - '(unclosed'\n",
+        Trust::Trusted,
+    )
+    .expect_err("rejected");
     assert!(matches!(error, RuleError::Pattern { .. }), "{error}");
 }
 
@@ -693,13 +700,13 @@ fn a_findings_offset_points_into_the_passage() {
 
 // ---- look-around (VER-61) ----
 
+const LATIN: &str =
+    "extends: existence\nmessage: \"Use '%s'.\"\nraw:\n  - '\\b(?:eg|e\\.g\\.)(?=[\\s,;]|$)'\n";
+
 #[test]
 fn a_pattern_that_needs_look_around_is_delegated_not_dropped() {
-    let rule = Rule::parse(
-        "Google.Latin",
-        "extends: existence\nmessage: \"Use '%s'.\"\nraw:\n  - '\\b(?:eg|e\\.g\\.)(?=[\\s,;]|$)'\n",
-    )
-    .expect("a rule Liyasa cannot run still parses");
+    let rule = Rule::parse("Google.Latin", LATIN, Trust::Untrusted)
+        .expect("a rule Liyasa cannot run still parses");
 
     assert!(!rule.is_supported());
     let RuleKind::Unsupported(reason) = &rule.kind else {
@@ -717,29 +724,76 @@ fn a_look_around_rule_reports_nothing_rather_than_a_wrong_answer() {
     let rule = Rule::parse(
         "X.Best",
         "extends: existence\nraw:\n  - 'best(?! practices)'\n",
+        Trust::Untrusted,
     )
     .expect("parses");
-    let findings = Linter::new(vec![rule]).check(
+    let report = Linter::new(vec![rule]).check_report(
         "docs/index.md",
-        &[Passage {
-            block: BlockId::explicit("b"),
-            span: None,
-            scope: Scope::Paragraph,
-            text: "the best practices are best".to_owned(),
-        }],
+        &[para("the best practices are best")],
         None,
     );
 
     assert!(
-        findings.is_empty(),
-        "an approximation of the pattern would be worse than no answer: {findings:?}"
+        report.findings.is_empty(),
+        "an approximation of the pattern would be worse than no answer: {:?}",
+        report.findings
     );
+    assert_eq!(report.not_run.len(), 1, "and it must say so");
+}
+
+/// The boundary itself: the same rule, the same build, two provenances.
+#[test]
+fn the_same_rule_is_refused_from_a_branch_and_allowed_from_the_trust_plane() {
+    let untrusted = Rule::parse("Google.Latin", LATIN, Trust::Untrusted).expect("parses");
+    let trusted = Rule::parse("Google.Latin", LATIN, Trust::Trusted).expect("parses");
+
+    assert!(!untrusted.is_supported(), "a contributor's rule never runs");
+    assert_eq!(trusted.is_supported(), cfg!(feature = "fancy"));
+}
+
+#[cfg(feature = "fancy")]
+#[test]
+fn a_trust_plane_look_around_rule_runs_and_finds_what_regex_cannot() {
+    let rule = Rule::parse("Google.Latin", LATIN, Trust::Trusted).expect("parses");
+    let RuleKind::Existence { pattern } = &rule.kind else {
+        panic!("it compiles as an ordinary existence rule");
+    };
+    assert!(pattern.is_backtracking());
+
+    let found = Linter::new(vec![rule]).check("a.md", &[para("write eg, not e.g.")], None);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].found, "eg");
+}
+
+/// Even from the trust plane the engine is on a budget, and running out is an
+/// answer of its own rather than an empty result.
+#[cfg(feature = "fancy")]
+#[test]
+fn a_pattern_that_runs_out_of_budget_says_so_instead_of_finding_nothing() {
+    let rule = Rule::parse(
+        "X.Catastrophic",
+        "extends: existence\nnonword: true\nraw:\n  - '((?=a)a+)+b'\n",
+        Trust::Trusted,
+    )
+    .expect("it compiles; it is the matching that is expensive");
+
+    let subject = format!("{}c", "a".repeat(40));
+    let report = Linter::new(vec![rule]).check_report("a.md", &[para(&subject)], None);
+
+    assert!(report.findings.is_empty());
+    assert_eq!(report.not_run.len(), 1, "the rule must be named");
+    assert_eq!(report.not_run[0].rule, "X.Catastrophic");
+    assert_eq!(report.not_run[0].extends, "backtrack budget");
 }
 
 #[test]
 fn a_pattern_that_is_merely_broken_is_still_the_author_s_mistake() {
-    let error = Rule::parse("X.Broken", "extends: existence\ntokens: ['(']\n")
-        .expect_err("an unbalanced group is not look-around");
+    let error = Rule::parse(
+        "X.Broken",
+        "extends: existence\ntokens: ['(']\n",
+        Trust::Trusted,
+    )
+    .expect_err("an unbalanced group is not look-around");
     assert!(matches!(error, RuleError::Pattern { .. }), "{error:?}");
 }
 
@@ -752,6 +806,7 @@ nonword: true
 tokens:
   - '\(\?=' 
 ",
+        Trust::Trusted,
     )
     .expect("parses");
     assert!(

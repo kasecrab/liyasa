@@ -1,6 +1,7 @@
 use liyasa_core::diagnostics::Severity;
 
 use super::*;
+use crate::core::prose::rule::Trust;
 use crate::core::prose::{Linter, Passage, Scope};
 use crate::core::spell::{Dictionary, SpellChecker};
 
@@ -38,7 +39,7 @@ fn rules_that_fired(passages: &[Passage]) -> Vec<String> {
 #[test]
 fn every_bundled_rule_parses() {
     for (name, source) in RULES {
-        Rule::parse(name, source).unwrap_or_else(|error| panic!("{name}: {error}"));
+        Rule::parse(name, source, Trust::Trusted).unwrap_or_else(|error| panic!("{name}: {error}"));
     }
     assert_eq!(liyasa().len(), RULES.len());
 }

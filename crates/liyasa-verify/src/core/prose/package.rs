@@ -18,7 +18,7 @@ use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use liyasa_core::vfs::{Vfs, VfsKind, VfsPath};
 
 use super::ini::ValeIni;
-use super::rule::{Level, Rule};
+use super::rule::{Level, Rule, Trust};
 use crate::core::spell::Dictionary;
 
 /// Directories under `StylesPath` that hold configuration, not a style.
@@ -56,7 +56,12 @@ pub struct Package {
 ///
 /// `base` is the directory the config file sits in, because `StylesPath` is
 /// relative to it.
-pub fn load(vfs: &dyn Vfs, ini: &ValeIni, base: &VfsPath) -> Package {
+///
+/// `trust` is where the package came from. CFG-95 does not put `.vale.ini` or
+/// `StylesPath` in the trust plane, so in an untrusted build these files are
+/// the contributor's; pass [`Trust::Untrusted`] and a pattern that would need
+/// a backtracking engine is delegated instead of compiled (RFC 1307).
+pub fn load(vfs: &dyn Vfs, ini: &ValeIni, base: &VfsPath, trust: Trust) -> Package {
     let root = base.join(&ini.styles_path);
     let mut package = Package {
         rules: Vec::new(),
@@ -74,14 +79,14 @@ pub fn load(vfs: &dyn Vfs, ini: &ValeIni, base: &VfsPath) -> Package {
             continue;
         };
         let name = format!("{style}.{stem}");
-        match read_rule(vfs, path, &name) {
+        match read_rule(vfs, path, &name, trust) {
             Ok(rule) => package.rules.push(rule),
             Err(problem) => package.problems.push(Diagnostic::new(code::E0633, problem)),
         }
     }
 
     report_missing_styles(&mut package, ini, &root);
-    read_vocabularies(vfs, ini, &root, &mut package);
+    read_vocabularies(vfs, ini, &root, &mut package, trust);
     package
 }
 
@@ -101,12 +106,12 @@ fn rule_name(root: &VfsPath, path: &VfsPath) -> Option<(String, String)> {
     Some((style.to_owned(), stem.to_owned()))
 }
 
-fn read_rule(vfs: &dyn Vfs, path: &VfsPath, name: &str) -> Result<Rule, String> {
+fn read_rule(vfs: &dyn Vfs, path: &VfsPath, name: &str, trust: Trust) -> Result<Rule, String> {
     let bytes = vfs
         .read(path)
         .map_err(|error| format!("`{path}` could not be read: {error}"))?;
     let text = std::str::from_utf8(&bytes).map_err(|_| format!("`{path}` is not valid UTF-8"))?;
-    Rule::parse(name, text)
+    Rule::parse(name, text, trust)
         .map_err(|error| format!("`{path}` is not a rule Liyasa can run: {error}"))
 }
 
@@ -136,7 +141,13 @@ fn report_missing_styles(package: &mut Package, ini: &ValeIni, root: &VfsPath) {
 /// Vale 3 keeps vocabularies at `<StylesPath>/config/vocabularies/<name>`;
 /// Vale 2 kept them at `<StylesPath>/Vocab/<name>`. Both are read, because a
 /// project that upgraded Vale did not necessarily move the directory.
-fn read_vocabularies(vfs: &dyn Vfs, ini: &ValeIni, root: &VfsPath, package: &mut Package) {
+fn read_vocabularies(
+    vfs: &dyn Vfs,
+    ini: &ValeIni,
+    root: &VfsPath,
+    package: &mut Package,
+    trust: Trust,
+) {
     for name in &ini.vocab {
         let mut found = false;
         for dir in [
@@ -170,6 +181,7 @@ fn read_vocabularies(vfs: &dyn Vfs, ini: &ValeIni, root: &VfsPath, package: &mut
         Level::Error,
         "Use of '%s' is not permitted.",
         &package.vocabulary.reject,
+        trust,
     ) {
         Ok(rule) => package.rules.push(rule),
         Err(error) => package.problems.push(Diagnostic::new(

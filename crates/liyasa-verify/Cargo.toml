@@ -10,11 +10,28 @@ description = "The verification engine: in-process runners, link and structural 
 [lints]
 workspace = true
 
+[features]
+# Off by default. Turning it on lets a rule package **from the trust plane**
+# use regex look-around, which takes Google's and Microsoft's styles from 67
+# of 83 rules to 81 (RFC 1307). An untrusted package never reaches the
+# backtracking engine whether this is on or off, and with it off the build is
+# byte-identical to one before the feature existed.
+#
+# Making it default needs a PRD §6.2.1 row, which is above this package;
+# `NEEDS-INPUT.md` carries the ask.
+fancy = ["dep:fancy-regex"]
+
 [dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
 jsonschema.workspace = true
 schemars.workspace = true
 regex.workspace = true
+# Already in the tree twice at these exact versions — 0.16.2 through syntect's
+# `regex-fancy` feature, 0.19.2 through `jsonschema`, which this crate already
+# depends on directly — so this adds no crate to the graph. Pinned here rather
+# than in `[workspace.dependencies]` because the root manifest is not this
+# package's to add a table row to.
+fancy-regex = { version = "0.19.2", optional = true }
 serde.workspace = true
 zeroize.workspace = true
 serde_json.workspace = true
