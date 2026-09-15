@@ -426,3 +426,32 @@ paths:
     );
     assert!(pair.prefix_items[1].is(SchemaType::Integer));
 }
+
+/// Generated specs emit `summary: ""` for every operation they have nothing to
+/// say about. Twilio's does, and an empty title is worse than the selector.
+#[test]
+fn a_key_written_but_left_empty_is_read_as_not_written() {
+    const BLANK: &str = r##"
+openapi: 3.1.0
+info: { title: Widgets, version: "1" }
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      summary: ""
+      description: "   "
+      responses: { "200": { description: ok } }
+"##;
+    let loaded = load::from_bytes("api", "api.yaml", BLANK.as_bytes()).expect("loads");
+    assert!(
+        !loaded.diagnostics.has_errors(),
+        "{:?}",
+        loaded.diagnostics.as_slice()
+    );
+    let operation = loaded
+        .spec
+        .by_operation_id("listWidgets")
+        .expect("the operation is there");
+    assert_eq!(operation.operation.summary, None);
+    assert_eq!(operation.operation.description, None);
+}

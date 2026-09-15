@@ -112,9 +112,25 @@ impl std::fmt::Display for At {
     }
 }
 
-/// How deep a self-referential schema is expanded before the reader stops and
-/// leaves a named stub for the reader interface to expand on demand (API-11).
-const DEPTH_LIMIT: usize = 12;
+/// How deep a schema is expanded before the reader stops and leaves a named
+/// stub for the reader interface to expand on demand (API-11).
+///
+/// One level deeper than [`crate::field::DEPTH`], which is as far as a table
+/// is ever drawn: expanding what no page renders costs memory and buys
+/// nothing.
+const DEPTH_LIMIT: usize = crate::field::DEPTH + 1;
+
+/// How many `$ref`s one document may inline before every further one becomes a
+/// stub (RFC 0805).
+///
+/// Depth alone does not bound this. A `$ref` is resolved by inlining, so a
+/// schema graph that is wide as well as deep multiplies: Stripe's 6 MB spec
+/// exhausted 13 GB at the old depth of 12 and took the machine with it. The
+/// budget makes a document cost what its references cost rather than what the
+/// shape of its graph costs.
+// TODO(rfc-0805): the budget is per document, which is per spec; a site with
+// several specs pays it once each.
+const EXPANSION_BUDGET: usize = 20_000;
 
 /// How many `$ref` hops a chain may take before the reader calls it a mistake
 /// rather than a chain.
@@ -125,6 +141,8 @@ pub struct Reader<'a> {
     diagnostics: Diagnostics,
     /// `doc#pointer` of every reference currently being followed.
     stack: Vec<String>,
+    /// References left to inline before the rest become stubs (RFC 0805).
+    budget: usize,
 }
 
 impl<'a> Reader<'a> {
@@ -133,6 +151,7 @@ impl<'a> Reader<'a> {
             docs,
             diagnostics: Diagnostics::new(),
             stack: Vec::new(),
+            budget: EXPANSION_BUDGET,
         }
     }
 
@@ -197,9 +216,13 @@ impl<'a> Reader<'a> {
             if let Some(found) = component_name(&target.pointer) {
                 name = Some(found);
             }
-            if self.stack.contains(&target.key()) || self.stack.len() >= DEPTH_LIMIT {
+            if self.stack.contains(&target.key())
+                || self.stack.len() >= DEPTH_LIMIT
+                || self.budget == 0
+            {
                 return Followed::Cycle(name);
             }
+            self.budget -= 1;
             let Some(document) = self.docs.get(&target.doc) else {
                 self.diagnostics.push(
                     Diagnostic::new(
@@ -277,9 +300,14 @@ impl<'a> Reader<'a> {
 
     // ---- leaves ----
 
+    /// A key written but left empty is read as not written. Generated specs
+    /// emit `summary: ""` and `description: ""` for everything they have
+    /// nothing to say about — Twilio's does — and a page whose title is the
+    /// empty string is worse than one that falls back to its selector.
     fn string(&mut self, value: &Value, at: &At, key: &str) -> Option<String> {
         let found = crate::tree::field(value, key)?;
         match as_str(found) {
+            Some(text) if text.trim().is_empty() => None,
             Some(text) => Some(text.to_owned()),
             None => {
                 self.complain(&at.push(key), "expected a string");
