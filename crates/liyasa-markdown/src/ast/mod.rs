@@ -71,6 +71,7 @@ pub fn parse(
     let mut builder = build::Builder {
         written: Default::default(),
         diagnostics: Diagnostics::new(),
+        deep: false,
         positions: pos::Positions::new(
             source_of(expanded),
             &rewritten.text,

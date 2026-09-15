@@ -19,6 +19,15 @@ use crate::directives::{info, rewrite, tag};
 /// The identity every block carries until the identity pass runs.
 pub const UNASSIGNED: BlockId = BlockId([0; 12]);
 
+/// How deep a page may nest before the parser stops walking.
+///
+/// comrak's own parser is iterative and will happily hand back twenty thousand
+/// nested blockquotes; every pass over the tree after it recurses with the
+/// nesting, and a stack overflow aborts the process rather than failing the
+/// page. The reference CommonMark implementation draws the same line, and no
+/// document a person wrote comes close to it.
+pub const MAX_NESTING: usize = 128;
+
 pub struct Builder<'a> {
     pub positions: pos::Positions<'a>,
     pub table: &'a DirectiveTable,
@@ -29,6 +38,8 @@ pub struct Builder<'a> {
     /// answer: whether a container was closed or merely ran out of input.
     pub lines: Vec<&'a str>,
     pub diagnostics: Diagnostics,
+    /// Set once the nesting limit has been reported.
+    pub deep: bool,
     /// How each component was written, by the span it occupies. A component
     /// block cannot tell you on its own whether it was `:::card` with an empty
     /// body or `::card`, and `E0317` is exactly that difference.
@@ -38,7 +49,7 @@ pub struct Builder<'a> {
 impl Builder<'_> {
     pub fn document<'a>(&mut self, root: &'a AstNode<'a>) -> Block {
         let mut block = self
-            .block(root)
+            .block(root, 0)
             .unwrap_or_else(|| self.empty(BlockKind::Document));
         block.kind = BlockKind::Document;
         block
@@ -54,8 +65,12 @@ impl Builder<'_> {
         }
     }
 
-    fn block<'a>(&mut self, node: &'a AstNode<'a>) -> Option<Block> {
+    fn block<'a>(&mut self, node: &'a AstNode<'a>, depth: usize) -> Option<Block> {
         let data = node.data.borrow();
+        if depth > MAX_NESTING {
+            self.too_deep(self.positions.span(data.sourcepos));
+            return None;
+        }
         let span = self.positions.span(data.sourcepos);
         let kind = match &data.value {
             NodeValue::Document => BlockKind::Document,
@@ -189,7 +204,7 @@ impl Builder<'_> {
             explicit_id: None,
             kind,
             origin: self.positions.origin(span),
-            children: self.children(node),
+            children: self.children(node, depth),
         })
     }
 
@@ -251,33 +266,40 @@ impl Builder<'_> {
         }
     }
 
-    fn children<'a>(&mut self, node: &'a AstNode<'a>) -> Vec<Node> {
+    fn children<'a>(&mut self, node: &'a AstNode<'a>, depth: usize) -> Vec<Node> {
         let mut out = Vec::new();
         for child in node.children() {
             if is_inline(&child.data.borrow().value) {
-                let inlines = self.inlines(node);
+                let inlines = self.inlines(node, depth);
                 out.extend(inlines.into_iter().map(Node::Inline));
                 return tag::nest_blocks(out);
             }
-            if let Some(block) = self.block(child) {
+            if let Some(block) = self.block(child, depth + 1) {
                 out.push(Node::Block(block));
             }
         }
         tag::nest_blocks(out)
     }
 
-    fn inlines<'a>(&mut self, node: &'a AstNode<'a>) -> Vec<Inline> {
-        let out: Vec<Inline> = node.children().filter_map(|c| self.inline(c)).collect();
+    fn inlines<'a>(&mut self, node: &'a AstNode<'a>, depth: usize) -> Vec<Inline> {
+        let out: Vec<Inline> = node
+            .children()
+            .filter_map(|c| self.inline(c, depth + 1))
+            .collect();
         crate::directives::inline::scan(tag::nest_inlines(out))
     }
 
-    fn inline<'a>(&mut self, node: &'a AstNode<'a>) -> Option<Inline> {
+    fn inline<'a>(&mut self, node: &'a AstNode<'a>, depth: usize) -> Option<Inline> {
         let data = node.data.borrow();
+        if depth > MAX_NESTING {
+            self.too_deep(self.positions.span(data.sourcepos));
+            return None;
+        }
         Some(match &data.value {
             NodeValue::Text(text) => Inline::Text(text.to_string()),
-            NodeValue::Emph => Inline::Emph(self.inlines(node)),
-            NodeValue::Strong => Inline::Strong(self.inlines(node)),
-            NodeValue::Strikethrough => Inline::Strike(self.inlines(node)),
+            NodeValue::Emph => Inline::Emph(self.inlines(node, depth)),
+            NodeValue::Strong => Inline::Strong(self.inlines(node, depth)),
+            NodeValue::Strikethrough => Inline::Strike(self.inlines(node, depth)),
             NodeValue::Code(code) => Inline::Code(code.literal.clone()),
             NodeValue::HtmlInline(html) => Inline::HtmlInline(html.clone()),
             NodeValue::SoftBreak => Inline::SoftBreak,
@@ -285,18 +307,18 @@ impl Builder<'_> {
             NodeValue::Link(link) => Inline::Link {
                 href: link.url.clone(),
                 title: (!link.title.is_empty()).then(|| link.title.clone()),
-                children: self.inlines(node),
+                children: self.inlines(node, depth),
                 resolved: None,
             },
             NodeValue::WikiLink(link) => Inline::Link {
                 href: link.url.clone(),
                 title: None,
-                children: self.inlines(node),
+                children: self.inlines(node, depth),
                 resolved: None,
             },
             NodeValue::Image(image) => Inline::Image {
                 src: image.url.clone(),
-                alt: plain(&self.inlines(node)),
+                alt: plain(&self.inlines(node, depth)),
                 title: (!image.title.is_empty()).then(|| image.title.clone()),
                 dark: None,
             },
@@ -311,23 +333,40 @@ impl Builder<'_> {
             NodeValue::Raw(text) => Inline::HtmlInline(text.clone()),
             // The remaining inline extensions have no variant of their own in
             // the frozen `Inline`, so they reach the theme as components.
-            NodeValue::Superscript => self.wrapped("sup", node),
-            NodeValue::Subscript => self.wrapped("sub", node),
-            NodeValue::Underline => self.wrapped("underline", node),
-            NodeValue::Highlight => self.wrapped("mark", node),
-            NodeValue::Insert => self.wrapped("insert", node),
-            NodeValue::SpoileredText => self.wrapped("spoiler", node),
-            NodeValue::Subtext => self.wrapped("subtext", node),
+            NodeValue::Superscript => self.wrapped("sup", node, depth),
+            NodeValue::Subscript => self.wrapped("sub", node, depth),
+            NodeValue::Underline => self.wrapped("underline", node, depth),
+            NodeValue::Highlight => self.wrapped("mark", node, depth),
+            NodeValue::Insert => self.wrapped("insert", node, depth),
+            NodeValue::SpoileredText => self.wrapped("spoiler", node, depth),
+            NodeValue::Subtext => self.wrapped("subtext", node, depth),
             _ => return None,
         })
     }
 
-    fn wrapped<'a>(&mut self, name: &str, node: &'a AstNode<'a>) -> Inline {
+    fn wrapped<'a>(&mut self, name: &str, node: &'a AstNode<'a>, depth: usize) -> Inline {
         Inline::InlineComponent {
             name: name.to_owned(),
             props: Props::default(),
-            children: self.inlines(node),
+            children: self.inlines(node, depth),
         }
+    }
+
+    /// Reported once: a page that nests past the limit would otherwise report
+    /// one error per level all the way down.
+    fn too_deep(&mut self, span: Span) {
+        if self.deep {
+            return;
+        }
+        self.deep = true;
+        self.diagnostics.push(
+            Diagnostic::new(
+                liyasa_core::diagnostics::code::E0322,
+                format!("this page nests more than {MAX_NESTING} levels deep"),
+            )
+            .at(span)
+            .help("the content below that point was not parsed"),
+        );
     }
 }
 

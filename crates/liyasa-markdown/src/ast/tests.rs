@@ -423,3 +423,43 @@ fn a_tag_may_contain_a_directive() {
         Vec::<&str>::new()
     );
 }
+
+/// Every pass over the tree recurses with its nesting, and a stack overflow
+/// aborts the process rather than failing the page. These are the shapes that
+/// really do nest, so each must be stopped and reported.
+#[test]
+fn nesting_past_the_limit_is_reported() {
+    for (name, source) in [
+        ("blockquote", format!("{}deep\n", "> ".repeat(20_000))),
+        ("list", format!("{}deep\n", "- ".repeat(20_000))),
+        ("directive", format!("{}\ndeep\n", ":::a\n".repeat(2_000))),
+    ] {
+        let parsed = document(&source);
+        assert!(
+            codes(&parsed).contains(&"E0322"),
+            "{name} nested past the limit and was not reported"
+        );
+        assert_eq!(
+            codes(&parsed).iter().filter(|c| **c == "E0322").count(),
+            1,
+            "{name} reported the limit more than once"
+        );
+    }
+}
+
+/// The shapes comrak leaves flat must not cost a stack frame each either.
+#[test]
+fn adversarial_input_that_does_not_nest_still_parses() {
+    for source in [
+        format!("{}deep\n", "*".repeat(20_000)),
+        format!("{}deep\n", "[".repeat(20_000)),
+        format!("{}deep\n", ":a[".repeat(20_000)),
+        format!("{}deep\n", "<!--ly:".repeat(20_000)),
+        // A tag nests only while its generated fence fits on the line, so a
+        // deep stack of short tags stays the HTML comrak made of it.
+        format!("{}deep\n", "<Card>\n".repeat(2_000)),
+        format!("{}\n", "a ".repeat(50_000)),
+    ] {
+        let _ = document(&source);
+    }
+}
