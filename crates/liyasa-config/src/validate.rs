@@ -92,6 +92,7 @@ impl Run<'_> {
             return;
         };
         let mut parsed: BTreeMap<&str, Color> = BTreeMap::new();
+        let mut backgrounds: Vec<Color> = Vec::new();
         for (key, value) in colors.as_object().into_iter().flatten() {
             let Some(text) = value.as_str() else {
                 continue; // `background` is an object; its two keys are below
@@ -112,17 +113,43 @@ impl Run<'_> {
             }
         }
 
-        // Primary is a button background; the label on it is `text` when the
-        // theme sets one and white otherwise.
-        let on_primary = parsed
-            .get("text")
-            .copied()
-            .unwrap_or(Color::new(255, 255, 255));
+        for scheme in ["light", "dark"] {
+            let at = format!("/theme/colors/background/{scheme}");
+            let Some(value) = self.config.pointer(&at).and_then(Value::as_str) else {
+                continue;
+            };
+            match Color::parse(value) {
+                Parsed::Known(color) => {
+                    backgrounds.push(color);
+                }
+                Parsed::Malformed => self.report(
+                    Diagnostic::new(
+                        code::E0132,
+                        format!("`{value}` is not a colour Liyasa can read"),
+                    )
+                    .help("write a hex colour such as `#4F46E5`, `rgb(…)`, or `hsl(…)`"),
+                    &at,
+                ),
+                Parsed::Unresolved => {}
+            }
+        }
+
+        // Primary is a fill, and the theme picks the label on it: white, the
+        // configured text colour, or the page background, whichever clears AA
+        // (`--ly-color-primary-contrast`). A colour is only reported when none
+        // of them does, so a dark `text` over a dark `primary` is not a finding
+        // — that pair never meets on a button.
+        let mut labels = vec![Color::new(255, 255, 255)];
+        labels.extend(parsed.get("text").copied());
+        labels.extend(backgrounds);
         for key in ["primary", "light", "dark"] {
             let Some(color) = parsed.get(key).copied() else {
                 continue;
             };
-            let ratio = contrast(color, on_primary);
+            let ratio = labels
+                .iter()
+                .map(|label| contrast(color, *label))
+                .fold(f64::NEG_INFINITY, f64::max);
             if ratio < AA_NORMAL {
                 self.report(
                     Diagnostic::new(
@@ -133,7 +160,9 @@ impl Run<'_> {
                         ),
                     )
                     .with_severity(Severity::Warning)
-                    .help("darken the colour, or set `theme.colors.text` to a label colour that clears AA"),
+                    .help(
+                        "darken the colour, or set `theme.colors.text` to a label colour that clears AA",
+                    ),
                     &format!("/theme/colors/{key}"),
                 );
             }
