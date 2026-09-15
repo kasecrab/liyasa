@@ -55,10 +55,13 @@ fn png(width: u32, height: u32) -> Vec<u8> {
 }
 
 /// The real breakpoints are 640..1920; the fixtures are small so that a debug
-/// build's AVIF encoder stays inside the test suite's budget.
+/// build's encoders stay inside the test suite's budget. Both formats are
+/// named because a site may ask for AVIF today even though the encoder is one
+/// licence row away (`plan/rfcs/0604-avif-and-the-licence-allow-list.md`).
 fn settings() -> Settings {
     Settings {
         breakpoints: vec![64, 128],
+        formats: vec![Format::Avif, Format::Webp],
         ..Settings::default()
     }
 }
@@ -74,14 +77,14 @@ fn plan_of(original: &[u8]) -> images::Plan {
 }
 
 #[test]
-fn a_plan_names_avif_and_webp_at_every_breakpoint_under_the_original() {
+fn a_plan_names_every_configured_format_at_every_breakpoint_under_the_original() {
     let plan = plan_of(&png(100, 50));
     assert_eq!(plan.formats(), vec![Format::Avif, Format::Webp]);
-    let avif = plan.srcset(Format::Avif);
-    assert!(avif.contains("/64.avif 64w"), "{avif}");
-    assert!(avif.ends_with("/100.avif 100w"), "{avif}");
-    assert!(!avif.contains("128"), "never upscaled: {avif}");
-    assert_eq!(plan.srcset(Format::Webp).matches(".webp ").count(), 2);
+    let webp = plan.srcset(Format::Webp);
+    assert!(webp.contains("/64.webp 64w"), "{webp}");
+    assert!(webp.ends_with("/100.webp 100w"), "{webp}");
+    assert!(!webp.contains("128"), "never upscaled: {webp}");
+    assert_eq!(plan.srcset(Format::Avif).matches(".avif ").count(), 2);
 }
 
 #[test]
@@ -92,9 +95,14 @@ fn the_original_is_retained_and_stays_the_fallback() {
 }
 
 #[test]
-fn the_eager_pre_pass_writes_every_variant_and_they_are_real_images() {
+fn the_eager_pre_pass_writes_every_variant_it_can_encode() {
     let original = png(100, 50);
     let plan = plan_of(&original);
+    let webp: Vec<_> = plan
+        .derived
+        .iter()
+        .filter(|derived| derived.variant.format == Format::Webp)
+        .collect();
     let cache = Memory::default();
     let tier = Tier {
         cache: &cache,
@@ -102,23 +110,17 @@ fn the_eager_pre_pass_writes_every_variant_and_they_are_real_images() {
     };
 
     let report = tier.pre_pass(&original, &plan);
-    assert_eq!(report.failed, 0);
-    assert_eq!(report.generated, plan.derived.len() as u64);
+    assert_eq!(report.generated, webp.len() as u64);
+    // AVIF is planned and reported rather than silently dropped (RFC 0604).
+    assert_eq!(report.failed, plan.derived.len() as u64 - webp.len() as u64);
 
-    for derived in &plan.derived {
+    for derived in webp {
         let bytes = tier
             .variant(&original, derived, plan.source_fingerprint)
             .expect("a variant");
-        match derived.variant.format {
-            // AVIF decoding needs the native decoder, which is not in the tree;
-            // the box type is what says this is an AVIF file.
-            Format::Avif => assert_eq!(&bytes[4..12], b"ftypavif"),
-            _ => {
-                assert_eq!(&bytes[..4], b"RIFF");
-                let (width, _) = ImageCodec.dimensions(&bytes).expect("a decodable webp");
-                assert_eq!(width, derived.variant.width);
-            }
-        }
+        assert_eq!(&bytes[..4], b"RIFF");
+        let (width, _) = ImageCodec.dimensions(&bytes).expect("a decodable webp");
+        assert_eq!(width, derived.variant.width);
     }
 }
 
@@ -131,7 +133,11 @@ fn the_lazy_tier_generates_on_first_request_and_serves_the_cache_on_the_second()
         cache: &cache,
         encoder: &ImageCodec,
     };
-    let derived = plan.derived.first().expect("a variant");
+    let derived = plan
+        .derived
+        .iter()
+        .find(|derived| derived.variant.format == Format::Webp)
+        .expect("a webp variant");
 
     assert!(!tier.is_cached(derived), "a clean build encodes nothing");
     let first = tier
@@ -149,7 +155,7 @@ fn a_changed_source_changes_every_variant_url() {
     let before = plan_of(&png(100, 50));
     let after = plan_of(&png(100, 51));
     assert_ne!(before.source_fingerprint, after.source_fingerprint);
-    assert_ne!(before.srcset(Format::Avif), after.srcset(Format::Avif));
+    assert_ne!(before.srcset(Format::Webp), after.srcset(Format::Webp));
 }
 
 #[test]

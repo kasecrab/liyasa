@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use liyasa_core::build::Variant;
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
+use liyasa_core::document::{Segment, SourceDocument};
 use liyasa_core::ids::{Locale, Route, Version};
 use liyasa_core::markdown::ExpansionRecord;
 
@@ -50,6 +51,9 @@ pub struct Coordinates {
 pub struct Reads {
     /// `reader.<field>` names, as recorded by expansion.
     pub reader_fields: BTreeSet<String>,
+    /// Dimension names the page reads: `version`, `locale`, `product`,
+    /// `region`.
+    pub dimensions: BTreeSet<String>,
     /// Group names the page mentions.
     pub groups: BTreeSet<String>,
     /// Regions the page names.
@@ -62,10 +66,21 @@ impl Reads {
     /// The union of what the syntactic walk found and what a render recorded
     /// (§6.6.3 item 1): discovery repeats until this stops growing.
     pub fn absorb(&mut self, record: &ExpansionRecord) -> bool {
-        let before = self.reader_fields.len();
+        let before = (self.reader_fields.len(), self.dimensions.len());
         self.reader_fields
             .extend(record.reader_fields.iter().cloned());
-        self.reader_fields.len() != before
+        self.dimensions.extend(record.dimensions.iter().cloned());
+        (self.reader_fields.len(), self.dimensions.len()) != before
+    }
+
+    /// Folds the syntactic scan in, so discovery starts from every branch
+    /// rather than from the one the first render took.
+    pub fn absorb_syntactic(&mut self, other: &Reads) -> bool {
+        let before = (self.reader_fields.len(), self.dimensions.len());
+        self.reader_fields
+            .extend(other.reader_fields.iter().cloned());
+        self.dimensions.extend(other.dimensions.iter().cloned());
+        (self.reader_fields.len(), self.dimensions.len()) != before
     }
 
     /// Fields that cannot be enumerated, which is what makes a page dynamic.
@@ -97,6 +112,80 @@ impl Outcome {
     pub fn is_dynamic(&self) -> bool {
         self.mode == Mode::Dynamic
     }
+}
+
+/// The syntactic half of discovery (§6.6.3 item 1).
+///
+/// minijinja executes one branch of a conditional per render and cannot report
+/// the others, so the template text is read for every `reader.<field>`,
+/// dimension, and `env()` a page mentions, whichever branch it is in. It is an
+/// over-approximation on purpose: a page that mentions `reader.plan` inside an
+/// `{% else %}` is dynamic whether or not the first render took that branch.
+///
+/// The scan reads the template segments the scanner already found, so prose
+/// that happens to contain `reader.name` is not mistaken for a read.
+// TODO(rfc-0602): §6.6.3 names `minijinja::machinery::parse` behind
+// `unstable_machinery`, which lives in `liyasa_markdown::tmpl::walk` and does
+// not exist yet; this reads the same text without the unstable API.
+pub fn syntactic(text: &str, document: &SourceDocument) -> Reads {
+    let mut reads = Reads::default();
+    for segment in &document.segments {
+        let span = match segment {
+            Segment::Template { span, .. } => span,
+            _ => continue,
+        };
+        let Some(source) = text.get(span.start as usize..span.end as usize) else {
+            continue;
+        };
+        for field in reader_fields(source) {
+            reads.reader_fields.insert(field);
+        }
+        for dimension in ["version", "locale", "product", "region"] {
+            if mentions_identifier(source, dimension) {
+                reads.dimensions.insert(dimension.to_owned());
+            }
+        }
+    }
+    reads
+}
+
+/// Every `reader.<field>` in one template expression.
+fn reader_fields(source: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut rest = source;
+    while let Some(at) = rest.find("reader.") {
+        let after = &rest[at + "reader.".len()..];
+        let name: String = after
+            .chars()
+            .take_while(|ch| ch.is_alphanumeric() || *ch == '_')
+            .collect();
+        if !name.is_empty() {
+            out.push(name);
+        }
+        if after.is_empty() {
+            break;
+        }
+        rest = &after[1..];
+    }
+    out
+}
+
+/// Whether an identifier appears as a word rather than inside another name.
+fn mentions_identifier(source: &str, identifier: &str) -> bool {
+    let mut at = 0;
+    while let Some(found) = source[at..].find(identifier) {
+        let start = at + found;
+        let end = start + identifier.len();
+        let before = source[..start].chars().next_back();
+        let after = source[end..].chars().next();
+        let boundary =
+            |ch: Option<char>| ch.is_none_or(|ch| !ch.is_alphanumeric() && ch != '_' && ch != '.');
+        if boundary(before) && boundary(after) {
+            return true;
+        }
+        at = end;
+    }
+    false
 }
 
 /// The variant set of one page.
@@ -361,7 +450,7 @@ mod tests {
             reader_fields: reader.iter().map(|f| (*f).to_owned()).collect(),
             groups: groups.iter().map(|g| (*g).to_owned()).collect(),
             regions: regions.iter().map(|r| (*r).to_owned()).collect(),
-            personalized: false,
+            ..Reads::default()
         }
     }
 
@@ -536,5 +625,51 @@ mod path_tests {
             paths.values().next().map(String::as_str),
             Some("v1/guides/install/index.html")
         );
+    }
+}
+
+#[cfg(test)]
+mod syntactic_tests {
+    use liyasa_core::span::SourceId;
+
+    use super::*;
+
+    fn scan(text: &str) -> Reads {
+        let (document, diagnostics) = liyasa_markdown::scan(text, SourceId(0));
+        assert!(!diagnostics.has_errors(), "{diagnostics:?}");
+        syntactic(text, &document)
+    }
+
+    #[test]
+    fn a_reader_field_in_an_untaken_branch_is_still_found() {
+        let reads = scan("{% if false %}{{ reader.plan }}{% else %}Hello{% endif %}\n");
+        assert!(reads.reader_fields.contains("plan"), "{reads:?}");
+        assert_eq!(reads.free_form(), vec!["plan"]);
+    }
+
+    #[test]
+    fn every_branch_contributes() {
+        let reads = scan("{% if a %}{{ reader.groups }}{% else %}{{ reader.name }}{% endif %}\n");
+        assert!(reads.reader_fields.contains("groups"));
+        assert!(reads.reader_fields.contains("name"));
+    }
+
+    #[test]
+    fn prose_that_mentions_a_field_is_not_a_read() {
+        let reads = scan("The `reader.name` field is documented here.\n");
+        assert!(reads.reader_fields.is_empty(), "{reads:?}");
+    }
+
+    #[test]
+    fn a_dimension_read_is_recorded() {
+        let reads = scan("{% if version == \"v2\" %}new{% endif %}\n");
+        assert!(reads.dimensions.contains("version"), "{reads:?}");
+        assert!(!reads.dimensions.contains("locale"));
+    }
+
+    #[test]
+    fn a_longer_name_is_not_a_dimension_read() {
+        let reads = scan("{{ versions_list }}\n");
+        assert!(reads.dimensions.is_empty(), "{reads:?}");
     }
 }

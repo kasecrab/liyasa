@@ -8,7 +8,6 @@
 
 use std::io::Cursor;
 
-use image::codecs::avif::AvifEncoder;
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType as PngFilter, PngEncoder};
 use image::codecs::webp::WebPEncoder;
@@ -21,8 +20,6 @@ use super::{Encoder, ImageError, Variant};
 /// HTML, large enough to suggest the image.
 const PLACEHOLDER_WIDTH: u32 = 16;
 
-const AVIF_SPEED: u8 = 4;
-const AVIF_QUALITY: u8 = 70;
 const JPEG_QUALITY: u8 = 82;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -52,16 +49,11 @@ impl ImageCodec {
             result.map_err(|error| ImageError::Encode(error.to_string()))
         };
         match variant.format {
+            // TODO(rfc-0604): the AVIF encoder is `ravif`, whose transitive
+            // `libfuzzer-sys` `deny.toml` rejects. The variant is planned and
+            // reported rather than silently dropped.
             super::Format::Avif => {
-                let encoder =
-                    AvifEncoder::new_with_speed_quality(&mut out, AVIF_SPEED, AVIF_QUALITY)
-                        .with_num_threads(Some(1));
-                encode(encoder.write_image(
-                    image.to_rgba8().as_raw(),
-                    image.width(),
-                    image.height(),
-                    image::ExtendedColorType::Rgba8,
-                ))?;
+                return Err(ImageError::Unsupported("avif".to_owned()));
             }
             super::Format::Webp => {
                 let encoder = WebPEncoder::new_lossless(&mut out);
@@ -190,8 +182,8 @@ mod tests {
     }
 
     #[test]
-    fn avif_is_produced_and_is_an_avif() {
-        let bytes = ImageCodec
+    fn avif_is_reported_until_its_encoder_is_allowed() {
+        let error = ImageCodec
             .encode(
                 &png(32, 16),
                 &Variant {
@@ -199,9 +191,8 @@ mod tests {
                     format: Format::Avif,
                 },
             )
-            .expect("the avif encodes");
-        assert!(bytes.len() > 12);
-        assert_eq!(&bytes[4..12], b"ftypavif");
+            .expect_err("avif is planned, not encoded (RFC 0604)");
+        assert!(matches!(error, ImageError::Unsupported(kind) if kind == "avif"));
     }
 
     #[test]
@@ -223,7 +214,7 @@ mod tests {
         let original = png(40, 20);
         let variant = Variant {
             width: 20,
-            format: Format::Avif,
+            format: Format::Webp,
         };
         let first = ImageCodec.encode(&original, &variant).expect("first");
         let second = ImageCodec.encode(&original, &variant).expect("second");

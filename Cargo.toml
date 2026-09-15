@@ -59,7 +59,7 @@ two-face = { version = "0.5", default-features = false, features = ["syntect-fan
 fst = { version = "0.4", default-features = false }
 rust-stemmers = { version = "1.2", default-features = false }
 tantivy = { version = "0.26", default-features = false, features = ["mmap"] }
-image = { version = "0.25", default-features = false, features = ["avif", "webp", "png", "jpeg"] }   # the lazy image tier (PRD §6.2.1); `avif` is ravif, `webp` is image-webp
+image = { version = "0.25", default-features = false, features = ["webp", "png", "jpeg"] }   # the lazy image tier (PRD §6.2.1); `avif` is off until `deny.toml` allows NCSA (RFC 0604)
 rayon = { version = "1.12", default-features = false }   # the only parallelism in the workspace, and never in a wasm target (PRD §6.2.1)
 notify = { version = "8.2", default-features = false, features = ["macos_fsevent"] }   # the dev server's file watching (PRD §6.6)
 notify-debouncer-full = { version = "0.6", default-features = false }   # the 50 ms debounce window of §6.6

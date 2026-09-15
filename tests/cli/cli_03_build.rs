@@ -464,3 +464,35 @@ fn cm_92_each_version_gets_its_own_agent_surfaces() {
     let older = project.read_dist("v1/llms.txt");
     assert!(older.contains("/v1/guides/install"), "{older}");
 }
+
+#[test]
+fn a_reader_field_in_an_untaken_branch_still_makes_the_page_dynamic() {
+    let project = Project::new("dynamic");
+    project
+        .write("liyasa.json", r#"{"name":"Acme docs"}"#)
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n")
+        .write(
+            "account.md",
+            "---\ntitle: Account\npersonalized: true\n---\n# Account\n\n\
+             {% if false %}{{ reader.plan }}{% else %}A plan{% endif %}\n",
+        );
+
+    let report = build(&project, options());
+    assert_eq!(report.dynamic, 1, "{:?}", report.diagnostics);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code.as_str() == "W0715"),
+        "{:?}",
+        report.diagnostics
+    );
+
+    let manifest = report.manifest.as_ref().expect("a manifest");
+    let account = manifest
+        .route(&Route::new("/account"))
+        .expect("the page is still routed");
+    assert!(account.dynamic);
+    // §6.6.3 item 4: a dynamic page still ships its default variant.
+    assert_eq!(account.variants.len(), 1);
+}

@@ -649,6 +649,11 @@ fn render_pages(
                 personalized: page.front.personalized.unwrap_or(false),
                 ..Reads::default()
             };
+            // §6.6.3 item 1: the syntactic over-approximation first, so a
+            // reader field in a branch this render will not take still makes
+            // the page dynamic.
+            reads.absorb_syntactic(&variants::syntactic(&text, &source));
+
             let coordinates = Coordinates {
                 versions: page
                     .version

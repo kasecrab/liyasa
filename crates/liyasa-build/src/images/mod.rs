@@ -91,7 +91,9 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             breakpoints: DEFAULT_BREAKPOINTS.to_vec(),
-            formats: vec![Format::Avif, Format::Webp],
+            // TODO(rfc-0604): AVIF joins this list when `deny.toml` allows the
+            // encoder's transitive licence.
+            formats: vec![Format::Webp],
             eager: false,
             base_path: String::new(),
         }
@@ -414,7 +416,22 @@ mod tests {
     #[test]
     fn a_plan_covers_every_format_at_every_breakpoint() {
         let plan = planned(None);
-        assert_eq!(plan.derived.len(), 8);
+        assert_eq!(plan.derived.len(), 4);
+        assert_eq!(plan.formats(), vec![Format::Webp]);
+    }
+
+    #[test]
+    fn a_configured_format_is_planned_whether_or_not_it_encodes_today() {
+        let settings = Settings {
+            formats: vec![Format::Avif, Format::Webp],
+            ..Settings::default()
+        };
+        let plan = plan(
+            &VfsPath::new("assets/hero.png"),
+            Fingerprint::of("bytes"),
+            Some(800),
+            &settings,
+        );
         assert_eq!(plan.formats(), vec![Format::Avif, Format::Webp]);
     }
 
@@ -424,7 +441,7 @@ mod tests {
         let widths: Vec<u32> = plan
             .derived
             .iter()
-            .filter(|derived| derived.variant.format == Format::Avif)
+            .filter(|derived| derived.variant.format == Format::Webp)
             .map(|derived| derived.variant.width)
             .collect();
         assert_eq!(widths, vec![640, 800]);

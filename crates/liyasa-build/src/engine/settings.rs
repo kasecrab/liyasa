@@ -135,7 +135,8 @@ impl Settings {
             formats: strings(value, &["content", "images", "formats"])
                 .map(|names| names.iter().filter_map(|n| Format::parse(n)).collect())
                 .filter(|formats: &Vec<Format>| !formats.is_empty())
-                .unwrap_or_else(|| vec![Format::Avif, Format::Webp]),
+                // TODO(rfc-0604): AVIF is planned but not encoded yet.
+                .unwrap_or_else(|| vec![Format::Webp]),
             eager: bool_at(value, &["build", "images", "eager"]).unwrap_or(false),
             base_path: settings.base_path.clone(),
         };
