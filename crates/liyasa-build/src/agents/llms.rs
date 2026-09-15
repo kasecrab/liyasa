@@ -8,11 +8,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
-use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
+use liyasa_core::diagnostics::{Diagnostic, code};
 use liyasa_core::ids::Route;
 
 use crate::agents::continuation::Continuation;
 use crate::agents::markdown::discovery_directive;
+use crate::agents::resource::{self, Resource, Surfaces};
 use crate::agents::site::{PageRecord, SiteInput};
 
 /// The ceiling the spec's `llms-txt-size` check applies to the root index.
@@ -23,6 +24,9 @@ pub const FULL_PATH: &str = "/llms-full.txt";
 pub const INDEX_DIR: &str = "/_llms";
 pub const FULL_DIR: &str = "/_llms/full";
 
+/// Where the MCP server is mounted (MCP-01).
+pub const MCP_PATH: &str = "/mcp";
+
 /// The section a sub-index split is declared in, first in the root file so the
 /// declaration survives truncation (RX-64).
 const SPLIT_HEADING: &str = "Indexes";
@@ -30,25 +34,6 @@ const SPLIT_HEADING: &str = "Indexes";
 /// Where pages that no navigation section lists are collected, so coverage is
 /// 100% of indexable pages rather than 100% of navigated ones.
 const OTHER_SECTION: &str = "Other";
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Resource {
-    /// Site-absolute path, such as `/llms.txt`.
-    pub path: String,
-    pub body: String,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Surfaces {
-    pub resources: Vec<Resource>,
-    pub diagnostics: Diagnostics,
-}
-
-impl Surfaces {
-    pub fn get(&self, path: &str) -> Option<&Resource> {
-        self.resources.iter().find(|r| r.path == path)
-    }
-}
 
 /// Generates the root index, any sub-indexes it needs, and `llms-full.txt`.
 pub fn generate(site: &SiteInput) -> Surfaces {
@@ -115,10 +100,8 @@ struct Section<'a> {
 fn generated_index(site: &SiteInput, sections: &[Section<'_>], out: &mut Surfaces) {
     let whole = index_body(site, &header(site), sections);
     if whole.chars().count() <= INDEX_MAX_CHARS || !site.agents.llms.split {
-        out.resources.push(Resource {
-            path: ROOT_PATH.to_owned(),
-            body: whole,
-        });
+        out.resources
+            .push(Resource::new(ROOT_PATH, resource::PLAIN_TEXT, whole));
         return;
     }
     split_index(site, sections, out);
@@ -126,7 +109,13 @@ fn generated_index(site: &SiteInput, sections: &[Section<'_>], out: &mut Surface
 
 fn header(site: &SiteInput) -> String {
     let summary = site.summary.as_deref().unwrap_or(&site.name);
-    format!("# {}\n\n> {summary}\n", site.name)
+    let mut out = format!("# {}\n\n> {summary}\n", site.name);
+    // MCP-02 asks for the server URL here; an agent that found the index has
+    // found the richer interface with it.
+    if site.agents.mcp.enabled {
+        let _ = writeln!(out, "\nMCP server: {}", site.origin.resource_url(MCP_PATH));
+    }
+    out
 }
 
 fn index_body(site: &SiteInput, header: &str, sections: &[Section<'_>]) -> String {
@@ -195,15 +184,14 @@ fn split_index(site: &SiteInput, sections: &[Section<'_>], out: &mut Surfaces) {
                 pages: s.pages.clone(),
             })
             .collect();
-        indexes.push(Resource {
+        indexes.push(Resource::new(
             path,
-            body: index_body(site, &header, &owned),
-        });
+            resource::PLAIN_TEXT,
+            index_body(site, &header, &owned),
+        ));
     }
-    out.resources.push(Resource {
-        path: ROOT_PATH.to_owned(),
-        body: root,
-    });
+    out.resources
+        .push(Resource::new(ROOT_PATH, resource::PLAIN_TEXT, root));
     out.resources.extend(indexes);
 }
 
@@ -290,10 +278,8 @@ fn custom_index(site: &SiteInput, body: &str, out: &mut Surfaces) {
         );
     }
 
-    out.resources.push(Resource {
-        path: ROOT_PATH.to_owned(),
-        body: body.to_owned(),
-    });
+    out.resources
+        .push(Resource::new(ROOT_PATH, resource::PLAIN_TEXT, body));
 }
 
 /// Every Markdown link destination in a body, fenced code skipped.
@@ -336,10 +322,8 @@ fn full_text(site: &SiteInput, sections: &[Section<'_>], out: &mut Surfaces) {
     let cap = site.agents.llms.full_max_bytes.max(1) as usize;
     let whole = concatenate(site, &pages);
     if whole.len() <= cap || !site.agents.llms.split {
-        out.resources.push(Resource {
-            path: FULL_PATH.to_owned(),
-            body: whole,
-        });
+        out.resources
+            .push(Resource::new(FULL_PATH, resource::PLAIN_TEXT, whole));
         return;
     }
     split_full_text(site, &pages, cap, out);
@@ -462,18 +446,14 @@ fn split_full_text(site: &SiteInput, pages: &[&PageRecord], cap: usize, out: &mu
             urls[at],
             human_bytes(part_body.len())
         );
-        out.resources.push(Resource {
-            path: paths[at].clone(),
-            body: part_body,
-        });
+        out.resources.push(Resource::new(
+            paths[at].clone(),
+            resource::PLAIN_TEXT,
+            part_body,
+        ));
     }
-    out.resources.insert(
-        0,
-        Resource {
-            path: FULL_PATH.to_owned(),
-            body: root,
-        },
-    );
+    out.resources
+        .insert(0, Resource::new(FULL_PATH, resource::PLAIN_TEXT, root));
 }
 
 fn human_bytes(bytes: usize) -> String {
@@ -593,6 +573,28 @@ mod tests {
         );
         assert!(root.contains("\n## Getting started\n"), "{root}");
         assert!(root.contains("\n## Endpoints\n"), "{root}");
+    }
+
+    #[test]
+    fn mcp_02_the_index_names_the_mcp_server() {
+        let surfaces = generate(&small_site());
+        assert!(
+            root_of(&surfaces).contains("MCP server: https://example.com/mcp"),
+            "{}",
+            root_of(&surfaces)
+        );
+    }
+
+    #[test]
+    fn mcp_02_an_index_names_no_server_when_mcp_is_off() {
+        let mut site = small_site();
+        site.agents.mcp.enabled = false;
+        let surfaces = generate(&site);
+        assert!(
+            !root_of(&surfaces).contains("MCP server"),
+            "{}",
+            root_of(&surfaces)
+        );
     }
 
     #[test]

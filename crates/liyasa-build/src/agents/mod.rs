@@ -7,11 +7,14 @@
 pub mod continuation;
 pub mod llms;
 pub mod markdown;
+pub mod resource;
 pub mod site;
 pub mod size;
+pub mod skill;
 pub mod spec;
 
 pub use markdown::{Page, render_page};
+pub use resource::{Resource, Surfaces};
 pub use site::{
     AgentsSettings, CanonicalOrigin, CustomSkill, FeedsSettings, LlmsSettings, MarkdownSettings,
     McpSettings, NavSection, PageRecord, SiteInput, SkillSettings,
