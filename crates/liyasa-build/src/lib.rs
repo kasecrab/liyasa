@@ -16,6 +16,7 @@ pub mod pool;
 pub mod redirects;
 pub mod render;
 pub mod tree;
+pub mod variants;
 
 pub use liyasa_core::build::{
     ArtifactCache, BuildClock, CacheError, GcReport, OutputFormat, PoolMetrics, RenderBudget,
