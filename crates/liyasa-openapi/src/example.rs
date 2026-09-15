@@ -61,6 +61,11 @@ fn build(schema: &Schema, side: Side, fill: Fill, depth: usize) -> Value {
     if depth == 0 {
         return Value::Null;
     }
+    // A cycle the reader cut: there is nothing left to build from, and an
+    // empty object is closer to the truth than `null`.
+    if schema.is_stub() {
+        return Value::Mapping(Map::new());
+    }
     // A choice is shown by its first alternative; the page's variant selector
     // is what offers the rest (API-11).
     if let Some(first) = schema.variants().first() {
@@ -125,6 +130,9 @@ fn array(schema: &Schema, side: Side, fill: Fill, depth: usize) -> Value {
     let Some(items) = schema.items.as_deref() else {
         return Value::Sequence(Vec::new());
     };
+    if items.is_stub() {
+        return Value::Sequence(Vec::new());
+    }
     let count = schema.min_items.unwrap_or(1).clamp(1, 2) as usize;
     Value::Sequence(
         (0..count)

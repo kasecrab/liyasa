@@ -70,7 +70,7 @@ pub fn render(page: &Page, options: &Options) -> String {
                 row.push_str(&format!(" — {}", inline(description)));
             }
             if !option.scopes.is_empty() {
-                row.push_str(&format!(" Scopes: `{}`", option.scopes.join("`, `")));
+                row.push_str(&format!(" (scopes: `{}`)", option.scopes.join("`, `")));
             }
             out.push_str(&format!("{row}\n"));
         }
@@ -245,6 +245,15 @@ fn rows(out: &mut String, field: &Field, prefix: &str) {
     } else {
         format!("{prefix}.{}", field.name)
     };
+    emit(out, field, &name);
+}
+
+/// One row under the name it is shown as, then everything beneath it.
+///
+/// A variant does not get a row of its own when it has children: the rows are
+/// the children, under `body (cat)`, because a row that only says "object" is
+/// a line the reader has to skip.
+fn emit(out: &mut String, field: &Field, name: &str) {
     let mut ty = field.type_label.clone();
     if let Some(format) = &field.format {
         ty.push_str(&format!(" · {format}"));
@@ -277,16 +286,27 @@ fn rows(out: &mut String, field: &Field, prefix: &str) {
 
     out.push_str(&format!(
         "| `{}` | {} | {} | {} |\n",
-        cell(&name),
+        cell(name),
         cell(&ty),
         if field.required { "yes" } else { "no" },
         cell(&description.join(" "))
     ));
     for child in &field.children {
-        rows(out, child, &name);
+        rows(out, child, name);
     }
     for variant in &field.variants {
-        rows(out, &variant.field, &format!("{name} ({})", variant.label));
+        let label = format!("{name} ({})", variant.label);
+        let inner = &variant.field;
+        if inner.children.is_empty() && inner.variants.is_empty() {
+            emit(out, inner, &label);
+        } else {
+            for child in &inner.children {
+                rows(out, child, &label);
+            }
+            for nested in &inner.variants {
+                emit(out, &nested.field, &format!("{label} ({})", nested.label));
+            }
+        }
     }
 }
 

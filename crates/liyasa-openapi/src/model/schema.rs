@@ -222,6 +222,25 @@ impl Schema {
         *self == Self::default()
     }
 
+    /// A schema the reader cut a cycle at: it names the component it stands
+    /// for and says nothing else, so a page shows an expand control rather
+    /// than an empty object (API-11).
+    pub fn is_stub(&self) -> bool {
+        self.name.is_some()
+            && self.types.is_empty()
+            && self.properties.is_empty()
+            && self.pattern_properties.is_empty()
+            && self.all_of.is_empty()
+            && self.one_of.is_empty()
+            && self.any_of.is_empty()
+            && self.items.is_none()
+            && self.enumeration.is_empty()
+            && self.constant.is_none()
+            && self.title.is_none()
+            && self.description.is_none()
+            && self.additional_properties == AdditionalProperties::Unset
+    }
+
     pub fn variants(&self) -> &[Schema] {
         if !self.one_of.is_empty() {
             &self.one_of
