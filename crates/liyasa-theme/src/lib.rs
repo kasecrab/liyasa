@@ -15,6 +15,7 @@ pub mod context;
 pub mod css;
 pub mod nav;
 pub mod og;
+pub mod outputs;
 pub mod presets;
 pub mod runtime;
 pub mod safety;
