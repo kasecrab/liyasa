@@ -15,7 +15,9 @@ through a site (THM-31, and `e2e/nojs.spec.ts` holds it to that).
 The rest of the runtime — the hook bus, appearance, navigation chrome, tabs,
 accordions, code copy, the table of contents, the search overlay, prefetch,
 feedback, and lazy loading — is vendored in `crates/liyasa-theme/assets/js/`
-and is compiled into the binary from there. PRD §6.2 places the runtime's
+and is compiled into the binary from there. One of them, prefetch, is RX-04's
+other half and is this package's requirement, so `test/prefetch.test.ts` loads
+that file and drives it against a scripted document. PRD §6.2 places the runtime's
 source in this package and the built output in the theme; the two homes and
 the migration between them are `plan/rfcs/1100-reader-toolchain.md`.
 
