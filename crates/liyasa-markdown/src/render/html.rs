@@ -1,5 +1,13 @@
 //! The HTML serialization (§34.9).
 //!
+//! The theme reaches this module through [`Blocks`] rather than through
+//! `Renderer` directly. The two methods of `Renderer` that matter here both
+//! need a `&mut RenderCtx`, which no crate outside `liyasa-core` can construct
+//! (`plan/rfcs/0006-render-ctx-is-unconstructible.md`), so a renderer written
+//! against `Renderer` could not be called by a test — or by anything else. The
+//! seam here is one the caller closes over its own context, which leaves the
+//! adapter in `super` as the only untestable line in the module.
+//!
 //! The structural nodes are rendered here because their HTML is the same under
 //! every theme; components and code blocks go to the `Renderer`, because theirs
 //! is not. Text is escaped on the way out, and raw HTML is emitted verbatim
@@ -8,35 +16,45 @@
 
 use std::fmt::Write as _;
 
-use liyasa_core::components::{ComponentInst, RenderCtx, Renderer};
+use liyasa_core::components::{ComponentInst, RenderError};
 use liyasa_core::document::{Align, Block, BlockKind, Inline, Node};
 
 use crate::sanitize::html::escape;
 
-pub fn render(root: &Block, theme: &dyn Renderer, ctx: &mut RenderCtx) -> String {
+/// What the theme owns: the two node kinds whose HTML it decides.
+///
+/// A theme that fails on one does not fail the page — the content is emitted in
+/// a neutral shape instead, because a reader is better served by an unstyled
+/// callout than by a hole where one was.
+pub trait Blocks {
+    fn component(&mut self, inst: &ComponentInst, children: &str) -> Result<String, RenderError>;
+    fn code(&mut self, block: &Block, body: &str) -> Result<String, RenderError>;
+}
+
+pub fn render(root: &Block, theme: &mut dyn Blocks) -> String {
     let mut out = String::new();
-    block(root, theme, ctx, &mut out);
+    block(root, theme, &mut out);
     out
 }
 
-fn block(block_: &Block, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut String) {
+fn block(block_: &Block, theme: &mut dyn Blocks, out: &mut String) {
     match &block_.kind {
-        BlockKind::Document => children(block_, theme, ctx, out),
+        BlockKind::Document => children(block_, theme, out),
         BlockKind::Heading { level, anchor } => {
             let _ = write!(out, "<h{level} id=\"{}\">", escape(anchor));
-            children(block_, theme, ctx, out);
+            children(block_, theme, out);
             let _ = writeln!(out, "</h{level}>");
         }
         BlockKind::Paragraph => {
             out.push_str(&open("p", block_));
-            children(block_, theme, ctx, out);
+            children(block_, theme, out);
             out.push_str("</p>\n");
         }
-        BlockKind::BlockQuote => wrapped("blockquote", block_, theme, ctx, out),
+        BlockKind::BlockQuote => wrapped("blockquote", block_, theme, out),
         BlockKind::List {
             ordered,
             start,
-            tight: _,
+            tight,
         } => {
             let tag = if *ordered { "ol" } else { "ul" };
             if *ordered && *start != 1 {
@@ -44,26 +62,20 @@ fn block(block_: &Block, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut St
             } else {
                 let _ = writeln!(out, "<{tag}>");
             }
-            children(block_, theme, ctx, out);
+            for child in &block_.children {
+                match child {
+                    Node::Block(item) => item_html(item, *tight, theme, out),
+                    Node::Inline(child) => inline(child, theme, out),
+                }
+            }
             let _ = writeln!(out, "</{tag}>");
         }
-        BlockKind::ListItem { checked } => {
-            out.push_str(&open("li", block_));
-            if let Some(checked) = checked {
-                let _ = write!(
-                    out,
-                    "<input type=\"checkbox\" disabled{} /> ",
-                    if *checked { " checked" } else { "" }
-                );
-            }
-            children(block_, theme, ctx, out);
-            out.push_str("</li>\n");
-        }
+        BlockKind::ListItem { .. } => item_html(block_, false, theme, out),
         BlockKind::CodeBlock { highlighted, .. } => {
             let body = highlighted
                 .clone()
                 .unwrap_or_else(|| escape(&code_of(block_)));
-            match theme.code_block(block_, &body, ctx) {
+            match theme.code(block_, &body) {
                 Ok(html) => out.push_str(&html),
                 Err(_) => {
                     let _ = writeln!(out, "<pre><code>{body}</code></pre>");
@@ -74,14 +86,14 @@ fn block(block_: &Block, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut St
         BlockKind::HtmlBlock { html } => out.push_str(html),
         BlockKind::Table { align } => {
             out.push_str("<table>\n");
-            table(block_, align, theme, ctx, out);
+            table(block_, align, theme, out);
             out.push_str("</table>\n");
         }
-        BlockKind::TableRow { .. } | BlockKind::TableCell => children(block_, theme, ctx, out),
+        BlockKind::TableRow { .. } | BlockKind::TableCell => children(block_, theme, out),
         BlockKind::ThematicBreak => out.push_str("<hr />\n"),
         BlockKind::FootnoteDefinition { label } => {
             let _ = writeln!(out, "<li id=\"fn-{}\">", escape(label));
-            children(block_, theme, ctx, out);
+            children(block_, theme, out);
             out.push_str("</li>\n");
         }
         BlockKind::Math { display, src } => {
@@ -90,7 +102,7 @@ fn block(block_: &Block, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut St
         }
         BlockKind::Component { name, props, slots } => {
             let mut inner = String::new();
-            children(block_, theme, ctx, &mut inner);
+            children(block_, theme, &mut inner);
             let inst = ComponentInst {
                 name: name.clone(),
                 props: props.clone(),
@@ -99,7 +111,7 @@ fn block(block_: &Block, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut St
                 id: block_.id,
                 origin: block_.origin.clone(),
             };
-            match theme.component_html(&inst, &inner, ctx) {
+            match theme.component(&inst, &inner) {
                 Ok(html) => out.push_str(&html),
                 // A theme that cannot render a component must not lose its
                 // content: the page is degraded, not truncated.
@@ -115,13 +127,34 @@ fn block(block_: &Block, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut St
     }
 }
 
-fn table(
-    block_: &Block,
-    align: &[Align],
-    theme: &dyn Renderer,
-    ctx: &mut RenderCtx,
-    out: &mut String,
-) {
+/// A tight list item's paragraphs are not wrapped, which is what makes a list
+/// tight in CommonMark's output.
+fn item_html(item: &Block, tight: bool, theme: &mut dyn Blocks, out: &mut String) {
+    let BlockKind::ListItem { checked } = &item.kind else {
+        block(item, theme, out);
+        return;
+    };
+    out.push_str(&open("li", item));
+    if let Some(checked) = checked {
+        let _ = write!(
+            out,
+            "<input type=\"checkbox\" disabled{} /> ",
+            if *checked { " checked" } else { "" }
+        );
+    }
+    for child in &item.children {
+        match child {
+            Node::Block(child) if tight && matches!(child.kind, BlockKind::Paragraph) => {
+                children(child, theme, out);
+            }
+            Node::Block(child) => block(child, theme, out),
+            Node::Inline(child) => inline(child, theme, out),
+        }
+    }
+    out.push_str("</li>\n");
+}
+
+fn table(block_: &Block, align: &[Align], theme: &mut dyn Blocks, out: &mut String) {
     let mut section: Option<&'static str> = None;
     for child in &block_.children {
         let Node::Block(row) = child else { continue };
@@ -148,7 +181,7 @@ fn table(
                     let _ = write!(out, "<{tag} align=\"{}\">", align_name(alignment));
                 }
             }
-            children(cell, theme, ctx, out);
+            children(cell, theme, out);
             let _ = writeln!(out, "</{tag}>");
         }
         out.push_str("</tr>\n");
@@ -167,9 +200,9 @@ fn align_name(alignment: Align) -> &'static str {
     }
 }
 
-fn wrapped(tag: &str, block_: &Block, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut String) {
+fn wrapped(tag: &str, block_: &Block, theme: &mut dyn Blocks, out: &mut String) {
     let _ = writeln!(out, "<{tag}>");
-    children(block_, theme, ctx, out);
+    children(block_, theme, out);
     let _ = writeln!(out, "</{tag}>");
 }
 
@@ -182,21 +215,21 @@ fn open(tag: &str, block: &Block) -> String {
     }
 }
 
-fn children(block_: &Block, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut String) {
+fn children(block_: &Block, theme: &mut dyn Blocks, out: &mut String) {
     for child in &block_.children {
         match child {
-            Node::Block(child) => block(child, theme, ctx, out),
-            Node::Inline(child) => inline(child, theme, ctx, out),
+            Node::Block(child) => block(child, theme, out),
+            Node::Inline(child) => inline(child, theme, out),
         }
     }
 }
 
-fn inline(node: &Inline, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut String) {
+fn inline(node: &Inline, theme: &mut dyn Blocks, out: &mut String) {
     match node {
         Inline::Text(text) => out.push_str(&escape(text)),
-        Inline::Emph(children) => tagged("em", children, theme, ctx, out),
-        Inline::Strong(children) => tagged("strong", children, theme, ctx, out),
-        Inline::Strike(children) => tagged("del", children, theme, ctx, out),
+        Inline::Emph(children) => tagged("em", children, theme, out),
+        Inline::Strong(children) => tagged("strong", children, theme, out),
+        Inline::Strike(children) => tagged("del", children, theme, out),
         Inline::Code(text) => {
             let _ = write!(out, "<code>{}</code>", escape(text));
         }
@@ -223,7 +256,7 @@ fn inline(node: &Inline, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut St
                 }
             }
             for child in children {
-                inline(child, theme, ctx, out);
+                inline(child, theme, out);
             }
             out.push_str("</a>");
         }
@@ -256,7 +289,7 @@ fn inline(node: &Inline, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut St
         } => {
             let mut inner = String::new();
             for child in children {
-                inline(child, theme, ctx, &mut inner);
+                inline(child, theme, &mut inner);
             }
             let inst = ComponentInst {
                 name: name.clone(),
@@ -266,7 +299,7 @@ fn inline(node: &Inline, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut St
                 id: liyasa_core::BlockId([0; 12]),
                 origin: liyasa_core::Origin::default(),
             };
-            match theme.component_html(&inst, &inner, ctx) {
+            match theme.component(&inst, &inner) {
                 Ok(html) => out.push_str(&html),
                 Err(_) => {
                     let _ = write!(out, "<span class=\"{}\">{inner}</span>", escape(name));
@@ -278,16 +311,10 @@ fn inline(node: &Inline, theme: &dyn Renderer, ctx: &mut RenderCtx, out: &mut St
     }
 }
 
-fn tagged(
-    tag: &str,
-    children: &[Inline],
-    theme: &dyn Renderer,
-    ctx: &mut RenderCtx,
-    out: &mut String,
-) {
+fn tagged(tag: &str, children: &[Inline], theme: &mut dyn Blocks, out: &mut String) {
     let _ = write!(out, "<{tag}>");
     for child in children {
-        inline(child, theme, ctx, out);
+        inline(child, theme, out);
     }
     let _ = write!(out, "</{tag}>");
 }
@@ -303,3 +330,6 @@ fn code_of(block: &Block) -> String {
     }
     out
 }
+
+#[cfg(test)]
+mod tests;
