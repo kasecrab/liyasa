@@ -113,6 +113,11 @@ pub fn environment(options: &ExpandOptions) -> minijinja::Environment<'static> {
         Undefined::Lenient => minijinja::UndefinedBehavior::Lenient,
     });
     env.set_keep_trailing_newline(true);
+    // Markdown output is not HTML, so autoescaping is off here (CM-20); the
+    // escaping that matters happens where a value enters the context
+    // ([`escape_untrusted_markdown`](super::escape_untrusted_markdown)) and
+    // where one reaches a component or HTML attribute, in the render pass.
+    env.set_auto_escape_callback(|_| minijinja::AutoEscape::None);
     filters::install(&mut env);
     env
 }

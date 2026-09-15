@@ -11,8 +11,11 @@
 
 use std::collections::BTreeMap;
 
+use liyasa_core::diagnostics::Diagnostics;
 use liyasa_core::markdown::TemplateContext;
 use serde_json::{Map, Value};
+
+use super::escape;
 
 /// The dimensions that select an override, in the order they are applied.
 pub const DIMENSIONS: &[&str] = &["version", "locale", "product", "region"];
@@ -83,6 +86,62 @@ impl Layers {
             root.insert("reader".to_owned(), reader.clone());
         }
         Value::Object(root)
+    }
+}
+
+/// Escapes every string in a value that entered the build below `operator`
+/// trust (CM-20).
+///
+/// This is the call a build makes once, where the value *enters* the context:
+/// a fact from a `url`, `command`, or `screenshot` source, a `reader.*` field,
+/// anything an automation supplied. Escaping here rather than at each
+/// interpolation is what lets a multi-line value be refused with `E0320`
+/// instead of being rendered into a document that no longer parses.
+///
+/// Block openers are escaped unconditionally, because where a value lands is
+/// not known until it is interpolated and the safe assumption is line start.
+pub fn escape_untrusted(value: &Value) -> Result<Value, Diagnostics> {
+    let mut diagnostics = Diagnostics::new();
+    let escaped = walk(value, "", &mut diagnostics);
+    if diagnostics.has_errors() {
+        return Err(diagnostics);
+    }
+    Ok(escaped)
+}
+
+fn walk(value: &Value, path: &str, diagnostics: &mut Diagnostics) -> Value {
+    match value {
+        Value::String(text) => match escape::escape_untrusted_markdown(text, true) {
+            Ok(escaped) => Value::String(escaped),
+            Err(error) => {
+                let at = if path.is_empty() { "the value" } else { path };
+                let mut reported = *error;
+                reported.message = format!("{at}: {}", reported.message);
+                diagnostics.push(reported);
+                Value::Null
+            }
+        },
+        Value::Array(items) => Value::Array(
+            items
+                .iter()
+                .enumerate()
+                .map(|(at, item)| walk(item, &format!("{path}[{at}]"), diagnostics))
+                .collect(),
+        ),
+        Value::Object(fields) => Value::Object(
+            fields
+                .iter()
+                .map(|(key, field)| {
+                    let nested = if path.is_empty() {
+                        key.clone()
+                    } else {
+                        format!("{path}.{key}")
+                    };
+                    (key.clone(), walk(field, &nested, diagnostics))
+                })
+                .collect(),
+        ),
+        other => other.clone(),
     }
 }
 
@@ -219,5 +278,41 @@ mod tests {
     #[test]
     fn the_built_context_tracks_reads() {
         assert!(layers().build().tracking);
+    }
+
+    // ---- CM-20 ----
+
+    #[test]
+    fn untrusted_strings_are_escaped_wherever_they_sit() {
+        let value = json!({
+            "plan": { "name": "# Pro" },
+            "tags": ["- one", "`two`"],
+            "count": 3,
+        });
+        let escaped = escape_untrusted(&value).expect("single-line values");
+        assert_eq!(escaped["plan"]["name"], "\\# Pro");
+        assert_eq!(escaped["tags"][0], "\\- one");
+        assert_eq!(escaped["tags"][1], "\\`two\\`");
+        assert_eq!(escaped["count"], 3);
+    }
+
+    #[test]
+    fn a_multi_line_untrusted_value_is_refused_with_its_path() {
+        let value = json!({ "plan": { "notes": "line one\nline two" } });
+        let diagnostics = escape_untrusted(&value).expect_err("a line break");
+        let reported = diagnostics.iter().next().expect("a diagnostic");
+        assert_eq!(reported.code.as_str(), "E0320");
+        assert!(
+            reported.message.starts_with("plan.notes:"),
+            "{}",
+            reported.message
+        );
+    }
+
+    #[test]
+    fn every_offending_value_is_listed() {
+        let value = json!({ "a": "x\ny", "b": "p\rq", "c": "fine" });
+        let diagnostics = escape_untrusted(&value).expect_err("line breaks");
+        assert_eq!(diagnostics.len(), 2);
     }
 }

@@ -17,6 +17,7 @@ mod serialize;
 pub mod snippets;
 mod wellformed;
 
+pub use context::{Layers, escape_untrusted};
 pub use escape::escape_untrusted_markdown;
 pub use expand::{Budget, ExpandOptions, Undefined, environment, expand, expand_with};
 pub use format::{FormatOptions, format, format_with, is_formatted};

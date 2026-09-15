@@ -28,6 +28,7 @@ pub fn install(env: &mut Environment<'_>) {
     env.add_filter("yaml", to_yaml);
     env.add_filter("toml", to_toml);
     env.add_function("fact", fact);
+    env.add_function("snippet", snippet);
 }
 
 /// The diagnostic code a template error carries out of this module.
@@ -447,6 +448,33 @@ impl minijinja::value::Object for EnvAccessor {
     }
 }
 
+/// `snippet("name", audience="admin")` renders a snippet into the page
+/// (CM-15). The statement form `{% snippet "name" %}` is rewritten to an
+/// include during assembly; this is the call form, for a snippet used inside an
+/// expression.
+fn snippet(state: &minijinja::State<'_, '_>, name: String, kwargs: Kwargs) -> Result<Value, Error> {
+    let path = format!("snippets/{name}.md");
+    let template = state.env().get_template(&path).map_err(|_| {
+        tagged(
+            code::E0205,
+            format!("no snippet `{name}` (looked for `{path}`)"),
+        )
+    })?;
+    let mut values = serde_json::Map::new();
+    for key in kwargs.args() {
+        let value: Value = kwargs.get(key)?;
+        values.insert(
+            key.to_owned(),
+            serde_json::to_value(&value).unwrap_or(serde_json::Value::Null),
+        );
+    }
+    kwargs.assert_all_used()?;
+    template
+        .render(Value::from_serialize(serde_json::Value::Object(values)))
+        .map(Value::from_safe_string)
+        .map_err(|error| tagged(code::E0207, format!("snippet `{name}`: {error}")))
+}
+
 #[cfg(test)]
 mod tests {
     use minijinja::context;
@@ -645,6 +673,32 @@ mod tests {
             "{toml}"
         );
         assert!(toml.contains("command = \"liyasa build\""), "{toml}");
+    }
+
+    #[test]
+    fn the_snippet_function_renders_one() {
+        let mut env = Environment::new();
+        install(&mut env);
+        env.add_template_owned("snippets/note.md", "Audience: {{ audience }}.".to_owned())
+            .expect("a valid snippet");
+        let out = env
+            .template_from_str("{{ snippet(\"note\", audience=\"admin\") }}")
+            .expect("a valid template")
+            .render(context! {})
+            .expect("a render");
+        assert_eq!(out, "Audience: admin.");
+    }
+
+    #[test]
+    fn a_missing_snippet_is_reported() {
+        let mut env = Environment::new();
+        install(&mut env);
+        let error = env
+            .template_from_str("{{ snippet(\"nope\") }}")
+            .expect("a valid template")
+            .render(context! {})
+            .expect_err("a failure");
+        assert!(error.to_string().contains("E0205"), "{error}");
     }
 
     #[test]
