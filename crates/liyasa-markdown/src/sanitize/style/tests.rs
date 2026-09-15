@@ -49,3 +49,10 @@ fn nothing_left_is_none() {
     assert_eq!(filter("not-a-declaration"), None);
     assert_eq!(filter(";;;"), None);
 }
+
+/// `u\72 l(x)` is `url(x)` to a browser and is not to a substring search.
+#[test]
+fn a_css_escape_cannot_spell_a_rejected_keyword() {
+    assert_eq!(filter(r"background-color: u\72 l(https://tracker/x)"), None);
+    assert_eq!(filter(r"color: \72 ed"), None);
+}

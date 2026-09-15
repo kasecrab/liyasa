@@ -25,9 +25,9 @@ pub struct Builder<'a> {
     /// The table row for each container open, by its 1-based line.
     pub containers: &'a BTreeMap<u32, usize>,
     pub opts: &'a ParseOptions,
-    /// The rewritten text, for the one question comrak's tree cannot answer:
-    /// whether a container was closed or merely ran out of input.
-    pub text: &'a str,
+    /// The rewritten text by line, for the one question comrak's tree cannot
+    /// answer: whether a container was closed or merely ran out of input.
+    pub lines: Vec<&'a str>,
     pub diagnostics: Diagnostics,
     /// How each component was written, by the span it occupies. A component
     /// block cannot tell you on its own whether it was `:::card` with an empty
@@ -199,7 +199,7 @@ impl Builder<'_> {
     /// gives a parent and its last child the same end line either way.
     fn closed<'a>(&self, node: &'a AstNode<'a>, fence_length: usize) -> bool {
         let end = node.data.borrow().sourcepos.end.line;
-        let Some(line) = self.text.lines().nth(end.saturating_sub(1)) else {
+        let Some(line) = self.lines.get(end.saturating_sub(1)) else {
             return false;
         };
         let fence = crate::directives::mask::content_of(line).trim();

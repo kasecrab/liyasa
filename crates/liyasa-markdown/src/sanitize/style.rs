@@ -27,7 +27,11 @@ pub const PROPERTIES: &[&str] = &[
 ];
 
 /// Substrings that disqualify a declaration whatever property it sets.
-const REJECTED: &[&str] = &["url(", "expression(", "@import", "position:", "/*"];
+///
+/// A backslash is here because CSS lets an escape spell a keyword without
+/// writing it: `u\72 l(x)` is `url(x)` to a browser and is not to a substring
+/// search. No allow-listed property needs one.
+const REJECTED: &[&str] = &["url(", "expression(", "@import", "position:", "/*", "\\"];
 
 /// The declarations of a `style` attribute that survive, re-joined. `None` when
 /// nothing does.

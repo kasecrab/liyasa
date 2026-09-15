@@ -68,7 +68,7 @@ fn token_at(html: &str, start: usize) -> Option<(Token<'_>, usize)> {
     if name_len == 0 || !body.starts_with(|c: char| c.is_ascii_alphabetic()) {
         return None;
     }
-    let close = body.find('>').map(|at| at + 1)?;
+    let close = tag_end(body)?;
     let inside = &body[name_len..close - 1];
     let self_closing = inside.trim_end().ends_with('/');
     let end = start + 1 + usize::from(closing) + close;
@@ -82,6 +82,23 @@ fn token_at(html: &str, start: usize) -> Option<(Token<'_>, usize)> {
         }),
         end,
     ))
+}
+
+/// The offset just past the `>` that closes a tag, ignoring a `>` inside a
+/// quoted attribute value. Stopping at the first one would cut `alt="a>"` in
+/// half — safely, because the rest is then escaped as text, but lossily.
+fn tag_end(body: &str) -> Option<usize> {
+    let mut quote: Option<char> = None;
+    for (at, ch) in body.char_indices() {
+        match (quote, ch) {
+            (Some(open), ch) if ch == open => quote = None,
+            (Some(_), _) => {}
+            (None, '"' | '\'') => quote = Some(ch),
+            (None, '>') => return Some(at + 1),
+            (None, _) => {}
+        }
+    }
+    None
 }
 
 fn attributes(text: &str) -> Vec<(String, Option<&str>)> {

@@ -150,3 +150,11 @@ fn sanitizing_is_idempotent() {
         assert_eq!(once, twice, "{source}");
     }
 }
+
+/// An attribute whose value carries a `>` keeps the rest of the tag.
+#[test]
+fn a_bracket_in_an_attribute_does_not_end_the_element() {
+    let html = sanitized(r#"<img src="/a.png" alt="a>b" onerror="steal()" />"#);
+    assert!(html.contains("alt=\"a&gt;b\""), "{html}");
+    assert!(!html.contains("onerror"), "{html}");
+}

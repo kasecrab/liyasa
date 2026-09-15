@@ -79,7 +79,7 @@ pub fn parse(
         ),
         table: &rewritten.table,
         containers: &rewritten.containers,
-        text: &rewritten.text,
+        lines: rewritten.text.lines().collect(),
         opts,
     };
     let mut document = builder.document(root);

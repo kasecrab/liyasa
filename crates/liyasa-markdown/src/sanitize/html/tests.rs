@@ -101,3 +101,26 @@ fn malformed_html_always_terminates() {
         let _ = tokenize(html);
     }
 }
+
+/// A `>` inside a quoted attribute value does not end the tag.
+#[test]
+fn a_bracket_inside_an_attribute_does_not_close_the_tag() {
+    let Some(Token::Tag(tag)) = tokenize(r#"<img src="x" alt="a>b">"#).pop() else {
+        panic!("expected a tag");
+    };
+    assert_eq!(
+        tag.attributes,
+        [
+            ("src".to_owned(), Some("x")),
+            ("alt".to_owned(), Some("a>b")),
+        ]
+    );
+}
+
+#[test]
+fn an_unterminated_quote_does_not_swallow_the_document() {
+    assert_eq!(
+        tokenize(r#"<a href="x>y"#),
+        [Token::Text(r#"<a href="x>y"#)]
+    );
+}
