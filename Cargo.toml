@@ -19,3 +19,20 @@ todo = "allow"
 lto = "thin"
 codegen-units = 1
 strip = "debuginfo"
+
+# Shared version pins. Every row matches PRD §6.2.1; `scripts/dep-lint.py`
+# compares this table with Cargo.lock. Append rows; do not edit existing ones.
+[workspace.dependencies]
+blake3 = { version = "1.8", default-features = false }
+bytes = { version = "1.12", default-features = false }
+futures-core = { version = "0.3.34", default-features = false, features = ["alloc"] }
+http = { version = "1.5", default-features = false, features = ["std"] }
+minijinja = { version = "2.24", default-features = false, features = ["builtins", "macros", "serde"] }
+schemars = { version = "1.2", default-features = false, features = ["derive", "std"] }
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc", "rc"] }
+serde_json = { version = "1.0", default-features = false, features = ["std"] }
+serde_norway = { version = "0.9", default-features = false }
+thiserror = { version = "2.0", default-features = false, features = ["std"] }
+ulid = { version = "3.0", default-features = false }   # no `std`: it pulls getrandom, which has no wasm32-unknown-unknown backend. Core never mints IDs.
+url = { version = "2.5", default-features = false, features = ["serde"] }
+zeroize = { version = "1.9", default-features = false, features = ["alloc"] }

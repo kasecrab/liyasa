@@ -1,0 +1,142 @@
+# Liyasa diagnostic code registry (PRD §34.5).
+#
+# APPEND ONLY. Claim a code by adding one line to [codes] in your area's
+# range; never edit or remove an existing line. One line per row keeps the
+# `merge=union` attribute in .gitattributes conflict-free.
+#
+# severity is the default; policy may promote or demote it. The prefix must
+# agree with it (E = error, W = warning) and a number is never reused across
+# prefixes. `url` defaults to https://liyasa.dev/errors/<code>.
+#
+# `cargo test -p liyasa-core registry` rejects duplicates, out-of-range codes,
+# prefix/severity disagreement, and numbers reused across prefixes.
+
+[ranges]
+"0001-0099" = { area = "CLI and I/O", crate = "liyasa-cli" }
+"0100-0199" = { area = "Configuration", crate = "liyasa-config" }
+"0200-0299" = { area = "Templating and Source Document", crate = "liyasa-markdown" }
+"0300-0349" = { area = "Markdown, directives", crate = "liyasa-markdown" }
+"0350-0399" = { area = "Components", crate = "liyasa-components" }
+"0400-0499" = { area = "Navigation and links", crate = "liyasa-build" }
+"0500-0599" = { area = "OpenAPI and API docs", crate = "liyasa-openapi" }
+"0600-0699" = { area = "Verification and facts", crate = "liyasa-verify" }
+"0700-0799" = { area = "Build, cache, assets, determinism", crate = "liyasa-build" }
+"0800-0899" = { area = "Server, auth, deployments, network", crate = "liyasa-server" }
+"0900-0999" = { area = "AI, agent, automations", crate = "liyasa-ai" }
+
+[codes]
+E0001 = { severity = "error", crate = "liyasa-cli", title = "Project root not found (no `liyasa.json` in this or any parent directory)" }
+E0002 = { severity = "error", crate = "liyasa-cli", title = "Cannot read file (permission or encoding)" }
+E0003 = { severity = "error", crate = "liyasa-cli", title = "Companion runtime required for this feature and not installed" }
+E0004 = { severity = "error", crate = "liyasa-cli", title = "Sandbox (Docker or Podman) required and not available" }
+E0101 = { severity = "error", crate = "liyasa-config", title = "`liyasa.json` is not valid JSON" }
+E0102 = { severity = "error", crate = "liyasa-config", title = "Config does not match schema (path, expected, found)" }
+E0103 = { severity = "error", crate = "liyasa-config", title = "Unknown config key" }
+E0104 = { severity = "error", crate = "liyasa-config", title = "Navigation references a page that does not exist" }
+E0105 = { severity = "error", crate = "liyasa-config", title = "Duplicate route" }
+E0106 = { severity = "error", crate = "liyasa-config", title = "Conflicting redirects" }
+E0107 = { severity = "error", crate = "liyasa-config", title = "Colour fails the contrast check" }
+E0108 = { severity = "error", crate = "liyasa-config", title = "No default version or locale declared" }
+E0109 = { severity = "error", crate = "liyasa-config", title = "Redirect destination is absolute and not in `redirects.externalAllow`, or a parameter appears in its host" }
+E0110 = { severity = "error", crate = "liyasa-config", title = "Config key not in the schema (`schemas/liyasa.schema.json` is the source of truth)" }
+E0120 = { severity = "error", crate = "liyasa-config", title = "`public: false` requires `liyasa serve` (available from 0.5)" }
+E0121 = { severity = "error", crate = "liyasa-config", title = "Config schema version newer than this CLI" }
+W0130 = { severity = "warning", crate = "liyasa-config", title = "Page not reachable from navigation" }
+E0201 = { severity = "error", crate = "liyasa-markdown", title = "Undefined template variable" }
+E0202 = { severity = "error", crate = "liyasa-markdown", title = "Template syntax error" }
+E0203 = { severity = "error", crate = "liyasa-markdown", title = "Unknown filter or function" }
+E0204 = { severity = "error", crate = "liyasa-markdown", title = "Template budget exceeded (time, iterations, output size, depth)" }
+E0205 = { severity = "error", crate = "liyasa-markdown", title = "Include or snippet not found" }
+E0206 = { severity = "error", crate = "liyasa-markdown", title = "Snippet cycle" }
+E0207 = { severity = "error", crate = "liyasa-markdown", title = "Required snippet prop missing or wrong type" }
+E0208 = { severity = "error", crate = "liyasa-markdown", title = "`reader.*` used on a page without `personalized: true`" }
+E0209 = { severity = "error", crate = "liyasa-markdown", title = "Fact referenced in template does not exist" }
+E0210 = { severity = "error", crate = "liyasa-markdown", title = "Template block statement is not well-formed with respect to Markdown structure" }
+E0211 = { severity = "error", crate = "liyasa-markdown", title = "`env()` used with a variable not allow-listed in `build.env`" }
+E0212 = { severity = "error", crate = "liyasa-markdown", title = "Private-use Unicode character in content (reserved for expansion sentinels)" }
+E0301 = { severity = "error", crate = "liyasa-markdown", title = "Unclosed code fence" }
+W0302 = { severity = "warning", crate = "liyasa-markdown", title = "Unknown code fence attribute" }
+E0303 = { severity = "error", crate = "liyasa-markdown", title = "Raw HTML disabled by config" }
+E0304 = { severity = "error", crate = "liyasa-markdown", title = "HTML element or attribute not allowed by the sanitizer" }
+E0305 = { severity = "error", crate = "liyasa-markdown", title = "Image without alt text" }
+W0306 = { severity = "warning", crate = "liyasa-markdown", title = "Heading level skipped" }
+E0307 = { severity = "error", crate = "liyasa-markdown", title = "Page Markdown exceeds 100,000 characters" }
+W0308 = { severity = "warning", crate = "liyasa-markdown", title = "Page Markdown exceeds 50,000 characters" }
+E0310 = { severity = "error", crate = "liyasa-markdown", title = "Container directive not closed" }
+E0311 = { severity = "error", crate = "liyasa-markdown", title = "Directive close without matching open" }
+E0312 = { severity = "error", crate = "liyasa-markdown", title = "Directive prop syntax error" }
+E0313 = { severity = "error", crate = "liyasa-markdown", title = "Unknown component (with suggestion)" }
+E0314 = { severity = "error", crate = "liyasa-markdown", title = "Missing required prop" }
+E0315 = { severity = "error", crate = "liyasa-markdown", title = "Prop type mismatch" }
+W0316 = { severity = "warning", crate = "liyasa-markdown", title = "Unknown prop" }
+E0317 = { severity = "error", crate = "liyasa-markdown", title = "Directive inside an inline context" }
+E0318 = { severity = "error", crate = "liyasa-markdown", title = "Explicit block ID duplicated on the page" }
+W0319 = { severity = "warning", crate = "liyasa-markdown", title = "Literal directive marker prefix (`<!--ly:`) found in source; escaped" }
+E0320 = { severity = "error", crate = "liyasa-markdown", title = "Untrusted (below `operator`) value contains a line break and was rejected from interpolation" }
+W0321 = { severity = "warning", crate = "liyasa-markdown", title = "Machine-generated bulk elements dominate an oversized page (spec check `embedded-data-serialization`)" }
+E0350 = { severity = "error", crate = "liyasa-components", title = "Component slot not recognized" }
+E0351 = { severity = "error", crate = "liyasa-components", title = "User component template error" }
+E0352 = { severity = "error", crate = "liyasa-components", title = "User component prop schema invalid" }
+E0401 = { severity = "error", crate = "liyasa-build", title = "Broken internal link" }
+E0402 = { severity = "error", crate = "liyasa-build", title = "Broken heading anchor" }
+E0403 = { severity = "error", crate = "liyasa-build", title = "Missing image or asset" }
+W0404 = { severity = "warning", crate = "liyasa-build", title = "External link unreachable at build time (scheduled checks escalate to drift)" }
+W0405 = { severity = "warning", crate = "liyasa-build", title = "Link text is non-descriptive" }
+W0406 = { severity = "warning", crate = "liyasa-build", title = "Link in Markdown output is not absolute; agent pipelines lose the base URL" }
+E0501 = { severity = "error", crate = "liyasa-openapi", title = "OpenAPI document invalid (JSON pointer)" }
+E0502 = { severity = "error", crate = "liyasa-openapi", title = "Unresolvable `$ref`" }
+E0503 = { severity = "error", crate = "liyasa-openapi", title = "Spec source unreachable (with DNS, TLS, or policy detail)" }
+E0504 = { severity = "error", crate = "liyasa-openapi", title = "Unsupported OpenAPI version" }
+E0505 = { severity = "error", crate = "liyasa-openapi", title = "Duplicate operation ID" }
+E0506 = { severity = "error", crate = "liyasa-openapi", title = "Operation referenced in navigation not found in spec" }
+E0507 = { severity = "error", crate = "liyasa-openapi", title = "Overlay failed to apply" }
+E0508 = { severity = "error", crate = "liyasa-openapi", title = "`allOf` members conflict (type, enum, or bounds)" }
+E0601 = { severity = "error", crate = "liyasa-verify", title = "Verification check failed" }
+E0602 = { severity = "error", crate = "liyasa-verify", title = "Runner not available for language" }
+E0603 = { severity = "error", crate = "liyasa-verify", title = "Runner timed out" }
+E0604 = { severity = "error", crate = "liyasa-verify", title = "Fact source refresh failed" }
+E0605 = { severity = "error", crate = "liyasa-verify", title = "Fact schema validation failed" }
+E0606 = { severity = "error", crate = "liyasa-verify", title = "Manual attestation expired" }
+E0607 = { severity = "error", crate = "liyasa-verify", title = "Drift detected (severity in payload)" }
+E0608 = { severity = "error", crate = "liyasa-verify", title = "Screenshot mismatch beyond tolerance" }
+E0620 = { severity = "error", crate = "liyasa-verify", title = "`local` sandbox rejected by the server" }
+E0621 = { severity = "error", crate = "liyasa-verify", title = "`command` source not in the server allow list or hash mismatch" }
+W0622 = { severity = "warning", crate = "liyasa-verify", title = "Verification deploy budget exceeded; remaining checks queued" }
+E0701 = { severity = "error", crate = "liyasa-build", title = "Build failed (aggregate)" }
+W0702 = { severity = "warning", crate = "liyasa-build", title = "Cache corrupted; rebuilt" }
+E0703 = { severity = "error", crate = "liyasa-build", title = "Asset processing failed" }
+E0704 = { severity = "error", crate = "liyasa-build", title = "Font download failed at build" }
+E0705 = { severity = "error", crate = "liyasa-build", title = "Template budget exceeded for the build" }
+E0706 = { severity = "error", crate = "liyasa-build", title = "Non-deterministic output detected by `--check-determinism`" }
+W0707 = { severity = "warning", crate = "liyasa-build", title = "Build clock fell back to the wall clock; build is not reproducible" }
+W0710 = { severity = "warning", crate = "liyasa-build", title = "Page exceeds the per-page variant cap and is marked dynamic" }
+E0711 = { severity = "error", crate = "liyasa-build", title = "Site exceeds the total variant cap" }
+E0712 = { severity = "error", crate = "liyasa-build", title = "Variant discovery did not converge within `build.variantDiscoveryIterations`" }
+E0717 = { severity = "error", crate = "liyasa-build", title = "Dynamic include or snippet name on a page that is not rendered on demand" }
+W0713 = { severity = "warning", crate = "liyasa-build", title = "Page has no `id`; block references will be keyed by route until one is added" }
+W0714 = { severity = "warning", crate = "liyasa-build", title = "Image dimensions unknown; layout shift possible" }
+W0715 = { severity = "warning", crate = "liyasa-build", title = "Page is rendered on demand because it reads free-form `reader.*` fields" }
+W0716 = { severity = "warning", crate = "liyasa-build", title = "`theme.fonts.subset` requested but subsetting is not available in this release" }
+W0718 = { severity = "warning", crate = "liyasa-build", title = "Build cache invalidated because an allow-listed environment variable's value changed" }
+W0719 = { severity = "warning", crate = "liyasa-build", title = "New remote image or media host added to the CSP from content" }
+W0720 = { severity = "warning", crate = "liyasa-build", title = "Served HTML response exceeds 1 MB (spec check `page-size-transfer` warn band)" }
+E0721 = { severity = "error", crate = "liyasa-build", title = "Served HTML response exceeds 10 MB, above documented agent fetch-buffer caps" }
+E0801 = { severity = "error", crate = "liyasa-server", title = "Domain verification failed" }
+E0802 = { severity = "error", crate = "liyasa-server", title = "Certificate issuance failed" }
+E0803 = { severity = "error", crate = "liyasa-server", title = "Auth provider configuration invalid" }
+E0804 = { severity = "error", crate = "liyasa-server", title = "Deployment failed" }
+E0805 = { severity = "error", crate = "liyasa-server", title = "Rollback target not retained" }
+E0806 = { severity = "error", crate = "liyasa-server", title = "Outbound request blocked by network policy (host, address class, or redirect)" }
+E0807 = { severity = "error", crate = "liyasa-server", title = "Rate limit exceeded (returned as 429)" }
+E0808 = { severity = "error", crate = "liyasa-server", title = "Webhook signature, timestamp, or delivery ID rejected" }
+E0809 = { severity = "error", crate = "liyasa-server", title = "Build queue full; job rejected or deferred" }
+E0812 = { severity = "error", crate = "liyasa-server", title = "Uploaded asset rejected (type not allowed or SVG sanitization failed)" }
+E0810 = { severity = "error", crate = "liyasa-server", title = "Dynamic page render exceeded the request-path budget; default variant served" }
+W0811 = { severity = "warning", crate = "liyasa-server", title = "Ingest queue dropped events" }
+W0813 = { severity = "warning", crate = "liyasa-server", title = "Bot-protection interference observed during a sustained agent-readiness scan" }
+E0901 = { severity = "error", crate = "liyasa-ai", title = "Model provider error" }
+E0902 = { severity = "error", crate = "liyasa-ai", title = "Model budget exceeded for the run" }
+E0903 = { severity = "error", crate = "liyasa-ai", title = "Agent tool rejected by policy (trust level)" }
+E0904 = { severity = "error", crate = "liyasa-ai", title = "Proposal rejected by output gate (reason)" }
+E0905 = { severity = "error", crate = "liyasa-ai", title = "Automation trigger payload failed validation" }
+W0906 = { severity = "warning", crate = "liyasa-ai", title = "Embedding model changed; full re-index scheduled" }
