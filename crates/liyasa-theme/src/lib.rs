@@ -8,6 +8,7 @@
 
 pub mod a11y;
 pub mod actions;
+pub mod banner;
 pub mod color;
 pub mod config;
 pub mod context;
