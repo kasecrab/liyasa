@@ -313,3 +313,59 @@ paths:
         .expect("the rest of the operation is kept");
     assert_eq!(operation.operation.responses.len(), 1);
 }
+
+/// OpenAI's published spec bounds a `seed` with an integer below `i64::MIN`,
+/// which the document tree cannot hold. RFC 0804 keeps the rest of the
+/// document rather than losing 3.4 MB of it to one rounded bound.
+#[test]
+fn an_integer_too_wide_for_the_tree_does_not_lose_the_document() {
+    const WIDE: &str = r##"
+openapi: 3.1.0
+info: { title: Widgets, version: "1" }
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      parameters:
+        - name: seed
+          in: query
+          schema:
+            type: integer
+            minimum: -9223372036854776000
+            maximum: 9223372036854776000
+      responses: { "200": { description: ok } }
+"##;
+    let loaded = load::from_bytes("api", "api.yaml", WIDE.as_bytes())
+        .expect("the document survives the bound");
+    assert!(
+        !loaded.diagnostics.has_errors(),
+        "{:?}",
+        loaded.diagnostics.as_slice()
+    );
+    let operation = loaded
+        .spec
+        .by_operation_id("listWidgets")
+        .expect("the operation is still there");
+    let seed = operation
+        .parameters()
+        .into_iter()
+        .find(|parameter| parameter.name == "seed")
+        .expect("so is the parameter");
+    let schema = seed.schema.as_ref().expect("and its schema");
+    let minimum = schema
+        .minimum
+        .as_ref()
+        .and_then(serde_norway::Number::as_f64)
+        .expect("the bound is kept as the nearest float");
+    assert!(minimum < -9.0e18, "{minimum}");
+}
+
+#[test]
+fn an_ordinary_document_is_unchanged_by_the_second_pass() {
+    let strict = load::from_bytes("api", "3.1.yaml", YAML_3_1.as_bytes()).expect("loads");
+    assert!(!strict.diagnostics.has_errors());
+    assert!(
+        strict.spec.by_operation_id("getWidget").is_some(),
+        "the first pass still reads what it always read"
+    );
+}
