@@ -1,0 +1,864 @@
+{
+  "$id": "https://liyasa.dev/schema/v1/source-document.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Liyasa Source Document",
+  "description": "A lossless segmentation of one file: concatenating the segment spans\nreproduces the bytes exactly (asserted by a property test).",
+  "type": "object",
+  "properties": {
+    "frontmatter": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Frontmatter"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Segment"
+      }
+    },
+    "source": {
+      "$ref": "#/$defs/SourceId"
+    }
+  },
+  "required": [
+    "source",
+    "segments"
+  ],
+  "schemaVersion": "1.0",
+  "$defs": {
+    "Access": {
+      "description": "Whether a page on a private site is readable without authentication\n(AUTH-07). Distinct from the site-level `public` flag.",
+      "type": "string",
+      "enum": [
+        "inherit",
+        "public"
+      ]
+    },
+    "AiSetting": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "description": "`instructions` are appended to the page's Markdown output.",
+          "type": "object",
+          "properties": {
+            "instructions": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "FenceAttrs": {
+      "type": "object",
+      "properties": {
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "highlight": {
+          "description": "Inclusive 1-based line ranges to highlight.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0
+              },
+              {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0
+              }
+            ]
+          }
+        },
+        "kv": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "flags",
+        "kv",
+        "highlight"
+      ]
+    },
+    "FenceInfo": {
+      "type": "object",
+      "properties": {
+        "attrs": {
+          "$ref": "#/$defs/FenceAttrs"
+        },
+        "lang": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "attrs"
+      ]
+    },
+    "Frontmatter": {
+      "type": "object",
+      "properties": {
+        "span": {
+          "$ref": "#/$defs/Span"
+        },
+        "typed": {
+          "$ref": "#/$defs/FrontmatterFields"
+        },
+        "value": true
+      },
+      "required": [
+        "span",
+        "value",
+        "typed"
+      ]
+    },
+    "FrontmatterFields": {
+      "description": "The keys of §7.6 that Liyasa itself reads. Every one is optional; `title`\nfalls back to the first H1 or the file name with a warning.\n\nDates are kept as the author wrote them rather than parsed into a calendar\ntype: the build clock (§6.6.2) is the only time source that reaches output,\nand no date crate is in the dependency table.",
+      "type": "object",
+      "properties": {
+        "access": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Access"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ai": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AiSetting"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "asyncapi": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "authors": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "canonical": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "draft": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "facts": {
+          "type": "object",
+          "additionalProperties": true,
+          "default": {}
+        },
+        "graphql": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "groups": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "hidden": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "icon": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "iconType": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "keywords": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "locales": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Locale"
+          }
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageMode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "noindex": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "og": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SocialMeta"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "openapi": {
+          "description": "`\"spec-id METHOD /path\"`.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "personalized": {
+          "description": "Declares that the page reads free-form `reader.*` fields and is rendered\non demand (§6.6.4); without it, `reader.*` is `E0208`.",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "product": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "regions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RegionGate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "related": {
+          "description": "Page IDs or routes for the related topics block.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "reviewed": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "search": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchSetting"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sidebarTitle": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "slug": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "tag": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "template": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "twitter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SocialMeta"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "updated": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "url": {
+          "description": "External URL; the page is a navigation link only and has no body.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "variation": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "verify": {
+          "description": "Mirrors the `verify` schema object (§14).",
+          "default": null
+        },
+        "versions": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Version"
+          }
+        }
+      }
+    },
+    "Locale": {
+      "description": "A BCP 47 language tag such as `en` or `pt-BR`.",
+      "type": "string"
+    },
+    "PageId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "PageMode": {
+      "description": "Page layout (§7.7).",
+      "type": "string",
+      "enum": [
+        "default",
+        "wide",
+        "custom",
+        "frame",
+        "center",
+        "assistant"
+      ]
+    },
+    "PropValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "str"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "num"
+            },
+            "value": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "bool"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "list"
+            },
+            "value": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PropValue"
+              }
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "description": "`{{ … }}`, kept unevaluated in a Source Document and resolved during\nexpansion.",
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "expr"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        }
+      ]
+    },
+    "RegionGate": {
+      "type": "object",
+      "properties": {
+        "except": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "only": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "SearchSetting": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "boost": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "float"
+            },
+            "exclude": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "Segment": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "segment": {
+              "type": "string",
+              "const": "markdown"
+            },
+            "span": {
+              "$ref": "#/$defs/Span"
+            }
+          },
+          "required": [
+            "segment",
+            "span"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "body": {
+              "description": "The fence body without the delimiter lines.",
+              "$ref": "#/$defs/Span"
+            },
+            "info": {
+              "$ref": "#/$defs/FenceInfo"
+            },
+            "segment": {
+              "type": "string",
+              "const": "code"
+            },
+            "span": {
+              "$ref": "#/$defs/Span"
+            }
+          },
+          "required": [
+            "segment",
+            "span",
+            "info",
+            "body"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "$ref": "#/$defs/TemplateKind"
+            },
+            "segment": {
+              "type": "string",
+              "const": "template"
+            },
+            "span": {
+              "$ref": "#/$defs/Span"
+            }
+          },
+          "required": [
+            "segment",
+            "span",
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "colons": {
+              "type": "integer",
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0
+            },
+            "matching": {
+              "description": "Index of the matching [`Segment::DirectiveClose`], absent when the\ncontainer is unclosed (`E0310`).",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint",
+              "minimum": 0
+            },
+            "name": {
+              "type": "string"
+            },
+            "props": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/PropValue"
+              }
+            },
+            "segment": {
+              "type": "string",
+              "const": "directiveOpen"
+            },
+            "span": {
+              "$ref": "#/$defs/Span"
+            }
+          },
+          "required": [
+            "segment",
+            "span",
+            "name",
+            "props",
+            "colons"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "segment": {
+              "type": "string",
+              "const": "directiveClose"
+            },
+            "span": {
+              "$ref": "#/$defs/Span"
+            }
+          },
+          "required": [
+            "segment",
+            "span"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "props": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/PropValue"
+              }
+            },
+            "segment": {
+              "type": "string",
+              "const": "directiveLeaf"
+            },
+            "span": {
+              "$ref": "#/$defs/Span"
+            }
+          },
+          "required": [
+            "segment",
+            "span",
+            "name",
+            "props"
+          ]
+        }
+      ]
+    },
+    "SocialMeta": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "SourceId": {
+      "description": "A path interned into a [`SourceMap`](crate::source_map::SourceMap) for the\nlife of one build.\n\nDiagnostics are serialized with the path rather than this index so they\nsurvive crate and process boundaries (§34.9).",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Span": {
+      "description": "A half-open byte range within one source.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "source": {
+          "$ref": "#/$defs/SourceId"
+        },
+        "start": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "source",
+        "start",
+        "end"
+      ]
+    },
+    "TemplateKind": {
+      "oneOf": [
+        {
+          "description": "`{{ … }}`",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "output"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "description": "`{% … %}`",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "statement"
+            },
+            "matching": {
+              "description": "Index of the segment that closes this block statement; `None` for a\nstatement that does not open a block.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint",
+              "minimum": 0
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ]
+        },
+        {
+          "description": "`{# … #}`",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "comment"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "Version": {
+      "description": "A documentation version label such as `v2`, not a semver of Liyasa.",
+      "type": "string"
+    }
+  }
+}

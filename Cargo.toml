@@ -1,6 +1,11 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+# One member per line so a package can append itself without touching a line
+# someone else owns; `merge=union` in .gitattributes then never conflicts.
+members = [
+  "crates/*",
+  "xtask",
+]
 
 [workspace.package]
 edition = "2024"

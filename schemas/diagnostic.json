@@ -1,0 +1,112 @@
+{
+  "$id": "https://liyasa.dev/schema/v1/diagnostic.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Liyasa diagnostic",
+  "type": "object",
+  "properties": {
+    "code": {
+      "$ref": "#/$defs/Code"
+    },
+    "help": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "$ref": "#/$defs/Span"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "message": {
+      "type": "string"
+    },
+    "related": {
+      "type": "array",
+      "items": {
+        "$ref": "#"
+      }
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "span": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Span"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "url": {
+      "description": "Generated from `code`; carried in the payload so consumers that do not\nlink `liyasa-core` still have it.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "severity",
+    "message",
+    "url"
+  ],
+  "schemaVersion": "1.0",
+  "$defs": {
+    "Code": {
+      "description": "A code registered in liyasa-core's codes.toml.",
+      "type": "string",
+      "pattern": "^[EW][0-9]{4}$"
+    },
+    "Severity": {
+      "type": "string",
+      "enum": [
+        "error",
+        "warning",
+        "info",
+        "hint"
+      ]
+    },
+    "SourceId": {
+      "description": "A path interned into a [`SourceMap`](crate::source_map::SourceMap) for the\nlife of one build.\n\nDiagnostics are serialized with the path rather than this index so they\nsurvive crate and process boundaries (§34.9).",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Span": {
+      "description": "A half-open byte range within one source.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "source": {
+          "$ref": "#/$defs/SourceId"
+        },
+        "start": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "source",
+        "start",
+        "end"
+      ]
+    }
+  }
+}

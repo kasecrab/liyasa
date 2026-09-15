@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://liyasa.dev/schema/v1/webhook.json",
+  "title": "Liyasa webhook payload",
+  "description": "REST-10 and GIT-21 (PRD \u00a734.12). Delivered with `X-Liyasa-Signature` (`sha256=<hmac of the raw body>`), `X-Liyasa-Timestamp`, `X-Liyasa-Delivery` (unique per attempt), and `X-Liyasa-Event`. Retries at 1 min, 5 min, 30 min, 2 h, and 12 h; 20 consecutive failures pause the subscription.",
+  "schemaVersion": "1.0",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "type",
+    "occurredAt",
+    "project",
+    "data"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "description": "Stable across retries.",
+      "pattern": "^evt_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "deployment.queued",
+        "deployment.started",
+        "deployment.succeeded",
+        "deployment.failed",
+        "deployment.rolled_back",
+        "drift.created",
+        "drift.updated",
+        "drift.resolved",
+        "proposal.created",
+        "proposal.approved",
+        "proposal.rejected",
+        "proposal.merged",
+        "feedback.received",
+        "automation.started",
+        "automation.succeeded",
+        "automation.failed",
+        "build.queue_full"
+      ]
+    },
+    "occurredAt": {
+      "type": "string",
+      "description": "RFC 3339 timestamp.",
+      "format": "date-time"
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "slug"
+      ]
+    },
+    "data": {
+      "type": "object",
+      "description": "Type-specific; one schema per event type.",
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,349 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://liyasa.dev/schema/v1/manifest.json",
+  "title": "Liyasa output bundle manifest",
+  "description": "`dist/liyasa-manifest.json` (PRD \u00a734.12). The server, the MCP server, the verifier, and the static host emitters read only this file; nothing rescans `dist/`.",
+  "schemaVersion": "1.0",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "buildId",
+    "liyasaVersion",
+    "builtAt",
+    "routes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "`major.minor`.",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "buildId": {
+      "type": "string",
+      "description": "`hash(input fingerprints, build clock, liyasa version, lockfile)` (\u00a76.6.2).",
+      "pattern": "^blake3:[0-9a-f]{64}$"
+    },
+    "liyasaVersion": {
+      "type": "string"
+    },
+    "builtAt": {
+      "type": "string",
+      "description": "The build clock, not the wall clock (\u00a76.6.2 rule 1).",
+      "format": "date-time"
+    },
+    "canonicalOrigin": {
+      "type": "string"
+    },
+    "basePath": {
+      "type": "string"
+    },
+    "dimensions": {
+      "type": "object",
+      "properties": {
+        "versions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "locales": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "products": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "variations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "pageId": {
+            "type": "string",
+            "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+            "description": "The `id` front matter ULID; survives renames (\u00a77.16)."
+          },
+          "source": {
+            "type": "string",
+            "description": "Path of the source file, relative to the content root."
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "html": {
+            "type": "string"
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "string"
+                    },
+                    "locale": {
+                      "type": "string"
+                    },
+                    "product": {
+                      "type": "string"
+                    },
+                    "region": {
+                      "type": "string"
+                    },
+                    "variation": {
+                      "type": "string"
+                    },
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "html": {
+                  "type": "string"
+                },
+                "markdown": {
+                  "type": "string"
+                },
+                "dynamic": {
+                  "type": "boolean",
+                  "description": "Rendered on demand rather than at build time (\u00a76.6.4)."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "key"
+              ]
+            }
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "noindex": {
+            "type": "boolean"
+          },
+          "search": {
+            "type": "boolean"
+          },
+          "ai": {
+            "type": "boolean"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "regions": {
+            "description": "Region gate, or null.",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "only": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "except": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "lastModified": {
+            "type": "string",
+            "description": "RFC 3339 timestamp.",
+            "format": "date-time"
+          },
+          "hashes": {
+            "type": "object",
+            "properties": {
+              "html": {
+                "type": "string",
+                "description": "blake3 digest.",
+                "pattern": "^blake3:[0-9a-f]{64}$"
+              },
+              "markdown": {
+                "type": "string",
+                "description": "blake3 digest.",
+                "pattern": "^blake3:[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "blocks": {
+            "type": "integer",
+            "description": "Block count; block IDs live in the AST JSON."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "route",
+          "source"
+        ]
+      }
+    },
+    "redirects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "destination"
+        ]
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "hash": {
+            "type": "string",
+            "description": "blake3 digest.",
+            "pattern": "^blake3:[0-9a-f]{64}$"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "agentSurfaces": {
+      "type": "object",
+      "properties": {
+        "llms": {
+          "type": "string"
+        },
+        "llmsFull": {
+          "type": "string"
+        },
+        "split": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skill": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "search": {
+      "type": "object",
+      "properties": {
+        "manifest": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "openapi": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "processed": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "properties": {
+        "errors": {
+          "type": "integer"
+        },
+        "warnings": {
+          "type": "integer"
+        },
+        "report": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "verification": {
+      "type": "object",
+      "properties": {
+        "report": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

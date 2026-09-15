@@ -1,0 +1,2758 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://liyasa.dev/schema/v1/liyasa.json",
+  "title": "Liyasa site configuration",
+  "description": "The definition of `liyasa.json` (PRD \u00a78). This file is the single source of truth: \u00a78's tables are generated from it, the Rust `SiteConfig` is generated from it by typify, and `liyasa schema config` emits it verbatim. Any key referenced anywhere in the PRD must exist here.",
+  "x-liyasa-requirement": "CFG-94",
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URL of this schema; carries the `v1` major version.",
+      "x-liyasa-requirement": "CFG-91"
+    },
+    "name": {
+      "type": "string",
+      "description": "Site name. The only required key.",
+      "x-liyasa-requirement": "CFG-01"
+    },
+    "description": {
+      "type": "string",
+      "x-liyasa-requirement": "CFG-01"
+    },
+    "root": {
+      "type": "string",
+      "description": "Content root, relative to the config file.",
+      "default": ".",
+      "x-liyasa-requirement": "CFG-01"
+    },
+    "public": {
+      "type": "boolean",
+      "description": "`false` requires an access mode under `auth` and a server; rejected with E0120 before 0.5.",
+      "default": true,
+      "x-liyasa-requirement": "CFG-01"
+    },
+    "logo": {
+      "type": "object",
+      "properties": {
+        "light": {
+          "type": "string"
+        },
+        "dark": {
+          "type": "string"
+        },
+        "href": {
+          "type": "string",
+          "description": "Click target for the logo."
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-02"
+    },
+    "favicon": {
+      "type": "object",
+      "properties": {
+        "light": {
+          "type": "string"
+        },
+        "dark": {
+          "type": "string"
+        },
+        "href": {
+          "type": "string",
+          "description": "Click target for the logo."
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-02"
+    },
+    "theme": {
+      "type": "object",
+      "properties": {
+        "preset": {
+          "type": "string",
+          "enum": [
+            "aurora",
+            "atlas",
+            "meadow",
+            "slate",
+            "ember",
+            "harbor",
+            "quill",
+            "signal",
+            "lumen"
+          ],
+          "default": "aurora",
+          "x-liyasa-requirement": "CFG-03"
+        },
+        "colors": {
+          "type": "object",
+          "properties": {
+            "primary": {
+              "type": "string"
+            },
+            "light": {
+              "type": "string"
+            },
+            "dark": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "muted": {
+              "type": "string"
+            },
+            "border": {
+              "type": "string"
+            },
+            "accent": {
+              "type": "string"
+            },
+            "success": {
+              "type": "string"
+            },
+            "warning": {
+              "type": "string"
+            },
+            "danger": {
+              "type": "string"
+            },
+            "background": {
+              "type": "object",
+              "properties": {
+                "light": {
+                  "type": "string"
+                },
+                "dark": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false,
+          "x-liyasa-requirement": "CFG-04"
+        },
+        "codeTheme": {
+          "type": "object",
+          "properties": {
+            "light": {
+              "type": "string"
+            },
+            "dark": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "x-liyasa-requirement": "CFG-05"
+        },
+        "fonts": {
+          "type": "object",
+          "properties": {
+            "heading": {
+              "type": "object",
+              "properties": {
+                "family": {
+                  "type": "string"
+                },
+                "weight": {
+                  "type": [
+                    "string",
+                    "integer"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "description": "A Google Fonts family, downloaded and self-hosted at build time, or a local file path."
+                },
+                "format": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "body": {
+              "type": "object",
+              "properties": {
+                "family": {
+                  "type": "string"
+                },
+                "weight": {
+                  "type": [
+                    "string",
+                    "integer"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "description": "A Google Fonts family, downloaded and self-hosted at build time, or a local file path."
+                },
+                "format": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "mono": {
+              "type": "object",
+              "properties": {
+                "family": {
+                  "type": "string"
+                },
+                "weight": {
+                  "type": [
+                    "string",
+                    "integer"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "description": "A Google Fonts family, downloaded and self-hosted at build time, or a local file path."
+                },
+                "format": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "subset": {
+              "type": "boolean",
+              "description": "Accepted and ignored with W0716 until the fontations subsetter exists.",
+              "default": false
+            }
+          },
+          "additionalProperties": false,
+          "x-liyasa-requirement": "CFG-06"
+        },
+        "icons": {
+          "type": "object",
+          "properties": {
+            "library": {
+              "type": "string",
+              "enum": [
+                "lucide",
+                "phosphor",
+                "tabler",
+                "fontawesome"
+              ]
+            },
+            "defaultType": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "x-liyasa-requirement": "CFG-07"
+        },
+        "appearance": {
+          "type": "object",
+          "properties": {
+            "default": {
+              "type": "string",
+              "enum": [
+                "system",
+                "light",
+                "dark"
+              ]
+            },
+            "strict": {
+              "type": "boolean",
+              "description": "Hides the appearance toggle.",
+              "default": false
+            },
+            "background": {
+              "type": "object",
+              "properties": {
+                "image": {
+                  "type": "string"
+                },
+                "color": {
+                  "type": "string"
+                },
+                "decoration": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "grid",
+                    "gradient",
+                    "windows"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false,
+          "x-liyasa-requirement": "CFG-08"
+        },
+        "layout": {
+          "type": "object",
+          "properties": {
+            "sidebarWidth": {
+              "type": "string"
+            },
+            "contentWidth": {
+              "type": "string"
+            },
+            "tocWidth": {
+              "type": "string"
+            },
+            "density": {
+              "type": "string",
+              "enum": [
+                "comfortable",
+                "compact"
+              ]
+            },
+            "radius": {
+              "type": "string"
+            },
+            "shadows": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "x-liyasa-requirement": "CFG-09"
+        },
+        "css": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "x-liyasa-requirement": "CFG-10"
+        },
+        "js": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "x-liyasa-requirement": "CFG-10"
+        },
+        "overrides": {
+          "type": "string",
+          "description": "Directory of theme partial overrides (\u00a710).",
+          "x-liyasa-requirement": "CFG-10"
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-03..CFG-10",
+      "description": "Presets, colours, fonts, icons, appearance, layout, and overrides (\u00a78.2)."
+    },
+    "navbar": {
+      "type": "object",
+      "properties": {
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "href": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "CFG-20"
+        },
+        "primary": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "button",
+                "github"
+              ]
+            },
+            "label": {
+              "type": "string"
+            },
+            "href": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "x-liyasa-requirement": "CFG-21"
+        },
+        "items": {
+          "type": "array",
+          "items": {},
+          "description": "CFG-22: dropdowns and switcher placement."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Top navigation bar (\u00a78.3).",
+      "x-liyasa-requirement": "CFG-20..CFG-22"
+    },
+    "navigation": {
+      "x-liyasa-requirement": "CFG-30..CFG-35",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/navigationNode"
+          }
+        },
+        {
+          "type": "string",
+          "description": "Path to a navigation file (CFG-34)."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "breadcrumbs": {
+              "type": "string",
+              "enum": [
+                "path",
+                "eyebrow",
+                "none"
+              ]
+            },
+            "autofill": {
+              "type": "boolean",
+              "default": false
+            },
+            "drilldown": {
+              "type": "boolean",
+              "default": false
+            },
+            "pages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/navigationNode"
+              }
+            },
+            "tabs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/navigationNode"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "The navigation tree, a file that holds it, or an object carrying tree options (\u00a78.4)."
+    },
+    "footer": {
+      "type": "object",
+      "properties": {
+        "socials": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "header": {
+                "type": "string"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "href": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "branding": {
+          "type": "boolean",
+          "description": "`true` shows \"Built with Liyasa\".",
+          "default": true
+        },
+        "text": {
+          "type": "string",
+          "description": "Legal line; Markdown."
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-40..CFG-43",
+      "description": "Footer socials, link columns, branding, and legal line (\u00a78.5)."
+    },
+    "search": {
+      "type": "object",
+      "properties": {
+        "placeholder": {
+          "type": "string"
+        },
+        "shortcut": {
+          "type": "string",
+          "default": "mod+k"
+        },
+        "boost": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "match": {
+                "type": "string"
+              },
+              "factor": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "maxResults": {
+          "type": "integer",
+          "default": 20
+        },
+        "snippets": {
+          "type": "boolean",
+          "default": true
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "tab",
+              "version",
+              "locale",
+              "type"
+            ]
+          }
+        },
+        "shardSize": {
+          "type": "object",
+          "properties": {
+            "min": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?\\s*(B|KB|MB|GB)$",
+              "description": "A byte size such as `512MB`."
+            },
+            "max": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?\\s*(B|KB|MB|GB)$",
+              "description": "A byte size such as `512MB`."
+            }
+          },
+          "additionalProperties": false
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "keyword",
+            "hybrid"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-50..CFG-55",
+      "description": "Search behaviour and the browser index's shard sizing (\u00a78.6)."
+    },
+    "seo": {
+      "type": "object",
+      "properties": {
+        "metatags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "organization": {},
+        "indexing": {
+          "type": "string",
+          "enum": [
+            "navigable",
+            "all"
+          ]
+        },
+        "trailingSlash": {
+          "type": "boolean",
+          "default": false
+        },
+        "robots": {},
+        "sitemap": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {}
+          ]
+        },
+        "crawlers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "allow": {
+                "type": "boolean"
+              },
+              "disallow": {
+                "type": "boolean"
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "canonicalOrigin": {
+          "type": "string",
+          "description": "Production origin used for absolute URLs in `llms.txt`, feeds, and the Markdown directive."
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-60..CFG-65",
+      "description": "Meta tags, JSON-LD, indexing, sitemap, robots, and crawler directives (\u00a78.7)."
+    },
+    "banner": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "dismissible": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "by_locale": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "start": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-70",
+      "description": "Site-wide banner (\u00a78.8)."
+    },
+    "errors": {
+      "type": "object",
+      "properties": {
+        "404": {
+          "type": "object",
+          "properties": {
+            "redirect": {
+              "type": "boolean",
+              "default": false
+            },
+            "title": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "page": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-71",
+      "description": "Error page behaviour (\u00a78.8)."
+    },
+    "pageActions": {
+      "type": "object",
+      "properties": {
+        "placement": {
+          "type": "string",
+          "enum": [
+            "header",
+            "sidebar",
+            "both"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "href": {
+                    "type": "string"
+                  },
+                  "icon": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-72",
+      "description": "Copy, view, and open-in-assistant actions (\u00a78.8)."
+    },
+    "social": {
+      "type": "object",
+      "properties": {
+        "thumbnails": {
+          "type": "object",
+          "properties": {
+            "appearance": {
+              "type": "string"
+            },
+            "background": {
+              "type": "string"
+            },
+            "font": {
+              "type": "string"
+            },
+            "logo": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-73",
+      "description": "Open Graph thumbnail generation (\u00a78.8)."
+    },
+    "content": {
+      "type": "object",
+      "properties": {
+        "math": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "katex",
+                "pulldown-latex"
+              ]
+            }
+          ]
+        },
+        "html": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "sanitize",
+            "off"
+          ]
+        },
+        "wikilinks": {
+          "type": "boolean",
+          "default": false
+        },
+        "related": {
+          "type": "object",
+          "properties": {
+            "auto": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "frontmatter": {
+          "type": "object",
+          "properties": {
+            "strict": {
+              "type": "boolean",
+              "description": "Unknown front matter keys become warnings.",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "templating": {
+          "type": "object",
+          "properties": {
+            "undefined": {
+              "type": "string",
+              "enum": [
+                "strict",
+                "lenient",
+                "chainable"
+              ]
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "iterations": {
+                  "type": "integer"
+                },
+                "depth": {
+                  "type": "integer"
+                },
+                "outputBytes": {
+                  "type": "string",
+                  "pattern": "^\\d+(\\.\\d+)?\\s*(B|KB|MB|GB)$",
+                  "description": "A byte size such as `512MB`."
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "codeblocks": {
+          "type": "object",
+          "properties": {
+            "lineNumbers": {
+              "type": "boolean"
+            },
+            "wrap": {
+              "type": "boolean"
+            },
+            "theme": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "images": {
+          "type": "object",
+          "properties": {
+            "breakpoints": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "formats": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "avif",
+                  "webp",
+                  "png",
+                  "jpeg"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "reviewCadence": {
+          "type": "string",
+          "pattern": "^\\d+(ms|s|m|h|d)$",
+          "description": "A duration such as `500ms`, `30s`, `180d`."
+        },
+        "customElements": {
+          "type": "string",
+          "enum": [
+            "strip",
+            "keep"
+          ]
+        },
+        "lastModified": {
+          "type": "boolean",
+          "description": "CFG-74: show the git or editor timestamp on every page."
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-80",
+      "description": "Markdown, templating, and image behaviour (\u00a78.9)."
+    },
+    "variables": {
+      "type": "object",
+      "additionalProperties": {},
+      "description": "Site-wide template variables, available as `vars.<key>` (\u00a77.8).",
+      "x-liyasa-requirement": "CM-24"
+    },
+    "versions": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "default": {
+                "type": "boolean"
+              },
+              "label": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "description": "Documentation versions (\u00a77.10).",
+      "x-liyasa-requirement": "CFG-01"
+    },
+    "locales": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "default": {
+                "type": "boolean"
+              },
+              "label": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "description": "Languages this site is published in (\u00a77.11).",
+      "x-liyasa-requirement": "CFG-01"
+    },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "default": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Custom content dimensions such as product (\u00a77.12).",
+      "x-liyasa-requirement": "CFG-01"
+    },
+    "variations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Named content variations a page may belong to.",
+      "x-liyasa-requirement": "CFG-01"
+    },
+    "redirects": {
+      "x-liyasa-requirement": "CFG-01",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "destination": {
+                "type": "string"
+              },
+              "status": {
+                "type": "integer",
+                "default": 301
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "destination": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "externalAllow": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "Hosts an absolute redirect destination may point at (E0109)."
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "Redirect rules, and the hosts an absolute destination may point at (E0109)."
+    },
+    "openapi": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "overlays": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "baseUrl": {
+                "type": "string"
+              },
+              "operations": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "all"
+                    ]
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "description": "OpenAPI specifications bound to this site (\u00a713).",
+      "x-liyasa-requirement": "API-01"
+    },
+    "asyncapi": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "description": "AsyncAPI specifications bound to this site.",
+      "x-liyasa-requirement": "API-60"
+    },
+    "graphql": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "description": "GraphQL schemas bound to this site.",
+      "x-liyasa-requirement": "API-70"
+    },
+    "verify": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "policy": {},
+        "sources": {
+          "description": "Truth sources by id, plus the `commands` allow list (VER-25, a trust-plane key per CFG-95).",
+          "type": "object",
+          "properties": {
+            "commands": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "allow": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "runners": {
+          "type": "object",
+          "additionalProperties": {}
+        },
+        "facts": {
+          "type": "object",
+          "additionalProperties": {}
+        },
+        "sandbox": {},
+        "budget": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "deploy": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            },
+            "total": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            },
+            "perCheck": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            }
+          },
+          "description": "Wall-clock budgets; W0622 queues the remainder when the deploy budget is spent."
+        },
+        "schedule": {},
+        "report": {},
+        "prose": {},
+        "screenshots": {},
+        "drift": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "batchSize": {
+              "type": "integer"
+            },
+            "autoResolve": {
+              "type": "boolean"
+            }
+          }
+        },
+        "http": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "target": {
+              "type": "string",
+              "description": "Base URL HTTP checks run against."
+            }
+          }
+        },
+        "links": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "grace": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            },
+            "external": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "additionalProperties": true,
+      "x-liyasa-requirement": "CFG-89, VER-76",
+      "description": "Verification engine settings (\u00a714)."
+    },
+    "regions": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "list": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "default": {
+          "type": "string"
+        },
+        "detection": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "auth",
+              "header",
+              "choice"
+            ]
+          }
+        },
+        "header": {
+          "type": "string"
+        },
+        "availability": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-100",
+      "description": "Region gating (\u00a719.6)."
+    },
+    "integrations": {
+      "type": "object",
+      "properties": {
+        "cookieConsent": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {}
+          ]
+        },
+        "telemetry": {
+          "type": "boolean",
+          "description": "Liyasa's own anonymous CLI telemetry; off by default in OSS.",
+          "default": false
+        }
+      },
+      "additionalProperties": true,
+      "x-liyasa-requirement": "CFG-81",
+      "description": "Third-party scripts and consent (\u00a726.8)."
+    },
+    "agents": {
+      "type": "object",
+      "properties": {
+        "llms": {
+          "type": "object",
+          "properties": {
+            "custom": {
+              "type": "string"
+            },
+            "full": {
+              "type": "boolean"
+            },
+            "split": {
+              "type": "boolean"
+            },
+            "fullMaxBytes": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?\\s*(B|KB|MB|GB)$",
+              "description": "A byte size such as `512MB`."
+            }
+          },
+          "additionalProperties": false
+        },
+        "markdown": {
+          "type": "object",
+          "properties": {
+            "includeOpenApiSchema": {
+              "type": "boolean"
+            },
+            "instructions": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "skill": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "mcp": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "discoveryVersion": {
+              "type": "string"
+            },
+            "external": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "additionalProperties": false
+        },
+        "specVersion": {
+          "type": "string",
+          "description": "The agent-readiness specification version this site targets (SPEC-03)."
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-82",
+      "description": "Agent surfaces: llms.txt, Markdown output, skills, MCP (\u00a724, \u00a725)."
+    },
+    "editor": {
+      "type": "object",
+      "properties": {
+        "preview": {
+          "type": "object",
+          "properties": {
+            "maxBytes": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?\\s*(B|KB|MB|GB)$",
+              "description": "A byte size such as `512MB`."
+            },
+            "maxIterations": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "review": {}
+      },
+      "additionalProperties": true,
+      "description": "Editor settings (\u00a715).",
+      "x-liyasa-requirement": "ED-01"
+    },
+    "build": {
+      "type": "object",
+      "properties": {
+        "output": {
+          "type": "string",
+          "default": "dist"
+        },
+        "drafts": {
+          "type": "boolean",
+          "default": false
+        },
+        "minify": {
+          "type": "boolean",
+          "default": true
+        },
+        "prefetch": {
+          "type": "boolean",
+          "default": true
+        },
+        "hashing": {
+          "type": "string",
+          "enum": [
+            "filename",
+            "query"
+          ]
+        },
+        "downloads": {
+          "type": "object",
+          "properties": {
+            "pdf": {
+              "type": "string",
+              "enum": [
+                "inline",
+                "attachment"
+              ]
+            },
+            "zip": {
+              "type": "string",
+              "enum": [
+                "inline",
+                "attachment"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "basePath": {
+          "type": "string",
+          "default": ""
+        },
+        "env": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Environment variables `env()` may read; their values are fingerprinted as build inputs."
+          }
+        },
+        "cacheSize": {
+          "type": "string",
+          "pattern": "^\\d+(\\.\\d+)?\\s*(B|KB|MB|GB)$",
+          "description": "A byte size such as `512MB`."
+        },
+        "budget": {
+          "type": "object",
+          "properties": {
+            "template": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            },
+            "templateIncremental": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            },
+            "total": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            }
+          },
+          "additionalProperties": false
+        },
+        "maxVariantsPerPage": {
+          "type": "integer",
+          "default": 16
+        },
+        "maxVariants": {
+          "type": "integer",
+          "default": 10000
+        },
+        "variantDiscoveryIterations": {
+          "type": "integer",
+          "default": 4
+        },
+        "strictLinks": {
+          "type": "boolean",
+          "default": true
+        },
+        "strictVerification": {
+          "type": "boolean",
+          "default": true
+        },
+        "images": {
+          "type": "object",
+          "properties": {
+            "eager": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-83",
+      "description": "Build outputs, budgets, caps, and determinism inputs (\u00a76.6)."
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "public",
+            "password",
+            "jwt",
+            "oidc",
+            "managed"
+          ]
+        },
+        "password": {
+          "type": "object",
+          "properties": {
+            "argon2": {
+              "type": "object",
+              "properties": {
+                "memoryKiB": {
+                  "type": "integer",
+                  "default": 65536
+                },
+                "iterations": {
+                  "type": "integer",
+                  "default": 3
+                },
+                "parallelism": {
+                  "type": "integer",
+                  "default": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "jwt": {
+          "type": "object",
+          "properties": {
+            "algs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "iss": {
+              "type": "string"
+            },
+            "aud": {
+              "type": "string"
+            },
+            "jwksUrl": {
+              "type": "string"
+            },
+            "loginUrl": {
+              "type": "string"
+            },
+            "groupsClaim": {
+              "type": "string"
+            },
+            "regionClaim": {
+              "type": "string"
+            },
+            "localeClaim": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "oidc": {
+          "type": "object",
+          "properties": {
+            "issuer": {
+              "type": "string"
+            },
+            "clientId": {
+              "type": "string"
+            },
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "groupsClaim": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "managed": {
+          "type": "object",
+          "properties": {
+            "allowDomains": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "magicLinkTtl": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            }
+          },
+          "additionalProperties": false
+        },
+        "session": {
+          "type": "object",
+          "properties": {
+            "maxAge": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            },
+            "idleTimeout": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            },
+            "cookieName": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "logout": {
+          "type": "object",
+          "properties": {
+            "redirect": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "preview": {
+          "type": "object",
+          "properties": {
+            "protection": {
+              "type": "string",
+              "enum": [
+                "org",
+                "password",
+                "public"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-96",
+      "description": "Authentication modes and session policy (\u00a719)."
+    },
+    "ai": {
+      "type": "object",
+      "properties": {
+        "models": {
+          "type": "object",
+          "properties": {
+            "assistant": {
+              "type": "string",
+              "description": "`provider:model`."
+            },
+            "agent": {
+              "type": "string",
+              "description": "`provider:model`."
+            },
+            "embeddings": {
+              "type": "string",
+              "description": "`provider:model`."
+            },
+            "rerank": {
+              "type": "string",
+              "description": "`provider:model`."
+            },
+            "translate": {
+              "type": "string",
+              "description": "`provider:model`."
+            }
+          },
+          "additionalProperties": false
+        },
+        "providers": {
+          "type": "object",
+          "properties": {
+            "openai": {
+              "type": "object",
+              "properties": {
+                "baseUrl": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "anthropic": {
+              "type": "object",
+              "properties": {
+                "baseUrl": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "google": {
+              "type": "object",
+              "properties": {
+                "baseUrl": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "ollama": {
+              "type": "object",
+              "properties": {
+                "baseUrl": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "bedrock": {
+              "type": "object",
+              "properties": {
+                "region": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": true
+        },
+        "assistant": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "instructions": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        },
+        "instructions": {
+          "type": "string",
+          "description": "Operator text prepended to assistant and agent system prompts."
+        },
+        "agent": {
+          "type": "object",
+          "properties": {
+            "limits": {
+              "type": "object",
+              "properties": {
+                "maxFilesChanged": {
+                  "type": "integer"
+                },
+                "maxLinesChanged": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "contextRepos": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "additionalProperties": false
+        },
+        "reindex": {
+          "type": "object",
+          "properties": {
+            "autoApproveCents": {
+              "type": "integer",
+              "default": 500
+            }
+          },
+          "additionalProperties": false
+        },
+        "includePersonalized": {
+          "type": "string",
+          "enum": [
+            "neutral",
+            "exclude"
+          ]
+        },
+        "respectNoindex": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-97",
+      "description": "Model routing and assistant, agent, and reindex settings."
+    },
+    "analytics": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "collector": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Static sites: URL of a collector (ANA-09)."
+        },
+        "db": {
+          "type": "string",
+          "description": "Path or URL of the analytics database (\u00a76.8)."
+        },
+        "rawSink": {
+          "type": "string",
+          "enum": [
+            "database",
+            "files"
+          ]
+        },
+        "retention": {
+          "type": "object",
+          "properties": {
+            "rawDays": {
+              "type": "integer",
+              "default": 90
+            },
+            "aggregateMonths": {
+              "type": "integer",
+              "default": 13
+            }
+          },
+          "additionalProperties": false
+        },
+        "identityLinkage": {
+          "type": "boolean",
+          "default": true
+        },
+        "botList": {
+          "type": "string",
+          "default": "builtin"
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-98",
+      "description": "Collection, retention, and bot classification (\u00a726)."
+    },
+    "automations": {
+      "type": "object",
+      "properties": {
+        "untrustedRunsPerDay": {
+          "type": "integer",
+          "default": 20
+        },
+        "untrustedTokensPerDay": {
+          "type": "integer",
+          "default": 500000
+        },
+        "untrustedCostCentsPerDay": {
+          "type": "integer",
+          "default": 500
+        },
+        "perSourceHourly": {
+          "type": "integer",
+          "default": 1
+        },
+        "definitions": {
+          "type": "string",
+          "default": "automations/"
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-99",
+      "description": "Automation definitions and untrusted-run budgets."
+    },
+    "contextRepos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "depth": {
+            "type": "integer",
+            "default": 1
+          },
+          "maxBytes": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+)?\\s*(B|KB|MB|GB)$",
+            "description": "A byte size such as `512MB`."
+          },
+          "refresh": {
+            "type": "string",
+            "pattern": "^\\d+(ms|s|m|h|d)$",
+            "description": "A duration such as `500ms`, `30s`, `180d`."
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "CFG-99, GIT-11",
+      "x-liyasa-requirement": "CFG-99"
+    },
+    "server": {
+      "type": "object",
+      "properties": {
+        "trustedProxies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "CIDR. Default none: forwarded-for and region headers are ignored unless the peer is listed."
+          }
+        },
+        "variantCache": {
+          "type": "object",
+          "properties": {
+            "entries": {
+              "type": "integer",
+              "default": 10000
+            },
+            "bytes": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?\\s*(B|KB|MB|GB)$",
+              "description": "A byte size such as `512MB`."
+            }
+          },
+          "additionalProperties": false
+        },
+        "dynamic": {
+          "type": "object",
+          "properties": {
+            "concurrency": {
+              "oneOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "cores"
+                  ]
+                }
+              ]
+            },
+            "queue": {
+              "type": "integer",
+              "default": 256
+            },
+            "queueTimeout": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            },
+            "subjectTtl": {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "A duration such as `500ms`, `30s`, `180d`."
+            }
+          },
+          "additionalProperties": false
+        },
+        "rateLimits": {
+          "type": "object",
+          "properties": {
+            "pages": {
+              "type": "integer"
+            },
+            "agentPages": {
+              "type": "integer"
+            },
+            "search": {
+              "type": "integer"
+            },
+            "assistant": {
+              "type": "integer"
+            },
+            "feedback": {
+              "type": "integer"
+            },
+            "proxy": {
+              "type": "integer"
+            },
+            "rest": {
+              "type": "integer"
+            },
+            "mcp": {
+              "type": "integer"
+            },
+            "auth": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": true
+        },
+        "builds": {
+          "type": "object",
+          "properties": {
+            "concurrencyPerProject": {
+              "type": "integer",
+              "default": 1
+            },
+            "queue": {
+              "type": "integer",
+              "default": 100
+            },
+            "cpu": {
+              "type": "integer",
+              "default": 4
+            },
+            "memory": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?\\s*(B|KB|MB|GB)$",
+              "description": "A byte size such as `512MB`."
+            }
+          },
+          "additionalProperties": false
+        },
+        "jobs": {
+          "type": "object",
+          "properties": {
+            "leaseSeconds": {
+              "type": "integer",
+              "default": 60
+            }
+          },
+          "additionalProperties": false
+        },
+        "drainTimeout": {
+          "type": "string",
+          "pattern": "^\\d+(ms|s|m|h|d)$",
+          "description": "A duration such as `500ms`, `30s`, `180d`."
+        },
+        "offline": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-84",
+      "description": "Server-mode settings that are not secrets; only meaningful to `liyasa serve`."
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "csp": {
+          "type": "object",
+          "properties": {
+            "extraScriptSrc": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "extraImgSrc": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "extraFrameSrc": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reportUri": {
+              "type": "string"
+            },
+            "imgHostsAllow": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "Remote image hosts added to `img-src` without W0719."
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "frameAncestors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Hosts allowed to embed frame-mode pages."
+          }
+        },
+        "styleAttribute": {
+          "type": "string",
+          "enum": [
+            "allowlist",
+            "off"
+          ]
+        },
+        "uploads": {
+          "type": "object",
+          "properties": {
+            "allowTypes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "svg": {
+              "type": "string",
+              "enum": [
+                "sanitize",
+                "attachment"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "txt": {
+          "description": "RFC 9116 `security.txt` fields, emitted at `/.well-known/security.txt`.",
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "object",
+              "additionalProperties": true
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-85",
+      "description": "Content Security Policy, frame ancestors, and upload rules (\u00a730.2)."
+    },
+    "network": {
+      "type": "object",
+      "properties": {
+        "allowPrivate": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowInsecureHosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowHosts": {
+          "type": "object",
+          "properties": {
+            "specRefs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "factSources": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "agentFetch": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "embeds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "denyHosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "egressProxy": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Cloud only."
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-86",
+      "description": "Outbound network allow lists, consumed by `liyasa-net` (\u00a730.2.3)."
+    },
+    "playground": {
+      "type": "object",
+      "properties": {
+        "display": {
+          "type": "string",
+          "enum": [
+            "interactive",
+            "simple",
+            "none"
+          ]
+        },
+        "proxy": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "allow": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requiredOnly": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-87",
+      "description": "API playground behaviour (\u00a713)."
+    },
+    "api": {
+      "type": "object",
+      "properties": {
+        "baseUrl": {
+          "type": "string"
+        },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": [
+                "bearer",
+                "basic",
+                "apiKey",
+                "none"
+              ]
+            },
+            "name": {
+              "type": "string"
+            },
+            "in": {
+              "type": "string",
+              "enum": [
+                "header",
+                "query",
+                "cookie"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-88",
+      "description": "Manual API pages (API-20)."
+    },
+    "feeds": {
+      "type": "object",
+      "properties": {
+        "changelog": {
+          "type": "boolean",
+          "default": true
+        },
+        "updates": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-89",
+      "description": "Changelog and update feeds."
+    },
+    "localization": {
+      "type": "object",
+      "properties": {
+        "fallback": {
+          "type": "string",
+          "enum": [
+            "notice",
+            "hide"
+          ]
+        },
+        "routeVisitors": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-89",
+      "description": "Locale fallback and visitor routing (\u00a77.11)."
+    },
+    "authors": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "avatar": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Author handles resolved from front matter `authors`.",
+      "x-liyasa-requirement": "CFG-89"
+    },
+    "skills": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "x-liyasa-requirement": "CFG-89",
+      "description": "Agent skill files and groups (\u00a725)."
+    }
+  },
+  "$defs": {
+    "navigationNode": {
+      "description": "One node of the navigation tree (\u00a78.4). Every object form is discriminated by its own key.",
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "A page by path or route."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "group": {
+              "type": "string"
+            },
+            "icon": {
+              "type": "string"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "expanded": {
+              "type": "boolean"
+            },
+            "root": {
+              "type": "string"
+            },
+            "pages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/navigationNode"
+              }
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "regions": {},
+            "hidden": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "group"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "directory": {
+              "type": "string"
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "hidden": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "directory"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "tab": {
+              "type": "string"
+            },
+            "icon": {
+              "type": "string"
+            },
+            "pages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/navigationNode"
+              }
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "hidden": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "tab"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "menu": {
+              "type": "string"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/navigationNode"
+              }
+            }
+          },
+          "required": [
+            "menu"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "anchor": {
+              "type": "string"
+            },
+            "href": {
+              "type": "string"
+            },
+            "icon": {
+              "type": "string"
+            },
+            "color": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "anchor"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "dropdown": {
+              "type": "string"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/navigationNode"
+              }
+            }
+          },
+          "required": [
+            "dropdown"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "product": {
+              "type": "string"
+            },
+            "pages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/navigationNode"
+              }
+            }
+          },
+          "required": [
+            "product"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string"
+            },
+            "pages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/navigationNode"
+              }
+            }
+          },
+          "required": [
+            "version"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string"
+            },
+            "pages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/navigationNode"
+              }
+            }
+          },
+          "required": [
+            "language"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "openapi": {
+              "type": "string"
+            },
+            "operations": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "all"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            },
+            "groupBy": {
+              "type": "string",
+              "enum": [
+                "tag",
+                "path"
+              ]
+            },
+            "order": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "openapi"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "asyncapi": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "asyncapi"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "graphql": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "graphql"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sdk": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "sdk"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "link": {
+              "type": "string"
+            },
+            "href": {
+              "type": "string"
+            },
+            "icon": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "link"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "divider": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "divider"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

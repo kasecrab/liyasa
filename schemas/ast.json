@@ -1,0 +1,1341 @@
+{
+  "$id": "https://liyasa.dev/schema/v1/ast.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Liyasa Rendered AST",
+  "type": "object",
+  "properties": {
+    "deps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Edge"
+      }
+    },
+    "diagnostics": {
+      "$ref": "#/$defs/Diagnostics"
+    },
+    "root": {
+      "$ref": "#/$defs/Block"
+    }
+  },
+  "required": [
+    "root",
+    "deps",
+    "diagnostics"
+  ],
+  "schemaVersion": "1.0",
+  "$defs": {
+    "Align": {
+      "type": "string",
+      "enum": [
+        "none",
+        "left",
+        "center",
+        "right"
+      ]
+    },
+    "Block": {
+      "type": "object",
+      "properties": {
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Node"
+          }
+        },
+        "explicit_id": {
+          "description": "The `{#id}` the author attached, if any; `id` is derived from it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "kind": {
+          "$ref": "#/$defs/BlockKind"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "origin",
+        "children"
+      ]
+    },
+    "BlockId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{24}$"
+    },
+    "BlockKind": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "document"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "anchor": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "heading"
+            },
+            "level": {
+              "type": "integer",
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0
+            }
+          },
+          "required": [
+            "kind",
+            "level",
+            "anchor"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "paragraph"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "list"
+            },
+            "ordered": {
+              "type": "boolean"
+            },
+            "start": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "tight": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "ordered",
+            "start",
+            "tight"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "checked": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "const": "listItem"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "blockQuote"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "attrs": {
+              "$ref": "#/$defs/FenceAttrs"
+            },
+            "highlighted": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "const": "codeBlock"
+            },
+            "lang": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "attrs"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "html": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "htmlBlock"
+            }
+          },
+          "required": [
+            "kind",
+            "html"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "align": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Align"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "table"
+            }
+          },
+          "required": [
+            "kind",
+            "align"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "header": {
+              "type": "boolean"
+            },
+            "kind": {
+              "type": "string",
+              "const": "tableRow"
+            }
+          },
+          "required": [
+            "kind",
+            "header"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "tableCell"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "thematicBreak"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "footnoteDefinition"
+            },
+            "label": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "label"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "display": {
+              "type": "boolean"
+            },
+            "kind": {
+              "type": "string",
+              "const": "math"
+            },
+            "src": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "display",
+            "src"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "component"
+            },
+            "name": {
+              "type": "string"
+            },
+            "props": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/PropValue"
+              }
+            },
+            "slots": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/Node"
+                }
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "name",
+            "props",
+            "slots"
+          ]
+        },
+        {
+          "description": "Emitted in `dev` only, for the error overlay.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "logicMarker"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ]
+        }
+      ]
+    },
+    "Code": {
+      "description": "A code registered in liyasa-core's codes.toml.",
+      "type": "string",
+      "pattern": "^[EW][0-9]{4}$"
+    },
+    "DepTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "fact"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "source"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "snippet"
+            },
+            "value": {
+              "$ref": "#/$defs/SourceId"
+            }
+          },
+          "required": [
+            "target",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "component"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "asset"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "operation"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string"
+                },
+                "spec": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "spec",
+                "op"
+              ]
+            }
+          },
+          "required": [
+            "target",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "externalUrl"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "screenshot"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "const": "page"
+            },
+            "value": {
+              "$ref": "#/$defs/Route"
+            }
+          },
+          "required": [
+            "target",
+            "value"
+          ]
+        }
+      ]
+    },
+    "Diagnostic": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/Code"
+        },
+        "help": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/Span"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "message": {
+          "type": "string"
+        },
+        "related": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Diagnostic"
+          }
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "url": {
+          "description": "Generated from `code`; carried in the payload so consumers that do not\nlink `liyasa-core` still have it.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message",
+        "url"
+      ]
+    },
+    "Diagnostics": {
+      "description": "A diagnostic list kept sorted by `(source, start)` (§34.9).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Diagnostic"
+      }
+    },
+    "Edge": {
+      "description": "One edge of the truth graph.\n\n§34.9 names this shape twice, `Dep` in the supporting types and `Edge` in\nthe truth-engine decomposition; they are one type under two names so that\n`DependencyExtractor::extract` and `Component::deps` cannot drift apart.",
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/EdgeOrigin"
+        },
+        "kind": {
+          "$ref": "#/$defs/EdgeKind"
+        },
+        "to": {
+          "$ref": "#/$defs/DepTarget"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "kind"
+      ]
+    },
+    "EdgeKind": {
+      "type": "string",
+      "enum": [
+        "reads",
+        "includes",
+        "links",
+        "embeds",
+        "documents"
+      ]
+    },
+    "EdgeOrigin": {
+      "description": "Page identity is a ULID, so an edge survives a rename (§7.16).",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "origin": {
+              "type": "string",
+              "const": "block"
+            },
+            "value": {
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/PageId"
+                },
+                {
+                  "$ref": "#/$defs/BlockId"
+                }
+              ]
+            }
+          },
+          "required": [
+            "origin",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "origin": {
+              "type": "string",
+              "const": "page"
+            },
+            "value": {
+              "$ref": "#/$defs/PageId"
+            }
+          },
+          "required": [
+            "origin",
+            "value"
+          ]
+        }
+      ]
+    },
+    "FenceAttrs": {
+      "type": "object",
+      "properties": {
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "highlight": {
+          "description": "Inclusive 1-based line ranges to highlight.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0
+              },
+              {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0
+              }
+            ]
+          }
+        },
+        "kv": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "flags",
+        "kv",
+        "highlight"
+      ]
+    },
+    "Frame": {
+      "description": "One link in the chain from a page down to the construct that emitted a byte,\nmodelled on a Rust macro backtrace (§7.3.1 item 5).",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Span"
+            },
+            "file": {
+              "$ref": "#/$defs/SourceId"
+            },
+            "frame": {
+              "type": "string",
+              "const": "include"
+            }
+          },
+          "required": [
+            "frame",
+            "file",
+            "at"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Span"
+            },
+            "frame": {
+              "type": "string",
+              "const": "snippet"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "frame",
+            "name",
+            "at"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Span"
+            },
+            "frame": {
+              "type": "string",
+              "const": "macro"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "frame",
+            "name",
+            "at"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Span"
+            },
+            "frame": {
+              "type": "string",
+              "const": "loop"
+            },
+            "index": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "frame",
+            "at",
+            "index"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "by": {
+              "$ref": "#/$defs/Span"
+            },
+            "frame": {
+              "type": "string",
+              "const": "generated"
+            }
+          },
+          "required": [
+            "frame",
+            "by"
+          ]
+        }
+      ]
+    },
+    "Inline": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "text"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "emph"
+            },
+            "value": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Inline"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "strong"
+            },
+            "value": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Inline"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "strike"
+            },
+            "value": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Inline"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "code"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "link"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "children": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Inline"
+                  }
+                },
+                "href": {
+                  "type": "string"
+                },
+                "resolved": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Route"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "href",
+                "children"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "image"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "alt": {
+                  "type": "string"
+                },
+                "dark": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "src": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "src",
+                "alt"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "htmlInline"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "footnoteRef"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "softBreak"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "hardBreak"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "inlineComponent"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "children": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Inline"
+                  }
+                },
+                "name": {
+                  "type": "string"
+                },
+                "props": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/$defs/PropValue"
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "props",
+                "children"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "math"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "description": "Source Document fragments only: a `{{ … }}` left unexpanded for the\nvisual editor.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "templateInline"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "expr": {
+                  "type": "string"
+                },
+                "origin": {
+                  "$ref": "#/$defs/Span"
+                }
+              },
+              "required": [
+                "expr",
+                "origin"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        }
+      ]
+    },
+    "Node": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "node": {
+              "type": "string",
+              "const": "block"
+            },
+            "value": {
+              "$ref": "#/$defs/Block"
+            }
+          },
+          "required": [
+            "node",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "node": {
+              "type": "string",
+              "const": "inline"
+            },
+            "value": {
+              "$ref": "#/$defs/Inline"
+            }
+          },
+          "required": [
+            "node",
+            "value"
+          ]
+        }
+      ]
+    },
+    "Origin": {
+      "description": "Where a node came from. `span` is `None` for content a template emitted;\n`frames` is innermost-last.",
+      "type": "object",
+      "properties": {
+        "frames": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Frame"
+          }
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "PageId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "PropValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "str"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "num"
+            },
+            "value": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "bool"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "list"
+            },
+            "value": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PropValue"
+              }
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "description": "`{{ … }}`, kept unevaluated in a Source Document and resolved during\nexpansion.",
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "expr"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        }
+      ]
+    },
+    "Route": {
+      "description": "A site-relative route with a leading slash and no trailing slash, such\nas `/getting-started/install`.",
+      "type": "string"
+    },
+    "Severity": {
+      "type": "string",
+      "enum": [
+        "error",
+        "warning",
+        "info",
+        "hint"
+      ]
+    },
+    "SourceId": {
+      "description": "A path interned into a [`SourceMap`](crate::source_map::SourceMap) for the\nlife of one build.\n\nDiagnostics are serialized with the path rather than this index so they\nsurvive crate and process boundaries (§34.9).",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Span": {
+      "description": "A half-open byte range within one source.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "source": {
+          "$ref": "#/$defs/SourceId"
+        },
+        "start": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "source",
+        "start",
+        "end"
+      ]
+    }
+  }
+}
