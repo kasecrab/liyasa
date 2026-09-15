@@ -19,13 +19,120 @@ pub type Value = serde_norway::Value;
 pub type Map = serde_norway::Mapping;
 
 /// Parses a spec's bytes. `origin` names the document in any diagnostic.
+///
+/// A document that fails is parsed a second time by [`lenient`], which accepts
+/// an integer too large for the tree's `i64`/`u64` and keeps it as a float
+/// (RFC 0804). The first pass is unchanged, so a document that parses today
+/// parses by the same path it always did.
 pub fn parse(bytes: &[u8], origin: &str) -> Result<Value, SpecError> {
-    serde_norway::from_slice(bytes).map_err(|e| {
-        Box::new(
-            Diagnostic::new(code::E0501, format!("{origin}: {e}"))
-                .help("the document must be valid JSON or YAML"),
-        )
-    })
+    let strict: Result<Value, _> = serde_norway::from_slice(bytes);
+    match strict {
+        Ok(value) => Ok(value),
+        Err(error) => lenient(bytes).ok_or_else(|| {
+            Box::new(
+                Diagnostic::new(code::E0501, format!("{origin}: {error}"))
+                    .help("the document must be valid JSON or YAML"),
+            )
+        }),
+    }
+}
+
+/// A second parse that survives an integer outside `i64` and `u64`.
+// TODO(rfc-0804): precision beyond 2^53 is given up, which is what every
+// reader of the rendered page gives up anyway.
+fn lenient(bytes: &[u8]) -> Option<Value> {
+    serde_norway::from_slice::<Wide>(bytes)
+        .ok()
+        .map(|wide| wide.0)
+}
+
+/// [`Value`], with the two integer widths its own visitor refuses.
+struct Wide(Value);
+
+impl<'de> serde::Deserialize<'de> for Wide {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(WideVisitor).map(Wide)
+    }
+}
+
+struct WideVisitor;
+
+impl<'de> serde::de::Visitor<'de> for WideVisitor {
+    type Value = Value;
+
+    fn expecting(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        out.write_str("any YAML value")
+    }
+
+    fn visit_bool<E>(self, flag: bool) -> Result<Value, E> {
+        Ok(Value::Bool(flag))
+    }
+
+    fn visit_i64<E>(self, number: i64) -> Result<Value, E> {
+        Ok(Value::Number(number.into()))
+    }
+
+    fn visit_u64<E>(self, number: u64) -> Result<Value, E> {
+        Ok(Value::Number(number.into()))
+    }
+
+    fn visit_i128<E>(self, number: i128) -> Result<Value, E> {
+        Ok(wide(number as f64))
+    }
+
+    fn visit_u128<E>(self, number: u128) -> Result<Value, E> {
+        Ok(wide(number as f64))
+    }
+
+    fn visit_f64<E>(self, number: f64) -> Result<Value, E> {
+        Ok(Value::Number(number.into()))
+    }
+
+    fn visit_str<E>(self, text: &str) -> Result<Value, E> {
+        Ok(Value::String(text.to_owned()))
+    }
+
+    fn visit_string<E>(self, text: String) -> Result<Value, E> {
+        Ok(Value::String(text))
+    }
+
+    fn visit_unit<E>(self) -> Result<Value, E> {
+        Ok(Value::Null)
+    }
+
+    fn visit_none<E>(self) -> Result<Value, E> {
+        Ok(Value::Null)
+    }
+
+    fn visit_some<D: serde::Deserializer<'de>>(self, deserializer: D) -> Result<Value, D::Error> {
+        deserializer.deserialize_any(WideVisitor)
+    }
+
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Value, A::Error> {
+        let mut out = Vec::new();
+        while let Some(Wide(item)) = seq.next_element()? {
+            out.push(item);
+        }
+        Ok(Value::Sequence(out))
+    }
+
+    fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Value, A::Error> {
+        let mut out = Map::new();
+        while let Some((Wide(key), Wide(value))) = map.next_entry()? {
+            out.insert(key, value);
+        }
+        Ok(Value::Mapping(out))
+    }
+}
+
+/// An integer no `i64` or `u64` holds becomes the float nearest to it, which
+/// is the only shape left that a JSON document can carry.
+fn wide(number: f64) -> Value {
+    if number.is_finite() {
+        Value::Number(number.into())
+    } else {
+        Value::Null
+    }
 }
 
 /// The processed spec as JSON, with the document's own key order (API-50).
