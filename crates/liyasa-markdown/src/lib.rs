@@ -21,3 +21,7 @@ pub mod ast;
 pub mod directives;
 pub mod render;
 pub mod sanitize;
+
+pub use ast::parse;
+pub use directives::rewrite::rewrite;
+pub use render::{render_html, render_markdown, render_text};
