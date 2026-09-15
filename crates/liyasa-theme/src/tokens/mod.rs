@@ -171,6 +171,7 @@ impl Tokens {
     pub fn from_config(config: &ThemeConfig) -> (Self, Diagnostics) {
         let mut tokens = Self::aurora();
         let mut diagnostics = Diagnostics::new();
+        crate::presets::apply(config.preset, &mut tokens);
         tokens.apply_colors(&config.colors, &mut diagnostics);
         tokens.apply_fonts(config);
         tokens.apply_layout(&config.layout);
@@ -357,10 +358,10 @@ impl Tokens {
         // one `primary` for both schemes is adapted per scheme, which is what
         // CFG-04's "primary variants per scheme" means when only one is set.
         if let Some(color) = light_primary.or(primary) {
-            self.set_primary(Scheme::Light, color, light_primary.is_none());
+            self.set_role("primary", Scheme::Light, color, light_primary.is_none());
         }
         if let Some(color) = dark_primary.or(primary) {
-            self.set_primary(Scheme::Dark, color, dark_primary.is_none());
+            self.set_role("primary", Scheme::Dark, color, dark_primary.is_none());
         }
 
         for (path, value, token) in [
@@ -384,10 +385,13 @@ impl Tokens {
         }
     }
 
-    /// One configured colour drives the whole primary role: hover and pressed
-    /// states, the tint, and the text colour that sits on the page background
-    /// rather than on the fill.
-    fn set_primary(&mut self, scheme: Scheme, configured: Color, adapt: bool) {
+    /// One colour drives a whole role: hover and pressed states, the tint, the
+    /// label that sits on the fill, and the text colour that sits on the page
+    /// background rather than on it.
+    ///
+    /// `adapt` moves the colour as far as it must go to clear AA; a per-scheme
+    /// value an operator wrote is used as given and warned about instead.
+    pub fn set_role(&mut self, role: &str, scheme: Scheme, configured: Color, adapt: bool) {
         let background = self
             .color("--ly-color-bg", scheme)
             .unwrap_or(Color::rgb(255, 255, 255));
@@ -411,7 +415,11 @@ impl Tokens {
             configured
         };
 
-        self.set("--ly-color-primary", Some(scheme), &color.to_string());
+        let token = |suffix: &str| match suffix {
+            "" => format!("--ly-color-{role}"),
+            suffix => format!("--ly-color-{role}-{suffix}"),
+        };
+        self.set(&token(""), Some(scheme), &color.to_string());
         // Both schemes move toward the text colour on hover: darker on light,
         // lighter on dark. The fill gains contrast either way, so the label on
         // it keeps the ratio it had at rest.
