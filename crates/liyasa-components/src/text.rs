@@ -56,6 +56,11 @@ fn push_node(node: &Node, out: &mut String) {
 }
 
 fn push_block(block: &Block, out: &mut String) {
+    // A block boundary separates words on both sides: a list item's own label
+    // must not run into the nested list under it.
+    if !out.is_empty() && !out.ends_with(' ') {
+        out.push(' ');
+    }
     match &block.kind {
         // A code block's body is indexed; its language is not.
         BlockKind::CodeBlock { .. } | BlockKind::Math { .. } => {}
@@ -125,6 +130,26 @@ mod tests {
     use crate::nodes;
 
     use super::*;
+
+    #[test]
+    fn a_nested_list_does_not_run_into_its_label() {
+        let nested = nodes::block(
+            BlockKind::List {
+                ordered: false,
+                start: 1,
+                tight: true,
+            },
+            vec![nodes::block(
+                BlockKind::ListItem { checked: None },
+                vec![Node::Inline(Inline::Text("lib.rs".into()))],
+            )],
+        );
+        let item = nodes::block(
+            BlockKind::ListItem { checked: None },
+            vec![Node::Inline(Inline::Text("src/".into())), nested],
+        );
+        assert_eq!(of(&[item]), "src/ lib.rs");
+    }
 
     #[test]
     fn blocks_do_not_run_together() {

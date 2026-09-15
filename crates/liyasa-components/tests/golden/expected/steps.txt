@@ -1,0 +1,71 @@
+# steps gallery
+
+=== case: default
+--- html
+<ol class="ly-steps" data-liyasa="steps" data-style="numbered">
+  <li class="ly-step" id="install" data-step="1">
+    <div class="ly-step-marker" aria-hidden="true">
+      1
+    </div>
+    <div class="ly-step-body">
+      <p class="ly-step-title">
+        Install
+      </p>
+      <p>
+        Run the installer.
+      </p>
+    </div>
+  </li>
+  <li class="ly-step" id="configure" data-step="2">
+    <div class="ly-step-marker" aria-hidden="true">
+      2
+    </div>
+    <div class="ly-step-body">
+      <p class="ly-step-title">
+        Configure
+      </p>
+      <p>
+        Write liyasa.json.
+      </p>
+    </div>
+  </li>
+</ol>
+--- markdown
+1. **Install**
+   Run the installer.
+2. **Configure**
+   Write liyasa.json.
+--- text
+Install Run the installer. Configure Write liyasa.json.
+
+=== case: every prop
+--- html
+<ol class="ly-steps" data-liyasa="steps" data-style="icon" start="3">
+  <li class="ly-step" id="deploy" data-step="9">
+    <div class="ly-step-marker" aria-hidden="true">
+      <span class="ly-icon" data-icon="rocket">
+      </span>
+    </div>
+    <div class="ly-step-body">
+      <p class="ly-step-title">
+        Deploy
+      </p>
+      <p>
+        Ship it.
+      </p>
+    </div>
+  </li>
+</ol>
+--- markdown
+9. **Deploy**
+   Ship it.
+--- text
+Deploy Ship it.
+
+=== case: empty body
+--- html
+<ol class="ly-steps" data-liyasa="steps" data-style="numbered">
+</ol>
+--- markdown
+--- text
+

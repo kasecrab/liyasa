@@ -1,0 +1,48 @@
+# expandable gallery
+
+=== case: default
+--- html
+<details class="ly-expandable" data-liyasa="expandable">
+  <summary class="ly-expandable-title">
+    child attributes
+  </summary>
+  <div class="ly-expandable-body">
+    <p>
+      Nested fields.
+    </p>
+  </div>
+</details>
+--- markdown
+**child attributes**
+
+Nested fields.
+--- text
+child attributes Nested fields.
+
+=== case: every prop
+--- html
+<details class="ly-expandable" data-liyasa="expandable" open>
+  <summary class="ly-expandable-title">
+    child attributes
+  </summary>
+  <div class="ly-expandable-body">
+  </div>
+</details>
+--- markdown
+**child attributes**
+--- text
+child attributes
+
+=== case: empty body
+--- html
+<details class="ly-expandable" data-liyasa="expandable">
+  <summary class="ly-expandable-title">
+    Show more
+  </summary>
+  <div class="ly-expandable-body">
+  </div>
+</details>
+--- markdown
+**Show more**
+--- text
+

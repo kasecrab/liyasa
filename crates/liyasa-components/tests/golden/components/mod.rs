@@ -2,4 +2,5 @@
 
 mod callout;
 mod card;
+mod disclosure;
 mod frame;

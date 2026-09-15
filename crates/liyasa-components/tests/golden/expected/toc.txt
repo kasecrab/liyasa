@@ -1,0 +1,25 @@
+# toc gallery
+
+=== case: default
+--- html
+<nav class="ly-toc" data-liyasa="toc" aria-label="Table of contents" data-depth="3">
+</nav>
+--- markdown
+--- text
+
+
+=== case: every prop
+--- html
+<nav class="ly-toc" data-liyasa="toc" aria-label="Table of contents" data-depth="2" data-from="/guides">
+</nav>
+--- markdown
+--- text
+
+
+=== case: depth out of range
+--- html
+<nav class="ly-toc" data-liyasa="toc" aria-label="Table of contents" data-depth="6">
+</nav>
+--- markdown
+--- text
+

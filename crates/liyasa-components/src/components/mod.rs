@@ -2,7 +2,11 @@
 
 pub mod callout;
 pub mod card;
+pub mod disclosure;
 pub mod frame;
+pub mod steps;
+pub mod tabs;
+pub mod tree;
 
 use crate::registry::Registry;
 
@@ -26,5 +30,15 @@ pub fn register_builtins(registry: &mut Registry) {
         .add(frame::Frame)
         .add(frame::Panel)
         .add(frame::Hero)
-        .add(frame::Divider);
+        .add(frame::Divider)
+        .add(disclosure::Accordion)
+        .add(disclosure::Accordions)
+        .add(disclosure::Expandable)
+        .add(disclosure::Expandables)
+        .add(tabs::Tabs)
+        .add(tabs::Tab)
+        .add(steps::Steps)
+        .add(steps::Step)
+        .add(tree::Tree)
+        .add(tree::Toc);
 }

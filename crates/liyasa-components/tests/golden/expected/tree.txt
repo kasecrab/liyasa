@@ -1,0 +1,50 @@
+# tree gallery
+
+=== case: default
+--- html
+<div class="ly-tree" data-liyasa="tree" aria-label="liyasa/">
+  <p class="ly-tree-root">
+    liyasa/
+  </p>
+  <ul class="ly-tree-list" role="tree">
+    <li class="ly-tree-folder" role="treeitem" data-path="src/" aria-expanded="true" tabindex="0">
+      <span class="ly-tree-label">
+        src
+      </span>
+      <ul class="ly-tree-list" role="group">
+        <li class="ly-tree-file" role="treeitem" data-path="lib.rs" aria-current="true" data-active="" tabindex="-1">
+          <span class="ly-tree-label">
+            lib.rs
+          </span>
+        </li>
+        <li class="ly-tree-file" role="treeitem" data-path="main.rs" tabindex="-1">
+          <span class="ly-tree-label">
+            main.rs
+          </span>
+        </li>
+      </ul>
+    </li>
+    <li class="ly-tree-file" role="treeitem" data-path="Cargo.toml" tabindex="0">
+      <span class="ly-tree-label">
+        Cargo.toml
+      </span>
+    </li>
+  </ul>
+</div>
+--- markdown
+**liyasa/**
+
+- src/
+  - lib.rs
+  - main.rs
+- Cargo.toml
+--- text
+src/ lib.rs main.rs Cargo.toml
+
+=== case: empty body
+--- html
+<div class="ly-tree" data-liyasa="tree" aria-label="Files">
+</div>
+--- markdown
+--- text
+

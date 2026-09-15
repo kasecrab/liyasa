@@ -1,0 +1,90 @@
+# accordion gallery
+
+=== case: default
+--- html
+<details class="ly-accordion" data-liyasa="accordion" id="what-is-a-fact">
+  <summary class="ly-accordion-title">
+    What is a fact?
+  </summary>
+  <div class="ly-accordion-body">
+    <p>
+      A value with a source.
+    </p>
+  </div>
+</details>
+--- markdown
+### What is a fact?
+
+A value with a source.
+--- text
+What is a fact? A value with a source.
+
+=== case: every prop
+--- html
+<details class="ly-accordion" data-liyasa="accordion" id="facts" open>
+  <summary class="ly-accordion-title">
+    <span class="ly-icon" data-icon="help" aria-hidden="true">
+    </span>
+    What is a fact?
+  </summary>
+  <div class="ly-accordion-body">
+    <p>
+      A value with a source.
+    </p>
+  </div>
+</details>
+--- markdown
+### What is a fact?
+
+A value with a source.
+--- text
+What is a fact? A value with a source.
+
+=== case: empty body
+--- html
+<details class="ly-accordion" data-liyasa="accordion" id="a-4033e1a9b198bb0c082ba5b2">
+  <summary class="ly-accordion-title">
+    Details
+  </summary>
+  <div class="ly-accordion-body">
+  </div>
+</details>
+--- markdown
+### Details
+--- text
+
+
+=== case: grouped
+--- html
+<div class="ly-accordions" data-liyasa="accordions" data-one>
+  <details class="ly-accordion" data-liyasa="accordion" id="first">
+    <summary class="ly-accordion-title">
+      First
+    </summary>
+    <div class="ly-accordion-body">
+      <p>
+        One.
+      </p>
+    </div>
+  </details>
+  <details class="ly-accordion" data-liyasa="accordion" id="second">
+    <summary class="ly-accordion-title">
+      Second
+    </summary>
+    <div class="ly-accordion-body">
+      <p>
+        Two.
+      </p>
+    </div>
+  </details>
+</div>
+--- markdown
+### First
+
+One.
+
+### Second
+
+Two.
+--- text
+First One. Second Two.

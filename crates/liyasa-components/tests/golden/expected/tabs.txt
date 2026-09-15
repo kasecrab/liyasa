@@ -1,0 +1,106 @@
+# tabs gallery
+
+=== case: default
+--- html
+<div class="ly-tabs" data-liyasa="tabs">
+  <div class="ly-tablist" role="tablist" aria-label="Install">
+    <button class="ly-tab" type="button" role="tab" id="t-1aadb1eb5ddb08526a8ff028-tab-0" aria-controls="t-1aadb1eb5ddb08526a8ff028-panel-0" aria-selected="true" tabindex="0">
+      npm
+    </button>
+    <button class="ly-tab" type="button" role="tab" id="t-1aadb1eb5ddb08526a8ff028-tab-1" aria-controls="t-1aadb1eb5ddb08526a8ff028-panel-1" aria-selected="false" tabindex="-1">
+      <span class="ly-icon" data-icon="rust" aria-hidden="true">
+      </span>
+      cargo
+    </button>
+  </div>
+  <div class="ly-tabpanel" role="tabpanel" id="t-1aadb1eb5ddb08526a8ff028-panel-0" aria-labelledby="t-1aadb1eb5ddb08526a8ff028-tab-0" tabindex="0">
+    <div class="ly-code" data-liyasa="code-block" data-lang="sh">
+      <button class="ly-code-copy" type="button" data-liyasa="copy">
+        Copy
+      </button>
+      <pre class="ly-code-body">
+        <code class="language-sh">
+          npm i liyasa
+        </code>
+      </pre>
+    </div>
+  </div>
+  <div class="ly-tabpanel" role="tabpanel" id="t-1aadb1eb5ddb08526a8ff028-panel-1" aria-labelledby="t-1aadb1eb5ddb08526a8ff028-tab-1" tabindex="0" hidden>
+    <div class="ly-code" data-liyasa="code-block" data-lang="sh">
+      <button class="ly-code-copy" type="button" data-liyasa="copy">
+        Copy
+      </button>
+      <pre class="ly-code-body">
+        <code class="language-sh">
+          cargo install liyasa
+        </code>
+      </pre>
+    </div>
+  </div>
+</div>
+--- markdown
+### Install: npm
+
+```sh
+npm i liyasa
+```
+
+### Install: cargo
+
+```sh
+cargo install liyasa
+```
+--- text
+npm cargo npm npm i liyasa cargo cargo install liyasa
+
+=== case: synced
+--- html
+<div class="ly-tabs" data-liyasa="tabs" data-sync="lang">
+  <div class="ly-tablist" role="tablist">
+    <button class="ly-tab" type="button" role="tab" id="t-1aadb1eb5ddb08526a8ff028-tab-0" aria-controls="t-1aadb1eb5ddb08526a8ff028-panel-0" aria-selected="true" tabindex="0" data-sync-value="rust">
+      Rust
+    </button>
+  </div>
+  <div class="ly-tabpanel" role="tabpanel" id="t-1aadb1eb5ddb08526a8ff028-panel-0" aria-labelledby="t-1aadb1eb5ddb08526a8ff028-tab-0" tabindex="0">
+    <p>
+      Rust body.
+    </p>
+  </div>
+</div>
+--- markdown
+### lang: Rust
+
+Rust body.
+--- text
+Rust Rust Rust body.
+
+=== case: empty body
+--- html
+<div class="ly-tabs" data-liyasa="tabs">
+  <div class="ly-tablist" role="tablist">
+  </div>
+</div>
+--- markdown
+--- text
+
+
+=== case: untitled tab
+--- html
+<div class="ly-tabs" data-liyasa="tabs">
+  <div class="ly-tablist" role="tablist">
+    <button class="ly-tab" type="button" role="tab" id="t-1aadb1eb5ddb08526a8ff028-tab-0" aria-controls="t-1aadb1eb5ddb08526a8ff028-panel-0" aria-selected="true" tabindex="0">
+      Tab 1
+    </button>
+  </div>
+  <div class="ly-tabpanel" role="tabpanel" id="t-1aadb1eb5ddb08526a8ff028-panel-0" aria-labelledby="t-1aadb1eb5ddb08526a8ff028-tab-0" tabindex="0">
+    <p>
+      No title.
+    </p>
+  </div>
+</div>
+--- markdown
+### Tab 1
+
+No title.
+--- text
+Tab 1 No title.
