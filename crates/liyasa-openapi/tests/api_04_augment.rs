@@ -60,23 +60,39 @@ fn front_matter_names_the_spec_and_the_operation() {
 #[test]
 fn the_body_renders_above_the_generated_parameters() {
     let out = augmented();
-    let intro = out.find("Read the guide first.").expect("the body is on the page");
-    let parameters = out.find("## Path parameters").expect("the parameters are there");
+    let intro = out
+        .find("Read the guide first.")
+        .expect("the body is on the page");
+    let parameters = out
+        .find("## Path parameters")
+        .expect("the parameters are there");
     assert!(intro < parameters, "the body comes first:\n{out}");
 }
 
 #[test]
 fn a_slot_renders_at_its_injection_point() {
     let out = augmented();
-    let parameters = out.find("## Path parameters").expect("the parameters are there");
-    let slot = out.find("Rate limits apply.").expect("the slot is on the page");
+    let parameters = out
+        .find("## Path parameters")
+        .expect("the parameters are there");
+    let slot = out
+        .find("Rate limits apply.")
+        .expect("the slot is on the page");
     let responses = out.find("## Responses").expect("the responses are there");
-    assert!(parameters < slot && slot < responses, "after the parameters:\n{out}");
+    assert!(
+        parameters < slot && slot < responses,
+        "after the parameters:\n{out}"
+    );
 }
 
 #[test]
 fn only_the_documented_slot_names_are_accepted() {
-    for name in ["before-request", "after-params", "before-responses", "rail-top"] {
+    for name in [
+        "before-request",
+        "after-params",
+        "before-responses",
+        "rail-top",
+    ] {
         assert!(Augmentation::is_slot(name), "`{name}` is documented");
     }
     assert!(!Augmentation::is_slot("after-everything"));

@@ -165,3 +165,4 @@ E0322 = { severity = "error", crate = "liyasa-markdown", title = "Page nests blo
 W0509 = { severity = "warning", crate = "liyasa-openapi", title = "Swagger 2.0 document converted to OpenAPI 3.1" }
 W0510 = { severity = "warning", crate = "liyasa-openapi", title = "Operation has no example for its request or response body" }
 W0511 = { severity = "warning", crate = "liyasa-openapi", title = "Spec feature not rendered by this release" }
+W0512 = { severity = "warning", crate = "liyasa-openapi", title = "Overlay action matched nothing in the spec" }
