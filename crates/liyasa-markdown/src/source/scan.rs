@@ -68,14 +68,14 @@ pub fn scan(source: &str, id: SourceId) -> (SourceDocument, Diagnostics) {
 
     match_statements(source, &mut segments, &mut diagnostics);
     match_directives(source, &mut segments, &mut diagnostics);
-    (
-        SourceDocument {
-            source: id,
-            frontmatter,
-            segments,
-        },
-        diagnostics,
-    )
+
+    let document = SourceDocument {
+        source: id,
+        frontmatter,
+        segments,
+    };
+    super::wellformed::check(source, &document, &mut diagnostics);
+    (document, diagnostics)
 }
 
 /// The byte offset where the body begins: past the front matter, or 0.

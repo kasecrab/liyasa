@@ -6,6 +6,7 @@ mod normalize;
 pub mod yaml;
 
 mod scan;
+mod wellformed;
 
 pub use normalize::normalize;
 pub use scan::{body_start, scan};

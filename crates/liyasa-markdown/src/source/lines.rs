@@ -92,16 +92,28 @@ impl ListStack {
         self.0.last().copied().unwrap_or_default()
     }
 
-    /// Feeds one non-blank line, closing items the line has outdented past and
-    /// opening one when the line starts a list item.
+    /// Feeds one non-blank line: closes the items it has outdented past, then
+    /// opens one when it starts a list item.
     pub fn feed(&mut self, line: &Line<'_>) {
-        while self
-            .0
-            .last()
-            .is_some_and(|column| line.indent < *column && !line.is_blank())
-        {
+        self.close(line);
+        self.open(line);
+    }
+
+    /// Closes the items `line` has outdented past. A line that ends a list is
+    /// no longer inside it, which is what a block statement's closing tag has
+    /// to be measured against.
+    pub fn close(&mut self, line: &Line<'_>) {
+        if line.is_blank() {
+            return;
+        }
+        while self.0.last().is_some_and(|column| line.indent < *column) {
             self.0.pop();
         }
+    }
+
+    /// Opens an item when `line` starts one. A line that *starts* a list item
+    /// is not yet inside it.
+    pub fn open(&mut self, line: &Line<'_>) {
         if let Some(column) = marker_width(line.content) {
             self.0.push(line.indent + column);
         }
