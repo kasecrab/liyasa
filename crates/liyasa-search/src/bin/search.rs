@@ -10,41 +10,18 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::ExitCode;
 
-use liyasa_search::cli::{self, Options};
+use liyasa_search::cli;
 use liyasa_search::idx::Index;
 
 fn main() -> ExitCode {
-    let mut arguments = std::env::args().skip(1);
-    let (Some(directory), Some(query)) = (arguments.next(), arguments.next()) else {
-        eprintln!("usage: search <search-index directory> <query> [--json] [--expect <url>]");
-        return ExitCode::from(2);
-    };
-
-    let mut options = Options::default();
-    let rest: Vec<String> = arguments.collect();
-    let mut at = 0;
-    while at < rest.len() {
-        match rest[at].as_str() {
-            "--json" => options.json = true,
-            "--expect" => {
-                at += 1;
-                options.expect = rest.get(at).cloned();
-            }
-            "--locale" => {
-                at += 1;
-                options.locale = rest.get(at).cloned();
-            }
-            "--limit" => {
-                at += 1;
-                options.limit = rest.get(at).and_then(|value| value.parse().ok());
-            }
-            other => {
-                eprintln!("unknown option `{other}`");
-                return ExitCode::from(2);
-            }
+    let invocation = match cli::parse_arguments(std::env::args().skip(1)) {
+        Ok(invocation) => invocation,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
         }
-        at += 1;
-    }
+    };
+    let (directory, query, options) = (invocation.directory, invocation.query, invocation.options);
 
     let files = match read(Path::new(&directory)) {
         Ok(files) => files,

@@ -25,6 +25,76 @@ pub struct Options {
     pub expect: Option<String>,
 }
 
+pub const USAGE: &str = "usage: search <search-index directory> <query> \
+[--locale <tag>] [--version <name>] [--tab <name>] [--limit <n>] [--json] \
+[--expect <url>]";
+
+/// One invocation, parsed. Here rather than in `main` so the argument rules
+/// are testable: a CI check that silently ignored `--expect` would pass while
+/// asserting nothing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Invocation {
+    pub directory: String,
+    pub query: String,
+    pub options: Options,
+}
+
+/// Reads the arguments after the program name. The error is the message to
+/// print; every unknown flag and every missing value is one, because a
+/// mistyped assertion that runs anyway is worse than no assertion.
+pub fn parse_arguments<I>(arguments: I) -> Result<Invocation, String>
+where
+    I: IntoIterator<Item = String>,
+{
+    let arguments: Vec<String> = arguments.into_iter().collect();
+    let mut positional = arguments.iter().filter(|a| !a.starts_with("--"));
+    let (Some(directory), Some(query)) = (positional.next(), positional.next()) else {
+        return Err(USAGE.to_owned());
+    };
+    let (directory, query) = (directory.clone(), query.clone());
+
+    let mut options = Options::default();
+    let mut at = 0;
+    let mut positional_seen = 0;
+    while at < arguments.len() {
+        let argument = &arguments[at];
+        let value = |name: &str, at: &mut usize| -> Result<String, String> {
+            *at += 1;
+            arguments
+                .get(*at)
+                .filter(|value| !value.starts_with("--"))
+                .cloned()
+                .ok_or_else(|| format!("`--{name}` needs a value"))
+        };
+        match argument.as_str() {
+            "--json" => options.json = true,
+            "--expect" => options.expect = Some(value("expect", &mut at)?),
+            "--locale" => options.locale = Some(value("locale", &mut at)?),
+            "--version" => options.version = Some(value("version", &mut at)?),
+            "--tab" => options.tab = Some(value("tab", &mut at)?),
+            "--limit" => {
+                let text = value("limit", &mut at)?;
+                options.limit = Some(
+                    text.parse()
+                        .map_err(|_| format!("`--limit` is `{text}`, which is not a number"))?,
+                );
+            }
+            other if other.starts_with("--") => return Err(format!("unknown option `{other}`")),
+            _ => positional_seen += 1,
+        }
+        at += 1;
+    }
+    if positional_seen > 2 {
+        return Err(USAGE.to_owned());
+    }
+
+    Ok(Invocation {
+        directory,
+        query,
+        options,
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Outcome {
     pub output: String,
@@ -186,6 +256,66 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&outcome.output).expect("valid JSON");
         assert_eq!(parsed["total"], 1);
         assert_eq!(parsed["results"][0]["url"], "/guides/limits");
+    }
+
+    fn arguments(text: &str) -> Result<Invocation, String> {
+        parse_arguments(text.split_whitespace().map(str::to_owned))
+    }
+
+    #[test]
+    fn the_directory_and_the_query_are_the_two_positional_arguments() {
+        let parsed = arguments("./dist/search-index limits").expect("parses");
+        assert_eq!(parsed.directory, "./dist/search-index");
+        assert_eq!(parsed.query, "limits");
+        assert_eq!(parsed.options, Options::default());
+    }
+
+    #[test]
+    fn every_filter_the_options_carry_can_be_set_from_the_command_line() {
+        let parsed = arguments(
+            "./index limits --locale de --version v2 --tab api --limit 5 --json              --expect /guides/limits",
+        )
+        .expect("parses");
+        assert_eq!(
+            parsed.options,
+            Options {
+                locale: Some("de".to_owned()),
+                version: Some("v2".to_owned()),
+                tab: Some("api".to_owned()),
+                limit: Some(5),
+                json: true,
+                expect: Some("/guides/limits".to_owned()),
+            }
+        );
+    }
+
+    #[test]
+    fn a_limit_that_is_not_a_number_is_refused_rather_than_ignored() {
+        let error = arguments("./index limits --limit ten").expect_err("must fail");
+        assert!(error.contains("ten"), "{error}");
+    }
+
+    #[test]
+    fn a_flag_without_its_value_is_refused() {
+        for line in [
+            "./index limits --expect",
+            "./index limits --limit",
+            "./index limits --expect --json",
+        ] {
+            assert!(arguments(line).is_err(), "`{line}` must not parse");
+        }
+    }
+
+    #[test]
+    fn an_unknown_flag_is_refused() {
+        let error = arguments("./index limits --sort date").expect_err("must fail");
+        assert!(error.contains("--sort"), "{error}");
+    }
+
+    #[test]
+    fn too_few_arguments_print_the_usage() {
+        assert_eq!(arguments("./index"), Err(USAGE.to_owned()));
+        assert_eq!(arguments("--json"), Err(USAGE.to_owned()));
     }
 
     #[test]
