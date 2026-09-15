@@ -1,4 +1,8 @@
 //! What every verification `Runner` must do (PRD §14, §34.9).
+//!
+//! There is no reference `Runner` in `liyasa-core`: every runner executes
+//! code, which needs a sandbox. WP-21's runners are the first implementations
+//! this kit runs against.
 
 use std::time::Duration;
 

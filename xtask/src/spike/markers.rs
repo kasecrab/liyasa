@@ -8,7 +8,7 @@
 use comrak::nodes::{AstNode, NodeBlockDirective, NodeValue};
 use comrak::{Arena, Options};
 use liyasa_core::markdown::{DirectiveTable, RewriteMap};
-use liyasa_core::{Diagnostics, SourceId, Span};
+use liyasa_core::{Diagnostics, SourceId};
 
 use super::scan::{self, MARKER_PREFIX, MarkerRole};
 
@@ -187,10 +187,4 @@ fn line_starts(text: &str) -> Vec<u32> {
                 .map(|(at, _)| at as u32 + 1),
         )
         .collect()
-}
-
-/// Composes a rewritten byte offset all the way back to a source span.
-pub fn compose(map: &RewriteMap, source: SourceId, rewritten_start: u32, len: u32) -> Span {
-    let start = map.to_expanded(rewritten_start);
-    Span::new(source, start, start + len)
 }

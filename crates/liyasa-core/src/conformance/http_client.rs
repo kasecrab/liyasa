@@ -2,6 +2,10 @@
 //!
 //! The rules here are the SSRF ones: policy is enforced at connect time, so a
 //! client that only inspects the request URL fails this kit.
+//!
+//! There is no reference `HttpClient` in `liyasa-core`: the contract is about
+//! what happens at connect time, which needs a socket. `liyasa-net` is the
+//! first implementation this kit runs against.
 
 use std::time::Duration;
 
