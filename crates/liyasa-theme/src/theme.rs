@@ -147,9 +147,10 @@ impl Theme {
         // the emitted HTML inside the per-page budget (RX-12).
         env.set_trim_blocks(true);
         env.set_lstrip_blocks(true);
-        // §6.6.4's lenient-undefined semantics: a partial that reads a field a
-        // page does not have renders nothing rather than failing the build.
-        env.set_undefined_behavior(UndefinedBehavior::Lenient);
+        // §6.6.4's lenient-undefined semantics, chained: a partial that reads
+        // a field a page does not have — `code.title` on a page with no code
+        // block — renders nothing rather than failing the build.
+        env.set_undefined_behavior(UndefinedBehavior::Chainable);
 
         for (name, source) in PARTIALS {
             add(&mut env, &format!("partials/{name}"), source)?;
@@ -413,6 +414,63 @@ fn prop_text(value: &PropValue) -> String {
 fn props_get<'a>(props: &'a BTreeMap<&str, String>, key: &str) -> Option<&'a str> {
     props.get(key).map(String::as_str)
 }
+
+/// Every `data-liyasa` value the theme emits (CMP-100).
+///
+/// A custom stylesheet selects on these, so they are as much a published
+/// interface as the token names: a value is added in a minor release and
+/// removed only in a major one. `tests/cmp_100.rs` asserts that what the theme
+/// renders and this list are the same set, in both directions.
+pub const ELEMENTS: &[&str] = &[
+    "assistant",
+    "assistant-trigger",
+    "banner",
+    "body",
+    "bootstrap",
+    "breadcrumbs",
+    "callout",
+    "code-block",
+    "component",
+    "content",
+    "critical",
+    "drawer-trigger",
+    "eyebrow",
+    "feedback",
+    "footer",
+    "footer-column",
+    "footer-note",
+    "last-modified",
+    "live-region",
+    "logo",
+    "main",
+    "navbar",
+    "navbar-actions",
+    "navbar-links",
+    "page",
+    "page-actions",
+    "page-actions-menu",
+    "page-data",
+    "page-description",
+    "page-header",
+    "page-title",
+    "pagination",
+    "panel",
+    "rail",
+    "runtime",
+    "search",
+    "search-trigger",
+    "shell",
+    "sidebar",
+    "sidebar-group",
+    "sidebar-group-header",
+    "sidebar-item",
+    "sidebar-nav",
+    "skip-link",
+    "switchers",
+    "tabs",
+    "theme-toggle",
+    "toc",
+];
 
 /// One hunk of `liyasa theme diff` (THM-23).
 #[derive(Debug, Clone, PartialEq, Eq)]
