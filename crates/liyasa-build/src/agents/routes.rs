@@ -40,6 +40,34 @@ pub fn generate(site: &SiteInput) -> Surfaces {
     out
 }
 
+/// Whether a body that was fetched as Markdown is really an HTML page
+/// (RX-65's soft-404 heuristic).
+///
+/// A host that has no `.md` route often answers with its 404 document and a
+/// 200 status, which a fetcher cannot tell from content by the status line
+/// alone. Three signs give it away: a doctype or an `<html>` element, a body
+/// that is mostly tags, or the words a 404 page uses with none of the
+/// structure a page's Markdown has.
+pub fn looks_like_html_shell(body: &str) -> bool {
+    let head = body.trim_start();
+    let lower = head.to_ascii_lowercase();
+    if lower.starts_with("<!doctype") || lower.starts_with("<html") {
+        return true;
+    }
+    let tags = head.matches('<').count();
+    let lines = head.lines().filter(|line| !line.trim().is_empty()).count();
+    if tags > 0 && lines > 0 && tags >= lines {
+        return true;
+    }
+    let structured = head
+        .lines()
+        .any(|line| line.starts_with('#') || line.starts_with("> ") || line.starts_with("- "));
+    !structured
+        && ["page not found", "404", "cannot be found"]
+            .iter()
+            .any(|needle| lower.contains(needle))
+}
+
 #[cfg(test)]
 mod tests {
     use liyasa_core::ids::{Locale, Route};
@@ -109,6 +137,27 @@ mod tests {
         let surfaces = generate(&site);
         assert!(surfaces.get("/dashboard.md").is_none());
         assert!(surfaces.get("/dashboard/index.md").is_none());
+    }
+
+    #[test]
+    fn rx_65_an_html_shell_served_as_markdown_is_recognized() {
+        assert!(looks_like_html_shell(
+            "<!doctype html><html><body><h1>Page not found</h1></body></html>"
+        ));
+        assert!(looks_like_html_shell(
+            "<div class=\"app\">\n<div id=\"root\"></div>\n<span></span>\n"
+        ));
+        assert!(looks_like_html_shell("Page not found. Try the search."));
+    }
+
+    #[test]
+    fn rx_65_real_markdown_is_not_a_shell() {
+        assert!(!looks_like_html_shell(
+            "> For AI agents: a documentation index is available at https://example.com/llms.txt\n\n# Install\n\nRun the installer.\n"
+        ));
+        assert!(!looks_like_html_shell(
+            "# 404 handling\n\nHow Liyasa serves a page not found.\n"
+        ));
     }
 
     #[test]
