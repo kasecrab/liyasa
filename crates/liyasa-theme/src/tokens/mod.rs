@@ -257,6 +257,25 @@ impl Tokens {
         out
     }
 
+    /// Merges an operator's `theme/tokens.css` (THM-10).
+    ///
+    /// A declaration written outside a scheme block applies to both schemes, so
+    /// overriding a token is one line rather than three (THM-12); a declaration
+    /// inside `[data-theme="dark"]` or a `prefers-color-scheme: dark` query
+    /// applies to the dark scheme alone. Tokens the theme does not document are
+    /// kept and emitted, because a theme override file is also where an
+    /// operator puts their own.
+    pub fn with_overrides(&mut self, css: &str) {
+        for (scope, declaration) in crate::css::Stylesheet::parse(css).custom_properties() {
+            let scheme = match scope {
+                crate::css::Scope::Both => None,
+                crate::css::Scope::Light => Some(Scheme::Light),
+                crate::css::Scope::Dark => Some(Scheme::Dark),
+            };
+            self.set(&declaration.property, scheme, &declaration.value);
+        }
+    }
+
     /// The shell's tokens alone, minified, for the inlined critical block
     /// (THM-30). The full set arrives with the cached stylesheet.
     pub fn critical_css(&self) -> String {
