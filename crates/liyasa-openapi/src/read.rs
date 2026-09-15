@@ -390,15 +390,15 @@ impl<'a> Reader<'a> {
         };
         let mut out = OrderedMap::new();
         for (name, item) in map.iter() {
-            let Some(name) = as_str(name) else {
+            let Some(name) = crate::tree::key_text(name) else {
                 self.complain(&at, "a key in this mapping is not a string");
                 continue;
             };
-            if Extensions::is_extension_key(name) {
+            if Extensions::is_extension_key(&name) {
                 continue;
             }
-            if let Some(read) = read(self, item, &at.push(name)) {
-                out.insert(name.to_owned(), read);
+            if let Some(read) = read(self, item, &at.push(&name)) {
+                out.insert(name, read);
             }
         }
         out
@@ -501,11 +501,13 @@ impl<'a> Reader<'a> {
             };
             let mut out = OrderedMap::new();
             for (name, scopes) in map.iter() {
-                let Some(name) = as_str(name) else { continue };
+                let Some(name) = crate::tree::key_text(name) else {
+                    continue;
+                };
                 let scopes = as_seq(scopes)
                     .map(|items| items.iter().filter_map(as_str).map(str::to_owned).collect())
                     .unwrap_or_default();
-                out.insert(name.to_owned(), scopes);
+                out.insert(name, scopes);
             }
             Some(SecurityRequirement(out))
         })

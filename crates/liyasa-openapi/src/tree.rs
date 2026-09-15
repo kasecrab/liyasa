@@ -76,6 +76,23 @@ pub fn as_str(value: &Value) -> Option<&str> {
     }
 }
 
+/// A mapping key as the string OpenAPI meant it to be.
+///
+/// YAML resolves an unquoted `200:` to an integer, so a spec that writes its
+/// status codes without quotes has keys the model would otherwise reject. A
+/// scalar is read as its text; a mapping or a sequence used as a key has no
+/// reading and is left to the caller to complain about.
+// TODO(rfc-0803): coercion is silent; `liyasa validate --openapi` is where a
+// spec author hears that their document is not conformant.
+pub fn key_text(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) => Some(text.clone()),
+        Value::Number(number) => Some(number.to_string()),
+        Value::Bool(flag) => Some(flag.to_string()),
+        _ => None,
+    }
+}
+
 pub fn as_bool(value: &Value) -> Option<bool> {
     match value {
         Value::Bool(flag) => Some(*flag),
