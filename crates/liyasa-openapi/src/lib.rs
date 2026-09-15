@@ -13,6 +13,7 @@ pub mod download;
 pub mod example;
 pub mod field;
 pub mod load;
+pub mod manual;
 pub mod markdown;
 pub mod model;
 pub mod nav;

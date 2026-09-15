@@ -153,3 +153,4 @@ W0509 = { severity = "warning", crate = "liyasa-openapi", title = "Swagger 2.0 d
 W0510 = { severity = "warning", crate = "liyasa-openapi", title = "Operation has no example for its request or response body" }
 W0511 = { severity = "warning", crate = "liyasa-openapi", title = "Spec feature not rendered by this release" }
 W0512 = { severity = "warning", crate = "liyasa-openapi", title = "Overlay action matched nothing in the spec" }
+W0513 = { severity = "warning", crate = "liyasa-openapi", title = "Manual API page differs from the spec that describes the same path" }
