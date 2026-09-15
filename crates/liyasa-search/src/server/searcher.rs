@@ -476,6 +476,79 @@ impl crate::api::Engine for ServerSearcher<'_> {
     }
 }
 
+/// §12.1's fusion constant: large enough that a first place is worth a little
+/// more than a second, not so much more that one list decides the order.
+pub const RRF_K: f32 = 60.0;
+
+/// An engine in hybrid mode (CFG-54): a keyword engine's list reordered by
+/// [`hybrid`] against a ranking the caller got from the assistant index.
+///
+/// The embedding query itself is the assistant package's, and it is async,
+/// which is why this takes the ranking rather than running it: the server
+/// embeds the query, then hands the keys over.
+pub struct Hybrid<'a, E: ?Sized> {
+    keyword: &'a E,
+    semantic: &'a [String],
+    k: f32,
+}
+
+impl<'a, E: crate::api::Engine + ?Sized> Hybrid<'a, E> {
+    /// Fuses only when `search.mode` is `"hybrid"`; in keyword mode the
+    /// semantic ranking is ignored rather than quietly half-applied.
+    pub fn for_settings(
+        settings: &crate::config::SearchSettings,
+        keyword: &'a E,
+        semantic: &'a [String],
+    ) -> Self {
+        let semantic = match settings.mode {
+            crate::config::SearchMode::Hybrid => semantic,
+            crate::config::SearchMode::Keyword => &[],
+        };
+        Self {
+            keyword,
+            semantic,
+            k: RRF_K,
+        }
+    }
+}
+
+impl<E: crate::api::Engine + ?Sized> crate::api::Engine for Hybrid<'_, E> {
+    fn run(
+        &self,
+        query: &crate::idx::query::Query,
+        context: &crate::idx::manifest::Context,
+        options: &SearchOptions,
+    ) -> Result<Vec<Hit>, SearchError> {
+        if self.semantic.is_empty() {
+            return self.keyword.run(query, context, options);
+        }
+
+        // A wider pool than the caller asked for, so a section the embeddings
+        // rank highly can climb from outside the first page rather than only
+        // within it.
+        let pool = SearchOptions {
+            max_results: options.max_results.saturating_mul(4).max(20),
+            ..options.clone()
+        };
+        let mut hits = self.keyword.run(query, context, &pool)?;
+
+        let keyword: Vec<String> = hits.iter().map(|hit| hit.url.clone()).collect();
+        let fused = hybrid(&keyword, self.semantic, self.k);
+        // A key only the embeddings returned has no document here, so it is
+        // dropped: a result is always something the index holds, and the
+        // reader filter has already run over it.
+        let place = |url: &str| {
+            fused
+                .iter()
+                .position(|key| key == url)
+                .unwrap_or(usize::MAX)
+        };
+        hits.sort_by_key(|hit| place(&hit.url));
+        hits.truncate(options.max_results);
+        Ok(hits)
+    }
+}
+
 /// Reciprocal rank fusion (SRC-06's hybrid mode): two ranked lists of keys
 /// into one, without needing their scores to be on the same scale.
 pub fn hybrid(keyword: &[String], semantic: &[String], k: f32) -> Vec<String> {

@@ -9,5 +9,5 @@ pub mod searcher;
 pub mod writer;
 
 pub use schema::SearchSchema;
-pub use searcher::{ServerSearcher, hybrid};
+pub use searcher::{Hybrid, RRF_K, ServerSearcher, hybrid};
 pub use writer::{IndexStats, Merges, ServerIndex};
