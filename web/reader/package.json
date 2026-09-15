@@ -12,7 +12,8 @@
     "build": "node --disable-warning=ExperimentalWarning build.mjs",
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.ts",
     "serve": "node e2e/serve.mjs",
-    "e2e": "playwright test --config e2e/playwright.config.ts"
+    "e2e": "playwright test --config e2e/playwright.config.ts",
+    "site": "cd ../.. && cargo run -q -p liyasa-tests --bin reference-site -- target/reference-site"
   },
   "devDependencies": {}
 }
