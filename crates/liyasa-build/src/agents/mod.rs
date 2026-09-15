@@ -5,6 +5,7 @@
 //! no reader value can reach a shared surface (SRC-12).
 
 pub mod continuation;
+pub mod llms;
 pub mod markdown;
 pub mod site;
 pub mod size;
