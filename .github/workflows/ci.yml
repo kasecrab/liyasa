@@ -8,6 +8,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
+  # Pinned so a spec release never turns a green branch red without a commit.
+  COMMONMARK_VERSION: "0.31.2"
+  GFM_SPEC_REF: "0.29.0.gfm.13"
 
 jobs:
   check:
@@ -20,7 +23,56 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets --all-features
-      - run: cargo test --workspace
+      - run: cargo test --workspace --all-features
+
+  # §6.2: liyasa-core and the other author-facing crates must compile to
+  # wasm32, because the editor renders its preview from the same code.
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown, wasm32-wasip1
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build -p liyasa-core --target wasm32-unknown-unknown
+      - run: cargo build -p liyasa-core --target wasm32-wasip1
+
+  # CFG-94 and §34.9: the published schemas are generated from the frozen Rust
+  # types, so a contract change that forgets them fails here.
+  schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo run -p xtask -- schemas --check
+
+  # §30.9. The Liyasa half of the corpus is never committed (it is the
+  # specification's fixture set, not source), so CI rebuilds the half that has
+  # an external source of truth: the upstream CommonMark and GFM suites, whose
+  # expected output comes from the reference implementations.
+  corpus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+      - uses: Swatinem/rust-cache@v2
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
+      - name: Fetch the upstream suites
+        run: |
+          mkdir -p corpus
+          curl -sSfLo spec.json "https://spec.commonmark.org/${COMMONMARK_VERSION}/spec.json"
+          curl -sSfLo gfm.txt "https://raw.githubusercontent.com/github/cmark-gfm/${GFM_SPEC_REF}/test/spec.txt"
+      - run: |
+          cargo run -p xtask -- corpus import \
+            --commonmark spec.json --commonmark-version "${COMMONMARK_VERSION}" \
+            --gfm gfm.txt --out corpus
+      - run: cargo run -p xtask -- conformance corpus
+      - name: Native and WebAssembly parity
+        run: cargo run -p xtask -- parity corpus --strict
 
   deny:
     runs-on: ubuntu-latest
