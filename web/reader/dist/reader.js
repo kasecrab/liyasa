@@ -102,6 +102,8 @@ const SELECTOR = '[data-ly-action="copy-markdown"]';
                              
  
 
+// TODO(rfc-1103): read the chord from an `accelerator` on the action once
+// `liyasa_theme::actions::Action` carries one, so the menu can print the hint.
 function chord(event               )          {
   if (event.altKey === true) return false;
   if (event.shiftKey !== true) return false;
