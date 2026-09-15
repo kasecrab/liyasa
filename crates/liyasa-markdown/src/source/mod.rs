@@ -1,5 +1,7 @@
 //! The Source Document: scanner, segments, span maps, and the formatter.
 
+#[cfg(test)]
+mod corpus;
 pub mod context;
 pub mod escape;
 pub mod expand;
