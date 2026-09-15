@@ -10,6 +10,7 @@ pub mod migrate;
 pub mod pages;
 pub mod project;
 pub mod schema;
+pub mod trust;
 pub mod validate;
 pub mod vfs;
 

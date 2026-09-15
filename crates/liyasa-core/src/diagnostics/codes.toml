@@ -175,3 +175,5 @@ E1003 = { severity = "error", crate = "liyasa-search", title = "Search index is 
 E1004 = { severity = "error", crate = "liyasa-search", title = "Search query is not well-formed (unbalanced quote or unknown field filter)" }
 W1005 = { severity = "warning", crate = "liyasa-search", title = "`search.boost` or `search.exclude` pattern matched no route" }
 E1006 = { severity = "error", crate = "liyasa-search", title = "CJK dictionary not installed for this locale (`liyasa add dictionary <lang>`)" }
+W0134 = { severity = "warning", crate = "liyasa-config", title = "Trust-plane section read from the deploy branch, not from the branch being built" }
+E0135 = { severity = "error", crate = "liyasa-config", title = "Remote spec source is not one the deploy branch's config names" }
