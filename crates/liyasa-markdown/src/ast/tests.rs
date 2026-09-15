@@ -97,7 +97,7 @@ fn a_github_alert_is_the_callout_the_directive_would_have_made() {
 /// CM-53: the first is a component, the second is raw HTML.
 #[test]
 fn the_tag_form_is_a_component_and_a_lowercase_tag_is_not() {
-    let document = document("<Card title=\"x\">\n\nbody\n\n</Card>\n");
+    let document = document("<Card title=\"x\">\nbody\n</Card>\n");
     let BlockKind::Component { name, props, .. } = &component_named(&document.root, "card").kind
     else {
         panic!("expected a component");
@@ -111,21 +111,42 @@ fn the_tag_form_is_a_component_and_a_lowercase_tag_is_not() {
 #[test]
 fn tag_form_components_nest() {
     assert_eq!(
+        names("<Tabs>\n<Tab title=\"npm\">\nnpm i\n</Tab>\n</Tabs>\n"),
+        ["tabs", "tab"]
+    );
+    assert_eq!(
         names("<Tabs>\n\n<Tab title=\"npm\">\n\nnpm i\n\n</Tab>\n\n</Tabs>\n"),
         ["tabs", "tab"]
     );
 }
 
-/// An unmatched open tag was raw HTML all along, and the sanitizer then makes
-/// the same decision about it that it makes about any unknown element.
+/// An unmatched open tag is an unclosed container, and says so.
 #[test]
-fn an_unclosed_tag_stays_raw_html() {
-    let kept = document_with("<Card title=\"x\">\n\nbody\n", HtmlMode::Allow);
-    assert!(components(&kept.root).is_empty());
-    assert!(html_of(&kept.root).contains("<Card"));
+fn an_unclosed_tag_is_e0310() {
+    assert_eq!(codes(&document("<Card title=\"x\">\n\nbody\n")), ["E0310"]);
+}
 
-    let sanitized = document("<Card title=\"x\">\n\nbody\n");
-    assert_eq!(codes(&sanitized), ["E0304"]);
+/// A close with nothing above it was raw HTML all along, and the sanitizer
+/// then makes the same decision about it as about any unknown element.
+#[test]
+fn a_close_tag_without_an_open_stays_raw_html() {
+    let kept = document_with("body\n\n</Card>\n", HtmlMode::Allow);
+    assert!(components(&kept.root).is_empty());
+    assert!(html_of(&kept.root).contains("</Card>"));
+    assert_eq!(codes(&document("body\n\n</Card>\n")), ["E0304"]);
+}
+
+/// The body between two tags is Markdown, even with no blank lines around it.
+#[test]
+fn a_tag_form_body_is_markdown() {
+    let document = document("<Card title=\"x\">\n# Heading\n\n- item\n</Card>\n");
+    let kinds: Vec<_> = blocks(&document.root)
+        .into_iter()
+        .map(|b| crate::ast::identity::kind_name(&b.kind))
+        .collect();
+    assert!(kinds.contains(&"heading"), "{kinds:?}");
+    assert!(kinds.contains(&"list"), "{kinds:?}");
+    assert_eq!(codes(&document), Vec::<&str>::new());
 }
 
 #[test]
@@ -328,4 +349,77 @@ fn malformed_pages_never_panic() {
     ] {
         let _ = document(source);
     }
+}
+
+/// comrak 0.55 will not accept a colon anywhere in an info string, so a URL or
+/// a time in a container's props stopped the line being a directive at all.
+/// The props are taken out of the line before comrak sees it.
+/// See `plan/rfcs/0007-a-colon-in-an-info-string.md`.
+#[test]
+fn a_container_prop_may_contain_a_colon() {
+    for (source, key, value) in [
+        (
+            ":::card{href=\"https://example.com\"}\nbody\n:::\n",
+            "href",
+            "https://example.com",
+        ),
+        (":::card{title=\"a:b:c\"}\nbody\n:::\n", "title", "a:b:c"),
+        (
+            ":::card{title=\"<!--ly:0:o:0-->\"}\nbody\n:::\n",
+            "title",
+            "<!--ly:0:o:0-->",
+        ),
+    ] {
+        let document = document(source);
+        let BlockKind::Component { props, .. } = &component_named(&document.root, "card").kind
+        else {
+            panic!("expected a component for {source:?}");
+        };
+        assert_eq!(
+            props.get(key),
+            Some(&PropValue::Str(value.to_owned())),
+            "{source:?}"
+        );
+    }
+}
+
+/// Taking the props out must not move a single column comrak reports.
+#[test]
+fn removing_props_preserves_every_position() {
+    let source = ":::card{href=\"https://example.com\" title=\"A very long title\"}\nbody\n:::\n";
+    let document = document(source);
+    let card = component_named(&document.root, "card");
+    let span = card.origin.span.expect("a span");
+    assert_eq!(&source[span.start as usize..span.start as usize + 3], ":::");
+
+    let paragraph = blocks(&document.root)
+        .into_iter()
+        .find(|b| matches!(b.kind, BlockKind::Paragraph))
+        .expect("a paragraph");
+    let span = paragraph.origin.span.expect("a span");
+    assert_eq!(&source[span.start as usize..span.end as usize], "body");
+}
+
+/// A directive with no props is handed to comrak exactly as it was written.
+#[test]
+fn a_directive_without_props_is_not_rewritten() {
+    let source = ":::note\nbody\n:::\n";
+    let rewritten = crate::directives::rewrite::rewrite(&expanded(source), NONCE);
+    assert_eq!(rewritten.text, source);
+}
+
+/// A tag around an author's own directive needs a longer fence than the one
+/// inside it, or comrak closes both on the inner close.
+#[test]
+fn a_tag_may_contain_a_directive() {
+    assert_eq!(
+        names("<Card title=\"x\">\n:::note\nbody\n:::\n</Card>\n"),
+        ["card", "note"]
+    );
+    assert_eq!(
+        codes(&document(
+            "<Card title=\"x\">\n:::note\nbody\n:::\n</Card>\n"
+        )),
+        Vec::<&str>::new()
+    );
 }

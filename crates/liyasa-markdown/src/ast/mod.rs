@@ -7,6 +7,8 @@
 
 pub mod anchors;
 pub mod build;
+#[cfg(test)]
+pub mod corpus;
 pub mod fence;
 pub mod identity;
 pub mod pos;
@@ -20,7 +22,7 @@ use liyasa_core::components::ComponentRegistry;
 use liyasa_core::document::{Deps, Document};
 use liyasa_core::markdown::{Expanded, HtmlMode, ParseOptions};
 
-use crate::directives::leaf;
+use crate::directives::rewrite;
 
 /// The comrak configuration of CM-30.
 ///
@@ -58,7 +60,7 @@ pub fn parse(
     registry: &dyn ComponentRegistry,
     opts: &ParseOptions,
 ) -> Document {
-    let rewritten = leaf::rewrite(expanded, opts.build_nonce);
+    let rewritten = rewrite::rewrite(expanded, opts.build_nonce);
     let mut diagnostics = rewritten.diagnostics;
 
     let comrak_options = options(opts);
@@ -75,6 +77,8 @@ pub fn parse(
             &expanded.map,
         ),
         table: &rewritten.table,
+        containers: &rewritten.containers,
+        text: &rewritten.text,
         opts,
     };
     let mut document = builder.document(root);

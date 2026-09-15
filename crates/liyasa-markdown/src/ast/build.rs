@@ -14,7 +14,7 @@ use liyasa_core::markdown::{ComponentKind, DirectiveTable, ParseOptions};
 use liyasa_core::{Diagnostic, Diagnostics, Span};
 
 use super::{fence, pos};
-use crate::directives::{info, leaf, tag};
+use crate::directives::{info, rewrite, tag};
 
 /// The identity every block carries until the identity pass runs.
 pub const UNASSIGNED: BlockId = BlockId([0; 12]);
@@ -22,7 +22,12 @@ pub const UNASSIGNED: BlockId = BlockId([0; 12]);
 pub struct Builder<'a> {
     pub positions: pos::Positions<'a>,
     pub table: &'a DirectiveTable,
+    /// The table row for each container open, by its 1-based line.
+    pub containers: &'a BTreeMap<u32, usize>,
     pub opts: &'a ParseOptions,
+    /// The rewritten text, for the one question comrak's tree cannot answer:
+    /// whether a container was closed or merely ran out of input.
+    pub text: &'a str,
     pub diagnostics: Diagnostics,
     /// How each component was written, by the span it occupies. A component
     /// block cannot tell you on its own whether it was `:::card` with an empty
@@ -107,14 +112,26 @@ impl Builder<'_> {
                 src: math.literal.clone(),
             },
             NodeValue::BlockDirective(directive) => {
-                let info = info::parse(&directive.info);
-                self.diagnostics.extend(info.diagnostics(
-                    self.positions.source,
-                    span.start + directive.fence_length as u32,
-                ));
+                // The props of a directive that carried any were taken out of
+                // the line before comrak saw it, and are matched back by line.
+                let (name, props) = match self
+                    .containers
+                    .get(&(data.sourcepos.start.line as u32))
+                    .and_then(|id| self.table.get(*id))
+                {
+                    Some(row) => (row.name.clone(), row.props.clone()),
+                    None => {
+                        let info = info::parse(&directive.info);
+                        self.diagnostics.extend(info.diagnostics(
+                            self.positions.source,
+                            span.start + directive.fence_length as u32,
+                        ));
+                        (info.name, info.props)
+                    }
+                };
                 // comrak reports a `:::` with nothing to close as a directive
                 // with an empty info string, which is §7.5.1's `E0311`.
-                if info.name.is_empty() && info.props.is_empty() {
+                if name.is_empty() && props.is_empty() {
                     self.diagnostics.push(
                         Diagnostic::new(
                             liyasa_core::diagnostics::code::E0311,
@@ -124,10 +141,25 @@ impl Builder<'_> {
                     );
                     return None;
                 }
+                // comrak closes an open container at end of input rather than
+                // reporting it, so §7.5.1's `E0310` is a check over the tree.
+                if !self.closed(node, directive.fence_length) {
+                    self.diagnostics.push(
+                        Diagnostic::new(
+                            liyasa_core::diagnostics::code::E0310,
+                            format!("`:::{name}` is never closed"),
+                        )
+                        .at(span)
+                        .help(format!(
+                            "add a closing `{}` line",
+                            ":".repeat(directive.fence_length)
+                        )),
+                    );
+                }
                 self.written.insert(span, ComponentKind::Container);
                 BlockKind::Component {
-                    name: info.name,
-                    props: info.props,
+                    name,
+                    props,
                     slots: liyasa_core::document::Slots::default(),
                 }
             }
@@ -161,6 +193,25 @@ impl Builder<'_> {
         })
     }
 
+    /// Whether a container directive's last line is its own closing fence.
+    ///
+    /// A fence that a nested directive already closed does not count: comrak
+    /// gives a parent and its last child the same end line either way.
+    fn closed<'a>(&self, node: &'a AstNode<'a>, fence_length: usize) -> bool {
+        let end = node.data.borrow().sourcepos.end.line;
+        let Some(line) = self.text.lines().nth(end.saturating_sub(1)) else {
+            return false;
+        };
+        let fence = crate::directives::mask::content_of(line).trim();
+        if fence.is_empty() || !fence.chars().all(|c| c == ':') || fence.len() < fence_length {
+            return false;
+        }
+        !node.descendants().skip(1).any(|child| {
+            let data = child.data.borrow();
+            matches!(data.value, NodeValue::BlockDirective(_)) && data.sourcepos.end.line == end
+        })
+    }
+
     fn described(&mut self, name: &str, span: Span) -> BlockKind {
         self.written.insert(span, ComponentKind::Container);
         BlockKind::Component {
@@ -173,7 +224,7 @@ impl Builder<'_> {
     /// An HTML block is a leaf directive's marker, a component tag, or HTML.
     fn html_block(&mut self, html: &comrak::nodes::NodeHtmlBlock, span: Span) -> Block {
         let origin = self.positions.origin(span);
-        if let Some(id) = leaf::marker_id(&html.literal, self.opts.build_nonce)
+        if let Some(id) = rewrite::marker_id(&html.literal, self.opts.build_nonce)
             && let Some(row) = self.table.get(id)
         {
             self.written.insert(span, ComponentKind::Leaf);

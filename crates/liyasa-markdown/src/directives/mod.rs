@@ -6,9 +6,9 @@
 
 pub mod info;
 pub mod inline;
-pub mod leaf;
 pub mod mask;
 pub mod props;
+pub mod rewrite;
 pub mod slots;
 pub mod tag;
 #[cfg(test)]

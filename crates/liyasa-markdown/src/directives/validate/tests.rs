@@ -127,7 +127,7 @@ fn an_expression_prop_is_never_a_type_mismatch() {
 #[test]
 fn a_tag_form_component_is_validated_like_a_directive() {
     assert_eq!(
-        codes(&document("<Tab>\n\nbody\n\n</Tab>\n")),
+        codes(&document("<Image alt=\"x\" />\n")),
         ["E0314"],
         "a tag form still needs its required props"
     );

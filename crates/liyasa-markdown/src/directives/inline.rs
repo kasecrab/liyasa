@@ -86,7 +86,20 @@ fn tokenize(value: &str, out: &mut Vec<Inline>, stack: &mut Vec<Open>) {
     let bytes = value.as_bytes();
     let mut at = 0;
     let mut literal = 0;
+    // `:ref[a [b] c]` closes on the last bracket, not the first: a link label
+    // inside a directive is content, not the end of it.
+    let mut depth = 0usize;
     while at < bytes.len() {
+        if bytes[at] == b'[' && !stack.is_empty() {
+            depth += 1;
+            at += 1;
+            continue;
+        }
+        if bytes[at] == b']' && depth > 0 {
+            depth -= 1;
+            at += 1;
+            continue;
+        }
         if bytes[at] == b']' && !stack.is_empty() {
             text(out, stack, &value[literal..at]);
             let (props, used) = props_after(&value[at + 1..]);
@@ -110,6 +123,7 @@ fn tokenize(value: &str, out: &mut Vec<Inline>, stack: &mut Vec<Open>) {
             text(out, stack, &value[literal..at]);
             at += 1 + name.len() + 1;
             literal = at;
+            depth = 0;
             stack.push(Open {
                 name,
                 children: Vec::new(),
@@ -132,10 +146,15 @@ fn opens_at(value: &str, at: usize) -> Option<String> {
         return None;
     }
     let rest = &value[at + 1..];
+    // A name starts with a letter, so `12:30[ish]` is a time and not a
+    // directive called `30`.
+    if !rest.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        return None;
+    }
     let len = rest
         .find(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_'))
         .unwrap_or(rest.len());
-    if len == 0 || !rest[len..].starts_with('[') {
+    if !rest[len..].starts_with('[') {
         return None;
     }
     Some(rest[..len].to_owned())

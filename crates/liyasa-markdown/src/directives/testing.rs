@@ -147,7 +147,7 @@ pub fn registry() -> Registry {
             "tab",
             &["Tab"],
             Container,
-            vec![prop("title", PropType::Str, true)],
+            vec![prop("title", PropType::Str, false)],
             Vec::new(),
         ),
         component(
@@ -180,6 +180,40 @@ pub fn registry() -> Registry {
             Vec::new(),
         ),
     ])
+}
+
+/// The registry plus the names `spec/markdown/` uses for illustration, so a
+/// corpus case about fence lengths is not also a case about whether `:::a` is
+/// a component anyone declared.
+pub fn corpus_registry() -> Registry {
+    use ComponentKind::{Container, Inline};
+    let mut registry = registry();
+    registry.0.extend([
+        component("a", &[], Container, Vec::new(), Vec::new()),
+        component("b", &[], Container, Vec::new(), Vec::new()),
+        component("c", &[], Container, Vec::new(), Vec::new()),
+        component("img", &[], ComponentKind::Leaf, Vec::new(), Vec::new()),
+        component(
+            "visibility",
+            &[],
+            Container,
+            vec![prop(
+                "groups",
+                PropType::List(Box::new(PropType::Str)),
+                false,
+            )],
+            Vec::new(),
+        ),
+        component(
+            "badge",
+            &[],
+            Inline,
+            vec![prop("color", PropType::Str, false)],
+            Vec::new(),
+        ),
+        component("ref", &[], Inline, Vec::new(), Vec::new()),
+    ]);
+    registry
 }
 
 // ---- parsing a page in one call ----
