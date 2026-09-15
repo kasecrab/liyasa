@@ -250,8 +250,8 @@ mod tests {
 
     #[test]
     fn a_file_listed_twice_is_copied_once() {
-        let file = (VfsPath::new("assets/a.png"), Fingerprint::of("bytes"));
-        let plan = plan(&[file.clone()], &[file], &Options::default());
+        let files = [(VfsPath::new("assets/a.png"), Fingerprint::of("bytes"))];
+        let plan = plan(&files, &files, &Options::default());
         assert_eq!(plan.entries().len(), 1);
     }
 
