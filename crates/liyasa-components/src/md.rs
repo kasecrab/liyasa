@@ -107,6 +107,9 @@ impl Markdown {
     /// Runs `body` with `> ` added to every line.
     pub fn quote(&mut self, body: impl FnOnce(&mut Self)) -> &mut Self {
         self.block();
+        // The quote's own separator is the block's; the first paragraph inside
+        // must not add a second.
+        self.suppress_block = true;
         self.nested("> ", None, body);
         self
     }

@@ -45,10 +45,13 @@ impl<'r> Reference<'r> {
             // renderer; here its children are all that can be salvaged.
             return self.html(&block.children, out);
         };
+        // The component writes into the caller's buffer, not into a fragment:
+        // a nested component keeps the surrounding element stack.
         let mut ctx = HtmlCtx::with(Shared::new(self));
-        component.html(&inst, &mut ctx)?;
-        out.raw(&ctx.finish());
-        Ok(())
+        ctx.out = std::mem::take(out);
+        let result = component.html(&inst, &mut ctx);
+        *out = ctx.out;
+        result
     }
 
     fn component_markdown(&self, block: &Block, out: &mut Markdown) -> Result<(), RenderError> {
@@ -58,12 +61,14 @@ impl<'r> Reference<'r> {
         let Some(component) = self.registry.and_then(|r| r.resolve(&inst.name)) else {
             return self.markdown(&block.children, out);
         };
+        // Written into the caller's buffer so the line prefix and a pending
+        // list marker survive: a card inside a card group is one list item,
+        // not a document of its own.
         let mut ctx = MarkdownCtx::with(Shared::new(self));
-        component.markdown(&inst, &mut ctx)?;
-        out.block();
-        out.write(&ctx.finish());
-        out.end_line();
-        Ok(())
+        ctx.out = std::mem::take(out);
+        let result = component.markdown(&inst, &mut ctx);
+        *out = ctx.out;
+        result
     }
 
     fn block_html(&self, block: &Block, out: &mut Html) -> Result<(), RenderError> {
@@ -345,8 +350,10 @@ impl<'r> Reference<'r> {
                 match self.registry.and_then(|r| r.resolve(name)) {
                     Some(component) => {
                         let mut ctx = MarkdownCtx::with(Shared::new(self));
-                        component.markdown(&inst, &mut ctx)?;
-                        out.write(ctx.finish().trim_end());
+                        ctx.out = std::mem::take(out);
+                        let result = component.markdown(&inst, &mut ctx);
+                        *out = ctx.out;
+                        result?;
                     }
                     None => self.inlines_markdown(children, out)?,
                 }
@@ -443,8 +450,10 @@ impl<'r> Reference<'r> {
                 match self.registry.and_then(|r| r.resolve(name)) {
                     Some(component) => {
                         let mut ctx = HtmlCtx::with(Shared::new(self));
-                        component.html(&inst, &mut ctx)?;
-                        out.raw(&ctx.finish());
+                        ctx.out = std::mem::take(out);
+                        let result = component.html(&inst, &mut ctx);
+                        *out = ctx.out;
+                        result?;
                     }
                     None => self.inlines_html(children, out)?,
                 }
