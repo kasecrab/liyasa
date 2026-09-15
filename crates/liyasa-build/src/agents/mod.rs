@@ -7,6 +7,7 @@
 pub mod continuation;
 pub mod llms;
 pub mod markdown;
+pub mod notfound;
 pub mod resource;
 pub mod site;
 pub mod size;
