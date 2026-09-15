@@ -241,6 +241,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     // 8. What the pages produced.
     let mut routes = Vec::new();
     let mut referenced: BTreeSet<VfsPath> = BTreeSet::new();
+    let mut entries: Vec<crate::changelog::Entry> = Vec::new();
     for outcome in &pages {
         report
             .diagnostics
@@ -252,6 +253,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
             report.dynamic += 1;
         }
         referenced.extend(outcome.referenced.iter().cloned());
+        entries.extend(outcome.changelog.iter().cloned());
 
         let mut entries = Vec::new();
         for (key, path, html) in &outcome.variants {
@@ -296,6 +298,28 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         report.diagnostics.push(over);
     }
     phase.mark("write_pages");
+
+    // 8b. The changelog stream and its feeds (CM-120, CM-121).
+    let entries = crate::changelog::stream(entries);
+    if !entries.is_empty() {
+        let origin = settings.canonical_origin.trim_end_matches('/');
+        for (path, body) in [
+            (
+                crate::changelog::RSS_PATH,
+                crate::changelog::rss(&entries, &settings.name, origin),
+            ),
+            (
+                crate::changelog::ATOM_PATH,
+                crate::changelog::atom(&entries, &settings.name, origin),
+            ),
+            (
+                crate::changelog::JSON_PATH,
+                crate::changelog::json_feed(&entries, &settings.name, origin),
+            ),
+        ] {
+            write_file(&output, path, body.as_bytes(), &mut report, &mut outputs);
+        }
+    }
 
     // 9. Assets and the image tier.
     let (asset_entries, image_entries, generated) = copy_assets(
@@ -479,6 +503,8 @@ struct Outcome {
     /// `(variant key, output path, html)`.
     variants: Vec<(String, String, String)>,
     referenced: Vec<VfsPath>,
+    /// `::update` entries this page holds (CM-120).
+    changelog: Vec<crate::changelog::Entry>,
     cache_hits: usize,
     cache_misses: usize,
     diagnostics: Diagnostics,
@@ -510,6 +536,7 @@ fn render_pages(
                     markdown: String::new(),
                     variants: Vec::new(),
                     referenced: Vec::new(),
+                    changelog: Vec::new(),
                     cache_hits: 0,
                     cache_misses: 0,
                     diagnostics,
@@ -551,6 +578,8 @@ fn render_pages(
             let markdown_key =
                 crate::cache::key("page_markdown", &[page.fingerprint, config_fingerprint]);
             let deps_key = crate::cache::key("page_deps", &[page.fingerprint, config_fingerprint]);
+            let changelog_key =
+                crate::cache::key("page_changelog", &[page.fingerprint, config_fingerprint]);
             let mut markdown = cache
                 .get(&markdown_key)
                 .and_then(|bytes| String::from_utf8(bytes.to_vec()).ok())
@@ -558,6 +587,10 @@ fn render_pages(
             let mut rendered: Vec<(String, String, String)> = Vec::new();
             let mut referenced: Vec<VfsPath> = cache
                 .get(&deps_key)
+                .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+                .unwrap_or_default();
+            let mut changelog: Vec<crate::changelog::Entry> = cache
+                .get(&changelog_key)
                 .and_then(|bytes| serde_json::from_slice(&bytes).ok())
                 .unwrap_or_default();
             let mut recorded = false;
@@ -598,6 +631,13 @@ fn render_pages(
                                 recorded = true;
                                 markdown = page_render.markdown.clone();
                                 referenced = referenced_files(&page_render);
+                                changelog = page_render
+                                    .document
+                                    .as_ref()
+                                    .map(|document| {
+                                        crate::changelog::from_page(&page.route, document)
+                                    })
+                                    .unwrap_or_default();
                             }
                             let navigation =
                                 navigations.get(&page.version).cloned().unwrap_or_default();
@@ -644,6 +684,11 @@ fn render_pages(
                 diagnostics.extend(page_render.diagnostics.as_slice().to_vec());
                 markdown = page_render.markdown.clone();
                 referenced = referenced_files(&page_render);
+                changelog = page_render
+                    .document
+                    .as_ref()
+                    .map(|document| crate::changelog::from_page(&page.route, document))
+                    .unwrap_or_default();
                 recorded = true;
             }
             if recorded {
@@ -659,6 +704,13 @@ fn render_pages(
                         &[page.fingerprint, config_fingerprint],
                     );
                 }
+                if let Ok(encoded) = serde_json::to_vec(&changelog) {
+                    let _ = cache.put(
+                        &changelog_key,
+                        liyasa_core::vfs::Bytes::from(encoded),
+                        &[page.fingerprint, config_fingerprint],
+                    );
+                }
             }
 
             Outcome {
@@ -669,6 +721,7 @@ fn render_pages(
                 markdown,
                 variants: rendered,
                 referenced,
+                changelog,
                 cache_hits: hits,
                 cache_misses: misses,
                 diagnostics,

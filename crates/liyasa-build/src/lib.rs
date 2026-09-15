@@ -9,6 +9,7 @@ pub mod agents;
 
 pub mod assets;
 pub mod cache;
+pub mod changelog;
 pub mod clock;
 pub mod dev;
 pub mod engine;
