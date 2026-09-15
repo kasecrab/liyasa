@@ -4,9 +4,11 @@
 //! Everything here is produced from the anonymous render of a page (§6.6.4), so
 //! no reader value can reach a shared surface (SRC-12).
 
+pub mod markdown;
 pub mod site;
 pub mod spec;
 
+pub use markdown::{Page, render_page};
 pub use site::{
     AgentsSettings, CanonicalOrigin, CustomSkill, FeedsSettings, LlmsSettings, MarkdownSettings,
     McpSettings, NavSection, PageRecord, SiteInput, SkillSettings,
