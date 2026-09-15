@@ -21,6 +21,8 @@ src/lib.rs
 ```
 --- text
 src/lib.rs
+--- diagnostics
+W0355 `snippet-from.symbol` is ignored because `lines` is set
 
 === case: missing required prop
 --- html
@@ -34,3 +36,16 @@ src/lib.rs
 
 --- diagnostics
 E0314 `snippet-from` requires the `file` prop
+
+=== case: lines and symbol
+--- html
+<div class="ly-snippet" data-liyasa="snippet-from" data-file="src/lib.rs" data-lines="10-25" data-symbol="parse">
+</div>
+--- markdown
+```
+// from src/lib.rs:10-25
+```
+--- text
+src/lib.rs
+--- diagnostics
+W0355 `snippet-from.symbol` is ignored because `lines` is set

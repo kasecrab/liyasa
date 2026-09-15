@@ -2,8 +2,10 @@
 //! (CMP-31 to CMP-34).
 
 use liyasa_core::components::{ComponentInst, PropType, RenderError};
+use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use liyasa_core::document::{Block, BlockKind, Dep, DepTarget, Node};
 
+use crate::inst::located;
 use crate::props::Reader;
 use crate::render::{HtmlCtx, MarkdownCtx, Render};
 use crate::{declare, deps, fence, text};
@@ -301,6 +303,20 @@ impl Render for SnippetFrom {
         Reader::of(inst, Self::schema_of())
             .str_or("file", "")
             .to_owned()
+    }
+
+    fn validate(&self, inst: &ComponentInst, out: &mut Diagnostics) {
+        let props = Reader::of(inst, Self::schema_of());
+        if props.given("lines") && props.given("symbol") {
+            out.push(located(
+                Diagnostic::new(
+                    code::W0355,
+                    "`snippet-from.symbol` is ignored because `lines` is set",
+                )
+                .help("name the region one way: a line range or a marker, not both"),
+                inst,
+            ));
+        }
     }
 }
 

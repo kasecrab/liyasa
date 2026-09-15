@@ -5,8 +5,18 @@
 //! later field on `ComponentInst` has one place to gain a default.
 
 use liyasa_core::components::ComponentInst;
+use liyasa_core::diagnostics::Diagnostic;
 use liyasa_core::document::{Node, PropValue, Props, Slots};
 use liyasa_core::ids::BlockId;
+
+/// Points a diagnostic at the instance that caused it, when the instance came
+/// from a source file at all.
+pub fn located(diagnostic: Diagnostic, inst: &ComponentInst) -> Diagnostic {
+    match inst.origin.span {
+        Some(span) => diagnostic.at(span),
+        None => diagnostic,
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Builder {

@@ -5,17 +5,11 @@ use liyasa_core::components::{ComponentInst, PropType, RenderError};
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use liyasa_core::document::{Dep, DepTarget};
 
+use crate::inst::located;
 use crate::props::Reader;
 use crate::render::{HtmlCtx, MarkdownCtx, Render};
 use crate::schema::{one_of, text as default_text};
 use crate::{declare, deps, provider, text};
-
-fn located(diagnostic: Diagnostic, inst: &ComponentInst) -> Diagnostic {
-    match inst.origin.span {
-        Some(span) => diagnostic.at(span),
-        None => diagnostic,
-    }
-}
 
 declare! {
     /// An image with light and dark variants (CMP-50).

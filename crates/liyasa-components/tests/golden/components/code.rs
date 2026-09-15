@@ -181,5 +181,13 @@ fn snippet_from() {
                 .build(),
         )
         .case("missing required prop", inst::new("snippet-from").build())
+        .case(
+            "lines and symbol",
+            inst::new("snippet-from")
+                .prop("file", str("src/lib.rs"))
+                .prop("lines", str("10-25"))
+                .prop("symbol", str("parse"))
+                .build(),
+        )
         .check();
 }
