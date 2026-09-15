@@ -112,6 +112,10 @@ pub struct Shard {
     /// Uncompressed total of the four files, which is what the builder sizes
     /// against `search.shardSize`.
     pub bytes: u64,
+    /// Length of `docs-<n>.bin`'s ranking prefix. The worker range-requests
+    /// `bytes=0-<stats_bytes - 1>` before the first result and the rest once
+    /// it knows which documents it is showing (§12.2, SRC-05).
+    pub stats_bytes: u64,
     /// `blake3:…` over the four files in the order [`ShardFiles::all`] lists
     /// them, so a shard is immutable and cacheable by name.
     pub hash: String,
@@ -268,6 +272,7 @@ mod tests {
             documents: 1,
             files: ShardFiles::of(id),
             bytes: 1,
+            stats_bytes: 1,
             hash: "blake3:0".to_owned(),
         }
     }
