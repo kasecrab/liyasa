@@ -56,7 +56,10 @@ fn a_typical_page_converts_above_the_floor() {
 fn the_conversion_ratio_does_not_regress() {
     let measurements = measurements();
     let typical: Vec<&Measurement> = measurements.iter().filter(|m| m.is_typical()).collect();
-    assert!(!typical.is_empty(), "the reference site has no typical page");
+    assert!(
+        !typical.is_empty(),
+        "the reference site has no typical page"
+    );
     for measurement in typical {
         assert!(
             measurement.ratio >= MEASURED_FLOOR,
@@ -114,7 +117,9 @@ fn the_reader_reaches_the_page_in_the_first_tenth_of_it() {
 #[test]
 fn the_critical_css_is_inlined_and_counted() {
     let site = site::build().expect("the reference site renders");
-    let page = site.page("/guide/install").expect("the page is in the site");
+    let page = site
+        .page("/guide/install")
+        .expect("the page is in the site");
     assert!(page.html.contains("data-liyasa=\"critical\""));
     assert!(page.html.len() > without_assets(&page.html).len());
 }

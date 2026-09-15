@@ -4,8 +4,8 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use liyasa_theme::runtime::{BASE_BUDGET, external_requests};
 use liyasa_tests::site;
+use liyasa_theme::runtime::{BASE_BUDGET, external_requests};
 
 fn compressed_len(text: &str) -> usize {
     let Ok(mut child) = Command::new("gzip")
@@ -18,9 +18,15 @@ fn compressed_len(text: &str) -> usize {
         return text.len();
     };
     if let Some(stdin) = child.stdin.as_mut() {
-        stdin.write_all(text.as_bytes()).expect("gzip accepts input");
+        stdin
+            .write_all(text.as_bytes())
+            .expect("gzip accepts input");
     }
-    child.wait_with_output().expect("gzip finishes").stdout.len()
+    child
+        .wait_with_output()
+        .expect("gzip finishes")
+        .stdout
+        .len()
 }
 
 #[test]

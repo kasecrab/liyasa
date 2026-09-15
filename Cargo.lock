@@ -720,6 +720,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "liyasa-tests"
+version = "0.1.0"
+dependencies = [
+ "comrak",
+ "liyasa-core",
+ "liyasa-theme",
+]
+
+[[package]]
 name = "liyasa-theme"
 version = "0.1.0"
 dependencies = [

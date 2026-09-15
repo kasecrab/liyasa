@@ -64,7 +64,9 @@ pub fn without_assets(html: &str) -> String {
     let mut rest = html;
     while let Some(open) = next_asset(rest) {
         out.push_str(&rest[..open.start]);
-        rest = match rest[open.start..].find(open.close).map(|at| at + open.start + open.close.len())
+        rest = match rest[open.start..]
+            .find(open.close)
+            .map(|at| at + open.start + open.close.len())
         {
             Some(end) => &rest[end..],
             None => "",
@@ -119,7 +121,10 @@ pub fn report(measurements: &[Measurement]) -> String {
     for measurement in measurements {
         out.push_str(&format!(
             "{}\t{}\t{}\t{:.2}\n",
-            measurement.route, measurement.served_bytes, measurement.converted_chars, measurement.ratio
+            measurement.route,
+            measurement.served_bytes,
+            measurement.converted_chars,
+            measurement.ratio
         ));
     }
     out
