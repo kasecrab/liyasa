@@ -21,7 +21,9 @@ cjk-dict = []
 
 [dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
-fst.workspace = true
+# `levenshtein` is the fuzzy half of SRC-04; features are additive, so the
+# workspace row is untouched.
+fst = { workspace = true, features = ["levenshtein"] }
 rust-stemmers.workspace = true
 serde.workspace = true
 serde_json.workspace = true

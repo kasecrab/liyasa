@@ -1,0 +1,74 @@
+# The shared query corpus (PRD §12.2).
+#
+# Both the browser index and the tantivy index answer every query here, and
+# `parity.rs` asserts they agree on the top five and on the first result. The
+# fixture site is `tests/support/corpus.rs`.
+#
+# Keys: `q` the query, `locale` the reader's locale (default `en`), `top` the
+# result that must rank first, `contains` results that must be in the top five,
+# `absent` results that must not appear, `empty` that there must be no results.
+
+[[query]]
+q = "rate limits"
+top = "/guides/limits"
+contains = ["/guides/limits#burst"]
+absent = ["/internal/runbook"]
+
+[[query]]
+q = "burst"
+top = "/guides/limits#burst"
+
+[[query]]
+q = "api key"
+contains = ["/guides/auth", "/guides/auth#api-keys"]
+
+[[query]]
+q = "rotating a key"
+top = "/guides/auth#rotating"
+
+[[query]]
+q = "\"rate limit\""
+contains = ["/guides/limits"]
+
+[[query]]
+q = "getUserById"
+top = "/guides/sdk#getting-a-user"
+
+[[query]]
+q = "user id"
+contains = ["/guides/sdk#getting-a-user"]
+
+[[query]]
+q = "limts"
+contains = ["/guides/limits"]
+
+[[query]]
+q = "rotat"
+contains = ["/guides/auth#rotating"]
+
+[[query]]
+q = "version:v1 rate limits"
+top = "/v1/guides/limits"
+absent = ["/v2/guides/limits"]
+
+[[query]]
+q = "type:endpoint user"
+contains = ["/api-reference/users/get"]
+absent = ["/guides/sdk#getting-a-user"]
+
+[[query]]
+q = "authorization bearer"
+contains = ["/guides/auth#api-keys"]
+
+[[query]]
+q = "Ratenbegrenzung"
+locale = "de"
+top = "/de/anleitungen/limits"
+
+[[query]]
+q = "September"
+contains = ["/changelog/2026-09"]
+
+[[query]]
+q = "quinoa"
+empty = true

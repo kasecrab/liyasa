@@ -178,3 +178,19 @@ fn the_query_is_tokenized_by_the_same_function_as_the_index() {
     let queried = terms("en", "connections");
     assert!(indexed.contains(&queried[0]));
 }
+
+#[test]
+fn a_member_access_keeps_the_method_findable_on_its_own() {
+    // `client.getUserById(id)` must answer a search for `getUserById`, not
+    // only for the whole dotted path.
+    let terms = code_terms("client.getUserById");
+    assert_eq!(terms[0], "client.getuserbyid");
+    assert!(terms.contains(&"getuserbyid".to_owned()), "{terms:?}");
+    assert!(terms.contains(&"client".to_owned()));
+    assert!(terms.contains(&"user".to_owned()));
+}
+
+#[test]
+fn a_run_of_simple_words_gains_no_extra_tokens() {
+    assert_eq!(code_terms("user_id"), ["user_id", "user", "id"]);
+}

@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn scores_a_float_apart_are_a_tie() {
-        assert!(is_tie(3.141_592_5, 3.141_592_7));
+        assert!(is_tie(2.718_281_5, 2.718_281_7));
         assert!(!is_tie(3.0, 3.1));
     }
 }

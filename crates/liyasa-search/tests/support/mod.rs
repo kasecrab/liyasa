@@ -1,5 +1,10 @@
-//! Rendered-AST fixtures. The real builder is `liyasa-markdown`'s; these hand
-//! a section extractor the same shapes without taking a dependency on it.
+//! Shared test fixtures: Rendered-AST shapes and the reference site.
+//!
+//! The real AST builder is `liyasa-markdown`'s; these hand a section extractor
+//! the same shapes without taking a dependency on it.
+#![allow(dead_code)]
+
+pub mod corpus;
 
 use liyasa_core::document::{
     Block, BlockKind, Deps, Document, FenceAttrs, Inline, Node, Origin, Props, Slots,

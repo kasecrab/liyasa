@@ -23,27 +23,48 @@ pub fn code(text: &str) -> Vec<Token> {
             return;
         };
         let whole = &text[start..end];
-        let parts = split(whole);
-        if parts.is_empty() {
+        let words: Vec<(usize, &str)> = split_words(whole);
+        let split: Vec<(usize, Vec<(usize, &str)>)> = words
+            .iter()
+            .map(|&(at, word)| (at, split_case(word)))
+            .collect();
+        let parts: usize = split.iter().map(|(_, parts)| parts.len()).sum();
+        if parts == 0 {
             return;
         }
-        let first = *position;
-        if parts.len() > 1 {
+        if parts > 1 {
             out.push(Token {
                 text: whole.to_lowercase(),
-                position: first,
+                position: *position,
                 start: start as u32,
                 end: end as u32,
             });
         }
-        for (at, part) in parts {
-            out.push(Token {
-                text: part.to_lowercase(),
-                position: *position,
-                start: (start + at) as u32,
-                end: (start + at + part.len()) as u32,
-            });
-            *position += 1;
+        for (word_at, word_parts) in split {
+            // `client.getUserById` must also be findable as `getUserById`, so
+            // a compound word inside a dotted or underscored run keeps a token
+            // of its own.
+            if words.len() > 1 && word_parts.len() > 1 {
+                let word = words
+                    .iter()
+                    .find(|&&(at, _)| at == word_at)
+                    .map_or("", |&(_, word)| word);
+                out.push(Token {
+                    text: word.to_lowercase(),
+                    position: *position,
+                    start: (start + word_at) as u32,
+                    end: (start + word_at + word.len()) as u32,
+                });
+            }
+            for (at, part) in word_parts {
+                out.push(Token {
+                    text: part.to_lowercase(),
+                    position: *position,
+                    start: (start + word_at + at) as u32,
+                    end: (start + word_at + at + part.len()) as u32,
+                });
+                *position += 1;
+            }
         }
     };
 
@@ -62,19 +83,34 @@ pub fn code(text: &str) -> Vec<Token> {
     out
 }
 
-/// One identifier into its parts, each with its byte offset within it.
-fn split(identifier: &str) -> Vec<(usize, &str)> {
+/// One run into the words the join characters separate, each with its byte
+/// offset within the run.
+fn split_words(run: &str) -> Vec<(usize, &str)> {
+    let mut out = Vec::new();
+    let mut start: Option<usize> = None;
+    for (at, ch) in run.char_indices() {
+        if joins(ch) {
+            if let Some(from) = start.take() {
+                out.push((from, &run[from..at]));
+            }
+        } else {
+            start.get_or_insert(at);
+        }
+    }
+    if let Some(from) = start {
+        out.push((from, &run[from..]));
+    }
+    out
+}
+
+/// One word into its case and digit parts, each with its byte offset within
+/// the word.
+fn split_case(word: &str) -> Vec<(usize, &str)> {
     let mut parts = Vec::new();
-    let chars: Vec<(usize, char)> = identifier.char_indices().collect();
+    let chars: Vec<(usize, char)> = word.char_indices().collect();
     let mut start: Option<usize> = None;
 
     for (n, &(at, ch)) in chars.iter().enumerate() {
-        if joins(ch) {
-            if let Some(from) = start.take() {
-                parts.push((from, &identifier[from..at]));
-            }
-            continue;
-        }
         let previous = n.checked_sub(1).map(|p| chars[p].1);
         let next = chars.get(n + 1).map(|&(_, c)| c);
         let boundary = match previous {
@@ -89,12 +125,12 @@ fn split(identifier: &str) -> Vec<(usize, &str)> {
             Some(_) => false,
         };
         if boundary && let Some(from) = start.take() {
-            parts.push((from, &identifier[from..at]));
+            parts.push((from, &word[from..at]));
         }
         start.get_or_insert(at);
     }
     if let Some(from) = start {
-        parts.push((from, &identifier[from..]));
+        parts.push((from, &word[from..]));
     }
     parts
 }

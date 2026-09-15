@@ -353,9 +353,10 @@ mod tests {
     #[test]
     fn quantized_idf_survives_to_three_decimals() {
         let mut table = IdfTable::default();
-        table.insert("connect", 2.718_281_8);
+        let idf = 2.593_17;
+        table.insert("connect", idf);
         let back = table.get("connect").expect("the term is listed");
-        assert!((back - 2.718_281_8).abs() < 0.001, "{back}");
+        assert!((back - idf).abs() < 0.001, "{back}");
         assert_eq!(table.get("absent"), None);
     }
 

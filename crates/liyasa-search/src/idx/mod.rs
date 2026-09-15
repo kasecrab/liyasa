@@ -7,9 +7,16 @@
 
 pub mod docs;
 pub mod field;
+mod index;
 pub mod manifest;
 pub mod postings;
+pub mod query;
+pub mod reader;
 pub mod score;
+pub mod search;
 pub mod snippets;
+pub mod writer;
+
+pub use index::Index;
 pub mod tokenize;
 pub(crate) mod varint;
