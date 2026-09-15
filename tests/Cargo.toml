@@ -1,0 +1,29 @@
+# The workspace's cross-crate tests: a requirement whose subject is the built
+# site rather than one crate's API lives here. Shared and append-only, like the
+# workspace manifest — add your `[[test]]` row, leave the others alone.
+
+[package]
+name = "liyasa-tests"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Budget and integration tests over the built site (PRD §31.5)."
+publish = false
+autobins = false
+autotests = false
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-core = { path = "../crates/liyasa-core", version = "0.1.0" }
+liyasa-theme = { path = "../crates/liyasa-theme", version = "0.1.0" }
+# The fixture's pages are Markdown, and the reference site is what the budgets
+# measure; rendering them with anything else would measure a different site.
+comrak.workspace = true
+
+[[bin]]
+name = "reference-site"
+path = "src/bin/reference_site.rs"

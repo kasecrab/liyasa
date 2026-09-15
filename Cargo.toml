@@ -5,6 +5,7 @@ resolver = "3"
 members = [
   "crates/*",
   "xtask",
+  "tests",
 ]
 
 [workspace.package]
