@@ -57,8 +57,12 @@ pub fn parse(html: &str) -> Option<Tag> {
 }
 
 /// The kebab-case directive name a tag stands for, for the formatter's
-/// `<Card title="x">` to `:::card{title="x"}` conversion. The registry has the
-/// last word; this is what to look up and what to fall back to.
+/// `<Card title="x">` to `:::card{title="x"}` conversion, and for the rewrite
+/// that hands a tag pair to comrak as a fence. `<CodeGroup>` becomes
+/// `code-group`, as `plan/rfcs/0022-tag-form-directive-names.md` decided for
+/// WP-02's formatter, so the two halves of CM-53 agree on one spelling. The
+/// registry has the last word; this is what to look up and what to fall back
+/// to.
 pub fn directive_name(tag: &str) -> String {
     let mut out = String::with_capacity(tag.len() + 4);
     for (at, ch) in tag.char_indices() {

@@ -13,8 +13,8 @@ use liyasa_core::markdown::{Audience, SiteMeta};
 ///
 /// The `ctx` parameter is not in §34.9's declaration; it is there because
 /// `Renderer::component_html` needs one and `RenderCtx` cannot be constructed
-/// outside `liyasa-core`. See `plan/rfcs/0006-render-ctx-is-unconstructible.md`.
-// TODO(rfc-0006): drop `ctx` once `Renderer` can hand one over.
+/// outside `liyasa-core`. See `plan/rfcs/0025-render-ctx-is-unconstructible.md`.
+// TODO(rfc-0025): drop `ctx` once `Renderer` can hand one over.
 pub fn render_html(doc: &Document, theme: &dyn Renderer, ctx: &mut RenderCtx) -> String {
     html::render(&doc.root, &mut Themed { theme, ctx })
 }
