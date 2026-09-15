@@ -20,6 +20,11 @@ unsafe_code = "forbid"
 unwrap_used = "warn"
 todo = "allow"
 
+[profile.dev]
+# Full debuginfo costs several GB per worktree across a parallel build-out;
+# line tables keep backtraces useful at a fraction of the size.
+debug = "line-tables-only"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
