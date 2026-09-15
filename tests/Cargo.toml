@@ -70,3 +70,7 @@ path = "config/cfg_91.rs"
 [[test]]
 name = "cfg_94_schema"
 path = "config/cfg_94_schema.rs"
+
+[[test]]
+name = "cfg_03_presets"
+path = "config/cfg_03_presets.rs"
