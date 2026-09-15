@@ -1102,8 +1102,10 @@ name = "liyasa-tests"
 version = "0.1.0"
 dependencies = [
  "comrak",
+ "liyasa-config",
  "liyasa-core",
  "liyasa-theme",
+ "serde_json",
 ]
 
 [[package]]

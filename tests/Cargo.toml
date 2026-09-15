@@ -23,6 +23,9 @@ liyasa-theme = { path = "../crates/liyasa-theme", version = "0.1.0" }
 # The fixture's pages are Markdown, and the reference site is what the budgets
 # measure; rendering them with anything else would measure a different site.
 comrak.workspace = true
+# WP-01: the config crate, whose acceptance tests validate `liyasa.json`.
+liyasa-config = { path = "../crates/liyasa-config", version = "0.1.0" }
+serde_json.workspace = true
 
 [[bin]]
 name = "reference-site"
@@ -47,3 +50,23 @@ path = "web/reader.rs"
 [[test]]
 name = "nojs"
 path = "web/nojs.rs"
+
+[[test]]
+name = "cfg_01"
+path = "config/cfg_01.rs"
+
+[[test]]
+name = "cfg_04"
+path = "config/cfg_04.rs"
+
+[[test]]
+name = "cfg_30_navigation"
+path = "config/cfg_30_navigation.rs"
+
+[[test]]
+name = "cfg_91"
+path = "config/cfg_91.rs"
+
+[[test]]
+name = "cfg_94_schema"
+path = "config/cfg_94_schema.rs"
