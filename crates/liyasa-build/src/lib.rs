@@ -16,6 +16,7 @@ pub mod engine;
 pub mod git;
 pub mod images;
 pub mod manifest;
+pub mod media;
 pub mod nav;
 pub mod pool;
 pub mod redirects;
