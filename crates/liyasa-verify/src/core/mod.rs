@@ -2,6 +2,8 @@
 //! output path goes through.
 
 pub mod config;
+#[cfg(test)]
+pub mod corpus;
 pub mod duration;
 pub mod links;
 pub mod policy;
