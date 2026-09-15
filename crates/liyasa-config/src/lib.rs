@@ -2,6 +2,7 @@
 //! against `schemas/liyasa.schema.json`, defaults, and migration between schema
 //! versions (PRD §8).
 
+pub mod json;
 pub mod vfs;
 
 /// The config types, generated from `schemas/liyasa.schema.json` by typify
