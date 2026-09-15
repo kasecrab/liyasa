@@ -25,30 +25,35 @@ pub struct Navigation {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct Tab {
     pub title: String,
     pub href: Option<String>,
+    /// A name from [`crate::icons`], or one the build resolved into
+    /// `icon_svg` from the configured library (CFG-07).
     pub icon: Option<String>,
+    pub icon_svg: Option<String>,
     pub groups: Vec<Group>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct Group {
     pub title: String,
     pub icon: Option<String>,
+    pub icon_svg: Option<String>,
     /// Collapsed groups still render their items; the sidebar module hides them.
     pub expanded: bool,
     pub items: Vec<Item>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct Item {
     pub title: String,
     pub route: String,
     pub icon: Option<String>,
+    pub icon_svg: Option<String>,
     pub tag: Option<String>,
     pub children: Vec<Item>,
 }
@@ -200,6 +205,12 @@ pub struct TocEntry {
     pub anchor: String,
     pub children: Vec<TocEntry>,
 }
+
+/// The levels RX-21 takes by default. There is no key for the depth in
+/// `liyasa.schema.json` or `frontmatter.json`, so the range is an argument and
+/// the default lives here.
+// TODO(rfc-0504): read the depth from config once the schema has a key.
+pub const DEFAULT_TOC_DEPTH: (u8, u8) = (2, 3);
 
 /// H2 and H3 by default (RX-21); `depth` is the inclusive level range.
 pub fn toc(root: &Block, depth: (u8, u8)) -> Vec<TocEntry> {

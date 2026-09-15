@@ -43,7 +43,7 @@
       <div class="ly-sidebar-group" data-liyasa="sidebar-group">
         {% if group.title %}
         <button type="button" class="ly-sidebar-group-header" data-ly-group="{{ group.title }}" aria-expanded="{{ 'true' if group.expanded else 'false' }}" data-liyasa="sidebar-group-header">
-          {% if group.icon %}<span class="ly-icon" aria-hidden="true">{{ group.icon }}</span>{% endif %}
+          {% if group.iconSvg %}{{ group.iconSvg|safe }}{% elif group.icon %}{{ icon(group.icon) }}{% endif %}
           <span>{{ group.title }}</span>
           <span class="ly-chevron">{{ icon("chevron") }}</span>
         </button>

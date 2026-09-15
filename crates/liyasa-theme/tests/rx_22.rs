@@ -135,6 +135,32 @@ fn the_eyebrow_replaces_the_trail_when_configured() {
 }
 
 #[test]
+fn an_items_icon_comes_from_the_theme_or_from_the_build() {
+    let mut context = page("/install");
+    let group = &mut context.nav.navigation.tabs[0].groups[0];
+    group.items[0].icon = Some("search".to_owned());
+    group.items[1].icon = Some("book".to_owned());
+    group.items[1].icon_svg = Some("<svg data-ly-library=\"lucide\"></svg>".to_owned());
+    let html = Theme::new()
+        .expect("the theme builds")
+        .render_page(&context)
+        .expect("the page renders");
+
+    assert!(
+        html.contains("<svg class=\"ly-icon\""),
+        "a theme icon is drawn"
+    );
+    assert!(
+        html.contains("<svg data-ly-library=\"lucide\"></svg>"),
+        "an icon the build resolved from the configured library is used as given"
+    );
+    assert!(
+        !html.contains(">book<"),
+        "an unresolved name is never printed as text"
+    );
+}
+
+#[test]
 fn the_active_item_and_its_ancestor_are_marked() {
     let html = render("/install/docker");
     assert!(html.contains("href=\"/install/docker\" aria-current=\"page\""));
