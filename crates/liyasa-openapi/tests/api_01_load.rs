@@ -246,3 +246,70 @@ fn a_later_version_is_refused_rather_than_read_as_three_one() {
         .expect_err("4.0 is not supported");
     assert_eq!(error.code, code::E0504);
 }
+
+/// A YAML author who leaves a status code unquoted has written an integer
+/// key; real specs do it constantly. RFC 0803 reads it as the string OpenAPI
+/// meant rather than refusing the document.
+#[test]
+fn an_unquoted_status_code_is_read_as_the_string_it_means() {
+    const UNQUOTED: &str = r##"
+openapi: 3.1.0
+info: { title: Widgets, version: "1" }
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      responses:
+        200:
+          description: ok
+        404:
+          description: gone
+        default:
+          description: otherwise
+"##;
+    let loaded = load::from_bytes("api", "api.yaml", UNQUOTED.as_bytes()).expect("loads");
+    assert!(
+        !loaded.diagnostics.has_errors(),
+        "{:?}",
+        loaded.diagnostics.as_slice()
+    );
+    let operation = loaded
+        .spec
+        .by_operation_id("listWidgets")
+        .expect("the operation survived");
+    assert_eq!(
+        operation
+            .operation
+            .responses
+            .iter()
+            .map(|(status, _)| status)
+            .collect::<Vec<_>>(),
+        vec!["200", "404", "default"]
+    );
+}
+
+#[test]
+fn a_mapping_used_as_a_key_is_still_refused() {
+    const ODD: &str = r##"
+openapi: 3.1.0
+info: { title: Widgets, version: "1" }
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      responses:
+        ? { a: 1 }
+        : { description: nonsense }
+        "200": { description: ok }
+"##;
+    let loaded = load::from_bytes("api", "api.yaml", ODD.as_bytes()).expect("parses");
+    assert!(
+        loaded.diagnostics.has_errors(),
+        "a key with no reading at all is not coerced"
+    );
+    let operation = loaded
+        .spec
+        .by_operation_id("listWidgets")
+        .expect("the rest of the operation is kept");
+    assert_eq!(operation.operation.responses.len(), 1);
+}
