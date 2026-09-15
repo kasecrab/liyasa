@@ -5,6 +5,7 @@
 //! hands over and scans the two forms comrak does not know about.
 
 pub mod info;
+pub mod inline;
 pub mod leaf;
 pub mod mask;
 pub mod props;
