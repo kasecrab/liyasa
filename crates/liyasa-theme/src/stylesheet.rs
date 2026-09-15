@@ -90,6 +90,19 @@ impl Styles {
         }
     }
 
+    /// Prepends the `@font-face` block for the faces the build has files for
+    /// (THM-03). Faces are not part of `build` because whether a file exists is
+    /// the build's knowledge, not the theme's.
+    #[must_use]
+    pub fn with_fonts(mut self, faces: &[crate::fonts::FaceFile], base_path: &str) -> Self {
+        let block = crate::fonts::css(faces, base_path);
+        if block.is_empty() {
+            return self;
+        }
+        self.css.insert_str(0, &block);
+        self
+    }
+
     pub fn over_budget(&self, compressed: usize) -> Vec<String> {
         let mut out = Vec::new();
         if compressed > STYLESHEET_BUDGET {
@@ -252,6 +265,18 @@ mod tests {
             styles.critical.len() <= CRITICAL_BUDGET,
             "the critical block is {} bytes",
             styles.critical.len()
+        );
+    }
+
+    #[test]
+    fn font_faces_are_prepended_when_the_build_has_the_files() {
+        let styles = build().with_fonts(&crate::fonts::bundled(), "");
+        assert!(styles.css.starts_with("@font-face{"));
+        assert!(styles.css.contains("inter-variable.woff2"));
+        assert_eq!(
+            build().with_fonts(&[], "").css,
+            build().css,
+            "no files means no font-face block"
         );
     }
 
