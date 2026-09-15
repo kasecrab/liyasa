@@ -46,3 +46,48 @@ child attributes
 **Show more**
 --- text
 
+
+=== case: nesting
+--- html
+<details class="ly-expandable" data-liyasa="expandable">
+  <summary class="ly-expandable-title">
+    parent
+  </summary>
+  <div class="ly-expandable-body">
+    <details class="ly-expandable" data-liyasa="expandable">
+      <summary class="ly-expandable-title">
+        child
+      </summary>
+      <div class="ly-expandable-body">
+        <p>
+          Leaf field.
+        </p>
+      </div>
+    </details>
+  </div>
+</details>
+--- markdown
+**parent**
+
+**child**
+
+Leaf field.
+--- text
+parent child Leaf field.
+
+=== case: invalid prop
+--- html
+<details class="ly-expandable" data-liyasa="expandable" open>
+  <summary class="ly-expandable-title">
+    Show more
+  </summary>
+  <div class="ly-expandable-body">
+  </div>
+</details>
+--- markdown
+**Show more**
+--- text
+
+--- diagnostics
+E0315 `expandable.open` expects true or false, found a number
+W0316 `expandable` has no prop `titles`

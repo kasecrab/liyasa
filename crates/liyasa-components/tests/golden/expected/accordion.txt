@@ -88,3 +88,48 @@ One.
 Two.
 --- text
 First One. Second Two.
+
+=== case: nesting
+--- html
+<details class="ly-accordion" data-liyasa="accordion" id="outer">
+  <summary class="ly-accordion-title">
+    Outer
+  </summary>
+  <div class="ly-accordion-body">
+    <details class="ly-expandable" data-liyasa="expandable">
+      <summary class="ly-expandable-title">
+        Inner
+      </summary>
+      <div class="ly-expandable-body">
+        <p>
+          Nested body.
+        </p>
+      </div>
+    </details>
+  </div>
+</details>
+--- markdown
+### Outer
+
+**Inner**
+
+Nested body.
+--- text
+Outer Inner Nested body.
+
+=== case: invalid prop
+--- html
+<details class="ly-accordion" data-liyasa="accordion" id="a-4033e1a9b198bb0c082ba5b2" open>
+  <summary class="ly-accordion-title">
+    Details
+  </summary>
+  <div class="ly-accordion-body">
+  </div>
+</details>
+--- markdown
+### Details
+--- text
+
+--- diagnostics
+E0315 `accordion.open` expects true or false, found a string
+W0316 `accordion` has no prop `titel`

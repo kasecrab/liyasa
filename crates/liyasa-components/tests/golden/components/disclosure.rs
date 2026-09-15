@@ -72,6 +72,24 @@ fn accordion() {
                 ))
                 .build(),
         )
+        .case(
+            "nesting",
+            inst::new("accordion")
+                .prop("title", str("Outer"))
+                .child(inst::nested(
+                    inst::new("expandable")
+                        .prop("title", str("Inner"))
+                        .child(nodes::paragraph("Nested body.")),
+                ))
+                .build(),
+        )
+        .case(
+            "invalid prop",
+            inst::new("accordion")
+                .prop("open", str("yes"))
+                .prop("titel", str("typo"))
+                .build(),
+        )
         .check();
 }
 
@@ -93,6 +111,52 @@ fn expandable() {
                 .build(),
         )
         .case("empty body", inst::new("expandable").build())
+        .case(
+            "nesting",
+            inst::new("expandable")
+                .prop("title", str("parent"))
+                .child(inst::nested(
+                    inst::new("expandable")
+                        .prop("title", str("child"))
+                        .child(nodes::paragraph("Leaf field.")),
+                ))
+                .build(),
+        )
+        .case(
+            "invalid prop",
+            inst::new("expandable")
+                .prop("open", PropValue::Num(1.0))
+                .prop("titles", str("typo"))
+                .build(),
+        )
+        .check();
+}
+
+#[test]
+fn expandables() {
+    Gallery::new("expandables")
+        .case(
+            "default",
+            inst::new("expandables")
+                .child(inst::nested(
+                    inst::new("expandable")
+                        .prop("title", str("id"))
+                        .child(nodes::paragraph("The record's identifier.")),
+                ))
+                .child(inst::nested(
+                    inst::new("expandable")
+                        .prop("title", str("owner"))
+                        .child(nodes::paragraph("Who it belongs to.")),
+                ))
+                .build(),
+        )
+        .case("empty body", inst::new("expandables").build())
+        .case(
+            "invalid prop",
+            inst::new("expandables")
+                .prop("one", PropValue::Bool(true))
+                .build(),
+        )
         .check();
 }
 
@@ -137,6 +201,39 @@ fn tabs() {
                 ))
                 .build(),
         )
+        .case(
+            "every prop",
+            inst::new("tabs")
+                .prop("title", str("Install"))
+                .prop("sync", str("lang"))
+                .child(inst::nested(
+                    inst::new("tab")
+                        .prop("title", str("npm"))
+                        .prop("icon", str("npm"))
+                        .prop("sync", str("js")),
+                ))
+                .build(),
+        )
+        .case(
+            "nesting",
+            inst::new("tabs")
+                .prop("title", str("Platform"))
+                .child(inst::nested(
+                    inst::new("tab")
+                        .prop("title", str("Linux"))
+                        .child(inst::nested(
+                            inst::new("note").child(nodes::paragraph("Needs glibc 2.35.")),
+                        )),
+                ))
+                .build(),
+        )
+        .case(
+            "invalid prop",
+            inst::new("tabs")
+                .prop("sync", PropValue::Bool(true))
+                .prop("synced", str("typo"))
+                .build(),
+        )
         .check();
 }
 
@@ -173,6 +270,25 @@ fn steps() {
                 .build(),
         )
         .case("empty body", inst::new("steps").build())
+        .case(
+            "nesting",
+            inst::new("steps")
+                .child(inst::nested(
+                    inst::new("step")
+                        .prop("title", str("Verify"))
+                        .child(inst::nested(
+                            inst::new("tip").child(nodes::paragraph("Check the exit code.")),
+                        )),
+                ))
+                .build(),
+        )
+        .case(
+            "invalid prop",
+            inst::new("steps")
+                .prop("style", str("roman"))
+                .prop("start", str("one"))
+                .build(),
+        )
         .check();
 }
 
@@ -195,6 +311,13 @@ fn tree() {
                 .build(),
         )
         .case("empty body", inst::new("tree").build())
+        .case(
+            "invalid prop",
+            inst::new("tree")
+                .prop("expanded", str("all"))
+                .prop("roots", str("typo"))
+                .build(),
+        )
         .check();
 }
 

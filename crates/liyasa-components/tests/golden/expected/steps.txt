@@ -69,3 +69,48 @@ Deploy Ship it.
 --- markdown
 --- text
 
+
+=== case: nesting
+--- html
+<ol class="ly-steps" data-liyasa="steps" data-style="numbered">
+  <li class="ly-step" id="verify" data-step="1">
+    <div class="ly-step-marker" aria-hidden="true">
+      1
+    </div>
+    <div class="ly-step-body">
+      <p class="ly-step-title">
+        Verify
+      </p>
+      <aside class="ly-callout ly-callout-tip" data-liyasa="callout" data-variant="tip" aria-label="Tip">
+        <p class="ly-callout-title">
+          <span class="ly-icon" data-icon="lightbulb" aria-hidden="true">
+          </span>
+          Tip
+        </p>
+        <div class="ly-callout-body">
+          <p>
+            Check the exit code.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </li>
+</ol>
+--- markdown
+1. **Verify**
+   > **Tip**
+   >
+   > Check the exit code.
+--- text
+Verify Check the exit code.
+
+=== case: invalid prop
+--- html
+<ol class="ly-steps" data-liyasa="steps" data-style="roman">
+</ol>
+--- markdown
+--- text
+
+--- diagnostics
+E0315 `steps.start` expects a number, found a string
+E0315 `steps.style` is `roman`, which is not one of: numbered, icon

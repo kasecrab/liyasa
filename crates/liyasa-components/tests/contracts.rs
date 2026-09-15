@@ -107,3 +107,23 @@ fn a_nested_component_sees_the_site_origin() {
     cards.markdown(&group, &mut ctx).expect("serializes");
     assert_eq!(ctx.finish(), "- [Start](https://docs.example.com/start)\n");
 }
+
+#[test]
+fn a_tab_title_is_indexed_once() {
+    use liyasa_components::{inst, nodes};
+    use liyasa_core::document::PropValue;
+
+    let registry = Registry::builtins();
+    let tabs = inst::new("tabs")
+        .prop("title", PropValue::Str("Install".into()))
+        .child(inst::nested(
+            inst::new("tab")
+                .prop("title", PropValue::Str("Node".into()))
+                .child(nodes::paragraph("Run the installer.")),
+        ))
+        .build();
+
+    let text = registry.resolve("tabs").expect("tabs").text(&tabs);
+    assert_eq!(text.matches("Node").count(), 1, "indexed as {text:?}");
+    assert!(text.contains("Install"), "indexed as {text:?}");
+}

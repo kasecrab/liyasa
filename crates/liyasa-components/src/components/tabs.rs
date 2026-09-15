@@ -116,9 +116,10 @@ impl Render for Tabs {
     }
 
     fn text(&self, inst: &ComponentInst) -> String {
-        let titles: Vec<String> = tabs_of(inst).into_iter().map(|(_, title)| title).collect();
-        let refs: Vec<&str> = titles.iter().map(String::as_str).collect();
-        text::with_titles(&refs, &inst.children)
+        // The group's own name only: walking the children already picks up each
+        // tab's title, and naming them here indexed every label twice.
+        let props = Reader::of(inst, Self::schema_of());
+        text::with_titles(&[props.str_or("title", "")], &inst.children)
     }
 }
 

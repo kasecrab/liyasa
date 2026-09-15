@@ -51,7 +51,7 @@ npm i liyasa
 cargo install liyasa
 ```
 --- text
-npm cargo npm npm i liyasa cargo cargo install liyasa
+Install npm npm i liyasa cargo cargo install liyasa
 
 === case: synced
 --- html
@@ -72,7 +72,7 @@ npm cargo npm npm i liyasa cargo cargo install liyasa
 
 Rust body.
 --- text
-Rust Rust Rust body.
+Rust Rust body.
 
 === case: empty body
 --- html
@@ -103,4 +103,67 @@ Rust Rust Rust body.
 
 No title.
 --- text
-Tab 1 No title.
+No title.
+
+=== case: every prop
+--- html
+<div class="ly-tabs" data-liyasa="tabs" data-sync="lang">
+  <div class="ly-tablist" role="tablist" aria-label="Install">
+    <button class="ly-tab" type="button" role="tab" id="t-1aadb1eb5ddb08526a8ff028-tab-0" aria-controls="t-1aadb1eb5ddb08526a8ff028-panel-0" aria-selected="true" tabindex="0" data-sync-value="js">
+      <span class="ly-icon" data-icon="npm" aria-hidden="true">
+      </span>
+      npm
+    </button>
+  </div>
+  <div class="ly-tabpanel" role="tabpanel" id="t-1aadb1eb5ddb08526a8ff028-panel-0" aria-labelledby="t-1aadb1eb5ddb08526a8ff028-tab-0" tabindex="0">
+  </div>
+</div>
+--- markdown
+### Install: npm
+--- text
+Install npm
+
+=== case: nesting
+--- html
+<div class="ly-tabs" data-liyasa="tabs">
+  <div class="ly-tablist" role="tablist" aria-label="Platform">
+    <button class="ly-tab" type="button" role="tab" id="t-1aadb1eb5ddb08526a8ff028-tab-0" aria-controls="t-1aadb1eb5ddb08526a8ff028-panel-0" aria-selected="true" tabindex="0">
+      Linux
+    </button>
+  </div>
+  <div class="ly-tabpanel" role="tabpanel" id="t-1aadb1eb5ddb08526a8ff028-panel-0" aria-labelledby="t-1aadb1eb5ddb08526a8ff028-tab-0" tabindex="0">
+    <aside class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note" aria-label="Note">
+      <p class="ly-callout-title">
+        <span class="ly-icon" data-icon="info" aria-hidden="true">
+        </span>
+        Note
+      </p>
+      <div class="ly-callout-body">
+        <p>
+          Needs glibc 2.35.
+        </p>
+      </div>
+    </aside>
+  </div>
+</div>
+--- markdown
+### Platform: Linux
+
+> **Note**
+>
+> Needs glibc 2.35.
+--- text
+Platform Linux Needs glibc 2.35.
+
+=== case: invalid prop
+--- html
+<div class="ly-tabs" data-liyasa="tabs">
+  <div class="ly-tablist" role="tablist">
+  </div>
+</div>
+--- markdown
+--- text
+
+--- diagnostics
+E0315 `tabs.sync` expects a string, found true or false
+W0316 `tabs` has no prop `synced`

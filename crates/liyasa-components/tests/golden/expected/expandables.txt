@@ -1,0 +1,54 @@
+# expandables gallery
+
+=== case: default
+--- html
+<div class="ly-expandables" data-liyasa="expandables">
+  <details class="ly-expandable" data-liyasa="expandable">
+    <summary class="ly-expandable-title">
+      id
+    </summary>
+    <div class="ly-expandable-body">
+      <p>
+        The record's identifier.
+      </p>
+    </div>
+  </details>
+  <details class="ly-expandable" data-liyasa="expandable">
+    <summary class="ly-expandable-title">
+      owner
+    </summary>
+    <div class="ly-expandable-body">
+      <p>
+        Who it belongs to.
+      </p>
+    </div>
+  </details>
+</div>
+--- markdown
+**id**
+
+The record's identifier.
+
+**owner**
+
+Who it belongs to.
+--- text
+id The record's identifier. owner Who it belongs to.
+
+=== case: empty body
+--- html
+<div class="ly-expandables" data-liyasa="expandables">
+</div>
+--- markdown
+--- text
+
+
+=== case: invalid prop
+--- html
+<div class="ly-expandables" data-liyasa="expandables">
+</div>
+--- markdown
+--- text
+
+--- diagnostics
+W0316 `expandables` has no prop `one`

@@ -48,3 +48,14 @@ src/ lib.rs main.rs Cargo.toml
 --- markdown
 --- text
 
+
+=== case: invalid prop
+--- html
+<div class="ly-tree" data-liyasa="tree" aria-label="Files">
+</div>
+--- markdown
+--- text
+
+--- diagnostics
+E0315 `tree.expanded` expects true or false, found a string
+W0316 `tree` has no prop `roots`
