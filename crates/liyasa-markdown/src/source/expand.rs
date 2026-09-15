@@ -22,7 +22,7 @@
 //! `plan/rfcs/0021-source-text-for-expansion.md` records why these entry points
 //! take a `SourceMap` that §34.9 does not name.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -157,16 +157,24 @@ pub fn expand_with(
         return Err(diagnostics);
     }
 
-    let assembly = assemble(text, document);
+    let mut assemblies = BTreeMap::new();
+    assemblies.insert(PAGE.to_owned(), assemble(text, document));
+    // §7.3.1 item 4: an included file is its own Source Document with its own
+    // `SourceId`, and it is assembled with sentinels of its own so that a
+    // diagnostic inside it points at the snippet rather than at the page.
+    assemble_includes(map, &record, &mut assemblies);
+
     let mut local = env.clone();
-    if let Err(error) = local.add_template_owned(PAGE, assembly.text.clone()) {
-        diagnostics.push(describe(&error, &assembly, document.source, context));
-        return Err(diagnostics);
+    for (name, assembly) in &assemblies {
+        if let Err(error) = local.add_template_owned(name.clone(), assembly.text.clone()) {
+            diagnostics.push(describe(&error, &assemblies, context));
+            return Err(diagnostics);
+        }
     }
     let template = match local.get_template(PAGE) {
         Ok(template) => template,
         Err(error) => {
-            diagnostics.push(describe(&error, &assembly, document.source, context));
+            diagnostics.push(describe(&error, &assemblies, context));
             return Err(diagnostics);
         }
     };
@@ -184,7 +192,7 @@ pub fn expand_with(
                 0,
             )));
         } else {
-            diagnostics.push(describe(&error, &assembly, document.source, context));
+            diagnostics.push(describe(&error, &assemblies, context));
         }
         return Err(diagnostics);
     }
@@ -199,7 +207,7 @@ pub fn expand_with(
         }
     };
 
-    let (expanded, span_map) = split(&rendered, text, document, &mut diagnostics);
+    let (expanded, span_map) = split(&rendered, map, document, &mut diagnostics);
     if diagnostics.has_errors() {
         return Err(diagnostics);
     }
@@ -210,9 +218,40 @@ pub fn expand_with(
     })
 }
 
+/// Scans and assembles every file the page pulls in, transitively, so that
+/// each one's output carries its own source in the sentinels.
+fn assemble_includes(
+    map: &SourceMap,
+    page: &ExpansionRecord,
+    out: &mut BTreeMap<String, Assembly>,
+) {
+    let mut queue: Vec<SourceId> = page.includes.clone();
+    let mut seen: BTreeSet<u32> = BTreeSet::new();
+    while let Some(id) = queue.pop() {
+        if !seen.insert(id.0) {
+            continue;
+        }
+        let Some(file) = map.try_get(id) else {
+            continue;
+        };
+        let text = &*file.text;
+        let (document, diagnostics) = scan::scan(text, id);
+        if diagnostics.has_errors() {
+            // The page's own diagnostics carry the failure; a file that does
+            // not scan is left to the environment the caller registered.
+            continue;
+        }
+        let (nested, _) = record(map, text, &document);
+        queue.extend(nested.includes);
+        out.insert(file.path.as_str().to_owned(), assemble(text, &document));
+    }
+}
+
 // ---- assembly ----
 
 struct Assembly {
+    /// The file this template was assembled from.
+    source: SourceId,
     text: String,
     /// `(assembled start, length, source start)` for every run copied
     /// verbatim, so a minijinja error position maps back to the page.
@@ -237,6 +276,7 @@ impl Assembly {
 
 fn assemble(text: &str, document: &SourceDocument) -> Assembly {
     let mut out = Assembly {
+        source: document.source,
         text: String::with_capacity(text.len() + document.segments.len() * 12),
         runs: Vec::with_capacity(document.segments.len()),
     };
@@ -288,7 +328,7 @@ fn assemble(text: &str, document: &SourceDocument) -> Assembly {
                 let mut at = span.start as usize;
                 for range in spans_within(&masked, span) {
                     if range.start > at {
-                        emit_literal(&mut out, text, at..range.start, in_loop);
+                        emit_literal(&mut out, text, span.source, at..range.start, in_loop);
                     }
                     sentinel(
                         &mut out,
@@ -299,7 +339,7 @@ fn assemble(text: &str, document: &SourceDocument) -> Assembly {
                     at = range.end;
                 }
                 if at < span.end as usize {
-                    emit_literal(&mut out, text, at..span.end as usize, in_loop);
+                    emit_literal(&mut out, text, span.source, at..span.end as usize, in_loop);
                 }
             }
             _ => {
@@ -311,11 +351,17 @@ fn assemble(text: &str, document: &SourceDocument) -> Assembly {
     out
 }
 
-fn emit_literal(out: &mut Assembly, text: &str, range: std::ops::Range<usize>, in_loop: bool) {
+fn emit_literal(
+    out: &mut Assembly,
+    text: &str,
+    source: SourceId,
+    range: std::ops::Range<usize>,
+    in_loop: bool,
+) {
     sentinel(
         out,
         Piece::Literal,
-        Span::new(SourceId(0), range.start as u32, range.end as u32),
+        Span::new(source, range.start as u32, range.end as u32),
         in_loop,
     );
     out.copy(&text[range.clone()], range.start);
@@ -387,14 +433,17 @@ impl Piece {
     }
 }
 
-/// `U+E000 <kind> <start> , <end> [U+E001 <iteration>] U+E002`.
+/// `U+E000 <kind> <source> . <start> , <end> [U+E001 <iteration>] U+E002`.
 ///
 /// The payload names the source range rather than a segment index, so a piece
 /// of a segment — the text on either side of an inline code span — is as
-/// addressable as a whole one.
+/// addressable as a whole one, and a chunk that came from an included file
+/// carries that file's `SourceId` (§7.3.1 item 4).
 fn sentinel(out: &mut Assembly, piece: Piece, span: Span, in_loop: bool) {
     out.text.push(SENTINEL_START);
     out.text.push(piece.letter());
+    out.text.push_str(&span.source.0.to_string());
+    out.text.push('.');
     out.text.push_str(&span.start.to_string());
     out.text.push(',');
     out.text.push_str(&span.end.to_string());
@@ -438,11 +487,12 @@ fn snippet(out: &mut Assembly, tag: &str) {
 
 fn split(
     rendered: &str,
-    text: &str,
+    source_map: &SourceMap,
     document: &SourceDocument,
     diagnostics: &mut Diagnostics,
 ) -> (String, Vec<(u32, u32, Origin)>) {
     let source = document.source;
+    let includes = include_sites(source_map, document);
     let mut out = String::with_capacity(rendered.len());
     let mut map: Vec<(u32, u32, Origin)> = Vec::new();
     let mut parts = rendered.split(SENTINEL_START);
@@ -468,8 +518,12 @@ fn split(
             Some((head, iteration)) => (head, iteration.parse::<u32>().ok()),
             None => (head, None),
         };
-        let Some((piece, span)) = parse_sentinel(head, source) else {
+        let Some((piece, span)) = parse_sentinel(head) else {
             stray(diagnostics, last);
+            push(&mut out, &mut map, chunk, Origin::default());
+            continue;
+        };
+        let Some(file) = source_map.try_get(span.source) else {
             push(&mut out, &mut map, chunk, Origin::default());
             continue;
         };
@@ -478,8 +532,22 @@ fn split(
             stray(diagnostics, span);
         }
 
-        let literal = &text[span.start as usize..span.end as usize];
+        let literal = file
+            .text
+            .get(span.start as usize..span.end as usize)
+            .unwrap_or_default();
         let mut frames = Vec::new();
+        // A chunk from another file came through an include; the page's
+        // `{% include %}` or `{% snippet %}` span is the outer frame
+        // (§7.3.1 item 4).
+        if span.source != source
+            && let Some(at) = includes.get(&span.source.0)
+        {
+            frames.push(Frame::Include {
+                file: span.source,
+                at: *at,
+            });
+        }
         if let Some(index) = iteration {
             frames.push(Frame::Loop { at: span, index });
         }
@@ -522,7 +590,7 @@ fn split(
                         &mut map,
                         chunk,
                         Origin {
-                            span: Some(Span::new(source, start, start + chunk.len() as u32)),
+                            span: Some(Span::new(span.source, start, start + chunk.len() as u32)),
                             frames,
                         },
                     );
@@ -537,12 +605,47 @@ fn split(
     (out, map)
 }
 
-fn parse_sentinel(head: &str, source: SourceId) -> Option<(Piece, Span)> {
+/// Where each included file is pulled in from, by `SourceId`. The first
+/// `{% include %}` or `{% snippet %}` of a file is the site a diagnostic
+/// inside it is reported against.
+fn include_sites(
+    map: &SourceMap,
+    document: &SourceDocument,
+) -> std::collections::BTreeMap<u32, Span> {
+    let Some(file) = map.try_get(document.source) else {
+        return BTreeMap::new();
+    };
+    let mut out = BTreeMap::new();
+    for segment in &document.segments {
+        let Segment::Template { span, kind } = segment else {
+            continue;
+        };
+        if matches!(kind, TemplateKind::Comment) {
+            continue;
+        }
+        let Some(tag) = file.text.get(span.start as usize..span.end as usize) else {
+            continue;
+        };
+        for name in includes(tag) {
+            if let Some(id) = map.find(&VfsPath::new(&name)) {
+                out.entry(id.0).or_insert(*span);
+            }
+        }
+    }
+    out
+}
+
+fn parse_sentinel(head: &str) -> Option<(Piece, Span)> {
     let piece = Piece::of(*head.as_bytes().first()?)?;
-    let (start, end) = head.get(1..)?.split_once(',')?;
+    let (source, range) = head.get(1..)?.split_once('.')?;
+    let (start, end) = range.split_once(',')?;
     Some((
         piece,
-        Span::new(source, start.parse().ok()?, end.parse().ok()?),
+        Span::new(
+            SourceId(source.parse().ok()?),
+            start.parse().ok()?,
+            end.parse().ok()?,
+        ),
     ))
 }
 
@@ -842,26 +945,45 @@ impl minijinja::value::Object for Root {
 
 // ---- minijinja errors (CM-18) ----
 
+/// Turns a minijinja error into a `Diagnostic` at a source position.
+///
+/// The error names the template it happened in, and each template has its own
+/// assembly, so a failure inside a snippet lands in the snippet's coordinates
+/// rather than the page's (§7.3.1 item 4).
 fn describe(
     error: &minijinja::Error,
-    assembly: &Assembly,
-    source: SourceId,
+    assemblies: &BTreeMap<String, Assembly>,
     context: &TemplateContext,
 ) -> Diagnostic {
     use minijinja::ErrorKind;
 
+    // An error inside an include arrives wrapped: `BadInclude` names the
+    // statement, the cause names the line that actually failed, and the cause
+    // is the one the author has to fix.
+    if error.kind() == ErrorKind::BadInclude
+        && let Some(cause) = std::error::Error::source(error)
+            .and_then(|cause| cause.downcast_ref::<minijinja::Error>())
+    {
+        return describe(cause, assemblies, context);
+    }
+
     let detail = error.detail().unwrap_or_default();
+    let assembly = error
+        .name()
+        .and_then(|name| assemblies.get(name))
+        .or_else(|| assemblies.get(PAGE));
     // A filter or function this crate installed puts its own code in the
     // message, because a minijinja error has nowhere else to carry one.
     if let Some((chosen, message)) = tagged_code(detail) {
         let mut diagnostic = Diagnostic::new(chosen, message);
-        if let Some(range) = error.range()
+        if let Some(assembly) = assembly
+            && let Some(range) = error.range()
             && let Some(start) = assembly.to_source(range.start as u32)
         {
             let end = assembly
                 .to_source(range.end.saturating_sub(1) as u32)
                 .map_or(start, |end| end + 1);
-            diagnostic = diagnostic.at(Span::new(source, start, end.max(start)));
+            diagnostic = diagnostic.at(Span::new(assembly.source, start, end.max(start)));
         }
         return diagnostic;
     }
@@ -878,6 +1000,9 @@ fn describe(
     };
 
     let mut diagnostic = Diagnostic::new(chosen, error.to_string());
+    let Some(assembly) = assembly else {
+        return diagnostic;
+    };
     let range = error.range();
     if let Some(range) = range.clone()
         && let Some(start) = assembly.to_source(range.start as u32)
@@ -885,7 +1010,7 @@ fn describe(
         let end = assembly
             .to_source(range.end.saturating_sub(1) as u32)
             .map_or(start, |end| end + 1);
-        diagnostic = diagnostic.at(Span::new(source, start, end.max(start)));
+        diagnostic = diagnostic.at(Span::new(assembly.source, start, end.max(start)));
     }
     // minijinja reports "undefined value" without naming it; the name is the
     // expression the error points at.
@@ -1376,6 +1501,66 @@ mod tests {
         let out = expand(&map, &document, &context(context! {}), &env).expect("expansion");
         assert!(out.text.contains("Shared **body**."), "{:?}", out.text);
         assert_eq!(out.record.includes.len(), 1);
+    }
+
+    #[test]
+    fn a_chunk_from_a_snippet_carries_the_snippet_as_its_source() {
+        let mut map = SourceMap::new();
+        let snippet = "Shared body.\n";
+        let snippet_id = map.intern(VfsPath::new("snippets/note.md"), Arc::from(snippet));
+        let text = "before\n{% include \"snippets/note.md\" %}\nafter\n";
+        let id = map.intern(VfsPath::new("page.md"), Arc::from(text));
+        let (document, _) = scan::scan(text, id);
+
+        let options = ExpandOptions::default();
+        let env = environment(&options);
+        let out = expand(&map, &document, &context(context! {}), &env).expect("expansion");
+        assert!(out.text.contains("Shared body."), "{:?}", out.text);
+
+        let at = out.text.find("Shared body.").expect("the snippet's text") as u32;
+        let origin = out.map.origin_at(at).expect("an origin");
+        assert_eq!(
+            origin.span.map(|span| span.source),
+            Some(snippet_id),
+            "a snippet's bytes belong to the snippet, not the page"
+        );
+        let site = origin
+            .frames
+            .iter()
+            .find_map(|frame| match frame {
+                Frame::Include { file, at } => Some((*file, *at)),
+                _ => None,
+            })
+            .expect("an include frame");
+        assert_eq!(site.0, snippet_id);
+        assert_eq!(
+            &text[site.1.start as usize..site.1.end as usize],
+            "{% include \"snippets/note.md\" %}"
+        );
+    }
+
+    #[test]
+    fn an_error_inside_a_snippet_points_at_the_snippet() {
+        let mut map = SourceMap::new();
+        let snippet = "Hello {{ missing }}.\n";
+        let snippet_id = map.intern(VfsPath::new("snippets/note.md"), Arc::from(snippet));
+        let text = "{% include \"snippets/note.md\" %}\n";
+        let id = map.intern(VfsPath::new("page.md"), Arc::from(text));
+        let (document, _) = scan::scan(text, id);
+
+        let options = ExpandOptions::default();
+        let env = environment(&options);
+        let diagnostics =
+            expand(&map, &document, &context(context! {}), &env).expect_err("undefined");
+        let reported = diagnostics.iter().next().expect("a diagnostic");
+        assert_eq!(reported.code, code::E0201);
+        let span = reported.span.expect("a located diagnostic");
+        assert_eq!(span.source, snippet_id);
+        assert!(
+            snippet[span.start as usize..span.end as usize].contains("missing"),
+            "{:?}",
+            &snippet[span.start as usize..span.end as usize]
+        );
     }
 
     // ---- CM-70 ----
