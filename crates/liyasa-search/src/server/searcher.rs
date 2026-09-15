@@ -451,11 +451,19 @@ mod tests {
         let keyword = vec!["/a".to_owned(), "/b".to_owned(), "/c".to_owned()];
         let semantic = vec!["/c".to_owned(), "/b".to_owned(), "/d".to_owned()];
         let fused = hybrid(&keyword, &semantic, 60.0);
-        assert_eq!(
-            fused[0], "/b",
-            "second in both beats first in one: {fused:?}"
-        );
-        assert!(fused.contains(&"/d".to_owned()), "nothing is dropped");
+        let rank = |key: &str| {
+            fused
+                .iter()
+                .position(|found| found == key)
+                .unwrap_or(usize::MAX)
+        };
+        // `/b` and `/c` are in both lists; `/a` and `/d` are in one. Agreement
+        // is what reciprocal rank fusion pays for.
+        assert!(rank("/b") < rank("/a"), "{fused:?}");
+        assert!(rank("/b") < rank("/d"), "{fused:?}");
+        assert!(rank("/c") < rank("/a"), "{fused:?}");
+        assert!(rank("/c") < rank("/d"), "{fused:?}");
+        assert_eq!(fused.len(), 4, "nothing is dropped");
     }
 
     #[test]
