@@ -10,6 +10,13 @@ description = "Liyasa Markdown: segmentation, expansion, directives, and the Ren
 [lints]
 workspace = true
 
+[features]
+default = ["highlight"]
+# CM-38's grammar and theme set. Off for the WebAssembly editor build, which
+# renders a preview rather than a published page and does not carry 200 syntax
+# definitions to do it.
+highlight = ["dep:syntect", "dep:two-face"]
+
 [dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
 minijinja = { workspace = true, features = ["debug", "fuel", "loader", "multi_template"] }
@@ -17,3 +24,5 @@ serde.workspace = true
 serde_json.workspace = true
 # `shortcodes` reaches the `emojis` table for CM-41; PRD §6.2.1 carries the row.
 comrak = { workspace = true, features = ["shortcodes"] }
+syntect = { workspace = true, optional = true }
+two-face = { workspace = true, optional = true }

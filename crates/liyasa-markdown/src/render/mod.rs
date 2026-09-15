@@ -1,6 +1,8 @@
 //! HTML, Markdown, and plain-text serializations of the Rendered AST
 //! (PRD §11.7, CM-55).
 
+#[cfg(feature = "highlight")]
+pub mod highlight;
 pub mod html;
 pub mod markdown;
 pub mod text;

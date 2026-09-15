@@ -150,3 +150,21 @@ fn a_link_and_an_image_escape_their_attributes() {
 fn an_empty_page_renders_to_nothing() {
     assert_eq!(html(""), "");
 }
+
+/// A highlighted fence reaches the theme already coloured; an unhighlighted one
+/// reaches it escaped.
+#[cfg(feature = "highlight")]
+#[test]
+fn the_theme_is_handed_the_highlighted_body() {
+    use crate::render::highlight::{Highlighter, apply};
+
+    let mut parsed = document("```rust\nfn main() {}\n```\n");
+    apply(&mut parsed, &Highlighter::default());
+    let mut theme = Plain {
+        fail: false,
+        seen: Vec::new(),
+    };
+    let rendered = render(&parsed.root, &mut theme);
+    assert!(rendered.contains("<span class=\"ly-"), "{rendered}");
+    assert!(!rendered.contains("&lt;span"), "{rendered}");
+}
