@@ -463,3 +463,33 @@ fn adversarial_input_that_does_not_nest_still_parses() {
         let _ = document(&source);
     }
 }
+
+/// CM-41: shortcodes are resolved against the bundled table at build time.
+#[test]
+fn emoji_shortcodes_are_converted() {
+    let document = document("Ship it :rocket: now.\n");
+    assert_eq!(
+        inlines(&document.root),
+        [&Inline::Text("Ship it 🚀 now.".to_owned())]
+    );
+    assert_eq!(codes(&document), Vec::<&str>::new());
+}
+
+#[test]
+fn an_unknown_shortcode_stays_literal() {
+    let document = document("Not a :nosuchemoji: shortcode.\n");
+    assert_eq!(
+        inlines(&document.root),
+        [&Inline::Text("Not a :nosuchemoji: shortcode.".to_owned())]
+    );
+}
+
+/// A shortcode in a code span is code, not an emoji.
+#[test]
+fn a_shortcode_in_code_is_literal() {
+    let document = document("`:rocket:`\n");
+    assert_eq!(
+        inlines(&document.root),
+        [&Inline::Code(":rocket:".to_owned())]
+    );
+}

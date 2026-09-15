@@ -43,6 +43,8 @@ pub fn options(opts: &ParseOptions) -> Options<'static> {
     extension.subscript = true;
     extension.multiline_block_quotes = true;
     extension.alerts = true;
+    // CM-41: `:rocket:` against the bundled `emojis` table.
+    extension.shortcodes = true;
     extension.front_matter_delimiter = Some("---".to_owned());
     extension.block_directive = true;
     // CM-30 names `header_ids`; comrak 0.55 spells it `header_id_prefix` and it

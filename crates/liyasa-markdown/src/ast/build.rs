@@ -324,9 +324,8 @@ impl Builder<'_> {
             },
             NodeValue::FootnoteReference(footnote) => Inline::FootnoteRef(footnote.name.clone()),
             NodeValue::Math(math) => Inline::Math(math.literal.clone()),
-            // TODO(CM-41): comrak's shortcode table is behind its `shortcodes`
-            // feature, which pulls the `emojis` crate; that needs a row in the
-            // PRD dependency table first, so `:rocket:` stays literal text.
+            // CM-41: comrak resolves the shortcode against the `emojis` table.
+            NodeValue::ShortCode(shortcode) => Inline::Text(shortcode.emoji.to_owned()),
             NodeValue::EscapedTag(text) => Inline::Text((*text).to_owned()),
             // A backslash escape is the character it escaped.
             NodeValue::Escaped => return None,
