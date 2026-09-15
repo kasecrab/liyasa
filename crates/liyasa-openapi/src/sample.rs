@@ -157,11 +157,10 @@ impl Request {
             }
         }
 
-        let body = operation
-            .operation
-            .request_body
-            .as_ref()
-            .and_then(|body| self::body(body, fill));
+        let body =
+            operation.operation.request_body.as_ref().and_then(|body| {
+                self::body(body, fill, operation.operation.liyasa.examples.first())
+            });
         if let Some(body) = &body
             && body.kind != BodyKind::Multipart
         {
@@ -275,13 +274,17 @@ fn expand(parameter: &Parameter, fill: Fill) -> Vec<Pair> {
     }]
 }
 
-fn body(body: &crate::model::RequestBody, fill: Fill) -> Option<Body> {
+/// `hint` is `x-liyasa.examples`, which outranks the spec's own example: it is
+/// the operator's correction of a body the API team wrote badly (API-05).
+fn body(body: &crate::model::RequestBody, fill: Fill, hint: Option<&Value>) -> Option<Body> {
     let (media_type, media) = body.preferred()?;
     let schema = media.schema.as_ref();
-    let written = media
-        .example
-        .clone()
-        .or_else(|| media.examples.values().find_map(|e| e.value.clone()));
+    let written = hint.cloned().or_else(|| {
+        media
+            .example
+            .clone()
+            .or_else(|| media.examples.values().find_map(|e| e.value.clone()))
+    });
     let value = written.or_else(|| schema.map(|s| example::of(s, Side::Request, fill)))?;
 
     let base = media_type.split(';').next().unwrap_or(media_type).trim();
