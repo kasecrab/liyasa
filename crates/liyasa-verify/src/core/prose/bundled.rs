@@ -1,9 +1,14 @@
 //! The Liyasa style that ships with the binary (VER-61).
 //!
 //! VER-61 names three packages: this one, Google, and Microsoft. The other two
-//! are third-party rule sets an operator installs under `StylesPath`; this one
-//! is compiled in, so `liyasa verify` has something to say on a project that
-//! has configured nothing.
+//! are third-party rule sets an operator installs under `StylesPath`, which
+//! [`super::package`] reads; this one is compiled in, so `liyasa verify` has
+//! something to say on a project that has configured nothing.
+//!
+//! TODO(rfc-1306): whether all three should ship inside the binary instead.
+//! Vendoring them needs network access this machine does not have, and a
+//! decision about carrying two third-party rule sets in a public repository.
+//! If the answer is yes, they are rows in `RULES` and nothing else changes.
 //!
 //! The rules are real `.yml` files in Vale's own format rather than Rust
 //! literals, so an operator can read one, copy it into their own style, and
