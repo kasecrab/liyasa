@@ -7,6 +7,7 @@
 //! `plan/rfcs/0004-component-render-sinks.md`.
 
 pub mod html;
+pub mod md;
 
 pub use liyasa_core::components::{
     Component, ComponentInst, ComponentRegistry, EditorBlock, FormField, PropDef, PropSchema,
