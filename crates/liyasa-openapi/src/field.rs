@@ -121,6 +121,11 @@ impl Field {
             truncated: false,
         };
 
+        if schema.is_stub() {
+            // The reader cut a cycle here; the name is the expand control.
+            field.truncated = true;
+            return field;
+        }
         if depth == 0 {
             // Stop, but say what would have been here, so the reader interface
             // can offer to fetch it.
@@ -145,8 +150,9 @@ impl Field {
             && let Some(items) = schema.items.as_deref()
         {
             field.children = object_rows(items, depth - 1);
-            if field.children.is_empty() && has_children(items) {
+            if field.children.is_empty() && (has_children(items) || items.is_stub()) {
                 field.truncated = true;
+                field.schema_name = field.schema_name.take().or_else(|| items.name.clone());
             }
             return field;
         }
@@ -229,6 +235,11 @@ fn variant_label(parent: &Schema, variant: &Schema, index: usize) -> String {
 /// What a row says the value is. `null` is left out: nullability is its own
 /// column, not a type a reader has to parse out of a union.
 pub fn type_label(schema: &Schema) -> String {
+    if schema.is_stub()
+        && let Some(name) = &schema.name
+    {
+        return name.clone();
+    }
     let shown: Vec<SchemaType> = schema.shown_types().collect();
     match shown.as_slice() {
         [] => {
