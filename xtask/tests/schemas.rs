@@ -44,7 +44,7 @@ fn every_schema_declares_2020_12_and_an_id() {
         );
         let id = schema["$id"].as_str().unwrap_or_default();
         assert!(
-            id.starts_with("https://liyasa.dev/schema/v1/"),
+            id.starts_with("https://kasecrab.github.io/liyasa/schema/v1/"),
             "{name} has $id `{id}`"
         );
         assert!(schema["title"].is_string(), "{name} has no title");

@@ -115,7 +115,7 @@ fn lookup_round_trips_and_rejects_strangers() {
 #[test]
 fn help_urls_are_generated_from_the_code() {
     let code = diagnostics::code::E0210;
-    assert_eq!(code.url(), "https://liyasa.dev/errors/E0210");
+    assert_eq!(code.url(), "https://kasecrab.github.io/liyasa/docs/errors/E0210");
 }
 
 #[test]

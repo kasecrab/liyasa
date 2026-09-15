@@ -34,7 +34,7 @@ fn one<T: schemars::JsonSchema>(file: &'static str, title: &str) -> Generated {
     let object = schema.ensure_object();
     object.insert(
         "$id".into(),
-        format!("https://liyasa.dev/schema/v1/{file}").into(),
+        format!("https://kasecrab.github.io/liyasa/schema/v1/{file}").into(),
     );
     object.insert("title".into(), title.into());
     object.insert("schemaVersion".into(), SCHEMA_VERSION.into());

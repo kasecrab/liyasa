@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://liyasa.dev/schema/v1/webhook.json",
+  "$id": "https://kasecrab.github.io/liyasa/schema/v1/webhook.json",
   "title": "Liyasa webhook payload",
   "description": "REST-10 and GIT-21 (PRD \u00a734.12). Delivered with `X-Liyasa-Signature` (`sha256=<hmac of the raw body>`), `X-Liyasa-Timestamp`, `X-Liyasa-Delivery` (unique per attempt), and `X-Liyasa-Event`. Retries at 1 min, 5 min, 30 min, 2 h, and 12 h; 20 consecutive failures pause the subscription.",
   "schemaVersion": "1.0",

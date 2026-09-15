@@ -1,5 +1,5 @@
 {
-  "$id": "https://liyasa.dev/schema/v1/ast.json",
+  "$id": "https://kasecrab.github.io/liyasa/schema/v1/ast.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Liyasa Rendered AST",
   "type": "object",

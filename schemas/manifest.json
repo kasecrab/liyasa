@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://liyasa.dev/schema/v1/manifest.json",
+  "$id": "https://kasecrab.github.io/liyasa/schema/v1/manifest.json",
   "title": "Liyasa output bundle manifest",
   "description": "`dist/liyasa-manifest.json` (PRD \u00a734.12). The server, the MCP server, the verifier, and the static host emitters read only this file; nothing rescans `dist/`.",
   "schemaVersion": "1.0",

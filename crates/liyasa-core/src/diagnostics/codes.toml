@@ -6,7 +6,7 @@
 #
 # severity is the default; policy may promote or demote it. The prefix must
 # agree with it (E = error, W = warning) and a number is never reused across
-# prefixes. `url` defaults to https://liyasa.dev/errors/<code>.
+# prefixes. `url` defaults to https://kasecrab.github.io/liyasa/docs/errors/<code>.
 #
 # `cargo test -p liyasa-core registry` rejects duplicates, out-of-range codes,
 # prefix/severity disagreement, and numbers reused across prefixes.

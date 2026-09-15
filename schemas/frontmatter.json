@@ -1,5 +1,5 @@
 {
-  "$id": "https://liyasa.dev/schema/v1/frontmatter.json",
+  "$id": "https://kasecrab.github.io/liyasa/schema/v1/frontmatter.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Liyasa page front matter",
   "description": "The keys of §7.6 that Liyasa itself reads. Every one is optional; `title`\nfalls back to the first H1 or the file name with a warning.\n\nDates are kept as the author wrote them rather than parsed into a calendar\ntype: the build clock (§6.6.2) is the only time source that reaches output,\nand no date crate is in the dependency table.",

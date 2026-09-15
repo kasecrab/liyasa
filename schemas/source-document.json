@@ -1,5 +1,5 @@
 {
-  "$id": "https://liyasa.dev/schema/v1/source-document.json",
+  "$id": "https://kasecrab.github.io/liyasa/schema/v1/source-document.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Liyasa Source Document",
   "description": "A lossless segmentation of one file: concatenating the segment spans\nreproduces the bytes exactly (asserted by a property test).",

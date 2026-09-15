@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://liyasa.dev/schema/v1/liyasa.json",
+  "$id": "https://kasecrab.github.io/liyasa/schema/v1/liyasa.json",
   "title": "Liyasa site configuration",
   "description": "The definition of `liyasa.json` (PRD \u00a78). This file is the single source of truth: \u00a78's tables are generated from it, the Rust `SiteConfig` is generated from it by typify, and `liyasa schema config` emits it verbatim. Any key referenced anywhere in the PRD must exist here.",
   "x-liyasa-requirement": "CFG-94",

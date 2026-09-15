@@ -1,5 +1,5 @@
 {
-  "$id": "https://liyasa.dev/schema/v1/diagnostic.json",
+  "$id": "https://kasecrab.github.io/liyasa/schema/v1/diagnostic.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Liyasa diagnostic",
   "type": "object",

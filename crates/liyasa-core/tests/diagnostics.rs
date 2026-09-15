@@ -56,7 +56,7 @@ fn the_json_form_round_trips() {
         .help("use the same number of colons");
     let json = serde_json::to_string(&diagnostic).expect("serializes");
     assert!(json.contains("\"code\":\"E0311\""), "{json}");
-    assert!(json.contains("https://liyasa.dev/errors/E0311"), "{json}");
+    assert!(json.contains("https://kasecrab.github.io/liyasa/docs/errors/E0311"), "{json}");
     let back: Diagnostic = serde_json::from_str(&json).expect("deserializes");
     assert_eq!(back, diagnostic);
 }
