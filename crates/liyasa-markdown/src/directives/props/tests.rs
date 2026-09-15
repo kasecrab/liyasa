@@ -198,11 +198,24 @@ fn an_unterminated_string_is_an_error_and_keeps_what_came_before() {
     assert_eq!(parsed.props.get("columns"), Some(&PropValue::Num(2.0)));
 }
 
+/// A prop with no value is the flag it looks like, as in the tag form.
 #[test]
-fn a_prop_without_a_value_is_an_error() {
-    let parsed = parse("{open}");
-    assert_eq!(parsed.errors.len(), 1);
-    assert!(parsed.props.is_empty());
+fn a_prop_without_a_value_is_a_flag() {
+    assert_eq!(one("{open}"), PropValue::Bool(true));
+    assert_eq!(
+        props("{name=\"limit\" required}"),
+        [
+            ("name".to_owned(), PropValue::Str("limit".to_owned())),
+            ("required".to_owned(), PropValue::Bool(true)),
+        ]
+    );
+}
+
+/// A prop name followed by `=` and nothing usable is still a mistake.
+#[test]
+fn a_prop_with_an_unusable_value_is_an_error() {
+    assert_eq!(parse(r#"{title="}"#).errors.len(), 1);
+    assert_eq!(parse("{title=[}").errors.len(), 1);
 }
 
 #[test]

@@ -149,10 +149,9 @@ fn pair(rest: &str) -> Result<Entry, Failure> {
     let gap = &rest[key_len..];
     let before = gap.len() - gap.trim_start().len();
     if !gap[before..].starts_with('=') {
-        return Err((
-            format!("prop `{key}` has no value; write `{key}=…`"),
-            key_len,
-        ));
+        // A prop with no value is the flag it looks like, as it is in the tag
+        // form and in HTML. See `plan/rfcs/0027-bare-flag-props.md`.
+        return Ok((key.to_owned(), PropValue::Bool(true), key_len));
     }
     let after = &gap[before + 1..];
     let lead = after.len() - after.trim_start().len();
