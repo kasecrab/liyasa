@@ -5,6 +5,8 @@
 //! offers, which server it calls, and, the part that matters, which hosts the
 //! server-side proxy will ever connect to.
 
+use std::collections::BTreeMap;
+
 use liyasa_core::net::{HostPattern, HostSet};
 use serde::{Deserialize, Serialize};
 
@@ -56,6 +58,13 @@ pub struct AuthControl {
     /// Some schemes a browser cannot present at all (API-45).
     pub usable: bool,
     pub notice: Option<String>,
+    /// The credential the reader's own identity supplied (API-44): the token,
+    /// the key, or basic's password.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prefilled: Option<String>,
+    /// Basic authentication's other half.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prefilled_user: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -72,6 +81,9 @@ pub struct FormField {
     pub enumeration: Vec<String>,
     /// `checkbox`, `number`, `select`, `text`.
     pub control: &'static str,
+    /// The value came from the reader's identity rather than the spec
+    /// (API-44), which a form marks so nobody mistakes it for a placeholder.
+    pub from_reader: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -102,6 +114,9 @@ pub struct Playground {
     pub auth: Vec<AuthControl>,
     /// Notices for what this deployment cannot do (API-45).
     pub notices: Vec<String>,
+    /// Something in here belongs to one reader (API-44), so the page it is
+    /// rendered into is that reader's and may not be cached for anyone else.
+    pub personalized: bool,
 }
 
 impl Playground {
@@ -143,7 +158,42 @@ impl Playground {
             body: body(operation),
             auth,
             notices,
+            personalized: false,
         }
+    }
+
+    /// Fills in what the site's auth (§19) already knows about this reader,
+    /// and returns how many controls and fields it filled (API-44).
+    ///
+    /// Nothing here reaches Liyasa: the values come from the reader's own
+    /// session on this site and go into their own page. [`Self::personalized`]
+    /// is what stops that page being served to the next reader.
+    pub fn prefill(&mut self, identity: &Identity) -> usize {
+        let mut filled = 0;
+        for control in &mut self.auth {
+            let secret = identity
+                .get(&control.scheme)
+                .or_else(|| control.name.as_deref().and_then(|name| identity.get(name)))
+                .or_else(|| identity.get(generic(&control.kind)));
+            if let Some(secret) = secret {
+                control.prefilled = Some(secret.to_owned());
+                filled += 1;
+            }
+            if control.kind == "basic"
+                && let Some(user) = identity.get("username")
+            {
+                control.prefilled_user = Some(user.to_owned());
+            }
+        }
+        for field in &mut self.fields {
+            if let Some(value) = identity.get(&field.name) {
+                field.value = value.to_owned();
+                field.from_reader = true;
+                filled += 1;
+            }
+        }
+        self.personalized = filled > 0;
+        filled
     }
 
     /// The notice a static export shows when an operation needs the proxy
@@ -201,6 +251,7 @@ fn fields(operation: &OperationRef<'_>) -> Vec<FormField> {
                 description: parameter.description.clone(),
                 enumeration: schema.enumeration.iter().map(example::as_text).collect(),
                 control: control_for(&schema),
+                from_reader: false,
             });
         }
     }
@@ -264,6 +315,8 @@ fn auth(spec: &Spec, operation: &OperationRef<'_>) -> Vec<AuthControl> {
                 flow: None,
                 usable: scheme.drivable_in_a_browser(),
                 notice: None,
+                prefilled: None,
+                prefilled_user: None,
             };
             match &scheme.kind {
                 SecuritySchemeKind::Http { scheme, .. } if scheme.eq_ignore_ascii_case("basic") => {
@@ -339,7 +392,53 @@ pub fn manual_auth(auth: &Auth) -> Option<AuthControl> {
         flow: None,
         usable: true,
         notice: None,
+        prefilled: None,
+        prefilled_user: None,
     })
+}
+
+/// What the site's auth knows about the reader, for the playground to start
+/// from (API-44).
+///
+/// The keys are whatever §19 hands over. A control is matched by its scheme id
+/// first, then by the header, query, or cookie name an API key travels in,
+/// then by the generic name for its kind — `token`, `apiKey`, `password` —
+/// so a site that calls its key one thing and its spec another still matches.
+#[derive(Debug, Clone, Default)]
+pub struct Identity {
+    values: BTreeMap<String, String>,
+}
+
+impl Identity {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.insert(key, value);
+        self
+    }
+
+    pub fn insert(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.values.insert(key.into().to_lowercase(), value.into());
+    }
+
+    pub fn get(&self, key: &str) -> Option<&str> {
+        self.values.get(&key.to_lowercase()).map(String::as_str)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+}
+
+/// The name the rest of Liyasa uses for one kind of credential.
+fn generic(kind: &str) -> &'static str {
+    match kind {
+        "apiKey" => "apiKey",
+        "basic" => "password",
+        _ => "token",
+    }
 }
 
 // ---- the proxy (API-41) ----
