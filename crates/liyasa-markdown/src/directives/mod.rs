@@ -9,3 +9,4 @@ pub mod inline;
 pub mod leaf;
 pub mod mask;
 pub mod props;
+pub mod tag;

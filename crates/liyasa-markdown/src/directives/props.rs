@@ -184,6 +184,12 @@ fn value(text: &str) -> Result<(PropValue, usize), String> {
     Ok((scalar(&text[..len]), len))
 }
 
+/// A bare token as a typed value: the tag form shares this with the brace form,
+/// so `<Card columns=2>` and `:::card{columns=2}` agree.
+pub fn scalar_value(token: &str) -> PropValue {
+    scalar(token)
+}
+
 fn scalar(token: &str) -> PropValue {
     match token {
         "true" => PropValue::Bool(true),
