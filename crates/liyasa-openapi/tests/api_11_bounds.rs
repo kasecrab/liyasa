@@ -114,11 +114,8 @@ fn the_row_for_a_cut_schema_offers_the_expand_control() {
     let schema = root(&nested(40));
     let row = Field::of_schema("body", &schema, true, field::DEPTH);
     let mut current = &row;
-    loop {
-        match current.children.iter().find(|child| child.name == "next") {
-            Some(next) => current = next,
-            None => break,
-        }
+    while let Some(next) = current.children.iter().find(|child| child.name == "next") {
+        current = next;
     }
     assert!(
         current.truncated,
