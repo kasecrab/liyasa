@@ -12,6 +12,7 @@ pub mod build;
 pub mod corpus;
 pub mod fence;
 pub mod identity;
+pub mod links;
 pub mod pos;
 
 #[cfg(test)]
