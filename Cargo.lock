@@ -794,6 +794,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "liyasa-openapi"
+version = "0.1.0"
+dependencies = [
+ "liyasa-core",
+ "minijinja",
+ "serde",
+ "serde_json",
+ "serde_norway",
+ "thiserror",
+ "url",
+]
+
+[[package]]
 name = "liyasa-theme"
 version = "0.1.0"
 dependencies = [
