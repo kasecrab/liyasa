@@ -388,6 +388,22 @@ pub fn partial_names() -> Vec<&'static str> {
 }
 
 impl RenderContext {
+    /// Sets the page body, removing anything CMP-102 forbids and reporting
+    /// what it removed. Templates mark the body safe, so this is the point
+    /// where the theme takes responsibility for what it emits.
+    pub fn set_content(&mut self, html: &str) -> liyasa_core::Diagnostics {
+        let (clean, diagnostics) = crate::safety::strip_scripts(html);
+        self.page.content = clean;
+        diagnostics
+    }
+
+    /// The same for a `:::panel`, which replaces the right rail (RX-23).
+    pub fn set_panel(&mut self, html: &str) -> liyasa_core::Diagnostics {
+        let (clean, diagnostics) = crate::safety::strip_scripts(html);
+        self.page.panel = Some(clean);
+        diagnostics
+    }
+
     /// A context with every field populated, for documentation tests and for
     /// `liyasa theme diff`.
     pub fn sample() -> Self {

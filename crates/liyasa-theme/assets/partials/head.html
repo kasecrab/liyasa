@@ -15,7 +15,7 @@
 {% endfor %}
 <link rel="alternate" type="text/markdown" href="{{ page.markdownUrl }}">
 {% if site.llmsTxt %}<link rel="alternate" type="text/plain" title="llms.txt" href="{{ site.llmsTxt }}">{% endif %}
-<style data-liyasa="critical">{{ assets.critical|safe }}</style>
+<style nonce="{{ nonce }}" data-liyasa="critical">{{ assets.critical|safe }}</style>
 <link rel="stylesheet" href="{{ assets.stylesheet }}">
 {% for sheet in assets.customCss %}<link rel="stylesheet" href="{{ sheet }}">
 {% endfor %}
