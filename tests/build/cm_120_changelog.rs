@@ -142,3 +142,65 @@ fn the_feeds_survive_a_warm_rebuild() {
     assert_eq!(report.cache_misses, 0, "{:?}", report.diagnostics);
     assert_eq!(project.read_dist("changelog/rss.xml"), first);
 }
+
+#[test]
+fn a_directory_of_dated_files_renders_as_one_stream() {
+    let project = Project::new("directory");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","seo":{"canonicalOrigin":"https://docs.acme.com"}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n")
+        .write(
+            "changelog/2026-09-01-billing.md",
+            "---\ntitle: Billing moved\nkeywords: [api, billing]\ndescription: Billing endpoints moved.\n---\n# Billing moved\n",
+        )
+        .write(
+            "changelog/2026-08-01-usage.md",
+            "---\ntitle: Usage endpoint\ndescription: Added the usage endpoint.\n---\n# Usage endpoint\n",
+        );
+
+    let report = build(&project);
+    assert!(!report.failed(false), "{:?}", report.diagnostics);
+
+    // Each dated file is still its own page.
+    assert!(
+        project
+            .read_dist("changelog/2026-09-01-billing/index.html")
+            .contains("Billing moved")
+    );
+
+    // And the build writes the stream that indexes them, newest first. The
+    // sidebar lists the same pages alphabetically, so the order is read from
+    // the stream itself rather than from the whole page.
+    let page = project.read_dist("changelog/index.html");
+    let at = page
+        .find("data-liyasa=\"changelog\"")
+        .expect("the stream is in the page");
+    let stream = &page[at..];
+    let newer = stream.find("2026-09-01").expect("the newer entry");
+    let older = stream.find("2026-08-01").expect("the older entry");
+    assert!(newer < older, "newest first");
+    assert!(stream.contains("data-labels=\"api,billing\""), "{stream}");
+
+    let rss = project.read_dist("changelog/rss.xml");
+    assert!(
+        rss.contains("/changelog/2026-09-01-billing#2026-09-01-billing-moved"),
+        "{rss}"
+    );
+}
+
+#[test]
+fn a_changelog_page_of_its_own_is_not_replaced_by_a_generated_stream() {
+    let project = changelog_site("own-page");
+    project.write(
+        "changelog/2026-07-01-older.md",
+        "---\ntitle: Older\ndescription: An older entry.\n---\n# Older\n",
+    );
+    build(&project);
+    // `changelog.md` renders `/changelog`; the generated index must not
+    // overwrite it.
+    let page = project.read_dist("changelog/index.html");
+    assert!(page.contains("Billing endpoints moved"), "{page}");
+}

@@ -300,7 +300,67 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     phase.mark("write_pages");
 
     // 8b. The changelog stream and its feeds (CM-120, CM-121).
+    //
+    // A directory of dated files is a stream too: each file is its own page and
+    // an entry in the index the build writes at `/changelog`.
+    for page in &tree.pages {
+        if !crate::changelog::is_entry_file(page.path.as_str()) {
+            continue;
+        }
+        if let Some(entry) = crate::changelog::from_file(
+            page.path.as_str(),
+            &page.route,
+            page.front.title.as_deref(),
+            &page.front.keywords,
+            page.front.tag.as_deref(),
+            page.front.description.as_deref().unwrap_or_default(),
+        ) {
+            entries.push(entry);
+        }
+    }
     let entries = crate::changelog::stream(entries);
+    let stream_route = Route::new(format!("/{}", crate::changelog::DIRECTORY));
+    let has_stream_page = tree.pages.iter().any(|page| page.route == stream_route);
+    if !entries.is_empty() && !has_stream_page {
+        let stream_page = tree::Page {
+            path: VfsPath::new(format!("{}/index.md", crate::changelog::DIRECTORY)),
+            route: stream_route.clone(),
+            base_route: stream_route.clone(),
+            version: None,
+            fingerprint: Fingerprint::of("generated changelog stream"),
+            front: liyasa_core::frontmatter::FrontmatterFields {
+                title: Some("Changelog".to_owned()),
+                ..liyasa_core::frontmatter::FrontmatterFields::default()
+            },
+            indexing: tree::Indexing {
+                navigation: true,
+                sitemap: true,
+                search: true,
+                ai: true,
+            },
+            hidden: false,
+            draft: false,
+        };
+        let navigation = navigations.get(&None).cloned().unwrap_or_default();
+        let mut stream_diagnostics = Diagnostics::new();
+        let html = theme::page_html(
+            &settings,
+            &assets_built,
+            &stream_page,
+            &Variant::default(),
+            &crate::changelog::stream_html(&entries),
+            &navigation,
+            &mut stream_diagnostics,
+        );
+        report.diagnostics.extend(stream_diagnostics.into_vec());
+        write_file(
+            &output,
+            "changelog/index.html",
+            html.as_bytes(),
+            &mut report,
+            &mut outputs,
+        );
+    }
     if !entries.is_empty() {
         let origin = settings.canonical_origin.trim_end_matches('/');
         for (path, body) in [

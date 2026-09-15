@@ -251,6 +251,47 @@ pub fn json_feed(entries: &[Entry], site_name: &str, origin: &str) -> String {
     .unwrap_or_else(|_| "{}".to_owned())
 }
 
+/// The stream a directory of dated files renders as (CM-120).
+///
+/// Each entry links to its own page; the body stays there, so one entry is one
+/// route and the stream is the index of them.
+pub fn stream_html(entries: &[Entry]) -> String {
+    let mut out = String::from("<div class=\"ly-changelog\" data-liyasa=\"changelog\">\n");
+    for entry in entries {
+        out.push_str(&format!(
+            "<article class=\"ly-update\" data-liyasa=\"update\" id=\"{}\" data-date=\"{}\"",
+            escape(&entry.anchor),
+            escape(&entry.date)
+        ));
+        if let Some(version) = &entry.version {
+            out.push_str(&format!(" data-version=\"{}\"", escape(version)));
+        }
+        if !entry.labels.is_empty() {
+            out.push_str(&format!(
+                " data-labels=\"{}\"",
+                escape(&entry.labels.join(","))
+            ));
+        }
+        out.push_str(">\n");
+        out.push_str(&format!(
+            "<time datetime=\"{}\">{}</time>\n",
+            escape(&entry.date),
+            escape(&entry.date)
+        ));
+        out.push_str(&format!(
+            "<h2><a href=\"{}\">{}</a></h2>\n",
+            escape(&entry.href()),
+            escape(&entry.title)
+        ));
+        if !entry.summary.trim().is_empty() {
+            out.push_str(&format!("<p>{}</p>\n", escape(entry.summary.trim())));
+        }
+        out.push_str("</article>\n");
+    }
+    out.push_str("</div>\n");
+    out
+}
+
 /// CM-123's half that does not need a repository: a merged pull request turned
 /// into the entry an author reviews.
 ///
@@ -443,6 +484,20 @@ mod tests {
         let rss = rss(&[entry], "Acme & Co", "https://docs.acme.com");
         assert!(!rss.contains("<script>"), "{rss}");
         assert!(rss.contains("&amp;"), "{rss}");
+    }
+
+    #[test]
+    fn the_stream_page_lists_every_entry_with_its_labels() {
+        let entries = stream(vec![
+            entry("2026-09-01", "Billing", &["api", "billing"]),
+            entry("2026-08-01", "Usage", &[]),
+        ]);
+        let html = stream_html(&entries);
+        assert!(html.contains("id=\"2026-09-01-billing\""), "{html}");
+        assert!(html.contains("data-labels=\"api,billing\""), "{html}");
+        let first = html.find("2026-09-01").expect("the newer entry");
+        let second = html.find("2026-08-01").expect("the older entry");
+        assert!(first < second, "newest first");
     }
 
     #[test]
