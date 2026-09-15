@@ -75,7 +75,10 @@ pub struct Report {
     pub cache_hits: usize,
     pub cache_misses: usize,
     pub images_generated: u64,
+    /// Every file this build's output consists of.
     pub written: Vec<String>,
+    /// How many of them actually reached the disk; the rest were already there.
+    pub rewritten: usize,
     pub timings: Vec<(&'static str, Duration)>,
     pub manifest: Option<Manifest>,
     pub diagnostics: Diagnostics,
@@ -165,6 +168,12 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     report.clock_unix = clock::unix_seconds(resolved.clock);
     phase.mark("clock");
 
+    let mut outputs = if options.clean {
+        Outputs::default()
+    } else {
+        Outputs::load(&cache_root)
+    };
+
     // 5. Output directory.
     let output = options
         .output
@@ -177,7 +186,13 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     // 6. Theme assets.
     let assets_built = theme::build(&load.value, &settings, &mut report);
     for file in &assets_built.files {
-        write_file(&output, &file.path, file.bytes.as_bytes(), &mut report);
+        write_file(
+            &output,
+            &file.path,
+            file.bytes.as_bytes(),
+            &mut report,
+            &mut outputs,
+        );
     }
     phase.mark("theme");
 
@@ -217,7 +232,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
 
         let mut entries = Vec::new();
         for (key, path, html) in &outcome.variants {
-            write_file(&output, path, html.as_bytes(), &mut report);
+            write_file(&output, path, html.as_bytes(), &mut report, &mut outputs);
             entries.push(VariantEntry {
                 key: key.clone(),
                 path: path.clone(),
@@ -225,7 +240,13 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
             });
         }
         for path in markdown_paths(&outcome.route) {
-            write_file(&output, &path, outcome.markdown.as_bytes(), &mut report);
+            write_file(
+                &output,
+                &path,
+                outcome.markdown.as_bytes(),
+                &mut report,
+                &mut outputs,
+            );
         }
         index.record(
             "page_html",
@@ -264,6 +285,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         options,
         &cache,
         &mut report,
+        &mut outputs,
     );
     report.images_generated = generated;
     phase.mark("assets");
@@ -278,12 +300,14 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
             "_redirects",
             redirects::netlify(&table).as_bytes(),
             &mut report,
+            &mut outputs,
         );
         write_file(
             &output,
             "vercel.json",
             redirects::vercel(&table).as_bytes(),
             &mut report,
+            &mut outputs,
         );
     }
 
@@ -325,16 +349,24 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         manifest::FILE,
         built.to_json().as_bytes(),
         &mut report,
+        &mut outputs,
     );
     let headers = assets::headers(&assets::plan(&[], &[], &settings.asset_options()));
     if !headers.is_empty() {
-        write_file(&output, "_headers", headers.as_bytes(), &mut report);
+        write_file(
+            &output,
+            "_headers",
+            headers.as_bytes(),
+            &mut report,
+            &mut outputs,
+        );
     }
 
     report.build_id = Some(built.build_id);
     report.manifest = Some(built);
 
     let _ = index.save(&cache_root.join("cache").join(Index::FILE));
+    outputs.save(&cache_root);
     phase.mark("manifest");
 
     if options.profile {
@@ -726,6 +758,7 @@ fn copy_assets(
     options: &Options,
     cache: &DiskCache,
     report: &mut Report,
+    outputs: &mut Outputs,
 ) -> (Vec<AssetEntry>, Vec<ImageEntry>, u64) {
     let from_tree: Vec<(VfsPath, Fingerprint)> = tree
         .assets
@@ -751,7 +784,7 @@ fn copy_assets(
             );
             continue;
         };
-        write_file(output, &asset.output, &bytes, report);
+        write_file(output, &asset.output, &bytes, report, outputs);
         entries.push(AssetEntry {
             source: asset.source.as_str().to_owned(),
             path: asset.output.clone(),
@@ -787,6 +820,7 @@ fn copy_assets(
                         &images::variant_path(derived.key, &derived.variant),
                         &variant,
                         report,
+                        outputs,
                     );
                 }
             }
@@ -842,6 +876,43 @@ fn markdown_url(base_path: &str, route: &Route) -> String {
     }
 }
 
+/// What the last build wrote, so a rebuild rewrites only what changed.
+///
+/// A dev-server rebuild of a 1,000-page site otherwise rewrites three files per
+/// page for one edit, which is most of its budget and every one of them a file
+/// event for whoever is watching.
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Outputs {
+    files: BTreeMap<String, Fingerprint>,
+}
+
+impl Outputs {
+    const FILE: &'static str = "outputs.json";
+
+    fn load(cache_root: &Path) -> Self {
+        std::fs::read(cache_root.join(Self::FILE))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default()
+    }
+
+    fn save(&self, cache_root: &Path) {
+        if let Ok(bytes) = serde_json::to_vec(self) {
+            let _ = std::fs::create_dir_all(cache_root);
+            let _ = std::fs::write(cache_root.join(Self::FILE), bytes);
+        }
+    }
+
+    /// Whether these bytes still have to reach the file system.
+    fn changed(&self, relative: &str, fingerprint: Fingerprint, path: &Path) -> bool {
+        self.files.get(relative) != Some(&fingerprint) || !path.exists()
+    }
+
+    fn record(&mut self, relative: &str, fingerprint: Fingerprint) {
+        self.files.insert(relative.to_owned(), fingerprint);
+    }
+}
+
 /// `.liyasa/` is the engine's own state, not output: it is written but never
 /// reported as part of `dist/`.
 fn write_meta(root: &Path, relative: &str, bytes: &[u8], report: &mut Report) {
@@ -859,8 +930,21 @@ fn write_meta(root: &Path, relative: &str, bytes: &[u8], report: &mut Report) {
 
 /// Writes one file under `root` and records it by its relative path, so a
 /// report from two different output directories still compares equal.
-fn write_file(root: &Path, relative: &str, bytes: &[u8], report: &mut Report) {
+///
+/// A file whose bytes the last build already wrote is left alone.
+fn write_file(
+    root: &Path,
+    relative: &str,
+    bytes: &[u8],
+    report: &mut Report,
+    outputs: &mut Outputs,
+) {
     let path = root.join(relative);
+    let fingerprint = Fingerprint::of(bytes);
+    report.written.push(relative.to_owned());
+    if !outputs.changed(relative, fingerprint, &path) {
+        return;
+    }
     if let Some(parent) = path.parent()
         && let Err(error) = std::fs::create_dir_all(parent)
     {
@@ -871,7 +955,10 @@ fn write_file(root: &Path, relative: &str, bytes: &[u8], report: &mut Report) {
         return;
     }
     match std::fs::write(&path, bytes) {
-        Ok(()) => report.written.push(relative.to_owned()),
+        Ok(()) => {
+            report.rewritten += 1;
+            outputs.record(relative, fingerprint);
+        }
         Err(error) => report.diagnostics.push(Diagnostic::new(
             code::E0002,
             format!("could not write {}: {error}", path.display()),
