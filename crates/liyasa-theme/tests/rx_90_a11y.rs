@@ -159,3 +159,165 @@ fn no_transition_outlasts_two_hundred_milliseconds() {
         }
     }
 }
+
+/// Elements that carry no closing tag, so they never open a nesting level.
+const VOID: &[&str] = &["area", "br", "col", "hr", "img", "input", "source", "wbr"];
+
+/// One element: its opening tag, its tag name, and the text it contains.
+struct Element<'a> {
+    open: &'a str,
+    name: &'a str,
+    text: String,
+}
+
+fn tag_name(tag: &str) -> &str {
+    tag.trim_start_matches(['<', '/'])
+        .split([' ', '>', '/', '\n'])
+        .next()
+        .unwrap_or_default()
+}
+
+fn classes(tag: &str) -> Vec<&str> {
+    tag.find("class=\"")
+        .map(|at| &tag[at + 7..])
+        .and_then(|rest| rest.find('"').map(|end| &rest[..end]))
+        .map(|names| names.split_whitespace().collect())
+        .unwrap_or_default()
+}
+
+/// The text `inner` carries directly, and one entry per child element with the
+/// text that child carries. A name assembled from children is only as reliable
+/// as the children are visible.
+fn parts(inner: &str) -> (String, Vec<Element<'_>>) {
+    let mut direct = String::new();
+    let mut children: Vec<Element> = Vec::new();
+    let mut open: Vec<(&str, usize)> = Vec::new();
+    let mut rest = inner;
+    while let Some(at) = rest.find('<') {
+        let text = &rest[..at];
+        match open.first() {
+            None => direct.push_str(text),
+            Some(_) => children.last_mut().expect("a child is open").text += text,
+        }
+        rest = &rest[at..];
+        let Some(end) = rest.find('>') else { break };
+        let tag = &rest[..=end];
+        let name = tag_name(tag);
+        if tag.starts_with("</") {
+            open.pop();
+        } else if !tag.ends_with("/>") && !VOID.contains(&name) {
+            if open.is_empty() {
+                children.push(Element {
+                    open: tag,
+                    name,
+                    text: String::new(),
+                });
+            }
+            open.push((name, children.len()));
+        }
+        rest = &rest[end + 1..];
+    }
+    if open.is_empty() {
+        direct.push_str(rest);
+    }
+    (direct.trim().to_owned(), children)
+}
+
+/// Every `<button>` in `html`, as (opening tag, inner HTML).
+fn buttons(html: &str) -> Vec<(&str, &str)> {
+    let mut found = Vec::new();
+    let mut rest = html;
+    while let Some(at) = rest.find("<button") {
+        rest = &rest[at..];
+        let Some(open_end) = rest.find('>') else {
+            break;
+        };
+        let Some(close) = rest.find("</button>") else {
+            break;
+        };
+        found.push((&rest[..=open_end], &rest[open_end + 1..close]));
+        rest = &rest[close..];
+    }
+    found
+}
+
+/// Every selector in `css` whose rule sets `display: none`, split into its
+/// whitespace-separated compounds. Selectors carrying an attribute or a
+/// pseudo-class are skipped: those hide an element in a state, not always.
+fn hiding_selectors(css: &str) -> Vec<Vec<&str>> {
+    let mut found = Vec::new();
+    let mut rest = css;
+    while let Some(at) = rest.find('{') {
+        let selector = rest[..at].trim();
+        rest = &rest[at + 1..];
+        let Some(end) = rest.find('}') else { break };
+        let body = &rest[..end];
+        if body.contains("display:none") && !selector.starts_with('@') {
+            for one in selector.split(',') {
+                let one = one.trim();
+                if one.contains('[') || one.contains(':') {
+                    continue;
+                }
+                found.push(one.split_whitespace().collect());
+            }
+        }
+        rest = &rest[end + 1..];
+    }
+    found
+}
+
+fn matches(compound: &str, element_name: &str, element_classes: &[&str]) -> bool {
+    match compound.strip_prefix('.') {
+        Some(class) => element_classes.contains(&class),
+        None => compound == element_name,
+    }
+}
+
+/// Can the stylesheet hide `child` when it sits inside `button`?
+fn hideable(selectors: &[Vec<&str>], button: &str, child: &Element<'_>) -> bool {
+    let button_classes = classes(button);
+    let child_classes = classes(child.open);
+    selectors.iter().any(|compounds| {
+        let Some((last, ancestors)) = compounds.split_last() else {
+            return false;
+        };
+        matches(last, child.name, &child_classes)
+            && ancestors.iter().all(|ancestor| {
+                matches(ancestor, "button", &button_classes)
+                    || matches(ancestor, child.name, &child_classes)
+            })
+    })
+}
+
+#[test]
+fn every_button_has_a_name_the_stylesheet_cannot_take_away() {
+    // A button labelled only by a child the stylesheet hides is unnamed at the
+    // widths where that rule applies, and an icon is `aria-hidden`, so the name
+    // has to come from the button itself or from text nothing can hide.
+    let html = page();
+    let styles =
+        Styles::build(&ThemeConfig::default(), &Tokens::aurora(), &[]).expect("the theme compiles");
+    let selectors = hiding_selectors(&styles.css);
+
+    let mut unnamed = Vec::new();
+    for (open, inner) in buttons(&html) {
+        if open.contains("aria-label=\"") || open.contains("aria-labelledby=\"") {
+            continue;
+        }
+        let (direct, children) = parts(inner);
+        let named = !direct.is_empty()
+            || children.iter().any(|child| {
+                !child.text.trim().is_empty()
+                    && !child.open.contains("aria-hidden=\"true\"")
+                    && !hideable(&selectors, open, child)
+            });
+        if !named {
+            unnamed.push(open.to_owned());
+        }
+    }
+
+    assert!(
+        unnamed.is_empty(),
+        "these buttons have no accessible name at every width: {unnamed:#?}"
+    );
+}

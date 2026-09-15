@@ -12,7 +12,7 @@
   {% endif %}
   <div class="ly-navbar-actions" data-liyasa="navbar-actions">
     {% if site.search %}
-    <button type="button" class="ly-search-trigger" data-ly-search-trigger aria-haspopup="dialog" data-liyasa="search-trigger" hidden>
+    <button type="button" class="ly-search-trigger" data-ly-search-trigger aria-haspopup="dialog" aria-label="{{ strings.search }}" data-liyasa="search-trigger" hidden>
       {{ icon("search") }}
       <span class="ly-search-trigger-label">{{ strings.search }}</span>
       <kbd>/</kbd>
