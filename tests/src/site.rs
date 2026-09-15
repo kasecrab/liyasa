@@ -8,8 +8,11 @@
 //! the page context are assembled here instead, and this module is the place
 //! that changes when `liyasa-build` can produce the same site.
 
+use liyasa_theme::actions::{Config as ActionConfig, Targets, resolve};
 use liyasa_theme::config::ThemeConfig;
-use liyasa_theme::context::{Assets, Mode, RenderContext, page_data};
+use liyasa_theme::context::{
+    Assets, Footer, FooterColumn, Logo, Mode, NavbarLink, RenderContext, page_data,
+};
 use liyasa_theme::nav::{Group, Item, Link, Navigation, Tab, TocEntry};
 use liyasa_theme::runtime::{BOOTSTRAP, Runtime};
 use liyasa_theme::stylesheet::Styles;
@@ -21,6 +24,9 @@ use liyasa_theme::tokens::Tokens;
 pub const READER: &str = include_str!("../../web/reader/dist/reader.js");
 /// The field-metric collector the vitals run injects (RX-11).
 pub const MEASURE: &str = include_str!("../../web/reader/dist/measure.js");
+
+/// Where the reference site is published (§33.1 item 8: there is no domain).
+pub const ORIGIN: &str = "https://kasecrab.github.io";
 
 pub const STYLESHEET_URL: &str = "/_liyasa/theme.css";
 pub const SCRIPT_URL: &str = "/_liyasa/base.js";
@@ -107,15 +113,55 @@ pub fn build() -> Result<Site, Box<dyn std::error::Error>> {
         context.page.mode = Mode::Default;
         context.page.toc = toc(&content);
         context.page.content = content;
-        context.page.markdown_url = format!("{}.md", source.route.trim_end_matches('/'));
+        context.page.markdown_url = markdown_url(source.route);
+        context.page.mcp_url = None;
+        context.page.actions = resolve(
+            &ActionConfig::default(),
+            &Targets {
+                markdown_url: format!("{ORIGIN}{}", markdown_url(source.route)),
+                markdown: Some(source.markdown.to_owned()),
+                mcp_url: None,
+                pdf_url: None,
+                edit_url: None,
+                suggest_url: None,
+            },
+            &context.strings,
+        );
         context.page.breadcrumbs = navigation.trail(source.route);
         context.page.previous = at.checked_sub(1).and_then(|at| SOURCES.get(at)).map(link);
         context.page.next = SOURCES.get(at + 1).map(link);
         context.site.name = "Liyasa".to_owned();
         context.site.description = "Documentation that builds from Markdown.".to_owned();
-        context.site.origin = "https://kasecrab.github.io".to_owned();
-        context.site.base_path = "/liyasa".to_owned();
+        context.site.origin = ORIGIN.to_owned();
+        context.site.base_path = String::new();
         context.site.banner = None;
+        // Everything the reference site renders has to exist in it: a logo
+        // file or an assistant module that 404s would be measured as part of
+        // the page (RX-10, RX-11).
+        context.site.logo = Logo {
+            href: Some("/".to_owned()),
+            ..Logo::default()
+        };
+        context.site.favicon = None;
+        context.site.llms_txt = None;
+        context.site.version = None;
+        context.site.assistant = false;
+        context.site.navbar = Vec::new();
+        context.site.footer = Footer {
+            columns: vec![FooterColumn {
+                title: "Documentation".to_owned(),
+                links: SOURCES
+                    .iter()
+                    .skip(1)
+                    .map(|source| NavbarLink {
+                        label: source.title.to_owned(),
+                        href: source.route.to_owned(),
+                        ..NavbarLink::default()
+                    })
+                    .collect(),
+            }],
+            ..Footer::default()
+        };
         context.nav.navigation = navigation.clone();
         context.nav.active_route = source.route.to_owned();
         context.nav.active_tab = usize::from(source.route.starts_with("/reference"));
@@ -146,6 +192,15 @@ pub fn build() -> Result<Site, Box<dyn std::error::Error>> {
         script: runtime.base,
         reader: READER.to_owned(),
     })
+}
+
+/// RX-60: `<route>.md`, and `/index.md` for the root.
+fn markdown_url(route: &str) -> String {
+    if route == "/" {
+        "/index.md".to_owned()
+    } else {
+        format!("{route}.md")
+    }
 }
 
 fn link(source: &Source) -> Link {

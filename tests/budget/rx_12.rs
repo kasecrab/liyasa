@@ -2,8 +2,8 @@
 //! is the page rather than the chrome around it.
 //!
 //! Two of the three numbers hold. The conversion ratio does not: the theme's
-//! chrome is 9 KB of a 16 KB page once scripts and styles are out, so a
-//! typical page converts at about a quarter rather than above 0.4. The
+//! chrome is 8 KB of a 14 KB page once scripts and styles are out, so a
+//! typical page converts at a quarter to a third rather than above 0.4. The
 //! measurement, the readings of "conversion ratio" it could have taken, and
 //! what would close the gap are in `plan/rfcs/1102-conversion-ratio.md`; the
 //! requirement's own assertion is here, ignored rather than deleted, with a
@@ -15,7 +15,7 @@ use liyasa_tests::budget::{
 use liyasa_tests::site;
 
 /// What the reference site converts at today (RFC 1102).
-const MEASURED_FLOOR: f64 = 0.20;
+const MEASURED_FLOOR: f64 = 0.22;
 
 fn measurements() -> Vec<Measurement> {
     let site = site::build().expect("the reference site renders");
@@ -38,7 +38,7 @@ fn every_page_fits_the_html_budget() {
 }
 
 #[test]
-#[ignore = "the theme's chrome holds the ratio at about 0.24: RFC 1102, NEEDS-INPUT"]
+#[ignore = "the theme's chrome holds the ratio at 0.24 to 0.30: RFC 1102, NEEDS-INPUT"]
 fn a_typical_page_converts_above_the_floor() {
     let measurements = measurements();
     for measurement in measurements.iter().filter(|m| m.is_typical()) {
