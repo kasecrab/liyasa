@@ -26,6 +26,7 @@ comrak.workspace = true
 # WP-01: the config crate, whose acceptance tests validate `liyasa.json`.
 liyasa-config = { path = "../crates/liyasa-config", version = "0.1.0" }
 serde_json.workspace = true
+jsonschema.workspace = true
 
 [[bin]]
 name = "reference-site"
@@ -74,3 +75,7 @@ path = "config/cfg_94_schema.rs"
 [[test]]
 name = "cfg_03_presets"
 path = "config/cfg_03_presets.rs"
+
+[[test]]
+name = "cfg_90_diagnostics"
+path = "config/cfg_90_diagnostics.rs"
