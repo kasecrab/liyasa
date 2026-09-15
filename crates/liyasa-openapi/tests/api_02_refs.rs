@@ -388,3 +388,128 @@ paths:
         );
     }
 }
+
+// ---- the allOf policy ----
+
+#[test]
+fn all_of_merges_by_property_union() {
+    let (spec, diagnostics) = load(
+        r##"
+openapi: 3.1.0
+info: { title: Test, version: "1" }
+paths: {}
+components:
+  schemas:
+    Base:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+    Widget:
+      allOf:
+        - $ref: "#/components/schemas/Base"
+        - type: object
+          required: [name]
+          properties:
+            name: { type: string }
+"##,
+    );
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.as_slice());
+    let widget = spec
+        .components
+        .schemas
+        .get("Widget")
+        .expect("the component reads");
+    assert!(widget.all_of.is_empty(), "the members were folded");
+    assert_eq!(
+        widget.properties.keys().collect::<Vec<_>>(),
+        vec!["id", "name"]
+    );
+    assert_eq!(widget.required, vec!["id".to_owned(), "name".to_owned()]);
+}
+
+#[test]
+fn conflicting_all_of_members_are_e0508_with_the_pointer() {
+    let (_, diagnostics) = load(
+        r##"
+openapi: 3.1.0
+info: { title: Test, version: "1" }
+paths: {}
+components:
+  schemas:
+    Impossible:
+      allOf:
+        - { type: string }
+        - { type: integer }
+"##,
+    );
+    let conflicts: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.code == code::E0508)
+        .collect();
+    assert_eq!(conflicts.len(), 1, "{:?}", diagnostics.as_slice());
+    assert!(
+        conflicts[0]
+            .message
+            .contains("/components/schemas/Impossible"),
+        "{}",
+        conflicts[0].message
+    );
+}
+
+#[test]
+fn a_conflicting_property_names_the_property_in_its_pointer() {
+    let (_, diagnostics) = load(
+        r##"
+openapi: 3.1.0
+info: { title: Test, version: "1" }
+paths: {}
+components:
+  schemas:
+    Impossible:
+      allOf:
+        - { type: object, properties: { size: { type: integer, minimum: 60 } } }
+        - { type: object, properties: { size: { type: integer, maximum: 50 } } }
+"##,
+    );
+    let conflicts: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.code == code::E0508)
+        .collect();
+    assert_eq!(conflicts.len(), 1, "{:?}", diagnostics.as_slice());
+    assert!(
+        conflicts[0]
+            .message
+            .contains("/components/schemas/Impossible/properties/size"),
+        "{}",
+        conflicts[0].message
+    );
+}
+
+#[test]
+fn one_of_is_never_merged_into_its_siblings() {
+    let (spec, diagnostics) = load(
+        r##"
+openapi: 3.1.0
+info: { title: Test, version: "1" }
+paths: {}
+components:
+  schemas:
+    Either:
+      allOf:
+        - { type: object, properties: { id: { type: string } } }
+        - oneOf:
+            - { type: object, properties: { a: { type: string } } }
+            - { type: object, properties: { b: { type: string } } }
+"##,
+    );
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.as_slice());
+    let either = spec
+        .components
+        .schemas
+        .get("Either")
+        .expect("the component reads");
+    assert_eq!(either.all_of.len(), 1, "the alternative stayed a member");
+    assert_eq!(either.all_of[0].one_of.len(), 2);
+    assert!(either.properties.get("id").is_some());
+}

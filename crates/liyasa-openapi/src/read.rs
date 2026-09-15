@@ -986,11 +986,21 @@ impl<'a> Reader<'a> {
             rest: unmodelled(value),
             extensions,
         };
-        if let Some(title) = XLiyasa::read(&schema.extensions).title {
-            schema.title = Some(title);
+        let hints = XLiyasa::read(&schema.extensions);
+        if hints.title.is_some() {
+            schema.title = hints.title;
         }
-        if let Some(description) = XLiyasa::read(&schema.extensions).description {
-            schema.description = Some(description);
+        if hints.description.is_some() {
+            schema.description = hints.description;
+        }
+
+        // Every member was read by this same function, so each has already
+        // folded its own `allOf`; only this level is left.
+        for conflict in crate::allof::fold_here(&mut schema) {
+            self.diagnostics.push(Diagnostic::new(
+                code::E0508,
+                format!("{at}{}: {}", conflict.pointer(), conflict.message),
+            ));
         }
         schema
     }

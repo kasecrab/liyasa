@@ -6,6 +6,7 @@
 //! consumers handle one shape; 3.0's `nullable`, boolean `exclusiveMinimum`,
 //! and single `type` never leave this crate.
 
+pub mod allof;
 pub mod load;
 pub mod model;
 pub mod normalize;
