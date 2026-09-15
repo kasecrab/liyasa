@@ -5,10 +5,14 @@
 //! [`super::package`] reads; this one is compiled in, so `liyasa verify` has
 //! something to say on a project that has configured nothing.
 //!
-//! TODO(rfc-1306): whether all three should ship inside the binary instead.
-//! Vendoring them needs network access this machine does not have, and a
-//! decision about carrying two third-party rule sets in a public repository.
-//! If the answer is yes, they are rows in `RULES` and nothing else changes.
+//! RFC 1306 reopened the question once both packages were reachable and
+//! reaffirmed this split on the PRD's own text: `bundled` modifies the Liyasa
+//! style alone, §6.2.1's prose-lint row asks for no vendoring, VER-76 has no
+//! key that would select a compiled-in style, and `.vale.ini`'s
+//! `BasedOnStyles` is already the switch. They are read from `StylesPath`,
+//! and `spec/vale/` holds them at pinned commits so the loader is tested
+//! against the real thing. If a later edition does want all three in the
+//! binary, they are rows in `RULES` and nothing else changes.
 //!
 //! The rules are real `.yml` files in Vale's own format rather than Rust
 //! literals, so an operator can read one, copy it into their own style, and
