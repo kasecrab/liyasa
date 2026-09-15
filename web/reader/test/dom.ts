@@ -157,3 +157,122 @@ function fakeObservers(entryTypes: string[]): FakeObserverConstructor {
   }
   return Object.assign(Observer, { created, supportedEntryTypes: entryTypes }) as unknown as FakeObserverConstructor;
 }
+
+// --- the vendored modules -------------------------------------------------
+//
+// `crates/liyasa-theme/assets/js/` ships the rest of the runtime as classic
+// scripts (RFC 1100). RX-04's prefetch half is one of them, and it is this
+// package's requirement, so it is driven here rather than only in the e2e
+// suite: the module is loaded into a scripted document and asked to behave.
+
+export interface FakeElement {
+  tag: string;
+  attributes: Record<string, string>;
+  href: string;
+  origin: string;
+  hidden: boolean;
+  setAttribute(name: string, value: string): void;
+  getAttribute(name: string): string | null;
+  hasAttribute(name: string): boolean;
+  closest(selector: string): FakeElement | null;
+  addEventListener(type: string, listener: (event: unknown) => void): void;
+  listeners: Record<string, Array<(event: unknown) => void>>;
+  children: FakeElement[];
+  appendChild(child: FakeElement): FakeElement;
+  matches: string[];
+}
+
+function rel(node: FakeElement): string {
+  return (node as unknown as { rel?: string }).rel ?? node.getAttribute("rel") ?? "";
+}
+
+export function element(tag: string, attributes: Record<string, string> = {}): FakeElement {
+  const node: FakeElement = {
+    tag,
+    attributes: { ...attributes },
+    href: attributes["href"] ?? "",
+    origin: attributes["origin"] ?? "https://docs.example",
+    hidden: false,
+    children: [],
+    listeners: {},
+    matches: [],
+    setAttribute(name, value) {
+      node.attributes[name] = value;
+      if (name === "href") node.href = value;
+    },
+    getAttribute: (name) => node.attributes[name] ?? null,
+    hasAttribute: (name) => name in node.attributes,
+    closest: (selector) => (node.matches.includes(selector) || node.tag === "a" ? node : null),
+    addEventListener(type, listener) {
+      (node.listeners[type] ||= []).push(listener);
+    },
+    appendChild(child) {
+      node.children.push(child);
+      return child;
+    },
+  };
+  return node;
+}
+
+export interface VendoredWindow extends FakeWindow {
+  head: FakeElement;
+  /** Every `<link rel=prefetch>` the module added, in order. */
+  prefetched(): string[];
+  query: Map<string, FakeElement[]>;
+  observers: Array<{ callback: (entries: unknown[]) => void; observed: FakeElement[] }>;
+}
+
+export interface VendoredOptions extends FakeOptions {
+  saveData?: boolean;
+  reducedData?: boolean;
+  origin?: string;
+}
+
+/** A document the vendored classic scripts can run against. */
+export function vendoredWindow(options: VendoredOptions = {}): VendoredWindow {
+  const { saveData = false, reducedData = false, origin = "https://docs.example" } = options;
+  const base = fakeWindow(options);
+  const head = element("head");
+  const query = new Map<string, FakeElement[]>();
+  const observers: VendoredWindow["observers"] = [];
+
+  const win = base as VendoredWindow;
+  win.head = head;
+  win.query = query;
+  win.observers = observers;
+  // A module sets `link.rel` and `link.href` as properties rather than through
+  // `setAttribute`, the way the DOM allows, so the property is what is read.
+  win.prefetched = () =>
+    head.children
+      .filter((child) => child.tag === "link" && rel(child) === "prefetch")
+      .map((child) => child.href);
+
+  const media = win.matchMedia;
+  win.matchMedia = (queried: string): FakeMedia => {
+    const entry = media?.call(win, queried) as FakeMedia;
+    if (queried.includes("prefers-reduced-data")) entry.matches = reducedData;
+    return entry;
+  };
+
+  Object.assign(win.document, {
+    head,
+    createElement: (tag: string) => element(tag),
+    querySelectorAll: (selector: string) => query.get(selector) ?? [],
+    querySelector: (selector: string) => query.get(selector)?.[0] ?? null,
+  });
+
+  Object.assign(win, {
+    location: { origin, href: `${origin}/guide/install` },
+    navigator: { connection: { saveData } },
+    IntersectionObserver: class {
+      constructor(callback: (entries: unknown[]) => void) {
+        observers.push({ callback, observed: [] });
+      }
+      observe(target: FakeElement) {
+        observers[observers.length - 1]?.observed.push(target);
+      }
+      unobserve() {}
+    },
+  });
+  return win;
+}
