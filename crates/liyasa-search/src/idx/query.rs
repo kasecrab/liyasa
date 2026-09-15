@@ -118,15 +118,27 @@ impl Query {
 /// `word:value` is a filter only for the four facet names; anything else is
 /// ordinary text, so searching for `note: see below` finds the note.
 pub fn parse(input: &str, locale: &str) -> Result<Query, SearchError> {
-    let tokenizer = Tokenizer::for_locale(locale);
+    let pieces = split(input)?;
+
+    // Filters are read first because `locale:de` decides how the rest of the
+    // query is tokenized: a German term stemmed by the English algorithm is
+    // not the term the German shard was built with.
+    let mut filters = Filters::default();
+    for piece in &pieces {
+        if let Piece::Filter { name, value } = piece {
+            filters.set(name, value)?;
+        }
+    }
+    let tokenizer = Tokenizer::for_locale(filters.locale.as_deref().unwrap_or(locale));
+
     let mut query = Query {
         raw: input.to_owned(),
+        filters,
         ..Query::default()
     };
     let mut seen: Vec<String> = Vec::new();
-
-    let pieces = split(input)?;
     let last = pieces.len();
+
     for (n, piece) in pieces.into_iter().enumerate() {
         match piece {
             Piece::Phrase(text) => {
@@ -142,7 +154,7 @@ pub fn parse(input: &str, locale: &str) -> Result<Query, SearchError> {
                     query.phrases.push(terms);
                 }
             }
-            Piece::Filter { name, value } => query.filters.set(&name, &value)?,
+            Piece::Filter { .. } => {}
             Piece::Word(text) => {
                 // Only the word the reader is still typing matches by prefix.
                 let typing = n + 1 == last;
@@ -319,6 +331,19 @@ mod tests {
     fn an_unbalanced_quote_is_a_diagnostic() {
         let error = parse("\"rate limit", "en").expect_err("must not parse");
         assert_eq!(error.diagnostic().code.as_str(), "E1004");
+    }
+
+    #[test]
+    fn a_locale_filter_decides_how_the_query_is_tokenized() {
+        // `Ratenbegrenzung` stems one way in German and another in English;
+        // the filter names the shard, so it names the stemmer too.
+        let german = parse("locale:de Ratenbegrenzung", "en").expect("parses");
+        let native = parse("Ratenbegrenzung", "de").expect("parses");
+        assert_eq!(german.terms[0].text, native.terms[0].text);
+        assert_ne!(
+            german.terms[0].text,
+            parse("Ratenbegrenzung", "en").expect("parses").terms[0].text
+        );
     }
 
     #[test]
