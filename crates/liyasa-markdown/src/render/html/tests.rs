@@ -168,3 +168,69 @@ fn the_theme_is_handed_the_highlighted_body() {
     assert!(rendered.contains("<span class=\"ly-"), "{rendered}");
     assert!(!rendered.contains("&lt;span"), "{rendered}");
 }
+
+/// A theme that renders math is handed the LaTeX and its display flag.
+struct WithMath;
+
+impl Blocks for WithMath {
+    fn component(&mut self, _: &ComponentInst, children: &str) -> Result<String, RenderError> {
+        Ok(children.to_owned())
+    }
+
+    fn code(&mut self, _: &Block, body: &str) -> Result<String, RenderError> {
+        Ok(body.to_owned())
+    }
+
+    fn math(&mut self, src: &str, display: bool) -> Result<String, RenderError> {
+        Ok(format!(
+            "<math display=\"{}\">{src}</math>",
+            if display { "block" } else { "inline" }
+        ))
+    }
+}
+
+/// CM-33: `$…$` and `$$…$$` reach the renderer as LaTeX.
+#[test]
+fn math_reaches_the_renderer_with_its_display_flag() {
+    let rendered = render(&document("$x^2$ and\n\n$$y^2$$\n").root, &mut WithMath);
+    assert!(
+        rendered.contains("<math display=\"inline\">x^2</math>"),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("<math display=\"block\">y^2</math>"),
+        "{rendered}"
+    );
+}
+
+/// CM-33: no runtime JavaScript, renderer or not.
+#[test]
+fn math_without_a_renderer_is_inert_and_still_readable() {
+    let rendered = html("$x^2$ and\n\n$$y^2$$\n");
+    assert!(!rendered.contains("<script"), "{rendered}");
+    assert!(!rendered.contains("javascript"), "{rendered}");
+    assert!(rendered.contains("x^2"), "{rendered}");
+    assert!(rendered.contains("y^2"), "{rendered}");
+    assert!(rendered.contains("math-inline"), "{rendered}");
+    assert!(rendered.contains("math-display"), "{rendered}");
+}
+
+/// A `$` that is not math must not become math.
+#[test]
+fn a_bare_dollar_is_not_math() {
+    let rendered = html("It costs $5 and $6.\n");
+    assert!(!rendered.contains("math"), "{rendered}");
+}
+
+#[test]
+fn math_in_a_code_span_is_code() {
+    let rendered = html("`$x^2$`\n");
+    assert!(rendered.contains("<code>$x^2$</code>"), "{rendered}");
+}
+
+/// LaTeX is escaped on the way out, so it cannot carry markup.
+#[test]
+fn math_source_is_escaped() {
+    let rendered = html("$<script>alert(1)</script>$\n");
+    assert!(!rendered.contains("<script"), "{rendered}");
+}

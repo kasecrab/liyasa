@@ -29,6 +29,17 @@ use crate::sanitize::html::escape;
 pub trait Blocks {
     fn component(&mut self, inst: &ComponentInst, children: &str) -> Result<String, RenderError>;
     fn code(&mut self, block: &Block, body: &str) -> Result<String, RenderError>;
+
+    /// LaTeX rendered to MathML (CM-33).
+    ///
+    /// §6.2.1 makes KaTeX in the companion runtime the default renderer, and
+    /// this crate performs no I/O, so the renderer is the caller's to supply.
+    /// Declining is the default: the source is then emitted as inert text, and
+    /// a reader without MathML sees the LaTeX rather than nothing. Either way
+    /// no JavaScript reaches the page, which is what CM-33 actually requires.
+    fn math(&mut self, _src: &str, _display: bool) -> Result<String, RenderError> {
+        Err(RenderError::Component("math".to_owned()))
+    }
 }
 
 pub fn render(root: &Block, theme: &mut dyn Blocks) -> String {
@@ -96,10 +107,19 @@ fn block(block_: &Block, theme: &mut dyn Blocks, out: &mut String) {
             children(block_, theme, out);
             out.push_str("</li>\n");
         }
-        BlockKind::Math { display, src } => {
-            let tag = if *display { "div" } else { "span" };
-            let _ = writeln!(out, "<{tag} class=\"math\">{}</{tag}>", escape(src));
-        }
+        BlockKind::Math { display, src } => match theme.math(src, *display) {
+            Ok(mathml) => {
+                out.push_str(&mathml);
+                out.push('\n');
+            }
+            Err(_) => {
+                let _ = writeln!(
+                    out,
+                    "<div class=\"math math-display\"><code>{}</code></div>",
+                    escape(src)
+                );
+            }
+        },
         BlockKind::Component { name, props, slots } => {
             let mut inner = String::new();
             children(block_, theme, &mut inner);
@@ -279,9 +299,16 @@ fn inline(node: &Inline, theme: &mut dyn Blocks, out: &mut String) {
         }
         Inline::SoftBreak => out.push('\n'),
         Inline::HardBreak => out.push_str("<br />\n"),
-        Inline::Math(src) => {
-            let _ = write!(out, "<span class=\"math\">{}</span>", escape(src));
-        }
+        Inline::Math(src) => match theme.math(src, false) {
+            Ok(mathml) => out.push_str(&mathml),
+            Err(_) => {
+                let _ = write!(
+                    out,
+                    "<span class=\"math math-inline\"><code>{}</code></span>",
+                    escape(src)
+                );
+            }
+        },
         Inline::InlineComponent {
             name,
             props,

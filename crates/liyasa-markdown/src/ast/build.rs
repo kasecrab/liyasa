@@ -74,7 +74,14 @@ impl Builder<'_> {
         let span = self.positions.span(data.sourcepos);
         let kind = match &data.value {
             NodeValue::Document => BlockKind::Document,
-            NodeValue::Paragraph => BlockKind::Paragraph,
+            // `$$…$$` alone in a paragraph is display math, and comrak reports
+            // it as an inline node carrying a flag `Inline::Math` has no room
+            // for. The block form has the room, and a display equation is a
+            // block to every reader anyway.
+            NodeValue::Paragraph => match display_math(node) {
+                Some(src) => BlockKind::Math { display: true, src },
+                None => BlockKind::Paragraph,
+            },
             NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => BlockKind::BlockQuote,
             NodeValue::Heading(heading) => BlockKind::Heading {
                 level: heading.level,
@@ -366,6 +373,19 @@ impl Builder<'_> {
             .at(span)
             .help("the content below that point was not parsed"),
         );
+    }
+}
+
+/// The LaTeX of a paragraph that is nothing but one display equation.
+fn display_math<'a>(node: &'a AstNode<'a>) -> Option<String> {
+    let mut children = node.children();
+    let only = children.next()?;
+    if children.next().is_some() {
+        return None;
+    }
+    match &only.data.borrow().value {
+        NodeValue::Math(math) if math.display_math => Some(math.literal.clone()),
+        _ => None,
     }
 }
 

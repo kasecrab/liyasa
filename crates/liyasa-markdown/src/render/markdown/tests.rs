@@ -192,3 +192,11 @@ fn every_shape_round_trips() {
         assert_round_trips(source);
     }
 }
+
+/// CM-33: math survives the round trip an agent reads and the formatter writes.
+#[test]
+fn math_round_trips() {
+    assert_eq!(markdown("$x^2$\n"), "$x^2$\n");
+    assert_eq!(markdown("$$\ny = mx + b\n$$\n"), "$$\ny = mx + b\n$$\n");
+    assert_round_trips("Inline $x^2$ and display:\n\n$$\ny = mx + b\n$$\n");
+}
