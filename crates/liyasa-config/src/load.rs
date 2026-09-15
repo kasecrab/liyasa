@@ -185,6 +185,9 @@ fn read_json(
     }
 }
 
+/// `E0001` and `E0002` are in the CLI's range rather than config's, and they
+/// are still the right codes: the registry assigns a range to whoever may claim
+/// *new* numbers in it, and these two rows already describe exactly this event.
 fn missing(path: &VfsPath, error: &VfsError) -> Diagnostic {
     let code = if path.file_name() == Some(CONFIG_FILE) {
         code::E0001
