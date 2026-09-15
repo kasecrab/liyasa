@@ -12,7 +12,11 @@ use liyasa_core::diagnostics::{Diagnostic, code};
 /// RX-12: uncompressed HTML per page, critical CSS included.
 pub const HTML_BUDGET: usize = 100 * 1024;
 /// RX-12: converted characters over served bytes, `page-size-html`.
-pub const RATIO_FLOOR: f64 = 0.4;
+///
+/// Revised from 0.4 by the PRD owner against the measured table in RFC 1102:
+/// the chrome, not the renderer, was the whole of the gap, and 0.4 over the
+/// served document was unreachable without cutting the theme by two thirds.
+pub const RATIO_FLOOR: f64 = 0.22;
 /// A page too short for the ratio to describe anything. RX-12 asks it of
 /// "typical pages"; on a landing page of three paragraphs the chrome is the
 /// page, and no amount of trimming changes that.

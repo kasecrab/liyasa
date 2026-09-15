@@ -1,21 +1,27 @@
 //! RX-12: the HTML a reader is served stays small, and most of what is served
 //! is the page rather than the chrome around it.
 //!
-//! Two of the three numbers hold. The conversion ratio does not: the theme's
-//! chrome is 8 KB of a 14 KB page once scripts and styles are out, so a
-//! typical page converts at a quarter to a third rather than above 0.4. The
-//! measurement, the readings of "conversion ratio" it could have taken, and
-//! what would close the gap are in `plan/rfcs/1102-conversion-ratio.md`; the
-//! requirement's own assertion is here, ignored rather than deleted, with a
-//! floor under it that keeps the number from quietly getting worse.
+//! All three numbers hold. The ratio does because the PRD owner revised it
+//! from 0.4 to 0.22 against the measured table in
+//! `plan/rfcs/1102-conversion-ratio.md`: the theme's chrome is 8 KB of a 14 KB
+//! page once scripts and styles are out, so 0.4 over the served document was
+//! unreachable without cutting the chrome by two thirds, and the renderer —
+//! which is what the requirement was reaching for — was never the problem.
+//!
+//! The numerator is the page's Markdown twin, the stricter of the two readings
+//! §25 allows. "Typical" is a page of at least 2 KB of Markdown, which is why
+//! `/` is out of the ratio assertion and in the size one: on a landing page of
+//! three paragraphs the chrome *is* the page.
 
 use liyasa_tests::budget::{
     HTML_BUDGET, Measurement, RATIO_FLOOR, TYPICAL_MARKDOWN, report, without_assets,
 };
 use liyasa_tests::site;
 
-/// What the reference site converts at today (RFC 1102).
-const MEASURED_FLOOR: f64 = 0.22;
+/// The page region has no chrome in its denominator, so it is held to the 0.4
+/// RX-12 asked of the whole document. It converts at 0.52 to 0.60; holding it
+/// to the revised 0.22 would assert nothing about the renderer.
+const PAGE_RATIO_FLOOR: f64 = 0.4;
 
 fn measurements() -> Vec<Measurement> {
     let site = site::build().expect("the reference site renders");
@@ -38,32 +44,19 @@ fn every_page_fits_the_html_budget() {
 }
 
 #[test]
-#[ignore = "the theme's chrome holds the ratio at 0.24 to 0.30: RFC 1102, NEEDS-INPUT"]
 fn a_typical_page_converts_above_the_floor() {
     let measurements = measurements();
-    for measurement in measurements.iter().filter(|m| m.is_typical()) {
-        assert!(
-            measurement.ratio > RATIO_FLOOR,
-            "`{}` converts at {:.2}, under {RATIO_FLOOR}\n{}",
-            measurement.route,
-            measurement.ratio,
-            report(&measurements)
-        );
-    }
-}
-
-#[test]
-fn the_conversion_ratio_does_not_regress() {
-    let measurements = measurements();
     let typical: Vec<&Measurement> = measurements.iter().filter(|m| m.is_typical()).collect();
+    // Without this the test passes by measuring nothing, which is how a
+    // fixture that loses its long pages would look from here.
     assert!(
         !typical.is_empty(),
         "the reference site has no typical page"
     );
     for measurement in typical {
         assert!(
-            measurement.ratio >= MEASURED_FLOOR,
-            "`{}` converts at {:.2}, under the {MEASURED_FLOOR} the site held at\n{}",
+            measurement.ratio > RATIO_FLOOR,
+            "`{}` converts at {:.2}, under {RATIO_FLOOR}\n{}",
             measurement.route,
             measurement.ratio,
             report(&measurements)
@@ -83,8 +76,8 @@ fn the_page_itself_converts_above_the_floor() {
         let main = main_of(&page.html);
         let ratio = page.markdown.chars().count() as f64 / main.len() as f64;
         assert!(
-            ratio > RATIO_FLOOR,
-            "`{}` converts its own content at {ratio:.2}, under {RATIO_FLOOR}",
+            ratio > PAGE_RATIO_FLOOR,
+            "`{}` converts its own content at {ratio:.2}, under {PAGE_RATIO_FLOOR}",
             page.route
         );
     }
