@@ -26,6 +26,12 @@ interface Vitals {
   inp: number | null;
 }
 
+function snapshot(page: import("@playwright/test").Page): Promise<Vitals> {
+  return page.evaluate(
+    () => (window as unknown as { __liyasaVitals: { snapshot(): Vitals } }).__liyasaVitals.snapshot(),
+  );
+}
+
 test.describe("core web vitals", () => {
   test.skip(({ browserName }) => browserName !== "chromium", "the profile needs CDP");
   // A throttled measurement that shares the machine measures the machine, and
@@ -43,17 +49,24 @@ test.describe("core web vitals", () => {
       await page.addInitScript(COLLECTOR);
 
       await page.goto(route, { waitUntil: "load" });
-      // One interaction, so INP has something to report. A keypress rather
-      // than a pointer: INP counts keydown, and on a phone viewport the first
-      // link in the prose is wrapped across lines, so hovering it is a fight
-      // with whatever inline element shares the hit point.
+
+      // LCP first, and on a condition rather than a timeout: the browser stops
+      // nominating largest-contentful-paint candidates at the first
+      // interaction, so a keypress sent before the paint is reported leaves
+      // LCP null for the rest of the page's life. Waiting a fixed second and
+      // hoping the paint won the race is how this test used to fail on `/`,
+      // the page with the least to paint.
+      await expect.poll(async () => (await snapshot(page)).lcp, { timeout: 15_000 }).not.toBeNull();
+
+      // Then one interaction, so INP has something to report. A keypress
+      // rather than a pointer: INP counts keydown, and on a phone viewport the
+      // first link in the prose is wrapped across lines, so hovering it is a
+      // fight with whatever inline element shares the hit point.
       await page.keyboard.press("Tab");
       await page.keyboard.press("Tab");
       await page.waitForTimeout(1_000);
 
-      const vitals = await page.evaluate(
-        () => (window as unknown as { __liyasaVitals: { snapshot(): Vitals } }).__liyasaVitals.snapshot(),
-      );
+      const vitals = await snapshot(page);
 
       expect(vitals.lcp, "LCP was never reported").not.toBeNull();
       expect(vitals.lcp ?? Infinity).toBeLessThan(BUDGET.lcp);
