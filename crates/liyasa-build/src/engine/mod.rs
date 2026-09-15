@@ -241,6 +241,31 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         navigations.insert(version, resolved.navigation);
     }
     let all_routes: BTreeSet<Route> = tree.pages.iter().map(|page| page.route.clone()).collect();
+
+    // CM-35, CM-36: what a link or an image may resolve to. Cross-page heading
+    // anchors are the verifier's (`liyasa verify --links`); the build checks
+    // routes, files, page ids, and a page's own fragments.
+    let link_table = crate::links::Table {
+        routes: all_routes.clone(),
+        anchors: BTreeMap::new(),
+        by_id: tree
+            .pages
+            .iter()
+            .filter_map(|page| Some((page.front.id?, page.route.clone())))
+            .collect(),
+        files: tree.assets.iter().map(|asset| asset.path.clone()).collect(),
+        base_path: settings.base_path.clone(),
+    };
+    let strictness = match load
+        .value
+        .get("build")
+        .and_then(|build| build.get("strictLinks"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(true)
+    {
+        true => crate::links::Strictness::Error,
+        false => crate::links::Strictness::Warn,
+    };
     let pages = render_pages(
         &tree,
         &sources,
@@ -252,6 +277,8 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         &assets_built,
         &navigations,
         options,
+        &link_table,
+        strictness,
         config_fingerprint,
     );
     phase.mark("pages");
@@ -652,6 +679,8 @@ fn render_pages(
     assets_built: &theme::Assets,
     navigations: &BTreeMap<Option<liyasa_core::ids::Version>, liyasa_theme::nav::Navigation>,
     build_options: &Options,
+    link_table: &crate::links::Table,
+    strictness: crate::links::Strictness,
     config_fingerprint: Fingerprint,
 ) -> Vec<Outcome> {
     // §6.6: pages render in parallel with rayon.
@@ -707,7 +736,15 @@ fn render_pages(
                 products: page.front.product.iter().cloned().collect(),
             };
 
-            let options = render::Options::new(registry, site).anonymous();
+            let options =
+                render::Options::new(registry, site)
+                    .anonymous()
+                    .resolving(render::Resolve {
+                        table: link_table,
+                        route: &page.route,
+                        source_path: &page.path,
+                        strictness,
+                    });
             let mut outcome = variants::of_page(&page.route, &reads, &coordinates, &settings.caps);
 
             // The Markdown and the link set are cached beside the HTML: a warm

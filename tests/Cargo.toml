@@ -114,3 +114,7 @@ path = "build/cm_120_changelog.rs"
 [[test]]
 name = "cm_80_hidden"
 path = "build/cm_80_hidden.rs"
+
+[[test]]
+name = "cm_36_links"
+path = "build/cm_36_links.rs"

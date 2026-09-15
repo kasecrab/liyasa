@@ -29,6 +29,18 @@ pub struct Options<'a> {
     pub expand: ExpandOptions,
     /// The CSP nonce of this response (RX-110); empty for a static build.
     pub nonce: &'a str,
+    /// Link and image resolution (CM-35, CM-36). `None` renders the AST as
+    /// written, which is what a preview of a single page wants.
+    pub resolve: Option<Resolve<'a>>,
+}
+
+/// What link resolution needs beyond the page itself.
+#[derive(Clone, Copy)]
+pub struct Resolve<'a> {
+    pub table: &'a crate::links::Table,
+    pub route: &'a liyasa_core::ids::Route,
+    pub source_path: &'a liyasa_core::vfs::VfsPath,
+    pub strictness: crate::links::Strictness,
 }
 
 impl<'a> Options<'a> {
@@ -43,6 +55,7 @@ impl<'a> Options<'a> {
                 undefined: Undefined::Strict,
             },
             nonce: "",
+            resolve: None,
         }
     }
 
@@ -66,6 +79,11 @@ impl<'a> Options<'a> {
 
     pub fn nonce(mut self, nonce: &'a str) -> Self {
         self.nonce = nonce;
+        self
+    }
+
+    pub fn resolving(mut self, resolve: Resolve<'a>) -> Self {
+        self.resolve = Some(resolve);
         self
     }
 }
@@ -129,8 +147,19 @@ pub fn page(
 /// (§6.6.4).
 pub fn from_expanded(expanded: &Expanded, options: &Options<'_>) -> Page {
     let record = expanded.record.clone();
-    let document = liyasa_markdown::parse(expanded, options.registry, &options.parse);
+    let mut document = liyasa_markdown::parse(expanded, options.registry, &options.parse);
+    let mut resolution = Diagnostics::new();
+    if let Some(resolve) = &options.resolve {
+        resolution = crate::links::resolve(
+            &mut document.root,
+            resolve.route,
+            resolve.source_path,
+            resolve.table,
+            resolve.strictness,
+        );
+    }
     let mut page = serialize(&document, options);
+    page.diagnostics.extend(resolution.into_vec());
     page.record = record;
     page
 }
