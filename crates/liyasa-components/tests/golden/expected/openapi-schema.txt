@@ -1,0 +1,22 @@
+# openapi-schema gallery
+
+=== case: default
+--- html
+<div class="ly-openapi-schema" data-liyasa="openapi-schema" data-spec="main" data-schema="Item">
+</div>
+--- markdown
+Schema `Item` from `main`.
+--- text
+Item
+
+=== case: missing required props
+--- html
+<div class="ly-openapi-schema" data-liyasa="openapi-schema" data-spec="" data-schema="">
+</div>
+--- markdown
+Schema `` from ``.
+--- text
+
+--- diagnostics
+E0314 `openapi-schema` requires the `spec` prop
+E0314 `openapi-schema` requires the `schema` prop

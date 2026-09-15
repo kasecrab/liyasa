@@ -1,0 +1,204 @@
+# param gallery
+
+=== case: default
+--- html
+<div class="ly-field ly-param" data-liyasa="param" id="param-limit">
+  <div class="ly-field-head">
+    <code class="ly-field-name">
+      limit
+    </code>
+  </div>
+  <dl class="ly-field-meta">
+    <dt>
+      in
+    </dt>
+    <dd>
+      query
+    </dd>
+  </dl>
+  <div class="ly-field-body">
+    <p>
+      How many items to return.
+    </p>
+  </div>
+</div>
+--- markdown
+| Name    | Type | Notes     | Description               |
+| ------- | ---- | --------- | ------------------------- |
+| `limit` |      | in: query | How many items to return. |
+--- text
+limit How many items to return.
+
+=== case: every prop
+--- html
+<div class="ly-field ly-param" data-liyasa="param" id="param-limit" data-required data-deprecated>
+  <div class="ly-field-head">
+    <code class="ly-field-name">
+      limit
+    </code>
+    <span class="ly-field-type">
+      integer
+    </span>
+    <span class="ly-field-required">
+      required
+    </span>
+    <span class="ly-field-deprecated">
+      deprecated
+    </span>
+  </div>
+  <dl class="ly-field-meta">
+    <dt>
+      in
+    </dt>
+    <dd>
+      query
+    </dd>
+    <dt>
+      default
+    </dt>
+    <dd>
+      20
+    </dd>
+    <dt>
+      enum
+    </dt>
+    <dd>
+      10, 20, 50
+    </dd>
+    <dt>
+      min
+    </dt>
+    <dd>
+      1
+    </dd>
+    <dt>
+      max
+    </dt>
+    <dd>
+      100
+    </dd>
+    <dt>
+      example
+    </dt>
+    <dd>
+      25
+    </dd>
+  </dl>
+  <div class="ly-field-body">
+    <p>
+      How many items to return.
+    </p>
+  </div>
+</div>
+--- markdown
+| Name    | Type      | Notes                                                                                         | Description               |
+| ------- | --------- | --------------------------------------------------------------------------------------------- | ------------------------- |
+| `limit` | `integer` | required, deprecated, in: query, default: 20, enum: 10, 20, 50, min: 1, max: 100, example: 25 | How many items to return. |
+--- text
+limit integer How many items to return.
+
+=== case: missing required prop
+--- html
+<div class="ly-field ly-param" data-liyasa="param" id="param-">
+  <div class="ly-field-head">
+    <code class="ly-field-name">
+    </code>
+  </div>
+  <dl class="ly-field-meta">
+    <dt>
+      in
+    </dt>
+    <dd>
+      query
+    </dd>
+  </dl>
+  <div class="ly-field-body">
+  </div>
+</div>
+--- markdown
+| Name | Type | Notes     | Description |
+| ---- | ---- | --------- | ----------- |
+| ``   |      | in: query |             |
+--- text
+
+--- diagnostics
+E0314 `param` requires the `name` prop
+
+=== case: invalid location
+--- html
+<div class="ly-field ly-param" data-liyasa="param" id="param-payload">
+  <div class="ly-field-head">
+    <code class="ly-field-name">
+      payload
+    </code>
+  </div>
+  <dl class="ly-field-meta">
+    <dt>
+      in
+    </dt>
+    <dd>
+      everywhere
+    </dd>
+  </dl>
+  <div class="ly-field-body">
+  </div>
+</div>
+--- markdown
+| Name      | Type | Notes          | Description |
+| --------- | ---- | -------------- | ----------- |
+| `payload` |      | in: everywhere |             |
+--- text
+payload
+--- diagnostics
+E0315 `param.in` is `everywhere`, which is not one of: query, path, body, header, cookie
+
+=== case: nested expandable
+--- html
+<div class="ly-field ly-param" data-liyasa="param" id="param-filter">
+  <div class="ly-field-head">
+    <code class="ly-field-name">
+      filter
+    </code>
+    <span class="ly-field-type">
+      object
+    </span>
+  </div>
+  <dl class="ly-field-meta">
+    <dt>
+      in
+    </dt>
+    <dd>
+      query
+    </dd>
+  </dl>
+  <div class="ly-field-body">
+    <details class="ly-expandable" data-liyasa="expandable">
+      <summary class="ly-expandable-title">
+        filter properties
+      </summary>
+      <div class="ly-expandable-body">
+        <div class="ly-field ly-response-field" data-liyasa="response-field" id="field-status">
+          <div class="ly-field-head">
+            <code class="ly-field-name">
+              status
+            </code>
+            <span class="ly-field-type">
+              string
+            </span>
+          </div>
+          <div class="ly-field-body">
+            <p>
+              Only items in this status.
+            </p>
+          </div>
+        </div>
+      </div>
+    </details>
+  </div>
+</div>
+--- markdown
+| Name     | Type     | Notes     | Description                                                                                                                                                                                                   |
+| -------- | -------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filter` | `object` | in: query | **filter properties**  | Name     | Type     | Notes | Description                | | -------- | -------- | ----- | -------------------------- | | `status` | `string` |       | Only items in this status. | |
+--- text
+filter object filter properties status Only items in this status.

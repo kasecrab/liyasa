@@ -1,5 +1,6 @@
 //! One module per component, named after its directive (PRD §31.5).
 
+pub mod api;
 pub mod callout;
 pub mod card;
 pub mod code;
@@ -45,5 +46,11 @@ pub fn register_builtins(registry: &mut Registry) {
         .add(code::CodeGroup)
         .add(code::Code)
         .add(code::Terminal)
-        .add(code::SnippetFrom);
+        .add(code::SnippetFrom)
+        .add(api::Param)
+        .add(api::ResponseField)
+        .add(api::RequestExample)
+        .add(api::ResponseExample)
+        .add(api::Endpoint)
+        .add(api::OpenapiSchema);
 }

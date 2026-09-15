@@ -1,0 +1,78 @@
+# param-run gallery
+
+=== case: three fields
+--- html
+<div class="ly-panel" data-liyasa="panel" data-slot="rail" hidden>
+  <div class="ly-field ly-param" data-liyasa="param" id="param-limit" data-required>
+    <div class="ly-field-head">
+      <code class="ly-field-name">
+        limit
+      </code>
+      <span class="ly-field-type">
+        integer
+      </span>
+      <span class="ly-field-required">
+        required
+      </span>
+    </div>
+    <dl class="ly-field-meta">
+      <dt>
+        in
+      </dt>
+      <dd>
+        query
+      </dd>
+    </dl>
+    <div class="ly-field-body">
+      <p>
+        How many items to return.
+      </p>
+    </div>
+  </div>
+  <div class="ly-field ly-param" data-liyasa="param" id="param-cursor">
+    <div class="ly-field-head">
+      <code class="ly-field-name">
+        cursor
+      </code>
+      <span class="ly-field-type">
+        string
+      </span>
+    </div>
+    <dl class="ly-field-meta">
+      <dt>
+        in
+      </dt>
+      <dd>
+        query
+      </dd>
+    </dl>
+    <div class="ly-field-body">
+      <p>
+        Where to resume from.
+      </p>
+    </div>
+  </div>
+  <div class="ly-field ly-response-field" data-liyasa="response-field" id="field-items">
+    <div class="ly-field-head">
+      <code class="ly-field-name">
+        items
+      </code>
+      <span class="ly-field-type">
+        object[]
+      </span>
+    </div>
+    <div class="ly-field-body">
+      <p>
+        The page of results.
+      </p>
+    </div>
+  </div>
+</div>
+--- markdown
+| Name     | Type       | Notes               | Description               |
+| -------- | ---------- | ------------------- | ------------------------- |
+| `limit`  | `integer`  | required, in: query | How many items to return. |
+| `cursor` | `string`   | in: query           | Where to resume from.     |
+| `items`  | `object[]` |                     | The page of results.      |
+--- text
+limit How many items to return. cursor Where to resume from. items The page of results.

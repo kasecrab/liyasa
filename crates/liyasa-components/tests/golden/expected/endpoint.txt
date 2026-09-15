@@ -1,0 +1,50 @@
+# endpoint gallery
+
+=== case: default
+--- html
+<div class="ly-endpoint" data-liyasa="endpoint" data-method="post" id="post-v1-items-id">
+  <span class="ly-endpoint-method">
+    POST
+  </span>
+  <code class="ly-endpoint-path">
+    /v1/items/{id}
+  </code>
+</div>
+--- markdown
+`POST /v1/items/{id}`
+--- text
+POST /v1/items/{id}
+
+=== case: every prop
+--- html
+<div class="ly-endpoint" data-liyasa="endpoint" data-method="delete" id="delete-v1-items-id" data-spec="main" data-operation="deleteItem">
+  <span class="ly-endpoint-method">
+    DELETE
+  </span>
+  <code class="ly-endpoint-path">
+    /v1/items/{id}
+  </code>
+  <p>
+    Removes an item.
+  </p>
+</div>
+--- markdown
+`DELETE /v1/items/{id}`
+
+Removes an item.
+--- text
+DELETE /v1/items/{id} Removes an item.
+
+=== case: invalid method
+--- html
+<div class="ly-endpoint" data-liyasa="endpoint" data-method="fetch" id="fetch">
+  <span class="ly-endpoint-method">
+    FETCH
+  </span>
+</div>
+--- markdown
+`FETCH`
+--- text
+FETCH
+--- diagnostics
+E0315 `endpoint.method` is `fetch`, which is not one of: get, post, put, patch, delete, head, options, trace

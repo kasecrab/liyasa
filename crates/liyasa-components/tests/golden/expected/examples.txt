@@ -1,0 +1,65 @@
+# examples gallery
+
+=== case: request
+--- html
+<div class="ly-example ly-request-example" data-liyasa="request-example" data-slot="code-rail" data-lang="curl">
+  <p class="ly-example-title">
+    cURL
+  </p>
+  <div class="ly-code" data-liyasa="code-block" data-lang="sh">
+    <button class="ly-code-copy" type="button" data-liyasa="copy">
+      Copy
+    </button>
+    <pre class="ly-code-body">
+      <code class="language-sh">
+        curl https://api.example.com
+      </code>
+    </pre>
+  </div>
+</div>
+--- markdown
+#### cURL
+
+```sh
+curl https://api.example.com
+```
+--- text
+curl https://api.example.com
+
+=== case: response
+--- html
+<div class="ly-example ly-response-example" data-liyasa="response-example" data-slot="code-rail" data-lang="json" data-status="200">
+  <p class="ly-example-title">
+    Response
+  </p>
+  <div class="ly-code" data-liyasa="code-block" data-lang="json">
+    <button class="ly-code-copy" type="button" data-liyasa="copy">
+      Copy
+    </button>
+    <pre class="ly-code-body">
+      <code class="language-json">
+        {"ok": true}
+      </code>
+    </pre>
+  </div>
+</div>
+--- markdown
+#### Response 200
+
+```json
+{"ok": true}
+```
+--- text
+{"ok": true}
+
+=== case: empty request
+--- html
+<div class="ly-example ly-request-example" data-liyasa="request-example" data-slot="code-rail">
+  <p class="ly-example-title">
+    Request
+  </p>
+</div>
+--- markdown
+#### Request
+--- text
+

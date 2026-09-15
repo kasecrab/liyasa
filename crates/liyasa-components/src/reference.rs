@@ -507,14 +507,40 @@ impl Children for Reference<'_> {
     }
 
     fn markdown(&self, nodes: &[Node], out: &mut Markdown) -> Result<(), RenderError> {
-        for node in nodes {
-            match node {
+        let mut at = 0;
+        while at < nodes.len() {
+            // RX-61: a run of API fields is one table, so it is recognized
+            // here rather than by each field, which cannot see its siblings.
+            let run = field_run(&nodes[at..]);
+            if run > 1 {
+                let fields: Vec<_> = nodes[at..at + run]
+                    .iter()
+                    .filter_map(crate::nodes::as_component)
+                    .collect();
+                crate::components::api::table_markdown(&fields, out, self);
+                at += run;
+                continue;
+            }
+            match &nodes[at] {
                 Node::Block(block) => self.block_markdown(block, out)?,
                 Node::Inline(inline) => self.inline_markdown(inline, out)?,
             }
+            at += 1;
         }
         Ok(())
     }
+}
+
+/// How many nodes from the front are API field components.
+fn field_run(nodes: &[Node]) -> usize {
+    nodes
+        .iter()
+        .take_while(|node| {
+            crate::nodes::as_component(node).is_some_and(|inst| {
+                crate::components::api::FIELD_NAMES.contains(&inst.name.as_str())
+            })
+        })
+        .count()
 }
 
 /// A code block's body, which is one text inline and never marked up.

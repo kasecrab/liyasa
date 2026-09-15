@@ -1,0 +1,66 @@
+# response-field gallery
+
+=== case: default
+--- html
+<div class="ly-field ly-response-field" data-liyasa="response-field" id="field-id">
+  <div class="ly-field-head">
+    <code class="ly-field-name">
+      id
+    </code>
+    <span class="ly-field-type">
+      string
+    </span>
+  </div>
+  <div class="ly-field-body">
+    <p>
+      The item's identifier.
+    </p>
+  </div>
+</div>
+--- markdown
+| Name | Type     | Notes | Description            |
+| ---- | -------- | ----- | ---------------------- |
+| `id` | `string` |       | The item's identifier. |
+--- text
+id string The item's identifier.
+
+=== case: every prop
+--- html
+<div class="ly-field ly-response-field" data-liyasa="response-field" id="field-id" data-required data-deprecated>
+  <div class="ly-field-head">
+    <code class="ly-field-name">
+      id
+    </code>
+    <span class="ly-field-type">
+      string
+    </span>
+    <span class="ly-field-required">
+      required
+    </span>
+    <span class="ly-field-deprecated">
+      deprecated
+    </span>
+  </div>
+  <dl class="ly-field-meta">
+    <dt>
+      default
+    </dt>
+    <dd>
+      null
+    </dd>
+    <dt>
+      example
+    </dt>
+    <dd>
+      itm_1
+    </dd>
+  </dl>
+  <div class="ly-field-body">
+  </div>
+</div>
+--- markdown
+| Name | Type     | Notes                                               | Description |
+| ---- | -------- | --------------------------------------------------- | ----------- |
+| `id` | `string` | required, deprecated, default: null, example: itm_1 |             |
+--- text
+id string
