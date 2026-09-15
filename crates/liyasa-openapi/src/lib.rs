@@ -15,6 +15,7 @@ pub mod field;
 pub mod load;
 pub mod manual;
 pub mod markdown;
+pub mod mock;
 pub mod model;
 pub mod nav;
 pub mod normalize;
