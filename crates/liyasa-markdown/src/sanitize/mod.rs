@@ -56,7 +56,7 @@ impl Pass<'_> {
         match inline {
             Inline::HtmlInline(html) => *html = self.filter(html),
             Inline::Link { href, children, .. } => {
-                if !url::allowed(href, false) {
+                if !url::link_allowed(href) {
                     self.rejected(code::E0304, format!("link to `{href}` was removed"));
                     href.clear();
                 }

@@ -97,3 +97,34 @@ fn unlisted_schemes_are_rejected() {
         assert!(!allowed(url, false), "{url}");
     }
 }
+
+/// CM-36's rename-proof link form (rfc-0605).
+///
+/// `liyasa-build` rewrites it to a route before any HTML is written, so it is
+/// allowed exactly where that rewrite happens — a Markdown link — and nowhere
+/// else. An image `src` is resolved against the file set and raw HTML is an
+/// opaque string the build's link pass never walks, so neither would ever be
+/// rewritten.
+#[test]
+fn the_page_scheme_is_allowed_only_on_a_link() {
+    assert!(link_allowed("page:install"));
+    assert!(link_allowed("page:install#step-2"));
+    assert!(!allowed("page:install", false));
+    assert!(!allowed("page:install", true));
+}
+
+#[test]
+fn a_link_is_no_wider_than_the_allow_list_otherwise() {
+    for url in [
+        "javascript:alert(1)",
+        "java&#9;script:alert(1)",
+        "vbscript:x",
+        "data:text/html,<b>",
+        "file:///etc/passwd",
+    ] {
+        assert!(!link_allowed(url), "{url}");
+    }
+    assert!(link_allowed("/route"));
+    assert!(link_allowed("#anchor"));
+    assert!(link_allowed("https://example.com"));
+}

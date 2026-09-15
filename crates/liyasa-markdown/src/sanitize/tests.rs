@@ -158,3 +158,30 @@ fn a_bracket_in_an_attribute_does_not_end_the_element() {
     assert!(html.contains("alt=\"a&gt;b\""), "{html}");
     assert!(!html.contains("onerror"), "{html}");
 }
+
+/// CM-36's `page:` form reaches the build with its destination intact, which is
+/// the only way `liyasa_build::links` can resolve it (rfc-0605).
+#[test]
+fn a_page_link_survives_for_the_build_to_resolve() {
+    let document = document("[Install](page:install)\n");
+    assert!(
+        inlines(&document.root)
+            .into_iter()
+            .any(|inline| matches!(inline, Inline::Link { href, .. } if href == "page:install"))
+    );
+    assert!(codes(&document).is_empty());
+}
+
+/// The build's link pass walks `Inline::Link` and `Inline::Image` only, and it
+/// resolves an image against the file set rather than the page-id map. A
+/// `page:` URL anywhere else is never rewritten and would reach the reader as a
+/// dead destination, so it stays rejected.
+#[test]
+fn a_page_url_outside_a_markdown_link_is_still_removed() {
+    let raw = document("<a href=\"page:install\">x</a>\n");
+    assert!(!html_of(&raw.root).contains("page:install"));
+    assert_eq!(codes(&raw), ["E0304"]);
+
+    let image = document("![alt](page:install)\n");
+    assert_eq!(codes(&image), ["E0304"]);
+}

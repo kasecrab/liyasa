@@ -8,6 +8,15 @@ pub const SCHEMES: &[&str] = &[
     "http", "https", "mailto", "tel", "ftp", "ftps", "sms", "irc", "ircs", "magnet", "news", "xmpp",
 ];
 
+/// Schemes the build resolves away before any HTML is written (CM-36).
+///
+/// `page:` is the link form that survives a rename. No browser knows it, so it
+/// is not in [`SCHEMES`]: it is allowed only by [`link_allowed`], on a Markdown
+/// link, which is the one destination `liyasa_build::links` rewrites to a
+/// route. An unresolved one is `E0401`, an error, so it does not reach a
+/// reader in a build that succeeds.
+pub const INTERNAL_SCHEMES: &[&str] = &["page"];
+
 /// Image types a `data:` URL may declare.
 pub const DATA_IMAGE_TYPES: &[&str] = &[
     "image/apng",
@@ -34,6 +43,17 @@ pub fn allowed(url: &str, image: bool) -> bool {
         return image && is_image_data(url);
     }
     SCHEMES.contains(&scheme.as_str())
+}
+
+/// Whether a Markdown link's destination may be kept.
+///
+/// Wider than [`allowed`] by exactly [`INTERNAL_SCHEMES`].
+pub fn link_allowed(url: &str) -> bool {
+    if allowed(url, false) {
+        return true;
+    }
+    let decoded = super::html::decode_refs(url);
+    scheme_of(&decoded).is_some_and(|scheme| INTERNAL_SCHEMES.contains(&scheme.as_str()))
 }
 
 /// The scheme of an absolute URL, lowercased, ignoring the whitespace and
