@@ -312,21 +312,21 @@ fn compact(text: &str) -> String {
             }
             continue;
         }
-        match c {
-            '"' | '\'' => {
-                quote = Some(c);
-                out.push(c);
-                space = false;
-            }
-            c if c.is_whitespace() => space = true,
-            _ => {
-                if space && !out.is_empty() && !ends_with_separator(&out) && c != ',' && c != ')' {
-                    out.push(' ');
-                }
-                space = false;
-                out.push(c);
-            }
+        if c.is_whitespace() {
+            space = true;
+            continue;
         }
+        // One space survives between two tokens that would otherwise merge; it
+        // is dropped around punctuation that separates them on its own. A
+        // string is a token like any other: `attr(href) ")"` needs its space.
+        if space && !out.is_empty() && !ends_with_separator(&out) && c != ',' && c != ')' {
+            out.push(' ');
+        }
+        space = false;
+        if c == '"' || c == '\'' {
+            quote = Some(c);
+        }
+        out.push(c);
     }
     out
 }
@@ -590,6 +590,12 @@ mod tests {
         let css = sheet.minify();
         assert!(!css.contains("custom-media"), "{css}");
         assert_eq!(css, "@media (min-width:48em){.a{color:red}}");
+    }
+
+    #[test]
+    fn a_space_between_a_function_and_a_string_survives() {
+        let sheet = Stylesheet::parse(".a::after { content: \" (\" attr(href) \")\"; }");
+        assert_eq!(sheet.minify(), ".a::after{content:\" (\" attr(href) \")\"}");
     }
 
     #[test]

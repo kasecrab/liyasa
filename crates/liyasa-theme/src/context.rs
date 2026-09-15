@@ -435,6 +435,31 @@ pub fn page_data(context: &RenderContext) -> String {
 }
 
 impl RenderContext {
+    /// The error page (CFG-71).
+    ///
+    /// The response it is served in always carries status 404 — the theme
+    /// renders the body, the server and `_headers` carry the status — so the
+    /// page is deliberately routeless and carries `noindex`.
+    pub fn not_found(site: Site, strings: Strings) -> Self {
+        let title = strings.not_found_title.clone();
+        Self {
+            page: Page {
+                route: "/404".to_owned(),
+                title,
+                mode: Mode::Named("404".to_owned()),
+                meta: vec![Meta {
+                    name: "robots".to_owned(),
+                    content: "noindex".to_owned(),
+                }],
+                feedback: false,
+                ..Page::default()
+            },
+            site,
+            strings,
+            ..Self::default()
+        }
+    }
+
     /// Sets the page body, removing anything CMP-102 forbids and reporting
     /// what it removed. Templates mark the body safe, so this is the point
     /// where the theme takes responsibility for what it emits.
