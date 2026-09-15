@@ -13,6 +13,7 @@ pub mod clock;
 pub mod git;
 pub mod images;
 pub mod redirects;
+pub mod render;
 pub mod tree;
 
 pub use liyasa_core::build::{
