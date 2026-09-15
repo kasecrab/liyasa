@@ -20,6 +20,7 @@ pub mod nav;
 pub mod normalize;
 pub mod overlay;
 pub mod page;
+pub mod pills;
 pub mod playground;
 pub mod read;
 pub mod refs;

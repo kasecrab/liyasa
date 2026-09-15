@@ -50,6 +50,11 @@ pub struct Field {
     pub schema_name: Option<String>,
     /// The depth limit stopped the expansion here.
     pub truncated: bool,
+    /// This row's schema as JSON Schema 2020-12, for the copy control an
+    /// object row offers (API-13). Written whole, so a row the table
+    /// truncated still copies everything under it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub json_schema: Option<String>,
 }
 
 /// One alternative of a choice, labelled by its discriminator value when the
@@ -119,6 +124,8 @@ impl Field {
             variants: Vec::new(),
             schema_name: schema.name.clone(),
             truncated: false,
+            json_schema: crate::pills::is_copyable(schema)
+                .then(|| crate::pills::json_schema(schema)),
         };
 
         if schema.is_stub() {
