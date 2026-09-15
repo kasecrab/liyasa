@@ -567,6 +567,10 @@ fn compile(pattern: &str, ignorecase: bool, trust: Trust) -> Result<Pattern, Rul
 ///
 /// An untrusted package never gets here: the rule is `Unsupported` and goes to
 /// the Vale binary, which is the same answer it got before this arm existed.
+// TODO(rfc-1307): the gate is here because CFG-95 leaves `.vale.ini` and
+// `StylesPath` outside the trust plane. If they are added to that list, this
+// becomes defence in depth rather than the boundary, and `fancy` can default
+// on — which takes Google's and Microsoft's styles from 67 of 83 to 81.
 #[cfg(feature = "fancy")]
 fn backtracking(pattern: &str, ignorecase: bool, trust: Trust) -> Result<Pattern, RuleError> {
     if trust != Trust::Trusted {
