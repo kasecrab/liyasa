@@ -12,6 +12,8 @@ mod cfg_04;
 mod cfg_30_navigation;
 #[path = "../build/cfg_64.rs"]
 mod cfg_64;
+#[path = "../build/cfg_65.rs"]
+mod cfg_65;
 #[path = "../config/cfg_90_diagnostics.rs"]
 mod cfg_90_diagnostics;
 #[path = "../config/cfg_91.rs"]
