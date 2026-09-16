@@ -133,7 +133,7 @@ impl Plan {
             if !options.force && target.exists() {
                 diagnostics.push(
                     Diagnostic::new(code::E1103, format!("`{}` already exists", planned.path))
-                        .help("import into an empty directory, or pass `--force` to overwrite"),
+                        .help("import into an empty directory, or apply the plan with `Apply { force: true }`"),
                 );
                 continue;
             }
