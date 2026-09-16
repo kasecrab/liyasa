@@ -1,6 +1,7 @@
 # The workspace's cross-crate tests: a requirement whose subject is the built
-# site rather than one crate's API lives here. Shared and append-only, like the
-# workspace manifest — add your `[[test]]` row, leave the others alone.
+# site rather than one crate's API lives here. One test binary, `it/main.rs`,
+# links the dependency tree once instead of once per file; add a `mod` line
+# there for a new file, leave the others alone.
 
 [package]
 name = "liyasa-tests"
@@ -38,89 +39,5 @@ name = "reference-site"
 path = "src/bin/reference_site.rs"
 
 [[test]]
-name = "rx_12"
-path = "budget/rx_12.rs"
-
-[[test]]
-name = "rx_14_transfer"
-path = "budget/rx_14_transfer.rs"
-
-[[test]]
-name = "thm_31"
-path = "budget/thm_31.rs"
-
-[[test]]
-name = "web_reader"
-path = "web/reader.rs"
-
-[[test]]
-name = "nojs"
-path = "web/nojs.rs"
-
-[[test]]
-name = "cfg_01"
-path = "config/cfg_01.rs"
-
-[[test]]
-name = "cfg_04"
-path = "config/cfg_04.rs"
-
-[[test]]
-name = "cfg_30_navigation"
-path = "config/cfg_30_navigation.rs"
-
-[[test]]
-name = "cfg_91"
-path = "config/cfg_91.rs"
-
-[[test]]
-name = "cfg_94_schema"
-path = "config/cfg_94_schema.rs"
-
-[[test]]
-name = "cfg_03_presets"
-path = "config/cfg_03_presets.rs"
-
-[[test]]
-name = "cfg_90_diagnostics"
-path = "config/cfg_90_diagnostics.rs"
-
-[[test]]
-name = "cm_82_redirects"
-path = "build/cm_82_redirects.rs"
-
-[[test]]
-name = "cm_84_files"
-path = "build/cm_84_files.rs"
-
-[[test]]
-name = "rx_02_assets"
-path = "build/rx_02_assets.rs"
-
-[[test]]
-name = "cli_03_build"
-path = "cli/cli_03_build.rs"
-
-[[test]]
-name = "cli_02_dev"
-path = "cli/cli_02_dev.rs"
-
-[[test]]
-name = "cm_120_changelog"
-path = "build/cm_120_changelog.rs"
-
-[[test]]
-name = "cm_80_hidden"
-path = "build/cm_80_hidden.rs"
-
-[[test]]
-name = "cm_36_links"
-path = "build/cm_36_links.rs"
-
-[[test]]
-name = "cm_15_functions"
-path = "build/cm_15_functions.rs"
-
-[[test]]
-name = "cli_05_format"
-path = "cli/cli_05_format.rs"
+name = "it"
+path = "it/main.rs"
