@@ -1,2 +1,14 @@
 edition = "2024"
 max_width = 100
+
+# Do not reorder `mod` statements. `tests/it/main.rs` and its per-crate siblings
+# are append-only lists that every package adds to (RFC 0007 made one binary the
+# entry point for a crate's integration tests), and those files are union-merged
+# so two packages appending at once never conflict.
+#
+# Alphabetical enforcement fights that: a union merge can interleave two sorted
+# blocks into an unsorted whole, which `cargo fmt --check` then rejects — turning
+# a clear "resolve this hunk" into a red gate on a chain, where the bisect hunts
+# for a branch to blame. Order in a generated list carries no meaning worth that.
+# Raised by WP-31 2026-09-16, before the union change had merged.
+reorder_modules = false
