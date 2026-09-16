@@ -133,6 +133,20 @@ pub enum Action {
     Unwrap,
 }
 
+/// What Liyasa can render.
+///
+/// The caller supplies it: the component registry lives in `liyasa-components`,
+/// which PRD §34.7 keeps out of this crate's dependencies, so an importer is
+/// told the names and translates syntax only.
+pub trait Components {
+    fn known(&self, name: &str) -> bool;
+
+    /// The registered name closest to one Liyasa does not know.
+    fn suggest(&self, _name: &str) -> Option<String> {
+        None
+    }
+}
+
 /// Each importer's component table.
 pub trait Convert {
     /// What one tag becomes. The default keeps every tag, which is already
