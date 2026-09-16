@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Every key of liyasa.json, generated from the published JSON Schema.
+description: "Every key of liyasa.json, generated from the published JSON Schema."
 ---
 
 # Configuration

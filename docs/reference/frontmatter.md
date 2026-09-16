@@ -1,6 +1,6 @@
 ---
 title: Front matter
-description: Every key a page's YAML front matter accepts, generated from the published schema.
+description: "Every key a page's YAML front matter accepts, generated from the published schema."
 ---
 
 # Front matter

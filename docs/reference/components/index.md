@@ -1,6 +1,6 @@
 ---
 title: Components
-description: Every built-in component, with its props and a live example of each.
+description: "Every built-in component, with its props and a live example of each."
 ---
 
 # Components

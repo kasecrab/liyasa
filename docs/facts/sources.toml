@@ -1,0 +1,7 @@
+# The facts this site's own pages read (§14). The component gallery renders a
+# `fact` instance, so the site has to carry the fact it names.
+
+[[source]]
+id = "limits"
+kind = "file"
+path = "facts/limits.json"

@@ -14,24 +14,41 @@
     "strictLinks": true
   },
   "locales": [
-    { "code": "en", "default": true, "label": "English" },
-    { "code": "de", "label": "Deutsch" }
+    {
+      "code": "en",
+      "default": true,
+      "label": "English"
+    },
+    {
+      "code": "de",
+      "label": "Deutsch"
+    }
   ],
   "localization": {
     "fallback": "notice"
   },
   "regions": {
     "enabled": true,
-    "list": ["us", "eu", "in"],
+    "list": [
+      "us",
+      "eu",
+      "in"
+    ],
     "default": "us",
-    "detection": ["choice"]
+    "detection": [
+      "choice"
+    ]
   },
   "search": {
     "placeholder": "Search the documentation"
   },
   "agents": {
-    "llms": { "full": true },
-    "markdown": { "includeOpenApiSchema": true }
+    "llms": {
+      "full": true
+    },
+    "markdown": {
+      "includeOpenApiSchema": true
+    }
   },
   "navbar": {
     "primary": {
@@ -46,16 +63,31 @@
       {
         "header": "Documentation",
         "items": [
-          { "label": "Install", "href": "/getting-started/install" },
-          { "label": "Configuration", "href": "/reference/config" },
-          { "label": "Error codes", "href": "/errors" }
+          {
+            "label": "Install",
+            "href": "/getting-started/install"
+          },
+          {
+            "label": "Configuration",
+            "href": "/reference/config"
+          },
+          {
+            "label": "Error codes",
+            "href": "/errors"
+          }
         ]
       },
       {
         "header": "Project",
         "items": [
-          { "label": "Source", "href": "https://github.com/kasecrab/liyasa" },
-          { "label": "Licence", "href": "https://github.com/kasecrab/liyasa/blob/main/LICENSE-MIT" }
+          {
+            "label": "Source",
+            "href": "https://github.com/kasecrab/liyasa"
+          },
+          {
+            "label": "Licence",
+            "href": "https://github.com/kasecrab/liyasa/blob/main/LICENSE-MIT"
+          }
         ]
       }
     ]
@@ -114,9 +146,30 @@
         "pages": [
           "reference/cli",
           "reference/frontmatter",
-          { "group": "Configuration", "root": "reference/config", "pages": [] },
-          { "group": "Components", "root": "reference/components", "pages": [] },
-          { "group": "Error codes", "root": "errors", "pages": [] }
+          {
+            "group": "Configuration",
+            "pages": [
+              {
+                "directory": "reference/config"
+              }
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              {
+                "directory": "reference/components"
+              }
+            ]
+          },
+          {
+            "group": "Error codes",
+            "pages": [
+              {
+                "directory": "errors"
+              }
+            ]
+          }
         ]
       },
       {

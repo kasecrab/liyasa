@@ -156,7 +156,7 @@ fn errors_index() -> File {
     let mut text = String::new();
     text.push_str("---\ntitle: Error codes\n");
     text.push_str(
-        "description: Every diagnostic Liyasa can print, by range, with the page that explains it.\n",
+        "description: \"Every diagnostic Liyasa can print, by range, with the page that explains it.\"\n",
     );
     text.push_str("---\n\n# Error codes\n\n");
     text.push_str(
@@ -386,7 +386,7 @@ fn config_pages() -> Vec<File> {
     let mut text = String::new();
     text.push_str("---\ntitle: Configuration\n");
     text.push_str(
-        "description: Every key of liyasa.json, generated from the published JSON Schema.\n",
+        "description: \"Every key of liyasa.json, generated from the published JSON Schema.\"\n",
     );
     text.push_str("---\n\n# Configuration\n\n");
     text.push_str(
@@ -431,7 +431,7 @@ fn frontmatter_page() -> File {
     let mut text = String::new();
     text.push_str("---\ntitle: Front matter\n");
     text.push_str(
-        "description: Every key a page's YAML front matter accepts, generated from the published schema.\n",
+        "description: \"Every key a page's YAML front matter accepts, generated from the published schema.\"\n",
     );
     text.push_str("---\n\n# Front matter\n\n");
     text.push_str(
@@ -789,7 +789,7 @@ fn component_pages() -> Vec<File> {
     let mut text = String::new();
     text.push_str("---\ntitle: Components\n");
     text.push_str(
-        "description: Every built-in component, with its props and a live example of each.\n",
+        "description: \"Every built-in component, with its props and a live example of each.\"\n",
     );
     text.push_str("---\n\n# Components\n\n");
     text.push_str(

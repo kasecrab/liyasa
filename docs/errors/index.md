@@ -1,6 +1,6 @@
 ---
 title: Error codes
-description: Every diagnostic Liyasa can print, by range, with the page that explains it.
+description: "Every diagnostic Liyasa can print, by range, with the page that explains it."
 ---
 
 # Error codes

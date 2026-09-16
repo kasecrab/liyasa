@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 180" role="img" aria-label="A rectangle labelled example">
+  <rect width="480" height="180" rx="12" fill="#1f2933"/>
+  <text x="240" y="98" font-family="system-ui, sans-serif" font-size="28" fill="#ffffff" text-anchor="middle">example</text>
+</svg>
