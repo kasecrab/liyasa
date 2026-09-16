@@ -4,7 +4,7 @@
 //! left for a human is one [`Attention`] item, a page with none of them scores
 //! 100, and MIG-01's quality bar is the share of pages that reach 100.
 
-use liyasa_core::diagnostics::Diagnostics;
+use liyasa_core::diagnostics::{Code, Diagnostics, code};
 use liyasa_core::span::Span;
 use liyasa_core::vfs::VfsPath;
 use serde::Serialize;
@@ -56,6 +56,21 @@ pub enum Kind {
 }
 
 impl Kind {
+    /// The registered code this kind is reported under.
+    ///
+    /// An attention item is user-facing output, so it carries a code an
+    /// operator can look up, the same as any other diagnostic.
+    pub const fn code(self) -> Code {
+        match self {
+            Self::CustomComponent => code::W1110,
+            Self::Expression => code::W1111,
+            Self::Module => code::W1112,
+            Self::ConfigKey => code::W1113,
+            Self::DanglingPage => code::W1114,
+            Self::Malformed => code::W1116,
+        }
+    }
+
     /// What one item of this kind costs a page's confidence.
     ///
     /// A page carrying a custom component is wrong until someone writes that
@@ -250,8 +265,9 @@ impl Report {
         }
         if !self.redirects.is_empty() {
             out.push_str(&format!(
-                "{} redirects generated from moved pages.\n",
-                self.redirects.len()
+                "{} redirects generated from moved pages ({}).\n",
+                self.redirects.len(),
+                code::W1115,
             ));
         }
 
@@ -281,7 +297,12 @@ impl Report {
 }
 
 fn line(item: &Attention) -> String {
-    let mut out = format!("- {}: `{}`", item.kind.as_str(), item.what);
+    let mut out = format!(
+        "- {} {}: `{}`",
+        item.kind.code(),
+        item.kind.as_str(),
+        item.what
+    );
     if let Some(help) = &item.help {
         out.push_str(&format!(" — {help}"));
     }
@@ -380,6 +401,46 @@ mod tests {
         let listed = report.needs_attention();
         assert_eq!(listed.len(), 2);
         assert_eq!(listed[0].from.as_str(), "worse.mdx");
+    }
+
+    #[test]
+    fn every_kind_reports_under_its_registered_code() {
+        // A code claimed in codes.toml and never emitted is a registry entry
+        // with no behaviour behind it, and a documentation page nobody can
+        // reach. Every kind an operator can see carries one.
+        for (kind, expected) in [
+            (Kind::CustomComponent, "W1110"),
+            (Kind::Expression, "W1111"),
+            (Kind::Module, "W1112"),
+            (Kind::ConfigKey, "W1113"),
+            (Kind::DanglingPage, "W1114"),
+            (Kind::Malformed, "W1116"),
+        ] {
+            assert_eq!(kind.code().as_str(), expected);
+        }
+    }
+
+    #[test]
+    fn the_report_prints_the_code_beside_each_item() {
+        let mut report = Report::new(Source::Mintlify);
+        let mut bad = page("pricing");
+        bad.attention
+            .push(Attention::new(Kind::CustomComponent, "PricingTable"));
+        report.pages.push(bad);
+        report.redirects.push(Redirect {
+            source: "/old".to_owned(),
+            destination: "/new".to_owned(),
+        });
+
+        let text = report.to_markdown();
+        assert!(
+            text.contains("W1110 custom component: `PricingTable`"),
+            "{text}"
+        );
+        assert!(
+            text.contains("1 redirects generated from moved pages (W1115)."),
+            "{text}"
+        );
     }
 
     #[test]
