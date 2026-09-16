@@ -136,7 +136,10 @@ impl Report {
                         self.facts.fetch_failure_rate * 100.0
                     ),
                 )
-                .help("re-run against a host that is not rate-limiting the scan, or narrow the sample with `--urls`"),
+                .help(
+                    "re-run against a host that is not rate-limiting the scan; the score stands \
+                     for the pages that answered, not for the site",
+                ),
             );
         }
         if let Some(tracked) = self

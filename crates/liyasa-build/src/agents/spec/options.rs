@@ -82,7 +82,8 @@ pub struct Options {
     pub coverage_exclusions: Vec<String>,
     /// Route patterns `markdown-content-parity` does not compare.
     pub parity_exclusions: Vec<String>,
-    /// Explicit URLs (`--urls`), which are scored as given.
+    /// Explicit URLs to score as given, instead of sampling the site. No
+    /// command sets this yet: `liyasa test --agents` runs with the defaults.
     pub urls: Vec<String>,
 }
 

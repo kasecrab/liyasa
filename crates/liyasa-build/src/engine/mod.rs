@@ -64,7 +64,8 @@ pub struct Options {
     pub base_path: Option<String>,
     /// `--env`: the config overlay to merge.
     pub env: Option<String>,
-    /// `--build-time`, in seconds since the Unix epoch.
+    /// The build time to date the output from, in seconds since the Unix
+    /// epoch (§6.6.2 rule 1).
     pub build_time: Option<i64>,
     /// `--profile`: keep a timing per phase.
     pub profile: bool,

@@ -103,8 +103,8 @@ impl CheckResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RunFacts {
     pub pages_discovered: usize,
-    /// Pages were chosen by the operator (`--urls`, a curated list, or no
-    /// sampling), so the insufficient-data rule does not apply.
+    /// Pages were chosen by the operator ([`super::Options::urls`], a curated
+    /// list, or no sampling), so the insufficient-data rule does not apply.
     pub pages_selected: bool,
     /// `(serverRendered + sparseContent × 0.5) / total`.
     pub rendering_proportion: f64,

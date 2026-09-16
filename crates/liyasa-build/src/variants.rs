@@ -203,7 +203,10 @@ pub fn of_page(route: &Route, reads: &Reads, coordinates: &Coordinates, caps: &C
                     list(&free_form)
                 ),
             )
-            .help("keep on-demand pages few; `liyasa validate --personalization` lists them"),
+            .help(
+                "keep on-demand pages few; every one of them raises this warning, so a build's \
+                 report is the list",
+            ),
         );
         if !reads.personalized {
             diagnostics.push(

@@ -1,8 +1,10 @@
 //! The build clock (PRD §6.6.2 rule 1).
 //!
 //! One timestamp is chosen at build start and everything in output that carries
-//! a time reads it. The order is `SOURCE_DATE_EPOCH`, then `--build-time`, then
-//! the commit time of `HEAD`, then the wall clock with `W0707`.
+//! a time reads it. The order is `SOURCE_DATE_EPOCH`, then the build time the
+//! caller supplies ([`Inputs::build_time`] — §6.6.2 gives that a command-line
+//! spelling, which no command defines yet), then the commit time of `HEAD`,
+//! then the wall clock with `W0707`.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -39,7 +41,7 @@ pub struct Resolved {
 pub struct Inputs {
     /// The raw environment value, validated here rather than by the caller.
     pub source_date_epoch: Option<String>,
-    /// `liyasa build --build-time`, as seconds since the Unix epoch.
+    /// The build time a caller supplies, in seconds since the Unix epoch.
     pub build_time: Option<i64>,
     pub head_commit: Option<SystemTime>,
     /// The wall clock, read once by the caller. `None` means "now".
@@ -100,9 +102,12 @@ pub fn resolve(inputs: &Inputs) -> Resolved {
     diagnostics.push(
         Diagnostic::new(
             code::W0707,
-            "no `SOURCE_DATE_EPOCH`, `--build-time`, or git commit to date this build from",
+            "no `SOURCE_DATE_EPOCH`, build time, or git commit to date this build from",
         )
-        .help("set `SOURCE_DATE_EPOCH` or pass `--build-time` to make the build reproducible"),
+        .help(
+            "set `SOURCE_DATE_EPOCH`, or build from a commit, so that two builds of the same \
+             inputs agree",
+        ),
     );
     Resolved {
         clock: BuildClock(inputs.wall.unwrap_or_else(SystemTime::now)),
