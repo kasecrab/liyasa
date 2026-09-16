@@ -1,8 +1,7 @@
 //! API-14: the Markdown representation carries a parameter table and the
 //! examples, holds no HTML, and is what search reads.
 
-#[path = "support.rs"]
-mod support;
+use super::support;
 
 use liyasa_openapi::markdown;
 

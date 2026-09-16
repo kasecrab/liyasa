@@ -2,8 +2,7 @@
 //! recursion is depth-limited with something to expand, and 3.1's
 //! `type: [string, "null"]` reads as nullability.
 
-#[path = "support.rs"]
-mod support;
+use super::support;
 
 use liyasa_openapi::field::Field;
 use liyasa_openapi::markdown;

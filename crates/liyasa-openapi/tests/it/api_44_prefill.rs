@@ -4,8 +4,7 @@
 use liyasa_openapi::config::Display;
 use liyasa_openapi::playground::{Identity, Playground};
 
-#[path = "support.rs"]
-mod support;
+use super::support;
 
 const SPEC: &str = r##"
 openapi: 3.1.0

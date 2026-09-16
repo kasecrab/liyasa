@@ -1,8 +1,7 @@
 //! API-10: every section of an operation appears, with an anchor per
 //! parameter.
 
-#[path = "support.rs"]
-mod support;
+use super::support;
 
 use liyasa_openapi::markdown;
 use liyasa_openapi::model::ParameterIn;

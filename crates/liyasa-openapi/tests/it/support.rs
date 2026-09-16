@@ -1,7 +1,7 @@
 //! Shared fixtures for the endpoint-page tests.
 //!
-//! Each test binary compiles this with `#[path]`, so anything unused in one of
-//! them is still used in another.
+//! One module of the crate's single test binary; not every test uses every
+//! helper, so unused ones are allowed.
 #![allow(dead_code)]
 
 use std::path::PathBuf;

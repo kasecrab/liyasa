@@ -6,8 +6,7 @@ use liyasa_openapi::config::{Display, SpecConfig};
 use liyasa_openapi::model::ext::{NAMESPACE, XLiyasa};
 use liyasa_openapi::nav::{self, Node};
 
-#[path = "support.rs"]
-mod support;
+use super::support;
 
 const SPEC: &str = r##"
 openapi: 3.1.0

@@ -4,8 +4,7 @@
 use liyasa_openapi::field::Field;
 use liyasa_openapi::pills;
 
-#[path = "support.rs"]
-mod support;
+use super::support;
 
 const SPEC: &str = r##"
 openapi: 3.1.0

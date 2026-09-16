@@ -1,8 +1,7 @@
 //! API-04: a Markdown page with `openapi:` front matter augments the generated
 //! page — its body above the parameters, its slots at the injection points.
 
-#[path = "support.rs"]
-mod support;
+use super::support;
 
 use liyasa_openapi::markdown;
 use liyasa_openapi::model::OrderedMap;
