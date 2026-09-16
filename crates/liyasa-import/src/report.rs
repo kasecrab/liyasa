@@ -48,6 +48,11 @@ pub enum Kind {
     ConfigKey,
     /// A navigation entry naming a page that is not in the source project.
     DanglingPage,
+    /// The converted page does not scan as Liyasa Markdown. Almost always a
+    /// page that was already malformed: an unclosed fence renders as one thing
+    /// in a lenient MDX pipeline and as another here, and guessing which the
+    /// author meant is not the importer's call.
+    Malformed,
 }
 
 impl Kind {
@@ -61,6 +66,7 @@ impl Kind {
             Self::CustomComponent => 40,
             Self::Expression => 30,
             Self::Module => 20,
+            Self::Malformed => 30,
             Self::DanglingPage => 10,
             Self::ConfigKey => 5,
         }
@@ -73,6 +79,7 @@ impl Kind {
             Self::Module => "import or export",
             Self::ConfigKey => "unmapped config key",
             Self::DanglingPage => "missing page",
+            Self::Malformed => "malformed Markdown",
         }
     }
 }

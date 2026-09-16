@@ -11,7 +11,7 @@ use liyasa_core::vfs::VfsPath;
 use liyasa_import::mintlify;
 use liyasa_import::report::Kind;
 
-use crate::support::{Builtins, config, paths, text_at, validate};
+use crate::support::{Builtins, config, pages_scan, paths, text_at, validate};
 
 const DOCS_JSON: &str = r##"{
   "$schema": "https://mintlify.com/docs.json",
@@ -294,6 +294,7 @@ fn the_imported_project_loads_and_validates() {
     let plan = import(&source);
     let problems = validate(&plan, &source);
     assert!(problems.is_empty(), "{problems:?}");
+    pages_scan(&plan);
 }
 
 #[test]

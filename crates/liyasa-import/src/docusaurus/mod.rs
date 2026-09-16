@@ -88,14 +88,19 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
                     continue;
                 };
                 let to = with_md_extension(&VfsPath::new(to));
+                // The admonition rewrite runs first, on the source: it is
+                // directive syntax rather than JSX, and leaving it until after
+                // the conversion would hand `page::convert` a page whose
+                // `:::tip Pro tip` line is not yet well-formed, which its own
+                // check would then report against the author.
                 let page = page::convert(
-                    &text,
+                    &admonitions(&text),
                     &page::Options {
                         convert: &convert,
                         directives: options.directives,
                     },
                 );
-                let body = admonitions(&page.text);
+                let body = page.text;
                 let mut entry =
                     PageReport::new(relative.clone(), to.clone(), route, site_route(to.as_str()));
                 entry.attention = page.attention;

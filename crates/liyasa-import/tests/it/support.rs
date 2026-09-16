@@ -84,3 +84,37 @@ pub fn validate(plan: &Plan, source: &MemVfs) -> Vec<String> {
     );
     out
 }
+
+/// Every error the Markdown scanner raises on a converted page.
+///
+/// MIG-01 asks for pages that convert with nothing left to do *and* render with
+/// no diagnostics. Scanning is the layer that answers the second half here: it
+/// settles front matter, fences, directives, and template well-formedness
+/// (CM-21) without needing a snippet loader or a fact table, neither of which an
+/// importer can supply.
+pub fn scan_errors(text: &str) -> Vec<String> {
+    let (_, diagnostics) = liyasa_markdown::source::scan(text, liyasa_core::span::SourceId(0));
+    diagnostics
+        .iter()
+        .filter(|d| d.is_error())
+        .map(|d| format!("{}: {}", d.code, d.message))
+        .collect()
+}
+
+/// Asserts that every page a plan wrote scans cleanly.
+pub fn pages_scan(plan: &Plan) {
+    for write in plan.writes() {
+        let Content::Text(text) = &write.content else {
+            continue;
+        };
+        if !write.path.as_str().ends_with(".md") {
+            continue;
+        }
+        let errors = scan_errors(text);
+        assert!(
+            errors.is_empty(),
+            "{} does not scan cleanly: {errors:?}",
+            write.path
+        );
+    }
+}

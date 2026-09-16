@@ -9,7 +9,7 @@ use liyasa_config::vfs::MemVfs;
 use liyasa_core::vfs::VfsPath;
 use liyasa_import::docusaurus;
 
-use crate::support::{Builtins, config, paths, text_at, validate};
+use crate::support::{Builtins, config, pages_scan, paths, text_at, validate};
 
 const CONFIG: &str = r#"
 const lightCodeTheme = { plain: {} };
@@ -340,6 +340,7 @@ fn the_imported_project_loads_and_validates() {
     let plan = import(&source);
     let problems = validate(&plan, &source);
     assert!(problems.is_empty(), "{problems:?}");
+    pages_scan(&plan);
 }
 
 #[test]

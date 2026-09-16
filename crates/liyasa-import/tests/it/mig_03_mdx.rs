@@ -10,7 +10,7 @@ use liyasa_config::vfs::MemVfs;
 use liyasa_core::vfs::VfsPath;
 use liyasa_import::mdx::{self, Choice, LeaveAll, Mapping, Stubs};
 
-use crate::support::{Builtins, config, paths, text_at, validate};
+use crate::support::{Builtins, config, pages_scan, paths, text_at, validate};
 
 const INDEX: &str = "---\ntitle: Home\n---\n\n# Acme\n\n<PricingTable plan=\"team\" highlight />\n\n<Note>Standard component.</Note>\n";
 
@@ -177,4 +177,5 @@ fn the_imported_project_loads_and_validates() {
     );
     let problems = validate(&plan, &source);
     assert!(problems.is_empty(), "{problems:?}");
+    pages_scan(&plan);
 }

@@ -209,3 +209,4 @@ W1112 = { severity = "warning", crate = "liyasa-import", title = "`import` or `e
 W1113 = { severity = "warning", crate = "liyasa-import", title = "Source configuration key has no Liyasa equivalent and was not carried" }
 W1114 = { severity = "warning", crate = "liyasa-import", title = "Navigation entry names a page that is not in the source project" }
 W1115 = { severity = "warning", crate = "liyasa-import", title = "Page route changed; a redirect from the old URL was generated" }
+W1116 = { severity = "warning", crate = "liyasa-import", title = "Converted page does not scan as Liyasa Markdown and needs manual attention" }

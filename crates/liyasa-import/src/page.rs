@@ -250,6 +250,7 @@ pub fn convert(source: &str, options: &Options<'_>) -> Page {
         None => body,
     };
     page.attention.extend(attention);
+    page.attention.extend(malformed(&page.text));
     page.snippets = snippets
         .into_iter()
         .map(|(_, (specifier, name))| (specifier, name))
@@ -257,6 +258,25 @@ pub fn convert(source: &str, options: &Options<'_>) -> Page {
     page.snippets.sort();
     page.snippets.dedup();
     page
+}
+
+/// Whether the converted page scans as Liyasa Markdown.
+///
+/// MIG-01 asks for pages that convert with nothing left to do *and* render with
+/// no diagnostics, so the importer checks its own output rather than leaving it
+/// to the first build. Scanning is the right layer: it settles front matter,
+/// fences, directives, and template well-formedness without needing the snippet
+/// loader or the fact table an importer cannot supply.
+fn malformed(text: &str) -> Vec<Attention> {
+    let (_, diagnostics) = scan(text, SourceId(0));
+    diagnostics
+        .iter()
+        .filter(|d| d.is_error())
+        .map(|d| {
+            Attention::new(Kind::Malformed, format!("{}: {}", d.code, d.message))
+                .help("the page did not parse; it was most likely malformed already")
+        })
+        .collect()
 }
 
 /// `CodeGroup` becomes `code-group`, the spelling the component registry uses
@@ -477,6 +497,17 @@ impl Walk<'_> {
                 || rest.find('\n').unwrap_or(rest.len()),
                 |found| 2 + found + 2,
             );
+            self.out.push_str(&rest[..end]);
+            return Some(at + end);
+        }
+
+        // Directive props are the other brace construct Liyasa already owns:
+        // `:::tip{title="x"}` on its own line, and `:kbd[Ctrl+K]{.key}` inline
+        // (CM-50, CM-51). Neither is a JSX expression container.
+        let line_start = self.text[..at].rfind('\n').map_or(0, |newline| newline + 1);
+        let before = &self.text[line_start..at];
+        if before.trim_start().starts_with("::") || before.ends_with(']') {
+            let end = match_brace(rest)?;
             self.out.push_str(&rest[..end]);
             return Some(at + end);
         }

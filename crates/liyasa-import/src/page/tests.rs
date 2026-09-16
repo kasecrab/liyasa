@@ -348,3 +348,19 @@ fn a_run_of_liyasa_constructs_on_one_line_is_left_alone() {
     assert_eq!(converted.text, source);
     assert!(converted.attention.is_empty(), "{:?}", codes(&converted));
 }
+
+#[test]
+fn directive_props_are_not_an_expression_container() {
+    let source = ":::tip{title=\"Pro tip\"}\nbody\n:::\n\n::image{src=\"/a.png\"}\n";
+    let converted = page(source);
+    assert_eq!(converted.text, source);
+    assert!(converted.attention.is_empty(), "{:?}", codes(&converted));
+}
+
+#[test]
+fn inline_directive_props_are_not_an_expression_container() {
+    let source = "Press :kbd[Ctrl+K]{.key} to search.\n";
+    let converted = page(source);
+    assert_eq!(converted.text, source);
+    assert!(converted.attention.is_empty(), "{:?}", codes(&converted));
+}
