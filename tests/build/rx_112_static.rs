@@ -69,19 +69,10 @@ fn frame_ancestors_is_relaxed_on_the_frame_route_only() {
 }
 
 #[test]
-#[ignore = "waits on wp/00-contracts-harness: schema::without strips a key the schema does not declare"]
 fn hsts_preload_is_opt_in_from_the_config() {
     // RFC 1201's key: a build reads `security.hstsPreload` into the policy, so
     // an operator who sets it gets the preload directive and one who does not
     // gets the plain HSTS header.
-    //
-    // `schema::check` reports an undeclared key as `E0103` at warning severity
-    // and `schema::without` then removes it from the value, so until the
-    // schema row is on `main` the engine cannot see what the operator wrote.
-    // Swapping only `schemas/liyasa.schema.json` from
-    // `wp/00-contracts-harness` into a tree makes this pass, which is how the
-    // blocker was confirmed to be the merge rather than the wiring; the
-    // engine's own reader is unit-tested either way.
     const PRELOAD: &str = r#"{
       "name": "Acme docs",
       "seo": { "canonicalOrigin": "https://docs.acme.com" },
