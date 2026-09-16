@@ -252,6 +252,24 @@ fn file_response(
     }
 }
 
+/// One page's content, by path (REST-04). An agent or an editor asks for the
+/// Markdown and the route metadata rather than scraping the HTML.
+pub fn content(bundle: &Bundle, route: &str) -> Option<serde_json::Value> {
+    let entry = bundle.route(route)?;
+    let markdown = bundle.read(&entry.markdown).ok()?;
+    Some(serde_json::json!({
+        "route": entry.route.as_str(),
+        "source": entry.source,
+        "markdown": String::from_utf8_lossy(&markdown),
+        "hidden": entry.hidden,
+        "dynamic": entry.dynamic,
+        "variants": entry.variants.iter().map(|v| serde_json::json!({
+            "key": v.key,
+            "hash": v.hash.to_string(),
+        })).collect::<Vec<_>>(),
+    }))
+}
+
 /// The bundle's `404.html` when it has one; a plain line when it does not.
 /// Never a `200` (AUTH-14 and the spec's status-code check).
 pub fn not_found(bundle: &Bundle, request_path: &str) -> Page {

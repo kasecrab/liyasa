@@ -192,3 +192,37 @@ async fn a_redirect_from_the_manifest_is_served_with_its_status() {
         Some(rule.destination.as_str())
     );
 }
+
+#[tokio::test]
+async fn a_page_s_content_is_readable_by_path() {
+    // REST-04's "get page content by path": the clause of that row that is
+    // this package's rather than the search or assistant packages'.
+    let (harness, _site) = Harness::serving("rest04-content").await;
+    let body = liyasa_tests::server::body_json(expect_status(
+        harness
+            .get("/_liyasa/api/v1/content?path=/guides/install")
+            .await,
+        StatusCode::OK,
+    ))
+    .await;
+    assert_eq!(body["route"], "/guides/install");
+    assert_eq!(body["source"], "guides/install.md");
+    assert!(
+        body["markdown"]
+            .as_str()
+            .expect("markdown")
+            .contains("Install"),
+        "{body}"
+    );
+    assert_eq!(body["hidden"], false);
+    assert!(!body["variants"].as_array().expect("variants").is_empty());
+
+    expect_status(
+        harness.get("/_liyasa/api/v1/content?path=/absent").await,
+        StatusCode::NOT_FOUND,
+    );
+    expect_status(
+        harness.get("/_liyasa/api/v1/content").await,
+        StatusCode::BAD_REQUEST,
+    );
+}

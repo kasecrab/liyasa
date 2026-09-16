@@ -173,8 +173,7 @@ fn the_chart_scales_replicas_and_keeps_builds_out_of_the_serving_pods() {
         "the pods are not hardened"
     );
     assert!(
-        !server.contains("LIYASA_MASTER_KEY: ")
-            && server.contains("secretKeyRef"),
+        !server.contains("LIYASA_MASTER_KEY: ") && server.contains("secretKeyRef"),
         "the master key must come from a Secret, never from values"
     );
     assert!(

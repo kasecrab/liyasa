@@ -406,6 +406,30 @@ async fn finish(
     response
 }
 
+/// `GET /_liyasa/api/v1/content?path=` (REST-04).
+pub async fn content(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Query(params): axum::extract::Query<ContentParams>,
+) -> Response {
+    let Some(bundle) = state.bundle.clone() else {
+        return Problem::new(StatusCode::SERVICE_UNAVAILABLE, "No deployment")
+            .detail("this instance serves no site")
+            .into_response();
+    };
+    let Some(path) = params.path else {
+        return Problem::bad_request("`path` is required").into_response();
+    };
+    match site::content(&bundle, &path) {
+        Some(body) => api::Json(body).into_response(),
+        None => Problem::not_found("page").into_response(),
+    }
+}
+
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct ContentParams {
+    pub path: Option<String>,
+}
+
 /// Everything that is not a `/_liyasa/` route is a page (§6.4).
 pub async fn page(State(state): State<Arc<AppState>>, request: axum::extract::Request) -> Response {
     let Some(bundle) = state.bundle.clone() else {
@@ -439,6 +463,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             )
             .route("/_liyasa/feedback/summary", get(feedback::summary))
             .route("/_liyasa/feedback/{id}", patch(feedback::set_status))
+            .route("/_liyasa/api/v1/content", get(content))
             .route("/_liyasa/api/v1/jobs", get(jobs::list))
             .route("/_liyasa/api/v1/jobs/{id}", get(jobs::get))
             .route("/_liyasa/api/v1/jobs/{id}/retry", post(jobs::retry))
