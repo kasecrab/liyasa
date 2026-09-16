@@ -8,7 +8,7 @@ use liyasa_core::span::SourceId;
 
 const SOURCE: SourceId = SourceId(0);
 const EXAMPLE: &str = include_str!("../fixtures/example.json");
-/// PRD §34.2 byte for byte. Two of its keys do not validate; RFC 0101.
+/// PRD §34.2 byte for byte. One of its keys still does not validate; RFC 0101.
 const EXAMPLE_PRD: &str = include_str!("../fixtures/example-prd.json");
 
 fn check(text: &str) -> Diagnostics {
@@ -47,15 +47,16 @@ fn the_example_validates() {
 }
 
 #[test]
-fn the_prd_example_still_drifts_in_exactly_two_places() {
+fn the_prd_example_still_drifts_in_one_place() {
     let diagnostics = check(EXAMPLE_PRD);
     let messages: Vec<&str> = diagnostics.iter().map(|d| d.message.as_str()).collect();
     assert_eq!(
         codes(&diagnostics),
-        vec!["E0102", "E0103", "E0103"],
-        "RFC 0101: §34.2 writes `weight` as an array, which the schema rejects, \
-         and `versions[].tag`, which it does not know. If this fails, the schema \
-         was fixed and RFC 0101 can be closed. Got {messages:?}"
+        vec!["E0102"],
+        "RFC 0101: §34.2 writes `weight` as an array and the schema says string \
+         or integer. The `versions[].tag` half closed when the schema gained the \
+         row (RFC 0105); this one is prose the PRD has to fix, not a schema gap. \
+         Got {messages:?}"
     );
     assert!(
         diagnostics.iter().any(|d| d.message.contains("600")),
