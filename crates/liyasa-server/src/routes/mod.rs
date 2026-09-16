@@ -9,3 +9,4 @@ pub mod metrics;
 pub mod problem;
 pub mod site;
 pub mod telemetry;
+pub mod session;

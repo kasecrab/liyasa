@@ -18,9 +18,11 @@ thiserror.workspace = true
 url.workspace = true
 tokio = { workspace = true, features = ["rt", "net", "time", "sync"] }
 # `rustls-no-provider`: the TLS provider is chosen here (ring, RFC 1401) rather
-# than by reqwest's default, which is aws-lc-rs. No `json`, `gzip`, `cookies`,
-# `socks` or `system-proxy`: every request is built by this crate and ambient
-# proxies are never honoured (§30.2.3).
+# than by reqwest's default, which is aws-lc-rs — a C and assembly build with a
+# host toolchain behind it, against the single-static-binary goal of §6.12.
+# Both licence cleanly. No `json`, `gzip`, `cookies`, `socks` or
+# `system-proxy`: every request is built by this crate and ambient proxies are
+# never honoured (§30.2.3).
 reqwest = { workspace = true, features = ["rustls-no-provider", "http2"] }
 rustls = { workspace = true, features = ["ring", "std", "tls12", "logging"] }
 hickory-resolver = { workspace = true, features = ["tokio", "system-config"] }

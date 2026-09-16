@@ -84,7 +84,7 @@ tower-http = { version = "0.7", default-features = false }   # compression and b
 sqlx = { version = "0.9", default-features = false }   # runtime queries only; only in liyasa-store (PRD §6.2.1)
 reqwest = { version = "0.13", default-features = false }   # only in liyasa-net, rustls and no_proxy() (PRD §30.2.3)
 hickory-resolver = { version = "0.26", default-features = false }   # liyasa-net resolves once and pins the address (PRD §30.2.3)
-rustls = { version = "0.23", default-features = false }   # TLS termination with the ring provider: aws-lc-rs carries the OpenSSL licence deny.toml does not allow (RFC 1401)
+rustls = { version = "0.23", default-features = false }   # TLS termination with the ring provider: aws-lc-sys is a C and assembly build with a host toolchain behind it, against the single-binary goal of §6.12 (RFC 1401)
 instant-acme = { version = "0.8", default-features = false }   # automatic certificates (HOST-02)
 aes-gcm = { version = "0.11", default-features = false }   # the secret store's cipher (PRD §6.2.1)
 
