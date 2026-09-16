@@ -254,8 +254,8 @@ pub fn cases(component: &str) -> Vec<Case> {
         "code-group" => vec![case(
             "install",
             inst::new("code-group")
-                .child(nodes::code_block(Some("sh"), "npm i liyasa\n"))
-                .child(nodes::code_block(Some("sh"), "cargo install liyasa\n")),
+                .child(titled_code("sh", "npm", "npm i liyasa\n"))
+                .child(titled_code("sh", "cargo", "cargo install liyasa\n")),
         )],
         "param" => vec![case(
             "query",
@@ -341,6 +341,13 @@ pub fn cases(component: &str) -> Vec<Case> {
 
 fn text(value: &str) -> Vec<Node> {
     vec![Node::Inline(Inline::Text(value.to_owned()))]
+}
+
+/// A fence with a title, which is what a code group keys its tabs by.
+fn titled_code(lang: &str, title: &str, body: &str) -> Node {
+    let mut attrs = liyasa_core::document::FenceAttrs::default();
+    attrs.kv.insert("title".to_owned(), title.to_owned());
+    nodes::code_block_with(Some(lang), body, attrs)
 }
 
 fn image_node(src: &str, alt: &str) -> Node {
