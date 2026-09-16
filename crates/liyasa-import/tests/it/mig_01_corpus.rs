@@ -2,10 +2,19 @@
 //!
 //! At least ten public Mintlify-built documentation repositories are imported
 //! on every change, and at least 99% of their pages must convert with no
-//! manual-attention item. The corpus is a fixture set, so like the Markdown
-//! corpus it lives outside the repository and is never committed; point
-//! `LIYASA_MINTLIFY_CORPUS` at it, or leave it at `spec/mintlify` beside the
-//! worktree. Without it the test says so rather than passing quietly.
+//! manual-attention item.
+//!
+//! The corpus is a fixture set of other people's repositories, so like the
+//! Markdown corpus it lives outside this one and is never committed. It is
+//! found only through `LIYASA_MINTLIFY_CORPUS`, never by guessing at a path:
+//! it is shared mutable state that every worktree can see, and a test that
+//! picked it up on its own would turn a neighbouring package's gate red for
+//! content that package never touched. CI sets the variable; so does anyone
+//! running the bar by hand:
+//!
+//! ```text
+//! LIYASA_MINTLIFY_CORPUS=$PREP/spec/mintlify cargo test -p liyasa-import --test it -- --nocapture corpus
+//! ```
 
 use std::path::{Path, PathBuf};
 
@@ -21,15 +30,9 @@ const MIN_PROJECTS: usize = 10;
 const MIN_CLEAN_PERCENT: f64 = 99.0;
 
 fn corpus() -> Option<PathBuf> {
-    if let Ok(named) = std::env::var("LIYASA_MINTLIFY_CORPUS") {
-        let path = PathBuf::from(named);
-        return path.is_dir().then_some(path);
-    }
-    // The worktree sits at <prep>/wt/<package>, and the corpus at
-    // <prep>/spec/mintlify beside the Markdown one.
-    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let guess = manifest.ancestors().nth(4)?.join("spec/mintlify");
-    guess.is_dir().then_some(guess)
+    let named = std::env::var("LIYASA_MINTLIFY_CORPUS").ok()?;
+    let path = PathBuf::from(named);
+    path.is_dir().then_some(path)
 }
 
 fn projects(root: &Path) -> Vec<PathBuf> {
@@ -49,8 +52,8 @@ fn projects(root: &Path) -> Vec<PathBuf> {
 fn every_public_mintlify_project_converts_with_nothing_left_to_do() {
     let Some(root) = corpus() else {
         println!(
-            "MIG-01 corpus not found; set LIYASA_MINTLIFY_CORPUS to the directory \
-             of cloned Mintlify projects. This test asserted nothing."
+            "MIG-01 corpus not run: set LIYASA_MINTLIFY_CORPUS to the directory of \
+             Mintlify projects. This test asserted nothing."
         );
         return;
     };
