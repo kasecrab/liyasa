@@ -81,8 +81,10 @@ fn area_of(info: &CodeInfo) -> &'static str {
 fn article_of(info: &CodeInfo) -> (&'static str, &'static str) {
     match info.code.number() {
         800..=899 => ("/help/domains", "Domains, certificates, and deployments"),
-        1..=99 => ("/help/sandbox", "Toolchain and sandbox setup"),
-        600..=699 => ("/help/sandbox", "Toolchain and sandbox setup"),
+        // The two CLI codes about the optional runtimes belong with the
+        // runtimes; the rest of the range is about running the command itself.
+        3 | 4 | 600..=699 => ("/help/sandbox", "Toolchain and sandbox setup"),
+        1..=99 => ("/help/cli", "Running the CLI"),
         _ => ("/help/build-errors", "Build errors"),
     }
 }

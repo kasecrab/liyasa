@@ -177,6 +177,7 @@
         "icon": "life-buoy",
         "pages": [
           "help/index",
+          "help/cli",
           "help/build-errors",
           "help/domains",
           "help/auth",

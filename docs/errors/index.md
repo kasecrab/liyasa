@@ -23,6 +23,21 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`E0002`](/errors/E0002) | Error | Cannot read file (permission or encoding) |
 | [`E0003`](/errors/E0003) | Error | Companion runtime required for this feature and not installed |
 | [`E0004`](/errors/E0004) | Error | Sandbox (Docker or Podman) required and not available |
+| [`E0005`](/errors/E0005) | Error | `liyasa.lock` is not valid TOML or its format version is newer than this CLI |
+| [`E0006`](/errors/E0006) | Error | Feature not available in this build |
+| [`E0007`](/errors/E0007) | Error | Release signature verification failed |
+| [`E0008`](/errors/E0008) | Error | Downloaded artifact digest does not match the release index |
+| [`E0009`](/errors/E0009) | Error | Release index could not be read |
+| [`E0010`](/errors/E0010) | Error | `--locked` refused a change to `liyasa.lock` |
+| [`E0011`](/errors/E0011) | Error | Command needs a built site and the output directory was not found |
+| [`E0012`](/errors/E0012) | Error | Scaffold target directory already has files in it |
+| [`E0013`](/errors/E0013) | Error | Starter template not found |
+| [`E0014`](/errors/E0014) | Error | `--config` names a file that does not exist |
+| [`W0015`](/errors/W0015) | Warning | Companion runtime version differs from the one `liyasa.lock` records |
+| [`E0016`](/errors/E0016) | Error | Search index not found in the built site |
+| [`W0017`](/errors/W0017) | Warning | Remote OpenAPI source was not checked; this build has no network client |
+| [`W0018`](/errors/W0018) | Warning | External links were not checked; this build has no network client |
+| [`W0019`](/errors/W0019) | Warning | A verification check class could not run in this build |
 
 ## Configuration
 
