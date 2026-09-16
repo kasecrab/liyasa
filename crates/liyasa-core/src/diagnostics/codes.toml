@@ -181,3 +181,4 @@ E0213 = { severity = "error", crate = "liyasa-markdown", title = "`link()` or `p
 E0214 = { severity = "error", crate = "liyasa-markdown", title = "`asset()` names a file the build did not produce" }
 E0215 = { severity = "error", crate = "liyasa-markdown", title = "`openapi()` names a spec or an operation that does not exist" }
 E0216 = { severity = "error", crate = "liyasa-markdown", title = "Template asked for a build value this build did not supply (`now()`, `region_available()`)" }
+E0722 = { severity = "error", crate = "liyasa-build", title = "CSP source in `security.csp` or `network.allowHosts.embeds` is not a source expression" }

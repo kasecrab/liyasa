@@ -36,3 +36,5 @@ pub use liyasa_core::build::{
 // stub `liyasa-core` holds the signature in.
 pub use liyasa_core::ids::Fingerprint;
 pub use pool::RenderPool;
+
+pub mod hosting;
