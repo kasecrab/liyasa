@@ -236,3 +236,68 @@ async fn a_trace_reaches_a_collector_in_the_otlp_shape() {
         "liyasa"
     );
 }
+
+#[tokio::test]
+async fn the_server_answers_over_a_real_socket() {
+    // Every other test here drives the router in process. This one goes
+    // through the listener, the connection loop, and the outbound client, so
+    // a fault in the part no in-process test touches cannot hide behind them.
+    let (harness, _site) = Harness::serving("host05-socket").await;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("a port");
+    let port = listener.local_addr().expect("an address").port();
+
+    let runtime = Runtime::new(harness.state.clone());
+    let stopper = runtime.stopper();
+    let router = liyasa_server::routes::router(harness.state.clone());
+    let serving = tokio::spawn(runtime.serve(listener, router));
+
+    let client = liyasa_net::Client::new(liyasa_net::ClientOptions::default()).expect("a client");
+    let policy = liyasa_core::net::HttpPolicy {
+        allow_hosts: liyasa_core::net::HostSet::default(),
+        deny_hosts: liyasa_core::net::HostSet::default(),
+        // Loopback is private space, which is exactly what an operator
+        // reaching their own instance has to allow.
+        allow_private: true,
+        max_redirects: 0,
+        max_bytes: 1024 * 1024,
+        timeout: std::time::Duration::from_secs(5),
+        purpose: liyasa_core::net::Purpose::LinkCheck,
+    };
+    let get = |path: &str| liyasa_core::net::HttpRequest {
+        method: liyasa_core::net::Method::GET,
+        url: format!("http://127.0.0.1:{port}{path}")
+            .parse()
+            .expect("a url"),
+        headers: Vec::new(),
+        body: None,
+    };
+
+    use liyasa_core::net::HttpClient as _;
+    let health = client
+        .fetch(get("/_liyasa/health"), &policy)
+        .await
+        .expect("the listener answers");
+    assert_eq!(health.status, 200);
+
+    let page = client
+        .fetch(get("/guides/install"), &policy)
+        .await
+        .expect("a page over the wire");
+    assert_eq!(page.status, 200);
+    assert!(
+        page.headers
+            .iter()
+            .any(|(n, v)| n.eq_ignore_ascii_case("content-type") && v.starts_with("text/html")),
+        "{:?}",
+        page.headers
+    );
+    assert!(!page.body.is_empty());
+
+    // NFR-31: the signal drains rather than cutting the connection.
+    stopper.stop();
+    let stopped = tokio::time::timeout(std::time::Duration::from_secs(10), serving).await;
+    assert!(stopped.is_ok(), "the server did not finish draining");
+    assert!(harness.state.draining(), "the drain flag was never set");
+}

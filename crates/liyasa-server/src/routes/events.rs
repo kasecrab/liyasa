@@ -18,7 +18,6 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::AppState;
-use super::api::JsonStatus;
 use super::problem::Problem;
 use super::session;
 
@@ -202,9 +201,7 @@ pub async fn ingest(
 /// `204` with no body: a beacon is fire and forget, and an empty body is the
 /// cheapest thing `navigator.sendBeacon` can be given.
 fn no_content(origin: Option<&str>, state: &AppState) -> Response {
-    let mut response = JsonStatus(StatusCode::NO_CONTENT, json!(null)).into_response();
-    response.headers_mut().remove(header::CONTENT_TYPE);
-    *response.body_mut() = axum::body::Body::empty();
+    let mut response = StatusCode::NO_CONTENT.into_response();
     if let Some(origin) = origin
         && state.config.collector_only
         && let Ok(value) = HeaderValue::from_str(origin)

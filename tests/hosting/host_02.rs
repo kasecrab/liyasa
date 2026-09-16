@@ -24,14 +24,10 @@ fn deploy(name: &str) -> String {
 
 /// Whether a container runtime is available for the halves that need one.
 fn container_runtime() -> Option<&'static str> {
-    for runtime in ["docker", "podman"] {
-        if std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
+    ["docker", "podman"].into_iter().find(|runtime| {
+        std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
             .any(|dir| dir.join(runtime).is_file())
-        {
-            return Some(runtime);
-        }
-    }
-    None
+    })
 }
 
 #[tokio::test]

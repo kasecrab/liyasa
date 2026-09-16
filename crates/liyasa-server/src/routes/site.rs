@@ -11,7 +11,7 @@ use axum::response::{IntoResponse, Response};
 use http::{HeaderName, HeaderValue, StatusCode, header};
 use liyasa_build::hosting::headers as host_headers;
 
-use super::bundle::{Bundle, Format, Target, prefers_markdown};
+use super::bundle::{Bundle, Target, prefers_markdown};
 use super::httpdate;
 
 /// A body plus everything the response says about it.
@@ -61,16 +61,16 @@ pub fn if_none_match(value: &str, tag: &str) -> bool {
 /// build that has been through the hosting seam writes these into `_headers`
 /// and this never fires; a bundle from before it still has to serve RX-13's
 /// policy.
-fn default_cache_control(path: &str, format: Option<Format>) -> &'static str {
-    if host_headers::IMMUTABLE_DIRS
+fn default_cache_control(path: &str) -> &'static str {
+    // A hashed file never changes under its own name, so it may be cached for
+    // a year; everything else revalidates (RX-13).
+    let relative = path.trim_start_matches('/');
+    match host_headers::IMMUTABLE_DIRS
         .iter()
-        .any(|dir| path.starts_with(dir) || path.trim_start_matches('/').starts_with(dir))
+        .any(|dir| relative.starts_with(dir.trim_start_matches('/')))
     {
-        return host_headers::CACHE_IMMUTABLE;
-    }
-    match format {
-        Some(_) => host_headers::CACHE_HTML,
-        None => host_headers::CACHE_HTML,
+        true => host_headers::CACHE_IMMUTABLE,
+        false => host_headers::CACHE_HTML,
     }
 }
 
@@ -95,7 +95,6 @@ fn headers_for(
     bundle: &Bundle,
     request_path: &str,
     content_type: Option<&str>,
-    format: Option<Format>,
     negotiated: bool,
     tag: Option<&str>,
     modified: Option<SystemTime>,
@@ -112,7 +111,7 @@ fn headers_for(
     if !has(&named, "Cache-Control") {
         named.push((
             "Cache-Control".to_owned(),
-            default_cache_control(request_path, format).to_owned(),
+            default_cache_control(request_path).to_owned(),
         ));
     }
     let mut out: Vec<(HeaderName, HeaderValue)> =
@@ -169,7 +168,7 @@ pub fn serve(bundle: &Bundle, path: &str, request: &http::HeaderMap) -> Page {
         Target::Redirect { location, status } => Page {
             status: StatusCode::from_u16(status).unwrap_or(StatusCode::FOUND),
             body: Vec::new(),
-            headers: headers_for(bundle, path, None, None, false, None, None)
+            headers: headers_for(bundle, path, None, false, None, None)
                 .into_iter()
                 .chain(header("Location", &location))
                 .collect(),
@@ -186,7 +185,6 @@ pub fn serve(bundle: &Bundle, path: &str, request: &http::HeaderMap) -> Page {
                 &file,
                 body,
                 Some(format.content_type()),
-                Some(format),
                 negotiated,
                 request,
             ),
@@ -202,7 +200,6 @@ pub fn serve(bundle: &Bundle, path: &str, request: &http::HeaderMap) -> Page {
                 &file,
                 body,
                 Some(&content_type),
-                None,
                 false,
                 request,
             ),
@@ -219,7 +216,6 @@ fn file_response(
     file: &str,
     body: Vec<u8>,
     content_type: Option<&str>,
-    format: Option<Format>,
     negotiated: bool,
     request: &http::HeaderMap,
 ) -> Page {
@@ -231,7 +227,6 @@ fn file_response(
         bundle,
         request_path,
         content_type,
-        format,
         negotiated,
         Some(&tag),
         modified,
@@ -279,15 +274,7 @@ pub fn not_found(bundle: &Bundle, request_path: &str) -> Page {
     };
     Page {
         status: StatusCode::NOT_FOUND,
-        headers: headers_for(
-            bundle,
-            request_path,
-            Some(content_type),
-            Some(Format::Html),
-            false,
-            None,
-            None,
-        ),
+        headers: headers_for(bundle, request_path, Some(content_type), false, None, None),
         body,
     }
 }
@@ -310,11 +297,11 @@ mod tests {
     #[test]
     fn a_hashed_asset_directory_gets_the_immutable_policy() {
         assert_eq!(
-            default_cache_control("/_liyasa/theme.css", None),
+            default_cache_control("/_liyasa/theme.css"),
             host_headers::CACHE_IMMUTABLE
         );
         assert_eq!(
-            default_cache_control("/guides/install", Some(Format::Html)),
+            default_cache_control("/guides/install"),
             host_headers::CACHE_HTML
         );
     }
