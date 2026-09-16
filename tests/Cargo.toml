@@ -45,6 +45,8 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "ne
 axum = { workspace = true, features = ["http1", "json", "query", "tokio"] }
 tower = { workspace = true, features = ["util"] }
 http.workspace = true
+liyasa-cli = { path = "../crates/liyasa-cli", version = "0.1.0" }
+clap.workspace = true
 
 [[bin]]
 name = "reference-site"

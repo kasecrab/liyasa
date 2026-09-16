@@ -1,237 +1,320 @@
 ---
 title: CLI reference
-description: Every Liyasa command, what it does, and the flags that matter.
+description: "Every Liyasa command and flag, generated from the same definitions that produce `--help`."
 ---
 
 # CLI reference
 
-Every command takes `--project` to point at a directory other than the current
-one, `--config` to name a configuration file, and `--quiet`, `--verbose`, or
-`--json` to choose how output is written. `--json` emits one diagnostic object
-per line, with the code, the file, the span, and the help URL, which is what CI
-should consume.
+Liyasa is one command with subcommands. Everything below is generated from the
+same definitions that produce `--help`, so this page and the terminal cannot
+disagree:
 
 ```sh
 liyasa <command> --help
 ```
 
-prints the same text as the sections below, generated from the same source.
+Commands are listed alphabetically, which is what a reference is for. If you
+are looking for the order to do things in, start with
+[the quickstart](/getting-started/quickstart).
 
-## Authoring
+## Global flags
 
-### `liyasa new`
+Every command accepts these. Each one can also come from the environment variable in the last column, which is what makes a flag settable once for a whole CI job.
 
-Creates a project: configuration with the schema reference in place, a
-navigation tree, and pages that demonstrate front matter, components, and
-verified code samples. Runnable in under ten seconds.
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--color` | `<WHEN>` | `auto` | `LIYASA_COLOR` | When to colour output |
+| `--config` | `<PATH>` | — | `LIYASA_CONFIG` | Read this `liyasa.json` instead of searching upward from the working directory |
+| `--dry-run` | — | — | `LIYASA_DRY_RUN` | Print what would happen and change nothing |
+| `--json` | — | — | `LIYASA_JSON` | Print output as JSON. Where a command has `--format`, this is the same as `--format json` and `--format` wins if both are given |
+| `--offline` | — | — | `LIYASA_OFFLINE` | Make no outbound request; fail rather than reach the network |
+| `--quiet`, `-q` | — | — | `LIYASA_QUIET` | Print errors and nothing else |
 
-| Flag | Default | What it does |
-|---|---|---|
-| `--template` | `docs` | A named starter template, a path, or a URL |
-| `--preset` | `aurora` | The theme preset to start from |
-| `--yes` | `false` | Takes every default instead of asking |
-
-### `liyasa dev`
-
-Starts the development server, watches the project, and rebuilds what changed.
-The build memoizes every query it makes, so one edit re-renders that page and
-the pages whose content depends on it, not the site.
-
-| Flag | Default | What it does |
-|---|---|---|
-| `--port` | `3000` | Port to listen on |
-| `--host` | `127.0.0.1` | Interface to bind |
-| `--open` | `false` | Opens a browser once the first build finishes |
-| `--drafts` | `false` | Includes pages marked `draft: true` |
-| `--verify` | `false` | Runs verification in watch mode |
-| `--groups` | — | Mocks a reader's groups, for gated content |
-| `--region` | — | Mocks a reader's region |
-
-### `liyasa format`
-
-Canonical formatting of Markdown, front matter, and configuration.
-
-| Flag | Default | What it does |
-|---|---|---|
-| `--check` | `false` | Exits non-zero instead of writing; for CI |
-| `--directives` | `false` | Converts the tag form to the directive form |
-
-## Building and checking
-
-### `liyasa build`
-
-Incremental production build into `dist/`: HTML, the Markdown twin of every
-page, the search index, `llms.txt`, a sitemap, redirects, and the header files
-static hosts read.
-
-| Flag | Default | What it does |
-|---|---|---|
-| `--clean` | `false` | Starts from an empty output directory and cache |
-| `--env` | — | The configuration overlay to merge |
-| `--base-path` | — | Overrides `build.basePath` |
-| `--drafts` | `false` | Includes pages marked `draft: true` |
-| `--strict` | `false` | Warnings become errors |
-| `--profile` | `false` | Prints a timing per phase |
-| `--check-determinism` | `false` | Builds twice and compares |
-
-### `liyasa validate`
-
-Configuration, front matter, content, components, links, OpenAPI, and
-navigation. Everything that can be checked without leaving the repository.
-
-| Flag | Default | What it does |
-|---|---|---|
-| `--config`, `--links`, `--openapi` | — | Run one subset |
-| `--format` | `human` | `human`, `json`, or `sarif` |
-
-### `liyasa verify`
-
-The checks that reach outside the repository: executing code samples,
-refreshing fact sources, resolving external links, comparing screenshots, and
-prose rules. See [verification](/guides/verification).
-
-| Flag | Default | What it does |
-|---|---|---|
-| `--only` | — | `code`, `facts`, `links`, `screenshots`, or `prose` |
-| `--refresh` | `false` | Re-reads every source, ignoring its interval |
-| `--no-cache` | `false` | Ignores cached results |
-| `--changed` | — | Only pages changed since a git ref |
-| `--format` | `human` | `human`, `json`, or `sarif` |
+## Commands
 
 ### `liyasa broken-links`
 
-Internal and external link checking with concurrency, timeouts, and an allow
-list. A familiar alias for a subset of `verify`.
+Check internal and external links
 
-### `liyasa test`
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--allow` | `<URL\|HOST>` | — | — | A URL or host to accept without checking. Repeatable |
+| `--concurrency` | `<N>` | `8` | — | How many requests to have in flight at once |
+| `--format` | `<FORMAT>` | `text` | — | — |
+| `--internal-only` | — | — | — | Check only links inside the site |
+| `--timeout` | `<SECONDS>` | `10` | — | How long to wait for one response, in seconds |
 
-| Flag | What it does |
-|---|---|
-| `--a11y` | Accessibility checks; a real browser with the companion runtime |
-| `--perf` | Lighthouse budgets; requires the companion runtime |
-| `--agents` | The agent-readiness checks, against the built output |
-| `--search` | Search assertions from `tests/search.toml` |
+### `liyasa build`
 
-### `liyasa score`
+Build the site into the output directory
 
-Prints the documentation quality score with its sub-scores and the top actions
-that would raise it.
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--base-path` | `<PATH>` | — | `LIYASA_BASE_PATH` | Serve the site from this path prefix |
+| `--check-determinism` | — | — | — | Build twice and report any file that differed (E0706) |
+| `--clean` | — | — | — | Empty the output directory and the cache first |
+| `--drafts` | — | — | `LIYASA_DRAFTS` | Include pages marked `draft: true` |
+| `--env` | `<ENV>` | — | `LIYASA_ENV` | Merge `liyasa.<env>.json` over the configuration |
+| `--locked` | — | — | — | Fail rather than change `liyasa.lock` |
+| `--output`, `-o` | `<DIR>` | — | `LIYASA_OUTPUT` | Where the built site goes |
+| `--profile` | — | — | — | Print how long each phase took |
+| `--strict` | — | — | `LIYASA_STRICT` | Treat warnings as errors |
 
-## Publishing
+### `liyasa companion`
 
-### `liyasa export`
+Manage the optional browser runtime (§6.12)
 
-| Flag | What it does |
-|---|---|
-| `--static` | The default: a directory, as `build` produces |
-| `--offline` | A bundle that works from the file system |
-| `--markdown` | Only the `.md` files and `llms.txt` |
-| `--pdf` | Requires the companion runtime |
-| `--zip` | Archives the result |
+#### `liyasa companion install`
 
-### `liyasa deploy`
+Download and verify the pinned browser runtime
 
-Pushes a build to a server from CI or a laptop. Prints the URL and the
-deployment identifier.
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--source` | `<SOURCE>` | — | `LIYASA_COMPANION_SOURCE` | The archive to install. A directory or a `file://` URL today |
 
-| Flag | Default | What it does |
-|---|---|---|
-| `--env` | `production` | `production` or `preview` |
-| `--message` | — | A note recorded with the deployment |
-| `--gh-pages` | `false` | Publishes to a GitHub Pages branch instead |
+#### `liyasa companion remove`
 
-`liyasa deployments list`, `status`, and `rollback` manage what has been
-deployed.
+Delete the installed runtime
 
-### `liyasa domain`
+#### `liyasa companion status`
 
-`add`, `verify`, and `remove`, with an optional base path. See
-[domains](/help/domains).
+Say whether the runtime is installed and which version
 
-### `liyasa serve`
+### `liyasa completions`
 
-Runs the server: private sites, content negotiation, on-demand rendering,
-analytics ingest, and webhooks.
+Print a shell completion script
 
-| Flag | What it does |
-|---|---|
-| `--listen`, `--tls` | Where and how to listen |
-| `--db`, `--storage` | Where state and artifacts live |
-| `--init` | First-time setup |
-| `--collector-only` | Only the analytics ingest endpoint, for static sites |
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `<shell>` | `<SHELL>` | — | — | The shell to generate for |
 
-## Working with content
+### `liyasa dev`
 
-### `liyasa search`
+Serve the project with live reload
 
-Queries the local index. `--json` for structured results, `--expect <url>` to
-assert that a query returns a page, which is how search regressions are caught
-in CI.
-
-### `liyasa import`
-
-`mintlify`, `docusaurus`, `gitbook`, `readme`, `fern`, `document360`, or `mdx`.
-
-### `liyasa schema`
-
-Prints a JSON Schema: `config`, `frontmatter`, or `components`.
-
-### `liyasa migrate-config`
-
-Upgrades configuration between schema versions.
-
-### `liyasa add`
-
-Installs a `component`, `theme`, or `runner` pack from git or a registry.
-
-### `liyasa theme`
-
-`eject`, `diff`, and `tokens`, for working with theme overrides.
-
-### `liyasa agent run`
-
-Runs the writing agent against the working copy with your own keys. Produces a
-diff; never commits without `--commit`.
-
-## Environment
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--disable-openapi` | — | — | — | Skip the OpenAPI pages, which are the slowest part of a cold start |
+| `--disable-prefetch` | — | — | — | Do not prefetch linked pages in the reader |
+| `--drafts` | — | — | `LIYASA_DRAFTS` | Include pages marked `draft: true` |
+| `--groups` | `<A,B>` | — | — | Mock reader groups, comma separated |
+| `--host` | `<HOST>` | `127.0.0.1` | `LIYASA_HOST` | — |
+| `--local-schema` | — | — | — | Validate against the schema in this working copy rather than the published one |
+| `--locale` | `<LOCALE>` | — | — | Render this locale |
+| `--no-open` | — | — | — | — |
+| `--open` | — | — | `LIYASA_OPEN` | Open a browser once the first render is ready |
+| `--port`, `-p` | `<PORT>` | `3000` | `LIYASA_PORT` | — |
+| `--region` | `<REGION>` | — | — | Mock the reader's region |
+| `--verify` | — | — | — | Re-run verification on every rebuild |
+| `--version` | `<VERSION>` | — | — | Render this content version |
 
 ### `liyasa doctor`
 
-Checks the toolchain, sandbox availability, the companion runtime, the
-reachability of configured sources, and cache health. The first thing to run
-when something does not work.
+Report what this machine can and cannot do
 
-### `liyasa companion install`
+### `liyasa export`
 
-Fetches the pinned browser build the optional features use.
+Export the built site in another shape
 
-### `liyasa index`
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--markdown` | — | — | — | Only the Markdown twins and `llms.txt` |
+| `--offline` | — | — | — | Rewrite every asset reference so the export works from a file:// URL |
+| `--output`, `-o` | `<DIR>` | — | `LIYASA_OUTPUT` | Where the export goes |
+| `--pdf` | — | — | — | One PDF of the whole site. Needs the companion runtime |
+| `--static` | — | — | — | The static site. The default |
+| `--zip` | — | — | — | Wrap the export in a zip archive |
 
-Configures editors and coding agents with the site's Model Context Protocol
-server and rules, `--global` or project-local.
+### `liyasa format`
 
-### `liyasa login`
+Rewrite Markdown, front matter, and config into canonical form
 
-`login`, `logout`, `status`, and `whoami`. A device-code flow; the token is
-stored in the operating system keychain.
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--check` | — | — | — | Report what is unformatted and change nothing |
+| `--directives` | — | — | — | Rewrite tag-form components into directive form |
+| `<paths>` | `<PATHS>` | — | — | Only these files. Defaults to the whole project |
 
-### `liyasa lsp`
+### `liyasa lock`
 
-The language server: completion for components and props, go-to-definition for
-snippets and links, diagnostics as you type.
+Inspect and refresh `liyasa.lock`
+
+#### `liyasa lock check`
+
+Report what would change without writing (the `--locked` predicate)
+
+#### `liyasa lock update`
+
+Refresh `liyasa.lock` from the project as it is now
+
+### `liyasa migrate-config`
+
+Upgrade `liyasa.json` between schema versions
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--write` | — | — | — | Write the upgraded configuration back. Without it the result is printed |
+
+### `liyasa new`
+
+Create a new documentation project
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--ci` | — | — | — | Write a continuous-integration workflow |
+| `--git` | — | — | — | Run `git init` in the new project |
+| `--name` | `<NAME>` | — | — | The site name. Prompted for when absent unless `--yes` |
+| `--no-ci` | — | — | — | Do not write a continuous-integration workflow |
+| `--no-git` | — | — | — | Do not run `git init` |
+| `--no-openapi` | — | — | — | Leave the sample OpenAPI specification out |
+| `--openapi` | — | — | — | Include the sample OpenAPI specification |
+| `--preset` | `<PRESET>` | — | — | The theme preset to start from |
+| `--template` | `<NAME\|URL>` | — | — | A built-in starter name or a git URL |
+| `--yes`, `-y` | — | — | — | Take the default for every question instead of asking |
+| `<directory>` | `<DIRECTORY>` | — | — | Where to put the project. Defaults to the working directory |
+
+### `liyasa schema`
+
+Print a JSON Schema
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `<which>` | `<WHICH>` | — | — | Which schema to print. Prints the list when absent |
+
+### `liyasa score`
+
+Print the documentation quality score
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--format` | `<FORMAT>` | `text` | — | — |
+| `--output` | `<DIR>` | — | `LIYASA_OUTPUT` | The built site to score. Defaults to the configured output directory |
+
+### `liyasa search`
+
+Query the local search index
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--index` | `<DIR>` | — | — | The search index directory. Defaults to the built site's |
+| `--limit` | `<N>` | `10` | — | — |
+| `--locale` | `<LOCALE>` | — | — | — |
+| `--tab` | `<TAB>` | — | — | — |
+| `--version` | `<VERSION>` | — | — | — |
+| `<query>` | `<QUERY>` | — | — | What to search for |
+
+### `liyasa serve`
+
+Run the Liyasa server
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--collector-only` | — | — | — | Serve only the analytics ingest endpoint |
+| `--db` | `<URL>` | — | `LIYASA_DB` | — |
+| `--init` | — | — | — | Run first-time setup and print the one-time admin token |
+| `--listen` | `<ADDR>` | `0.0.0.0:8080` | `LIYASA_LISTEN` | — |
+| `--storage` | `<URL>` | — | `LIYASA_STORAGE` | — |
+| `--tls` | `<DOMAIN>` | — | — | Terminate TLS for these domains with automatic certificates |
+
+### `liyasa telemetry`
+
+Turn anonymous usage reporting on or off
+
+#### `liyasa telemetry off`
+
+Stop reporting anonymous usage
+
+#### `liyasa telemetry on`
+
+Start reporting anonymous usage
+
+#### `liyasa telemetry status`
+
+Say whether reporting is on. The default is off
+
+### `liyasa test`
+
+Run accessibility, performance, and agent-readiness tests
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--a11y` | — | — | — | Accessibility checks |
+| `--agents` | — | — | — | The §25 agent-readiness checks against the built output |
+| `--format` | `<FORMAT>` | `text` | — | — |
+| `--output` | `<DIR>` | — | `LIYASA_OUTPUT` | The built site to test. Defaults to the configured output directory |
+| `--perf` | — | — | — | Lighthouse budgets. Needs the companion runtime |
+| `--search` | — | — | — | The search assertions in `tests/search.toml` |
+
+### `liyasa theme`
+
+Theme override helpers
+
+#### `liyasa theme diff`
+
+Show what an override changed relative to the current default
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `<partial>` | `<PARTIAL>` | — | — | Only this partial |
+
+#### `liyasa theme eject`
+
+Copy a default partial into `theme/partials/` for editing
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `<partial>` | `<PARTIAL>` | — | — | The partial to copy. Prints the list when absent |
+
+#### `liyasa theme tokens`
+
+Print the resolved design tokens
 
 ### `liyasa update`
 
-Self-update with signature verification. `liyasa version` prints the version,
-`liyasa telemetry on|off|status` controls opt-in anonymous telemetry, which is
-off by default, and `liyasa completions <shell>` writes shell completions.
+Replace this binary with a newer signed release
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--check` | — | — | — | Report what is available and replace nothing |
+| `--index` | `<SOURCE>` | — | `LIYASA_UPDATE_INDEX` | The release index to read. A directory or a `file://` URL today |
+| `--version` | `<VERSION>` | — | — | Install this version rather than the newest |
+
+### `liyasa validate`
+
+Check configuration, content, links, and specs
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--format` | `<FORMAT>` | `text` | — | — |
+| `--links` | — | — | — | Shorthand for `--only links` |
+| `--only` | `<SUBSET>` | — | — | Run only these checks. Repeat or comma-separate.  TODO(rfc-0901): CLI-04 spells the third subset `--config`, which is CLI-34's global flag for the configuration path. |
+| `--openapi` | — | — | — | Shorthand for `--only openapi` |
+| `--strict` | — | — | `LIYASA_STRICT` | Treat warnings as errors |
+
+### `liyasa verify`
+
+Run the verification checks
+
+| Flag | Value | Default | Environment | What it does |
+|---|---|---|---|---|
+| `--changed` | `<REF>` | — | — | Only pages that changed since this git reference |
+| `--format` | `<FORMAT>` | `text` | — | — |
+| `--no-cache` | — | — | — | Ignore cached check results |
+| `--only` | `<CLASS>` | — | — | Run only these check classes |
+| `--refresh` | — | — | — | Re-read every truth source before checking |
+
+### `liyasa version`
+
+Print the version
 
 ## Exit codes
 
 | Code | Meaning |
 |---|---|
-| `0` | Success |
-| `1` | One or more diagnostics of error severity |
-| `2` | Usage error: an unknown flag or a missing argument |
+| `0` | Everything asked for succeeded |
+| `1` | One or more diagnostics of error severity, or a warning under `--strict` |
+| `2` | The command line itself was wrong: an unknown flag, a missing argument |
+| `3` | A verification check failed, as distinct from the build failing |
+| `4` | A request Liyasa needed to make could not be made |
 
-A warning does not change the exit code unless `--strict` is set.
+Verification and network have codes of their own so that CI can tell "the documentation is wrong" from "the check could not run". A job that treats every non-zero exit the same will stop distinguishing them.

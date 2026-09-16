@@ -2691,11 +2691,13 @@ name = "liyasa-tests"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "clap",
  "comrak",
  "http",
  "image",
  "jsonschema",
  "liyasa-build",
+ "liyasa-cli",
  "liyasa-components",
  "liyasa-config",
  "liyasa-core",

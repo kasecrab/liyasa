@@ -39,6 +39,7 @@ pub fn files() -> Vec<File> {
     out.extend(config_pages());
     out.extend(component_pages());
     out.push(frontmatter_page());
+    out.push(cli_page());
     out
 }
 
@@ -967,5 +968,254 @@ fn blank(text: String) -> String {
     match text.is_empty() {
         true => "—".to_owned(),
         false => text,
+    }
+}
+
+// ---- the CLI reference (NFR-70) ----
+
+/// The hand-written prose for a command, from `docs/reference/_cli/<name>.md`.
+///
+/// `_`-prefixed directories are never routable, so the notes are source for
+/// this generator and never pages of their own. `index.md` is the preamble.
+fn cli_note(name: &str) -> Option<String> {
+    let path = repository()
+        .join("docs/reference/_cli")
+        .join(format!("{name}.md"));
+    std::fs::read_to_string(path)
+        .ok()
+        .map(|text| text.trim().to_owned())
+        .filter(|text| !text.is_empty())
+}
+
+fn flag_row(arg: &clap::Arg) -> Option<String> {
+    if arg.is_hide_set() {
+        return None;
+    }
+    let name = match (arg.get_long(), arg.get_short()) {
+        (Some(long), Some(short)) => format!("`--{long}`, `-{short}`"),
+        (Some(long), None) => format!("`--{long}`"),
+        (None, Some(short)) => format!("`-{short}`"),
+        (None, None) => format!("`<{}>`", arg.get_id()),
+    };
+    // A switch carries a value name in clap's model even though it takes no
+    // value, and printing `<DRY_RUN>` beside `--dry-run` would be a lie.
+    let takes_value = !matches!(
+        arg.get_action(),
+        clap::ArgAction::SetTrue
+            | clap::ArgAction::SetFalse
+            | clap::ArgAction::Count
+            | clap::ArgAction::Help
+            | clap::ArgAction::Version
+    );
+    let value = match takes_value {
+        false => String::new(),
+        true => arg
+            .get_value_names()
+            .map(|names| {
+                names
+                    .iter()
+                    .map(|value| format!("`<{}>`", escape_cell(value)))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+            .unwrap_or_default(),
+    };
+    let default = arg
+        .get_default_values()
+        .iter()
+        .map(|value| format!("`{}`", value.to_string_lossy()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let env = arg
+        .get_env()
+        .map(|env| format!("`{}`", env.to_string_lossy()))
+        .unwrap_or_default();
+    let help = arg
+        .get_long_help()
+        .or_else(|| arg.get_help())
+        .map(|help| escape_cell(&without_requirement_id(&help.to_string())))
+        .unwrap_or_default();
+    Some(format!(
+        "| {name} | {} | {} | {} | {} |",
+        blank(value),
+        blank(default),
+        blank(env),
+        blank(help)
+    ))
+}
+
+fn flags_table(command: &clap::Command, global: bool) -> String {
+    let mut rows: Vec<String> = command
+        .get_arguments()
+        .filter(|arg| arg.is_global_set() == global)
+        .filter(|arg| arg.get_id() != "help" && arg.get_id() != "version")
+        .filter_map(flag_row)
+        .collect();
+    if rows.is_empty() {
+        return String::new();
+    }
+    rows.sort();
+    let mut text = String::new();
+    let _ = writeln!(
+        text,
+        "| Flag | Value | Default | Environment | What it does |"
+    );
+    let _ = writeln!(text, "|---|---|---|---|---|");
+    for row in rows {
+        let _ = writeln!(text, "{row}");
+    }
+    text.push('\n');
+    text
+}
+
+fn about_of(command: &clap::Command) -> String {
+    command
+        .get_long_about()
+        .or_else(|| command.get_about())
+        .map(|about| without_requirement_id(&about.to_string()))
+        .unwrap_or_default()
+}
+
+/// Drops requirement references such as `(CLI-07)` wherever they appear.
+///
+/// The identifiers are this project's internal cross-references. They are
+/// useful in the source and meaningless to a reader, and carrying them into the
+/// reference would be the only place the documentation talks about itself
+/// rather than about the product.
+fn without_requirement_id(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(open) = rest.find('(') {
+        let Some(close) = rest[open..].find(')').map(|at| open + at) else {
+            break;
+        };
+        if is_requirement_list(&rest[open + 1..close]) {
+            // Take the space before the group with it, so the sentence closes
+            // up rather than keeping a gap or a space before a full stop.
+            out.push_str(rest[..open].trim_end());
+            rest = &rest[close + 1..];
+            continue;
+        }
+        out.push_str(&rest[..=close]);
+        rest = &rest[close + 1..];
+    }
+    out.push_str(rest);
+    out
+}
+
+fn is_requirement_list(inner: &str) -> bool {
+    !inner.is_empty()
+        && inner.split(", ").all(|id| {
+            id.split_once('-').is_some_and(|(area, number)| {
+                !area.is_empty()
+                    && area.chars().all(|c| c.is_ascii_uppercase())
+                    && !number.is_empty()
+                    && number.chars().all(|c| c.is_ascii_digit() || c == '.')
+            })
+        })
+}
+
+/// One section per command, recursing into nested subcommands.
+fn cli_section(text: &mut String, path: &str, command: &clap::Command, depth: usize) {
+    let name = command.get_name();
+    let full = match path.is_empty() {
+        true => format!("liyasa {name}"),
+        false => format!("{path} {name}"),
+    };
+    let hashes = "#".repeat(depth.min(5));
+    let _ = writeln!(text, "{hashes} `{full}`\n");
+
+    let about = about_of(command);
+    if !about.is_empty() {
+        let _ = writeln!(text, "{about}\n");
+    }
+    if let Some(note) = cli_note(&full.replace(' ', "-")) {
+        text.push_str(&note);
+        text.push_str("\n\n");
+    }
+    let flags = flags_table(command, false);
+    if !flags.is_empty() {
+        text.push_str(&flags);
+    }
+
+    let mut subcommands: Vec<&clap::Command> = command
+        .get_subcommands()
+        .filter(|sub| !sub.is_hide_set())
+        .collect();
+    subcommands.sort_by_key(|sub| sub.get_name());
+    for sub in subcommands {
+        cli_section(text, &full, sub, depth + 1);
+    }
+}
+
+fn cli_page() -> File {
+    use clap::CommandFactory;
+    let root = liyasa_cli::cli::Cli::command();
+
+    let mut text = String::new();
+    text.push_str("---\ntitle: CLI reference\n");
+    text.push_str(
+        "description: \"Every Liyasa command and flag, generated from the same definitions that produce `--help`.\"\n",
+    );
+    text.push_str("---\n\n# CLI reference\n\n");
+    if let Some(note) = cli_note("index") {
+        text.push_str(&note);
+        text.push_str("\n\n");
+    }
+
+    let _ = writeln!(text, "## Global flags\n");
+    let _ = writeln!(
+        text,
+        "Every command accepts these. Each one can also come from the \
+         environment variable in the last column, which is what makes a flag \
+         settable once for a whole CI job.\n"
+    );
+    text.push_str(&flags_table(&root, true));
+
+    let _ = writeln!(text, "## Commands\n");
+    let mut commands: Vec<&clap::Command> = root
+        .get_subcommands()
+        .filter(|sub| !sub.is_hide_set())
+        .collect();
+    commands.sort_by_key(|sub| sub.get_name());
+    for command in commands {
+        cli_section(&mut text, "", command, 3);
+    }
+
+    let _ = writeln!(text, "## Exit codes\n");
+    let _ = writeln!(text, "| Code | Meaning |");
+    let _ = writeln!(text, "|---|---|");
+    for (exit, meaning) in [
+        (liyasa_cli::Exit::Success, "Everything asked for succeeded"),
+        (
+            liyasa_cli::Exit::Errors,
+            "One or more diagnostics of error severity, or a warning under `--strict`",
+        ),
+        (
+            liyasa_cli::Exit::Usage,
+            "The command line itself was wrong: an unknown flag, a missing argument",
+        ),
+        (
+            liyasa_cli::Exit::Verification,
+            "A verification check failed, as distinct from the build failing",
+        ),
+        (
+            liyasa_cli::Exit::Network,
+            "A request Liyasa needed to make could not be made",
+        ),
+    ] {
+        let _ = writeln!(text, "| `{}` | {meaning} |", exit.code());
+    }
+    text.push('\n');
+    let _ = writeln!(
+        text,
+        "Verification and network have codes of their own so that CI can tell \
+         \"the documentation is wrong\" from \"the check could not run\". A job \
+         that treats every non-zero exit the same will stop distinguishing them."
+    );
+
+    File {
+        path: "reference/cli.md".to_owned(),
+        text,
     }
 }

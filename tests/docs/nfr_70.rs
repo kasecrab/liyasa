@@ -201,3 +201,43 @@ fn build_one_page(name: &str, body: &str) -> Vec<String> {
     let _ = fs::remove_dir_all(&root);
     out
 }
+
+#[test]
+fn every_cli_command_is_documented() {
+    use clap::CommandFactory;
+    let page = fs::read_to_string(generate::repository().join("docs/reference/cli.md"))
+        .expect("the CLI reference");
+
+    let mut missing = Vec::new();
+    walk_commands(
+        &liyasa_cli::cli::Cli::command(),
+        "liyasa",
+        &mut |full, command| {
+            if !page.contains(&format!("`{full}`")) {
+                missing.push(full.to_owned());
+            }
+            for arg in command.get_arguments() {
+                if arg.is_hide_set() || arg.get_id() == "help" || arg.get_id() == "version" {
+                    continue;
+                }
+                let Some(long) = arg.get_long() else { continue };
+                if !page.contains(&format!("`--{long}`")) {
+                    missing.push(format!("{full} --{long}"));
+                }
+            }
+        },
+    );
+    assert!(
+        missing.is_empty(),
+        "undocumented commands and flags: {missing:#?}; {REGENERATE}"
+    );
+}
+
+/// Every command in the tree, with the full invocation that names it.
+fn walk_commands(command: &clap::Command, path: &str, out: &mut impl FnMut(&str, &clap::Command)) {
+    for sub in command.get_subcommands().filter(|sub| !sub.is_hide_set()) {
+        let full = format!("{path} {}", sub.get_name());
+        out(&full, sub);
+        walk_commands(sub, &full, out);
+    }
+}
