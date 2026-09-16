@@ -64,6 +64,13 @@ fn site(name: &str, origin: Option<&str>) -> Project {
         .write(
             "guides/install.md",
             "---\ntitle: Install\n---\n# Install\n\nRun the installer.\n",
+        )
+        .write(
+            "changelog.md",
+            "---\ntitle: Changelog\n---\n# Changelog\n\n\
+             :::update{date=\"2026-09-01\" version=\"2.3\"}\n\
+             Billing endpoints moved.\n\
+             :::\n",
         );
     project
 }
@@ -132,5 +139,17 @@ fn a_trailing_slash_on_the_origin_does_not_double_up() {
     assert!(
         llms.contains("https://docs.acme.com/guides/install"),
         "{llms}"
+    );
+}
+
+#[test]
+fn the_changelog_feed_is_absolute_under_the_origin_too() {
+    let project = site("feed", Some(ORIGIN));
+    build(&project);
+    let rss = project.read_dist("changelog/rss.xml");
+    assert!(rss.contains(&format!("{ORIGIN}/changelog")), "{rss}");
+    assert!(
+        !rss.contains("<link>/"),
+        "no site-relative link in a feed: {rss}"
     );
 }
