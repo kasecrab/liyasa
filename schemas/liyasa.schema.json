@@ -943,6 +943,10 @@
               },
               "path": {
                 "type": "string"
+              },
+              "tag": {
+                "type": "string",
+                "description": "Badge for this version in the switcher: `latest`, `deprecated`, `beta` (CM-93)."
               }
             },
             "additionalProperties": false
@@ -1472,8 +1476,10 @@
           "type": "string",
           "enum": [
             "filename",
-            "query"
-          ]
+            "query",
+            "none"
+          ],
+          "default": "filename"
         },
         "downloads": {
           "type": "object",

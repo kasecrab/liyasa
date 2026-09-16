@@ -167,12 +167,8 @@ const KEYS: &[&str] = &[
     "theme.preset",
     "verify",
     "versions[].name",
+    "versions[].tag",
 ];
-
-/// What RFC 0105 decided the schema is still missing. The file is WP-00's
-/// owned path, so this records the gap rather than closing it; when the row
-/// lands, the test below fails and the RFC closes.
-const OPEN_GAPS: &[&str] = &["versions[].tag"];
 
 struct Schema {
     root: Value,
@@ -308,33 +304,38 @@ fn the_generated_type_round_trips_the_example() {
     assert_eq!(config, again);
 }
 
+/// RFC 0105 item 3: CM-93 renders version badges from a tag, and §34.2's own
+/// example config writes one. The version object is `additionalProperties:
+/// false`, so without this row the example does not validate.
 #[test]
-fn the_row_the_version_badges_wait_on_is_still_missing() {
+fn the_row_the_version_badges_wait_on_has_landed() {
     let schema = Schema::parse();
-    let present: Vec<&str> = OPEN_GAPS
-        .iter()
-        .copied()
-        .filter(|key| schema.has(key))
-        .collect();
-    assert_eq!(
-        present,
-        Vec::<&str>::new(),
-        "RFC 0105 and RFC 0601 can close: the schema now carries this, so move \
-         it into KEYS and delete OPEN_GAPS"
+    assert!(
+        schema.has("versions[].tag"),
+        "CM-93 has no badge to render without it"
     );
 }
 
+/// RFC 0105 item 2. The default is pinned alongside the new member because
+/// RFC 0601 reads an absent `build.hashing` as `"none"`: CFG-83 says a config
+/// that stays silent gets `filename`, and only the schema can settle which.
 #[test]
-fn turning_asset_hashing_off_is_still_unsayable() {
+fn turning_asset_hashing_off_is_sayable() {
     let hashing = Schema::parse()
         .root
-        .pointer("/properties/build/properties/hashing/enum")
-        .and_then(Value::as_array)
+        .pointer("/properties/build/properties/hashing")
         .cloned()
+        .expect("`build.hashing` is in the schema");
+    let values = hashing["enum"]
+        .as_array()
         .expect("`build.hashing` is an enum");
     assert!(
-        !hashing.iter().any(|value| value == "none"),
-        "RFC 0105 can close: `build.hashing` now allows \"none\""
+        values.iter().any(|value| value == "none"),
+        "an author has to be able to turn asset hashing off"
+    );
+    assert_eq!(
+        hashing["default"], "filename",
+        "CFG-83: saying nothing still means hashed file names"
     );
 }
 
