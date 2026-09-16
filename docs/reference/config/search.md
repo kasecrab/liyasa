@@ -14,7 +14,7 @@ Specified by CFG-50..CFG-55.
 |---|---|---|---|
 | `search.boost` | object[] | — | — |
 | `search.exclude` | string[] | — | — |
-| `search.filters` | `tab` \| `version` \| `locale` \| `type`[] | — | — |
+| `search.filters` | (`tab` \| `version` \| `locale` \| `type`)[] | — | — |
 | `search.maxResults` | integer | `20` | — |
 | `search.mode` | `keyword` \| `hybrid` | — | — |
 | `search.placeholder` | string | — | — |

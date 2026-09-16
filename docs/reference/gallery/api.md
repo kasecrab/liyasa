@@ -26,16 +26,16 @@ How many deployments to return in one page of results.
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
 | `name` | string | yes | — | Parameter name, as it appears in the request. |
-| `in` | `query` \| `path` \| `body` \| `header` \| `cookie` |  | `"query"` | Where the parameter goes. `body` is for manual API pages; a spec-backed page emits body fields as response-field rows. |
-| `type` | string |  | — | Type as the API documents it, e.g. `integer` or `string[]`. |
-| `required` | boolean |  | — | Marks the parameter as required. |
-| `deprecated` | boolean |  | — | Marks the parameter as deprecated. |
-| `default` | string |  | — | Value used when the parameter is omitted. |
-| `placeholder` | string |  | — | Example value shown in the playground's input. |
-| `enum` | string[] |  | — | The values the parameter accepts. |
-| `min` | number |  | — | Smallest accepted value or length. |
-| `max` | number |  | — | Largest accepted value or length. |
-| `example` | string |  | — | A value that works, shown beside the row. |
+| `in` | `query` \| `path` \| `body` \| `header` \| `cookie` | — | `"query"` | Where the parameter goes. `body` is for manual API pages; a spec-backed page emits body fields as response-field rows. |
+| `type` | string | — | — | Type as the API documents it, e.g. `integer` or `string[]`. |
+| `required` | boolean | — | — | Marks the parameter as required. |
+| `deprecated` | boolean | — | — | Marks the parameter as deprecated. |
+| `default` | string | — | — | Value used when the parameter is omitted. |
+| `placeholder` | string | — | — | Example value shown in the playground's input. |
+| `enum` | string[] | — | — | The values the parameter accepts. |
+| `min` | number | — | — | Smallest accepted value or length. |
+| `max` | number | — | — | Largest accepted value or length. |
+| `example` | string | — | — | A value that works, shown beside the row. |
 
 ## `response-field`
 
@@ -54,11 +54,11 @@ When the deployment was created, as an ISO 8601 timestamp with an offset.
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
 | `name` | string | yes | — | Property name, as it appears in the response. |
-| `type` | string |  | — | Type as the API documents it. |
-| `required` | boolean |  | — | Marks the property as always present. |
-| `deprecated` | boolean |  | — | Marks the property as deprecated. |
-| `default` | string |  | — | Value the property takes when the API omits it. |
-| `example` | string |  | — | A value that occurs, shown beside the row. |
+| `type` | string | — | — | Type as the API documents it. |
+| `required` | boolean | — | — | Marks the property as always present. |
+| `deprecated` | boolean | — | — | Marks the property as deprecated. |
+| `default` | string | — | — | Value the property takes when the API omits it. |
+| `example` | string | — | — | A value that occurs, shown beside the row. |
 
 ## `request-example`
 
@@ -82,9 +82,9 @@ curl https://api.acme.com/v1/deployments \
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `lang` | string |  | — | Language of the example, e.g. `curl` or `python`. |
-| `title` | string |  | — | Title shown above the example. |
-| `status` | string |  | — | HTTP status this example illustrates. |
+| `lang` | string | — | — | Language of the example, e.g. `curl` or `python`. |
+| `title` | string | — | — | Title shown above the example. |
+| `status` | string | — | — | HTTP status this example illustrates. |
 
 ## `response-example`
 
@@ -106,9 +106,9 @@ A container component. Also written as `ResponseExample`.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `lang` | string |  | — | Language of the example, e.g. `json`. |
-| `title` | string |  | — | Title shown above the example. |
-| `status` | string |  | — | HTTP status this example illustrates. |
+| `lang` | string | — | — | Language of the example, e.g. `json`. |
+| `title` | string | — | — | Title shown above the example. |
+| `status` | string | — | — | HTTP status this example illustrates. |
 
 ## `endpoint`
 
@@ -126,10 +126,10 @@ Returns one deployment by its identifier.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `method` | `get` \| `post` \| `put` \| `patch` \| `delete` \| `head` \| `options` \| `trace` |  | `"get"` | HTTP method. |
-| `path` | string |  | — | Request path, with `{parameters}` in braces. |
-| `spec` | string |  | — | Spec this endpoint is documented in; with `operation`, the header is pulled from it. |
-| `operation` | string |  | — | `operationId` in that spec. |
+| `method` | `get` \| `post` \| `put` \| `patch` \| `delete` \| `head` \| `options` \| `trace` | — | `"get"` | HTTP method. |
+| `path` | string | — | — | Request path, with `{parameters}` in braces. |
+| `spec` | string | — | — | Spec this endpoint is documented in; with `operation`, the header is pulled from it. |
+| `operation` | string | — | — | `operationId` in that spec. |
 
 ## `openapi-schema`
 

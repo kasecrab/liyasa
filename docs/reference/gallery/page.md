@@ -25,9 +25,9 @@ A banner sits above the page content and can be dismissed for good.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `color` | colour |  | — | Accent colour: a theme token name or a hex value. |
-| `dismissible` | boolean |  | — | Lets the reader close the banner; `id` is what remembers that. |
-| `id` | string |  | — | Identifies the banner so a dismissal is remembered across pages. |
+| `color` | colour | — | — | Accent colour: a theme token name or a hex value. |
+| `dismissible` | boolean | — | — | Lets the reader close the banner; `id` is what remembers that. |
+| `id` | string | — | — | Identifies the banner so a dismissal is remembered across pages. |
 
 ## `update`
 
@@ -46,9 +46,9 @@ Changelog entries carry a date, a version, and a stable anchor.
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
 | `date` | string | yes | — | Release date, `YYYY-MM-DD`. |
-| `version` | string |  | — | Version this entry describes. |
-| `labels` | string[] |  | — | Tags the entry is filtered by, e.g. `breaking` or `api`. |
-| `title` | string |  | — | Headline for the entry. |
+| `version` | string | — | — | Version this entry describes. |
+| `labels` | string[] | — | — | Tags the entry is filtered by, e.g. `breaking` or `api`. |
+| `title` | string | — | — | Headline for the entry. |
 
 ## `prompt`
 
@@ -66,8 +66,8 @@ Explain how Liyasa verifies code samples.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Headline above the prompt. |
-| `open` | `cursor` \| `claude` \| `chatgpt`[] |  | — | Assistants to offer an `open in` button for. |
+| `title` | string | — | — | Headline above the prompt. |
+| `open` | `cursor` \| `claude` \| `chatgpt`[] | — | — | Assistants to offer an `open in` button for. |
 
 ## `github`
 
@@ -115,12 +115,12 @@ This paragraph is in the HTML and not in the Markdown output.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `humans` | boolean |  | — | Include in the HTML output. |
-| `agents` | boolean |  | — | Include in the Markdown output. |
-| `groups` | string[] |  | — | Authenticated groups that may see it. |
-| `regions` | string[] |  | — | Regions it is shown in. |
-| `locales` | string[] |  | — | Locales it is shown in. |
-| `versions` | string[] |  | — | Versions it is shown in. |
+| `humans` | boolean | — | — | Include in the HTML output. |
+| `agents` | boolean | — | — | Include in the Markdown output. |
+| `groups` | string[] | — | — | Authenticated groups that may see it. |
+| `regions` | string[] | — | — | Regions it is shown in. |
+| `locales` | string[] | — | — | Locales it is shown in. |
+| `versions` | string[] | — | — | Versions it is shown in. |
 
 ## `region`
 
@@ -138,8 +138,8 @@ Payments settle through our United States entity.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `only` | string[] |  | — | Regions this block is shown in. |
-| `except` | string[] |  | — | Regions this block is hidden in. |
+| `only` | string[] | — | — | Regions this block is shown in. |
+| `except` | string[] | — | — | Regions this block is hidden in. |
 
 ## `feedback`
 
@@ -153,7 +153,7 @@ A leaf component. Also written as `Feedback`.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `question` | string |  | `"Was this helpful?"` | What the reader is asked. |
+| `question` | string | — | `"Was this helpful?"` | What the reader is asked. |
 
 ## `assistant`
 
@@ -168,7 +168,7 @@ A leaf component. Also written as `Assistant`.
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
 | `prompt` | string | yes | — | The question the assistant opens with. |
-| `label` | string |  | — | Text on the button; defaults to the prompt. |
+| `label` | string | — | — | Text on the button; defaults to the prompt. |
 
 ## `tree`
 
@@ -192,9 +192,9 @@ A container component. Also written as `Tree`, `file-tree`, `FileTree`.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `root` | string |  | — | Label for the top of the tree, e.g. the repository name. |
-| `active` | string |  | — | Path highlighted as the file being described. |
-| `expanded` | boolean |  | — | Opens every folder. |
+| `root` | string | — | — | Label for the top of the tree, e.g. the repository name. |
+| `active` | string | — | — | Path highlighted as the file being described. |
+| `expanded` | boolean | — | — | Opens every folder. |
 
 ## `toc`
 
@@ -208,8 +208,8 @@ A leaf component. Also written as `Toc`, `TableOfContents`.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `depth` | number |  | `3` | Deepest heading level listed, 1 to 6. |
-| `from` | route |  | — | Lists the pages under this route instead of the headings on this page. |
+| `depth` | number | — | `3` | Deepest heading level listed, 1 to 6. |
+| `from` | route | — | — | Lists the pages under this route instead of the headings on this page. |
 
 Props and types above are generated from each component's own schema, which is what the build validates against: a missing required prop is [`E0314`](/errors/E0314), a wrong type is [`E0315`](/errors/E0315), and an unknown prop is [`W0316`](/errors/W0316).
 

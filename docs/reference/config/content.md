@@ -19,7 +19,7 @@ Specified by CFG-80.
 | `content.frontmatter.strict` | boolean | `false` | Unknown front matter keys become warnings. |
 | `content.html` | `allow` \| `sanitize` \| `off` | — | — |
 | `content.images.breakpoints` | integer[] | — | — |
-| `content.images.formats` | `avif` \| `webp` \| `png` \| `jpeg`[] | — | — |
+| `content.images.formats` | (`avif` \| `webp` \| `png` \| `jpeg`)[] | — | — |
 | `content.lastModified` | boolean | — | CFG-74: show the git or editor timestamp on every page. |
 | `content.math` | boolean \| `katex` \| `pulldown-latex` | — | — |
 | `content.related.auto` | boolean | — | — |

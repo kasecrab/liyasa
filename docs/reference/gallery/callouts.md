@@ -25,10 +25,10 @@ A note breaks the flow on purpose. Use it when the reader would otherwise carry 
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Heading shown above the body; defaults to the callout's name. |
-| `icon` | icon |  | — | Overrides the default icon. An empty value removes it. |
-| `collapsible` | boolean |  | — | Renders the callout as a disclosure the reader can fold away. |
-| `open` | boolean |  | — | Starts a collapsible callout open. |
+| `title` | string | — | — | Heading shown above the body; defaults to the callout's name. |
+| `icon` | icon | — | — | Overrides the default icon. An empty value removes it. |
+| `collapsible` | boolean | — | — | Renders the callout as a disclosure the reader can fold away. |
+| `open` | boolean | — | — | Starts a collapsible callout open. |
 
 ## `tip`
 
@@ -46,10 +46,10 @@ Tips are for the shortcut a reader would not find on their own.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Heading shown above the body; defaults to the callout's name. |
-| `icon` | icon |  | — | Overrides the default icon. An empty value removes it. |
-| `collapsible` | boolean |  | — | Renders the callout as a disclosure the reader can fold away. |
-| `open` | boolean |  | — | Starts a collapsible callout open. |
+| `title` | string | — | — | Heading shown above the body; defaults to the callout's name. |
+| `icon` | icon | — | — | Overrides the default icon. An empty value removes it. |
+| `collapsible` | boolean | — | — | Renders the callout as a disclosure the reader can fold away. |
+| `open` | boolean | — | — | Starts a collapsible callout open. |
 
 ## `warning`
 
@@ -67,10 +67,10 @@ A container component.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Heading shown above the body; defaults to the callout's name. |
-| `icon` | icon |  | — | Overrides the default icon. An empty value removes it. |
-| `collapsible` | boolean |  | — | Renders the callout as a disclosure the reader can fold away. |
-| `open` | boolean |  | — | Starts a collapsible callout open. |
+| `title` | string | — | — | Heading shown above the body; defaults to the callout's name. |
+| `icon` | icon | — | — | Overrides the default icon. An empty value removes it. |
+| `collapsible` | boolean | — | — | Renders the callout as a disclosure the reader can fold away. |
+| `open` | boolean | — | — | Starts a collapsible callout open. |
 
 ## `info`
 
@@ -88,10 +88,10 @@ Information that is useful but not urgent.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Heading shown above the body; defaults to the callout's name. |
-| `icon` | icon |  | — | Overrides the default icon. An empty value removes it. |
-| `collapsible` | boolean |  | — | Renders the callout as a disclosure the reader can fold away. |
-| `open` | boolean |  | — | Starts a collapsible callout open. |
+| `title` | string | — | — | Heading shown above the body; defaults to the callout's name. |
+| `icon` | icon | — | — | Overrides the default icon. An empty value removes it. |
+| `collapsible` | boolean | — | — | Renders the callout as a disclosure the reader can fold away. |
+| `open` | boolean | — | — | Starts a collapsible callout open. |
 
 ## `check`
 
@@ -109,10 +109,10 @@ This sample is executed on every build.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Heading shown above the body; defaults to the callout's name. |
-| `icon` | icon |  | — | Overrides the default icon. An empty value removes it. |
-| `collapsible` | boolean |  | — | Renders the callout as a disclosure the reader can fold away. |
-| `open` | boolean |  | — | Starts a collapsible callout open. |
+| `title` | string | — | — | Heading shown above the body; defaults to the callout's name. |
+| `icon` | icon | — | — | Overrides the default icon. An empty value removes it. |
+| `collapsible` | boolean | — | — | Renders the callout as a disclosure the reader can fold away. |
+| `open` | boolean | — | — | Starts a collapsible callout open. |
 
 ## `danger`
 
@@ -130,10 +130,10 @@ Deleting a deployment removes its artifacts; rollback targets are not retained f
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Heading shown above the body; defaults to the callout's name. |
-| `icon` | icon |  | — | Overrides the default icon. An empty value removes it. |
-| `collapsible` | boolean |  | — | Renders the callout as a disclosure the reader can fold away. |
-| `open` | boolean |  | — | Starts a collapsible callout open. |
+| `title` | string | — | — | Heading shown above the body; defaults to the callout's name. |
+| `icon` | icon | — | — | Overrides the default icon. An empty value removes it. |
+| `collapsible` | boolean | — | — | Renders the callout as a disclosure the reader can fold away. |
+| `open` | boolean | — | — | Starts a collapsible callout open. |
 
 ## `callout`
 
@@ -151,12 +151,12 @@ When none of the six named kinds fit, `callout` takes an icon and a colour.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Heading shown above the body. |
-| `icon` | icon |  | — | Icon shown beside the title. |
-| `color` | colour |  | — | Accent colour: a theme token name or a hex value. |
-| `variant` | `soft` \| `outline` \| `solid` |  | `"soft"` | How strongly the colour is applied. |
-| `collapsible` | boolean |  | — | Renders the callout as a disclosure the reader can fold away. |
-| `open` | boolean |  | — | Starts a collapsible callout open. |
+| `title` | string | — | — | Heading shown above the body. |
+| `icon` | icon | — | — | Icon shown beside the title. |
+| `color` | colour | — | — | Accent colour: a theme token name or a hex value. |
+| `variant` | `soft` \| `outline` \| `solid` | — | `"soft"` | How strongly the colour is applied. |
+| `collapsible` | boolean | — | — | Renders the callout as a disclosure the reader can fold away. |
+| `open` | boolean | — | — | Starts a collapsible callout open. |
 
 Props and types above are generated from each component's own schema, which is what the build validates against: a missing required prop is [`E0314`](/errors/E0314), a wrong type is [`E0315`](/errors/E0315), and an unknown prop is [`W0316`](/errors/W0316).
 

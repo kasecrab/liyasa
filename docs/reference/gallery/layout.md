@@ -41,8 +41,8 @@ A site in a minute.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `cols` | number |  | `2` | Columns in the grid, 1 to 4. |
-| `gap` | string |  | — | Space between cards: a theme spacing token or a CSS length. |
+| `cols` | number | — | `2` | Columns in the grid, 1 to 4. |
+| `gap` | string | — | — | Space between cards: a theme spacing token or a CSS length. |
 
 ## `card`
 
@@ -60,14 +60,14 @@ A card with a call to action links its whole surface.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Card heading. |
-| `icon` | icon |  | — | Icon shown above or beside the title. |
-| `href` | route |  | — | Makes the whole card a link to this route or URL. |
-| `img` | asset |  | — | Image shown on top, or on the left when `horizontal`. |
-| `horizontal` | boolean |  | — | Lays the image beside the body instead of above it. |
-| `cta` | string |  | — | Call-to-action text shown at the foot of the card. |
-| `color` | colour |  | — | Accent colour: a theme token name or a hex value. |
-| `arrow` | boolean |  | — | Shows an arrow beside the call to action. |
+| `title` | string | — | — | Card heading. |
+| `icon` | icon | — | — | Icon shown above or beside the title. |
+| `href` | route | — | — | Makes the whole card a link to this route or URL. |
+| `img` | asset | — | — | Image shown on top, or on the left when `horizontal`. |
+| `horizontal` | boolean | — | — | Lays the image beside the body instead of above it. |
+| `cta` | string | — | — | Call-to-action text shown at the foot of the card. |
+| `color` | colour | — | — | Accent colour: a theme token name or a hex value. |
+| `arrow` | boolean | — | — | Shows an arrow beside the call to action. |
 
 ## `columns`
 
@@ -101,9 +101,9 @@ They carry no meaning of their own, so do not let a distinction live only in whi
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `cols` | number |  | `2` | Columns in the grid, 1 to 4. |
-| `gap` | string |  | — | Space between columns: a theme spacing token or a CSS length. |
-| `align` | `start` \| `center` \| `end` \| `stretch` |  | `"stretch"` | How columns line up against each other vertically. |
+| `cols` | number | — | `2` | Columns in the grid, 1 to 4. |
+| `gap` | string | — | — | Space between columns: a theme spacing token or a CSS length. |
+| `align` | `start` \| `center` \| `end` \| `stretch` | — | `"stretch"` | How columns line up against each other vertically. |
 
 ## `column`
 
@@ -137,7 +137,7 @@ The rest of the row.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `span` | number |  | — | Columns this one spans, 1 to 4. |
+| `span` | number | — | — | Columns this one spans, 1 to 4. |
 
 ## `tiles`
 
@@ -179,7 +179,7 @@ A container component. Also written as `Tiles`.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `cols` | number |  | `3` | Columns in the grid, 1 to 4. |
+| `cols` | number | — | `3` | Columns in the grid, 1 to 4. |
 
 ## `tile`
 
@@ -213,9 +213,9 @@ Use them for a grid of short links.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Tile label. |
-| `icon` | icon |  | — | Icon shown above the label. |
-| `href` | route |  | — | Makes the tile a link to this route or URL. |
+| `title` | string | — | — | Tile label. |
+| `icon` | icon | — | — | Icon shown above the label. |
+| `href` | route | — | — | Makes the tile a link to this route or URL. |
 
 ## `frame`
 
@@ -233,10 +233,10 @@ Anything inside a frame is presented as a figure.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `caption` | string |  | — | Caption shown under the frame. |
-| `hint` | string |  | — | Smaller note under the caption. |
-| `video` | boolean |  | — | Frames a video rather than an image: no zoom, and the aspect ratio is kept. |
-| `align` | `left` \| `center` \| `right` \| `full` |  | `"center"` | How the frame sits in the text column. |
+| `caption` | string | — | — | Caption shown under the frame. |
+| `hint` | string | — | — | Smaller note under the caption. |
+| `video` | boolean | — | — | Frames a video rather than an image: no zoom, and the aspect ratio is kept. |
+| `align` | `left` \| `center` \| `right` \| `full` | — | `"center"` | How the frame sits in the text column. |
 
 ## `panel`
 
@@ -270,10 +270,10 @@ A hero renders its title as the page's heading.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Headline, rendered as the page's H1. |
-| `subtitle` | string |  | — | Sentence under the headline. |
-| `image` | asset |  | — | Image or illustration beside the text. |
-| `actions` | string[] |  | — | Buttons, each `Label -> /route`; the first is the primary action. |
+| `title` | string | — | — | Headline, rendered as the page's H1. |
+| `subtitle` | string | — | — | Sentence under the headline. |
+| `image` | asset | — | — | Image or illustration beside the text. |
+| `actions` | string[] | — | — | Buttons, each `Label -> /route`; the first is the primary action. |
 
 ## `divider`
 
@@ -287,7 +287,7 @@ A leaf component. Also written as `Divider`.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `label` | string |  | — | Text shown in the middle of the rule. |
+| `label` | string | — | — | Text shown in the middle of the rule. |
 
 Props and types above are generated from each component's own schema, which is what the build validates against: a missing required prop is [`E0314`](/errors/E0314), a wrong type is [`E0315`](/errors/E0315), and an unknown prop is [`W0316`](/errors/W0316).
 

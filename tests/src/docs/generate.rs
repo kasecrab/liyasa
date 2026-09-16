@@ -255,7 +255,12 @@ fn type_of(value: &Value) -> String {
                 .map(type_of)
                 .filter(|inner| inner != "any")
                 .unwrap_or_else(|| "any".to_owned());
-            return format!("{inner}[]");
+            // `(a \| b)[]` rather than `a \| b[]`, which reads as a list of
+            // the last alternative only.
+            return match inner.contains('|') {
+                true => format!("({inner})[]"),
+                false => format!("{inner}[]"),
+            };
         }
         if let Some(values) = value.get("enum").and_then(Value::as_array) {
             return values
@@ -604,7 +609,7 @@ fn prop_row(prop: &PropDef) -> String {
         prop_type(&prop.ty),
         match prop.required {
             true => "yes",
-            false => "",
+            false => "—",
         },
         blank(default),
         blank(escape_cell(prop.doc))
@@ -841,7 +846,7 @@ fn component_pages() -> Vec<File> {
                         slot.name,
                         match slot.required {
                             true => "yes",
-                            false => "",
+                            false => "—",
                         },
                         blank(escape_cell(slot.doc))
                     );

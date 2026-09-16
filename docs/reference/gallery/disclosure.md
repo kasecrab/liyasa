@@ -41,7 +41,7 @@ When the items are alternatives rather than a sequence.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `one` | boolean |  | — | Opening one accordion closes the others. |
+| `one` | boolean | — | — | Opening one accordion closes the others. |
 
 ## `accordion`
 
@@ -59,10 +59,10 @@ An accordion hides detail that most readers do not need, without hiding that it 
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Summary line the reader clicks. |
-| `icon` | icon |  | — | Icon shown before the title. |
-| `open` | boolean |  | — | Starts open. |
-| `id` | string |  | — | Anchor for the URL hash; defaults to a slug of the title. |
+| `title` | string | — | — | Summary line the reader clicks. |
+| `icon` | icon | — | — | Icon shown before the title. |
+| `open` | boolean | — | — | Starts open. |
+| `id` | string | — | — | Anchor for the URL hash; defaults to a slug of the title. |
 
 ## `expandables`
 
@@ -104,8 +104,8 @@ Expandables are for nested detail inside reference content.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Summary line the reader clicks. |
-| `open` | boolean |  | — | Starts open. |
+| `title` | string | — | — | Summary line the reader clicks. |
+| `open` | boolean | — | — | Starts open. |
 
 ## `tabs`
 
@@ -139,8 +139,8 @@ A container component. Also written as `Tabs`, `tab-group`, `TabGroup`.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Names the group, e.g. `Install`; used to prefix tab titles in the agent output. |
-| `sync` | string |  | — | Synchronizes every tab group with the same key site-wide and remembers the reader's choice. |
+| `title` | string | — | — | Names the group, e.g. `Install`; used to prefix tab titles in the agent output. |
+| `sync` | string | — | — | Synchronizes every tab group with the same key site-wide and remembers the reader's choice. |
 
 ## `tab`
 
@@ -174,9 +174,9 @@ Universal binaries for both architectures.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | Tab label. Must say what the tab holds: agents read it flattened. |
-| `icon` | icon |  | — | Icon shown before the label. |
-| `sync` | string |  | — | Value this tab represents for its group's `sync` key, e.g. `npm`. |
+| `title` | string | — | — | Tab label. Must say what the tab holds: agents read it flattened. |
+| `icon` | icon | — | — | Icon shown before the label. |
+| `sync` | string | — | — | Value this tab represents for its group's `sync` key, e.g. `npm`. |
 
 ## `steps`
 
@@ -210,8 +210,8 @@ A container component. Also written as `Steps`.
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `style` | `numbered` \| `icon` |  | `"numbered"` | Whether each step shows its number or its icon. |
-| `start` | number |  | — | Number the first step carries. |
+| `style` | `numbered` \| `icon` | — | `"numbered"` | Whether each step shows its number or its icon. |
+| `start` | number | — | — | Number the first step carries. |
 
 ## `step`
 
@@ -237,9 +237,9 @@ Steps may start at a number other than one when a procedure continues across pag
 
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
-| `title` | string |  | — | What this step does; becomes the step's anchor. |
-| `icon` | icon |  | — | Icon shown in the marker when the group's style is `icon`. |
-| `number` | number |  | — | Overrides the number this step would otherwise get. |
+| `title` | string | — | — | What this step does; becomes the step's anchor. |
+| `icon` | icon | — | — | Icon shown in the marker when the group's style is `icon`. |
+| `number` | number | — | — | Overrides the number this step would otherwise get. |
 
 Props and types above are generated from each component's own schema, which is what the build validates against: a missing required prop is [`E0314`](/errors/E0314), a wrong type is [`E0315`](/errors/E0315), and an unknown prop is [`W0316`](/errors/W0316).
 

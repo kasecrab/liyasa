@@ -23,13 +23,13 @@ A leaf component. Also written as `Image`, `img`.
 |---|---|---|---|---|
 | `src` | asset | yes | — | The image. A path under `assets/`, or an absolute URL. |
 | `alt` | string | yes | — | What the image says, for a reader who cannot see it. Empty only when the image is decorative. |
-| `dark` | asset |  | — | Variant shown in dark mode. |
-| `width` | number |  | — | Intrinsic width in pixels; prevents layout shift. |
-| `height` | number |  | — | Intrinsic height in pixels; prevents layout shift. |
-| `caption` | string |  | — | Caption shown under the image. |
-| `zoom` | boolean |  | `true` | Opens the image full size when clicked. |
-| `align` | `left` \| `center` \| `right` \| `full` |  | `"center"` | How the image sits in the text column. |
-| `border` | boolean |  | — | Draws a border around the image. |
+| `dark` | asset | — | — | Variant shown in dark mode. |
+| `width` | number | — | — | Intrinsic width in pixels; prevents layout shift. |
+| `height` | number | — | — | Intrinsic height in pixels; prevents layout shift. |
+| `caption` | string | — | — | Caption shown under the image. |
+| `zoom` | boolean | — | `true` | Opens the image full size when clicked. |
+| `align` | `left` \| `center` \| `right` \| `full` | — | `"center"` | How the image sits in the text column. |
+| `border` | boolean | — | — | Draws a border around the image. |
 
 ## `video`
 
@@ -44,13 +44,13 @@ A leaf component. Also written as `Video`.
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
 | `src` | asset | yes | — | The video file, or a YouTube, Vimeo, or Loom URL. |
-| `poster` | asset |  | — | Still shown before the video plays. |
-| `autoplay` | boolean |  | — | Plays as soon as it is visible. Requires `muted`. |
-| `loop` | boolean |  | — | Restarts when it ends. |
-| `muted` | boolean |  | — | Starts with no sound. |
-| `controls` | boolean |  | `true` | Shows the player's controls. |
-| `caption` | string |  | — | Caption shown under the video. |
-| `title` | string |  | — | Accessible name for an embedded player. |
+| `poster` | asset | — | — | Still shown before the video plays. |
+| `autoplay` | boolean | — | — | Plays as soon as it is visible. Requires `muted`. |
+| `loop` | boolean | — | — | Restarts when it ends. |
+| `muted` | boolean | — | — | Starts with no sound. |
+| `controls` | boolean | — | `true` | Shows the player's controls. |
+| `caption` | string | — | — | Caption shown under the video. |
+| `title` | string | — | — | Accessible name for an embedded player. |
 
 ## `iframe`
 
@@ -66,8 +66,8 @@ A leaf component. Also written as `Iframe`, `IFrame`.
 |---|---|---|---|---|
 | `src` | route | yes | — | The page to frame. |
 | `title` | string | yes | — | What the frame holds. A screen reader announces this instead of the frame. |
-| `height` | string |  | — | CSS height, e.g. `480px`. |
-| `allow` | string |  | — | Permissions policy for the frame, e.g. `clipboard-write`. |
+| `height` | string | — | — | CSS height, e.g. `480px`. |
+| `allow` | string | — | — | Permissions policy for the frame, e.g. `clipboard-write`. |
 
 ## `embed`
 
@@ -82,8 +82,8 @@ A leaf component. Also written as `Embed`.
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
 | `url` | route | yes | — | The page to embed. Must be from an allow-listed provider. |
-| `title` | string |  | — | Accessible name for the frame; defaults to the provider's name. |
-| `height` | string |  | — | CSS height, e.g. `480px`. |
+| `title` | string | — | — | Accessible name for the frame; defaults to the provider's name. |
+| `height` | string | — | — | CSS height, e.g. `480px`. |
 
 ## `file`
 
@@ -98,9 +98,9 @@ A leaf component. Also written as `File`.
 | Prop | Type | Required | Default | What it does |
 |---|---|---|---|---|
 | `src` | asset | yes | — | The file to download. |
-| `name` | string |  | — | Name shown on the card; defaults to the file name. |
-| `size` | string |  | — | Size shown on the card, e.g. `2.4 MB`. |
-| `type` | string |  | — | File type shown on the card; defaults to the extension. |
+| `name` | string | — | — | Name shown on the card; defaults to the file name. |
+| `size` | string | — | — | Size shown on the card, e.g. `2.4 MB`. |
+| `type` | string | — | — | File type shown on the card; defaults to the extension. |
 
 ## `files`
 
@@ -136,11 +136,11 @@ A leaf component. Also written as `Screenshot`.
 |---|---|---|---|---|
 | `src` | asset | yes | — | Where the capture is stored; the automation writes it. |
 | `alt` | string | yes | — | What the screenshot shows. |
-| `app` | string |  | — | Which application to capture, as named in the verification config. |
-| `route` | route |  | — | Route within that application. |
-| `selector` | string |  | — | CSS selector to crop to. |
-| `viewport` | string |  | — | Viewport to capture at, e.g. `1280x800`. |
-| `caption` | string |  | — | Caption shown under the screenshot. |
+| `app` | string | — | — | Which application to capture, as named in the verification config. |
+| `route` | route | — | — | Route within that application. |
+| `selector` | string | — | — | CSS selector to crop to. |
+| `viewport` | string | — | — | Viewport to capture at, e.g. `1280x800`. |
+| `caption` | string | — | — | Caption shown under the screenshot. |
 
 Props and types above are generated from each component's own schema, which is what the build validates against: a missing required prop is [`E0314`](/errors/E0314), a wrong type is [`E0315`](/errors/E0315), and an unknown prop is [`W0316`](/errors/W0316).
 

@@ -14,7 +14,7 @@ Specified by CFG-100.
 |---|---|---|---|
 | `regions.availability` | string | — | — |
 | `regions.default` | string | — | — |
-| `regions.detection` | `auth` \| `header` \| `choice`[] | — | — |
+| `regions.detection` | (`auth` \| `header` \| `choice`)[] | — | — |
 | `regions.enabled` | boolean | `false` | — |
 | `regions.header` | string | — | — |
 | `regions.list` | string[] | — | — |
