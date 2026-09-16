@@ -1,0 +1,21 @@
+[package]
+name = "liyasa-import"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Importers: Mintlify, Docusaurus, and generic MDX to a Liyasa project (PRD §28.1)."
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-config = { path = "../liyasa-config", version = "0.1.0" }
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+liyasa-markdown = { path = "../liyasa-markdown", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+liyasa-components = { path = "../liyasa-components", version = "0.1.0" }

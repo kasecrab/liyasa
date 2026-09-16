@@ -24,6 +24,7 @@
 "0800-0899" = { area = "Server, auth, deployments, network", crate = "liyasa-server" }
 "0900-0999" = { area = "AI, agent, automations", crate = "liyasa-ai" }
 "1000-1099" = { area = "Search and the browser index", crate = "liyasa-search" }
+"1100-1199" = { area = "Importers", crate = "liyasa-import" }
 
 [codes]
 E0001 = { severity = "error", crate = "liyasa-cli", title = "Project root not found (no `liyasa.json` in this or any parent directory)" }
@@ -197,3 +198,14 @@ E0016 = { severity = "error", crate = "liyasa-cli", title = "Search index not fo
 W0017 = { severity = "warning", crate = "liyasa-cli", title = "Remote OpenAPI source was not checked; this build has no network client" }
 W0018 = { severity = "warning", crate = "liyasa-cli", title = "External links were not checked; this build has no network client" }
 W0019 = { severity = "warning", crate = "liyasa-cli", title = "A verification check class could not run in this build" }
+E1101 = { severity = "error", crate = "liyasa-import", title = "Source directory is not a documentation project this importer recognizes" }
+E1102 = { severity = "error", crate = "liyasa-import", title = "Cannot read a file from the source project" }
+E1103 = { severity = "error", crate = "liyasa-import", title = "Cannot write into the destination directory, or the file already exists" }
+E1104 = { severity = "error", crate = "liyasa-import", title = "Source configuration file is not valid JSON or YAML" }
+E1105 = { severity = "error", crate = "liyasa-import", title = "JavaScript configuration is not a literal object; run the generated Node script and import its JSON" }
+W1110 = { severity = "warning", crate = "liyasa-import", title = "Component has no Liyasa equivalent and needs manual attention" }
+W1111 = { severity = "warning", crate = "liyasa-import", title = "JavaScript expression left in the page for manual attention" }
+W1112 = { severity = "warning", crate = "liyasa-import", title = "`import` or `export` statement dropped; move shared content into `snippets/`" }
+W1113 = { severity = "warning", crate = "liyasa-import", title = "Source configuration key has no Liyasa equivalent and was not carried" }
+W1114 = { severity = "warning", crate = "liyasa-import", title = "Navigation entry names a page that is not in the source project" }
+W1115 = { severity = "warning", crate = "liyasa-import", title = "Page route changed; a redirect from the old URL was generated" }
