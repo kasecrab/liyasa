@@ -32,7 +32,7 @@ pub fn run(global: &Global, args: &Validate) -> Exit {
     let project = match ctx::locate(global, &cwd) {
         Ok(project) => project,
         Err(diagnostic) => {
-            ctx::report(global, format, diagnostic);
+            ctx::report(global, format, *diagnostic);
             return Exit::Errors;
         }
     };

@@ -23,7 +23,7 @@ pub fn run(global: &Global, args: &Search) -> Exit {
         None => match ctx::locate(global, &cwd) {
             Ok(project) => crate::commands::output_dir(&project).join(INDEX_DIR),
             Err(diagnostic) => {
-                ctx::report(global, format, diagnostic);
+                ctx::report(global, format, *diagnostic);
                 return Exit::Errors;
             }
         },

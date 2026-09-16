@@ -72,7 +72,7 @@ fn link_diagnostics(
     let project = match ctx::locate(global, &cwd) {
         Ok(project) => project,
         Err(diagnostic) => {
-            ctx::report(global, format, diagnostic);
+            ctx::report(global, format, *diagnostic);
             return None;
         }
     };

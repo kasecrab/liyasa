@@ -58,7 +58,7 @@ pub fn run(global: &Global, args: &New) -> Exit {
     let options = match answers(args, &directory, interactive) {
         Ok(options) => options,
         Err(diagnostic) => {
-            ctx::report(global, format, diagnostic);
+            ctx::report(global, format, *diagnostic);
             return Exit::Errors;
         }
     };
@@ -101,18 +101,18 @@ pub fn run(global: &Global, args: &New) -> Exit {
 
     for (path, body) in &files {
         let full = directory.join(path);
-        if let Some(parent) = full.parent() {
-            if let Err(error) = std::fs::create_dir_all(parent) {
-                ctx::report(
-                    global,
-                    format,
-                    Diagnostic::new(
-                        code::E0002,
-                        format!("could not create `{}`: {error}", parent.display()),
-                    ),
-                );
-                return Exit::Errors;
-            }
+        if let Some(parent) = full.parent()
+            && let Err(error) = std::fs::create_dir_all(parent)
+        {
+            ctx::report(
+                global,
+                format,
+                Diagnostic::new(
+                    code::E0002,
+                    format!("could not create `{}`: {error}", parent.display()),
+                ),
+            );
+            return Exit::Errors;
         }
         if let Err(error) = std::fs::write(&full, body) {
             ctx::report(
@@ -160,7 +160,7 @@ fn answers(
     args: &New,
     directory: &Path,
     interactive: bool,
-) -> Result<scaffold::Options, Diagnostic> {
+) -> Result<scaffold::Options, ctx::Failed> {
     let mut options = scaffold::Options {
         name: args
             .name
@@ -174,13 +174,13 @@ fn answers(
         ci: !args.no_ci,
     };
 
-    if let Some(preset) = &args.preset {
-        if !scaffold::PRESETS.contains(&preset.as_str()) {
-            return Err(
-                Diagnostic::new(code::E0013, format!("`{preset}` is not a theme preset"))
-                    .help(format!("Pick one of: {}", scaffold::PRESETS.join(", "))),
-            );
-        }
+    if let Some(preset) = &args.preset
+        && !scaffold::PRESETS.contains(&preset.as_str())
+    {
+        return Err(Box::new(
+            Diagnostic::new(code::E0013, format!("`{preset}` is not a theme preset"))
+                .help(format!("Pick one of: {}", scaffold::PRESETS.join(", "))),
+        ));
     }
 
     if !interactive {
