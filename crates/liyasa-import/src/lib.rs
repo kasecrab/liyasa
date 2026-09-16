@@ -11,10 +11,12 @@
 //! [`from_mdx`](liyasa_markdown::from_mdx), an importer is told which component
 //! names Liyasa knows and translates syntax only.
 
+pub mod docusaurus;
 pub mod mintlify;
 pub mod page;
 pub mod plan;
 pub mod report;
+pub mod tree;
 
 pub use page::{Action, Components, Convert, Page, Prop, Tag, TagKind};
 pub use plan::{Apply, Content, FileWrite, Plan};

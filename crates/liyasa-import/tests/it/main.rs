@@ -3,4 +3,5 @@
 //! instead of once per file, which is most of a test build's cost and disk.
 
 mod mig_01_mintlify;
+mod mig_02_docusaurus;
 mod support;

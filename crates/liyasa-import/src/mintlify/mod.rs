@@ -15,12 +15,13 @@ pub mod nav;
 use std::collections::BTreeMap;
 
 use liyasa_core::diagnostics::{Diagnostic, code};
-use liyasa_core::vfs::{Vfs, VfsKind, VfsPath};
+use liyasa_core::vfs::{Vfs, VfsPath};
 use serde_json::Value;
 
 use crate::page::{self, Action, Components, Convert, Tag, TagKind};
 use crate::plan::Plan;
-use crate::report::{Attention, Kind, PageReport, Redirect, Report, Source};
+use crate::report::{PageReport, Redirect, Report, Source};
+use crate::tree::{self, read, route_of, site_route, strip, with_md_extension};
 
 /// How to import.
 pub struct Options<'a> {
@@ -31,16 +32,6 @@ pub struct Options<'a> {
     /// offers the conversion and does not impose it.
     pub directives: bool,
 }
-
-/// Directories that belong to a toolchain rather than to the documentation.
-const SKIP: &[&str] = &[
-    ".git",
-    ".github",
-    "node_modules",
-    ".mintlify",
-    ".vercel",
-    "dist",
-];
 
 /// Reads a Mintlify project and plans a Liyasa one. Nothing is written.
 pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
@@ -76,7 +67,7 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
         frontmatter: BTreeMap::new(),
     };
     let mut files = Vec::new();
-    walk(vfs, root, &mut files);
+    tree::walk(vfs, root, &mut files);
     let mut carried_snippets = Vec::new();
 
     for file in &files {
@@ -105,8 +96,8 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
                 let mut entry = PageReport::new(
                     relative.clone(),
                     to.clone(),
-                    route_of(&relative),
-                    route_of(&to),
+                    route_of(relative.as_str()),
+                    site_route(to.as_str()),
                 );
                 entry.attention = converted.attention;
                 if entry.moved() {
@@ -123,7 +114,7 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
             }
             Some("json" | "yaml" | "yml") => match read(vfs, file, &mut plan.report) {
                 Some(text) if text.contains("x-mint") => {
-                    plan.text(relative.as_str(), extensions(&text));
+                    plan.text(relative.as_str(), tree::extensions(&text, "x-mint"));
                     plan.report.carried.push(relative.clone());
                 }
                 _ => {
@@ -136,7 +127,7 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
         }
     }
 
-    dangling(&converted.pages, &mut plan);
+    tree::dangling(&converted.pages, &mut plan);
     redirects(&mut converted.value, &plan.report.redirects);
     match serde_json::to_string_pretty(&converted.value) {
         Ok(mut text) => {
@@ -229,105 +220,6 @@ fn read_config(vfs: &dyn Vfs, root: &VfsPath) -> Option<(VfsPath, String)> {
     None
 }
 
-fn read(vfs: &dyn Vfs, path: &VfsPath, report: &mut Report) -> Option<String> {
-    match vfs.read(path) {
-        Ok(bytes) => match String::from_utf8(bytes.to_vec()) {
-            Ok(text) => Some(text),
-            Err(_) => {
-                report.diagnostics.push(Diagnostic::new(
-                    code::E1102,
-                    format!("`{path}` is not UTF-8"),
-                ));
-                None
-            }
-        },
-        Err(error) => {
-            report.diagnostics.push(Diagnostic::new(
-                code::E1102,
-                format!("cannot read `{path}`: {error}"),
-            ));
-            None
-        }
-    }
-}
-
-fn walk(vfs: &dyn Vfs, dir: &VfsPath, out: &mut Vec<VfsPath>) {
-    let Ok(entries) = vfs.list(dir) else {
-        return;
-    };
-    for entry in entries {
-        if entry.file_name().is_some_and(|name| SKIP.contains(&name)) {
-            continue;
-        }
-        match vfs.metadata(&entry) {
-            Ok(meta) if meta.kind == VfsKind::Dir => walk(vfs, &entry, out),
-            Ok(_) => out.push(entry),
-            Err(_) => {}
-        }
-    }
-}
-
-fn strip(root: &VfsPath, path: &VfsPath) -> VfsPath {
-    let prefix = root.as_str();
-    if prefix.is_empty() {
-        return path.clone();
-    }
-    match path.as_str().strip_prefix(&format!("{prefix}/")) {
-        Some(rest) => VfsPath::new(rest),
-        None => path.clone(),
-    }
-}
-
-fn with_md_extension(path: &VfsPath) -> VfsPath {
-    match path.as_str().strip_suffix(".mdx") {
-        Some(stem) => VfsPath::new(format!("{stem}.md")),
-        None => path.clone(),
-    }
-}
-
-/// The route a page path serves, which is the same rule on both sides (CM-02),
-/// so a page that did not move produces no redirect.
-fn route_of(path: &VfsPath) -> String {
-    let text = path.as_str();
-    let stem = text
-        .strip_suffix(".mdx")
-        .or_else(|| text.strip_suffix(".md"))
-        .unwrap_or(text);
-    let route = stem
-        .strip_suffix("index")
-        .map_or(stem, |head| head.strip_suffix('/').unwrap_or(head));
-    if route.is_empty() {
-        return "/".to_owned();
-    }
-    format!("/{route}")
-}
-
-/// Navigation entries that name a page the project does not have.
-fn dangling(named: &std::collections::BTreeSet<String>, plan: &mut Plan) {
-    let have: std::collections::BTreeSet<String> = plan
-        .report
-        .pages
-        .iter()
-        .map(|page| {
-            page.to
-                .as_str()
-                .strip_suffix(".md")
-                .unwrap_or(page.to.as_str())
-                .to_owned()
-        })
-        .collect();
-    for entry in named {
-        let stem = entry.trim_start_matches('/');
-        if stem.starts_with("http") || have.contains(stem) {
-            continue;
-        }
-        plan.report.attention.push(
-            Attention::new(Kind::DanglingPage, entry.clone())
-                .help("the navigation names it and the project has no such page"),
-        );
-    }
-}
-
 /// Merges the redirects generated from moved pages into the config's own.
 fn redirects(config: &mut Value, generated: &[Redirect]) {
     if generated.is_empty() {
@@ -351,30 +243,4 @@ fn redirects(config: &mut Value, generated: &[Redirect]) {
         }));
     }
     map.insert("redirects".to_owned(), Value::Array(rules));
-}
-
-/// `x-mint` becomes `x-liyasa` (API-05).
-///
-/// The rewrite is textual and matches the key syntax rather than the text, so a
-/// spec that uses the extension keeps its key order, its comments, and its
-/// formatting; re-serializing a 20 000-line OpenAPI document to change two keys
-/// is not a trade a migration should make.
-pub fn extensions(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for line in text.split_inclusive('\n') {
-        let trimmed = line.trim_start();
-        let indent = line.len() - trimmed.len();
-        if let Some(rest) = trimmed.strip_prefix("\"x-mint\"") {
-            out.push_str(&line[..indent]);
-            out.push_str("\"x-liyasa\"");
-            out.push_str(rest);
-        } else if let Some(rest) = trimmed.strip_prefix("x-mint:") {
-            out.push_str(&line[..indent]);
-            out.push_str("x-liyasa:");
-            out.push_str(rest);
-        } else {
-            out.push_str(line);
-        }
-    }
-    out
 }

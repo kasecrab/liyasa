@@ -10,7 +10,14 @@ description = "Importers: Mintlify, Docusaurus, and generic MDX to a Liyasa proj
 [lints]
 workspace = true
 
+[features]
+default = ["import-js"]
+# The embedded JavaScript engine that reads a literal `docusaurus.config.js`
+# (MIG-02). Without it the importer writes the Node script instead.
+import-js = ["dep:boa_engine"]
+
 [dependencies]
+boa_engine = { workspace = true, optional = true }
 liyasa-config = { path = "../liyasa-config", version = "0.1.0" }
 liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
 liyasa-markdown = { path = "../liyasa-markdown", version = "0.1.0" }
