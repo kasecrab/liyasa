@@ -39,6 +39,13 @@ use crate::{assets, clock, images, manifest, render, tree};
 
 pub use settings::Settings;
 
+/// Codes the config's own rules own (CFG-90). The engine's modules check the
+/// same things for callers that never load a config — the server compiles a
+/// redirect table, the dev loop resolves navigation — so their diagnostics are
+/// dropped here rather than in the module, and only when the config validator
+/// has already said it (`plan/rfcs/0106-config-rules-in-a-build.md`).
+const CONFIG_OWNED_CODES: &[&str] = &["E0104", "E0106", "E0109", "W0131"];
+
 /// `.liyasa`, the project's own cache directory.
 pub const CACHE_DIR: &str = ".liyasa";
 pub const GIT_META: &str = "git-meta.json";
@@ -154,7 +161,9 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
             env: options.env.clone(),
         },
     );
-    report.diagnostics.extend(load.diagnostics.into_vec());
+    report
+        .diagnostics
+        .extend(load.diagnostics.as_slice().to_vec());
     let mut settings = Settings::from_value(&load.value);
     if let Some(base_path) = &options.base_path {
         settings.base_path = base_path.clone();
@@ -182,6 +191,29 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     let mut tree = tree;
     tree.pages = crate::versions::expand(tree.pages, &declared);
     phase.mark("content_tree");
+
+    // 2b. The config's semantic rules (CFG-30, CFG-90). They need the page set,
+    // so they run after the walk rather than beside the load
+    // (`plan/rfcs/0106-config-rules-in-a-build.md`).
+    let known_pages: liyasa_config::Pages =
+        tree.pages.iter().map(|page| page.path.as_str()).collect();
+    let config_rules = liyasa_config::validate_load(
+        &load,
+        &liyasa_config::Context {
+            pages: &known_pages,
+            mode: liyasa_config::Mode::Build,
+        },
+    );
+    let config_codes: BTreeSet<&'static str> = config_rules
+        .iter()
+        .filter_map(|diagnostic| {
+            CONFIG_OWNED_CODES
+                .iter()
+                .find(|code| **code == diagnostic.code.as_str())
+                .copied()
+        })
+        .collect();
+    report.diagnostics.extend(config_rules.as_slice().to_vec());
 
     // 3. Git-derived data, frozen once and fingerprinted (§6.6.2 rule 2).
     let snapshot = GitSnapshot::take(git, tree.pages.iter().map(|page| page.path.clone()));
@@ -297,7 +329,9 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     version_keys.dedup();
     for version in version_keys {
         let resolved = crate::nav::resolve(&load.value, &tree, &declared, version.as_ref());
-        report.diagnostics.extend(resolved.diagnostics.into_vec());
+        report
+            .diagnostics
+            .extend(not_already_said(&resolved.diagnostics, &config_codes));
         navigations.insert(version, resolved.navigation);
     }
     let all_routes: BTreeSet<Route> = tree.pages.iter().map(|page| page.route.clone()).collect();
@@ -512,6 +546,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         &settings,
         &navigations,
         report.clock_unix,
+        &config_codes,
         &mut report,
         &mut outputs,
     );
@@ -559,7 +594,9 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     // the engine owns is the table the manifest and the server read.
     let (table, redirect_diagnostics) =
         Table::compile(&settings.redirects, &settings.external_allow);
-    report.diagnostics.extend(redirect_diagnostics.into_vec());
+    report
+        .diagnostics
+        .extend(not_already_said(&redirect_diagnostics, &config_codes));
 
     // 11. The manifest.
     let built = Manifest {
@@ -1181,20 +1218,24 @@ fn write_surfaces(
     settings: &Settings,
     navigations: &BTreeMap<Option<liyasa_core::ids::Version>, liyasa_theme::nav::Navigation>,
     clock_unix: i64,
+    config_codes: &BTreeSet<&'static str>,
     report: &mut Report,
     outputs: &mut Outputs,
 ) -> usize {
     let Some(origin) = crate::agents::site::CanonicalOrigin::parse(&settings.canonical_origin)
     else {
         // Without an origin every absolute URL in a surface would be wrong, so
-        // the surfaces are skipped rather than written with a placeholder.
-        report.diagnostics.push(
-            Diagnostic::new(
-                code::W0131,
-                "`seo.canonicalOrigin` is not set, so the agent surfaces were not written",
-            )
-            .help("set `seo.canonicalOrigin` to the site's production origin"),
-        );
+        // the surfaces are skipped rather than written with a placeholder. The
+        // config's own rule says the key is missing; this says what it cost.
+        if !config_codes.contains("W0131") {
+            report.diagnostics.push(
+                Diagnostic::new(
+                    code::W0131,
+                    "`seo.canonicalOrigin` is not set, so the agent surfaces were not written",
+                )
+                .help("set `seo.canonicalOrigin` to the site's production origin"),
+            );
+        }
         return 0;
     };
 
@@ -1334,6 +1375,19 @@ fn agent_markdown(
     let produced = crate::agents::render_page(document, &options);
     diagnostics.extend(produced.diagnostics.as_slice().to_vec());
     produced.markdown
+}
+
+/// Diagnostics from an engine module, with the ones the config already
+/// reported removed.
+fn not_already_said(
+    diagnostics: &Diagnostics,
+    config_codes: &BTreeSet<&'static str>,
+) -> Vec<Diagnostic> {
+    diagnostics
+        .iter()
+        .filter(|diagnostic| !config_codes.contains(&diagnostic.code.as_str()))
+        .cloned()
+        .collect()
 }
 
 /// The remote hosts one page loads images and media from, which decide

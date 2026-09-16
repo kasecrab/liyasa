@@ -1,10 +1,10 @@
 //! CFG-90 and CFG-30 in a build: which of the config's semantic rules a
 //! `liyasa build` actually reports.
 //!
-//! `liyasa-build` calls `liyasa_config::load` and never `validate`, so eight of
-//! the fourteen rules do not run during a build at all (RFC 0106). This file
-//! pins both halves — what a build reports, and what only `liyasa validate`
-//! reports — so the day the seam is wired the second half fails and says so.
+//! `liyasa-build` runs the rules as well as loading the config (RFC 0106, now
+//! closed), so a build and `liyasa validate` report the same set. This file
+//! pins that they agree: a rule that only one of them reports is the defect
+//! this file exists to catch.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -122,24 +122,25 @@ fn validate_reports_every_rule_the_config_is_breaking() {
 }
 
 #[test]
-fn a_build_reports_none_of_them() {
+fn a_build_reports_them_too() {
     let codes = built();
-    let reported: Vec<&str> = ["E0105", "E0107", "E0108", "E0132", "E0133", "W0130"]
+    let missing: Vec<&str> = ["E0105", "E0107", "E0108", "E0132", "E0133", "W0130"]
         .into_iter()
-        .filter(|code| codes.contains(&(*code).to_owned()))
+        .filter(|code| !codes.contains(&(*code).to_owned()))
         .collect();
     assert_eq!(
-        reported,
+        missing,
         Vec::<&str>::new(),
-        "RFC 0106 can close: a build now runs the config's rules, so this file \
-         should assert that it reports them rather than that it does not. Got {codes:?}"
+        "a build runs the config's semantic rules (RFC 0106). Got {codes:?}"
     );
 }
 
-/// The rules `liyasa-build` re-implements in its own modules, which is why they
-/// survive a build even without the seam.
+/// One mistake, one diagnostic. The engine's own modules check redirects and
+/// navigation for callers that never load a config — the server, the dev loop —
+/// so a build drops their copies of the codes the config owns rather than
+/// reporting the same defect under two wordings (RFC 0106).
 #[test]
-fn the_rules_the_build_implements_itself_do_reach_a_build() {
+fn a_rule_both_halves_check_is_reported_once() {
     let project = Project::new("redirects");
     project.write(
         "liyasa.json",
@@ -163,6 +164,8 @@ fn the_rules_the_build_implements_itself_do_reach_a_build() {
         .iter()
         .map(|diagnostic| diagnostic.code.as_str())
         .collect();
-    assert!(codes.contains(&"E0104"), "{codes:?}");
-    assert!(codes.contains(&"E0106"), "{codes:?}");
+    for code in ["E0104", "E0106"] {
+        let times = codes.iter().filter(|found| **found == code).count();
+        assert_eq!(times, 1, "{code} was reported {times} times: {codes:?}");
+    }
 }
