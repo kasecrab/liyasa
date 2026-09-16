@@ -8,8 +8,18 @@
 # agree with it (E = error, W = warning) and a number is never reused across
 # prefixes. `url` defaults to https://kasecrab.github.io/liyasa/docs/errors/<code>.
 #
+# A new code needs a body in `docs/errors/_notes/<CODE>.md` in the same commit.
+# One sentence on what happened, then `## Fix it` with the concrete command or
+# edit, then a link to any related code. Do not restate the title above it —
+# the generated page already shows it. Fifteen lines is plenty.
+#
+# A code claimed before the thing that raises it is fine and expected; add it to
+# UNRAISED in `crates/liyasa-core/tests/it/registry.rs` in the same commit and
+# say what will raise it (RFC 0008).
+#
 # `cargo test -p liyasa-core registry` rejects duplicates, out-of-range codes,
-# prefix/severity disagreement, and numbers reused across prefixes.
+# prefix/severity disagreement, numbers reused across prefixes, and a code that
+# nothing raises and nothing pins.
 
 [ranges]
 "0001-0099" = { area = "CLI and I/O", crate = "liyasa-cli" }
