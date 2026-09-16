@@ -198,7 +198,7 @@ pub struct Case {
 /// Reads the corpus. Line-oriented, like `codes.toml`, so the workspace gains
 /// no TOML dependency for a file the tests alone read.
 pub fn cases() -> Vec<Case> {
-    let text = include_str!("../corpus.toml");
+    let text = include_str!("../../corpus.toml");
     let mut out: Vec<Case> = Vec::new();
     for raw in text.lines() {
         let line = raw.trim();

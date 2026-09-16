@@ -3,7 +3,7 @@
 
 #![cfg(feature = "server")]
 
-mod support;
+use super::support;
 
 use liyasa_core::conformance::fixtures::MemoryCache;
 use liyasa_search::doc::SectionDocument;

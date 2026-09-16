@@ -1,6 +1,6 @@
 //! SRC-03: BM25 with field weights, config boosts, recency, and phrases.
 
-mod support;
+use super::support;
 
 use liyasa_search::idx::Index;
 use liyasa_search::idx::manifest::Context;

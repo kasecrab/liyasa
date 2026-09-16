@@ -6,7 +6,7 @@
 
 #![cfg(feature = "server")]
 
-mod support;
+use super::support;
 
 use std::collections::BTreeSet;
 

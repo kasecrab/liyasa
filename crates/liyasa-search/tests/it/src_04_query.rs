@@ -1,6 +1,6 @@
 //! SRC-04: prefixes, fuzziness, phrases, field filters, and suggestions.
 
-mod support;
+use super::support;
 
 use liyasa_search::idx::Index;
 use liyasa_search::idx::manifest::Context;

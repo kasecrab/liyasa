@@ -7,7 +7,7 @@
 
 #![cfg(feature = "server")]
 
-mod support;
+use super::support;
 
 use liyasa_search::api::{self, Engine};
 use liyasa_search::config::{SearchMode, SearchSettings};

@@ -5,7 +5,7 @@
 //! measure is the byte counts and the query time asserted here, over the same
 //! reader.
 
-mod support;
+use super::support;
 
 use std::time::Instant;
 

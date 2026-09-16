@@ -7,7 +7,7 @@
 //! markup, not content, and a fixture value that slipped into a prop is not
 //! prose either.
 
-mod support;
+use super::support;
 
 use liyasa_core::document::{Inline, Node, PropValue, Props};
 use liyasa_core::ids::{Locale, Route};

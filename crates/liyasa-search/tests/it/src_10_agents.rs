@@ -6,7 +6,7 @@
 //! same list, and that a caller's mistake is a diagnostic rather than a panic
 //! or an empty result set.
 
-mod support;
+use super::support;
 
 use liyasa_search::api::{self, RestResponse, SearchRequest};
 use liyasa_search::config::SearchSettings;

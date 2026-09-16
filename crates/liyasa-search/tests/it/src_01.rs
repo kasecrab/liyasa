@@ -1,6 +1,6 @@
 //! SRC-01: one document per page section, with the fields §12.1 lists.
 
-mod support;
+use super::support;
 
 use liyasa_core::document::{PropValue, Props};
 use liyasa_core::ids::{Locale, Route, Version};
