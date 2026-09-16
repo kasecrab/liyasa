@@ -32,6 +32,12 @@ fn untrusted(case: &Case) -> bool {
     case.tags.iter().any(|tag| tag == "untrusted")
 }
 
+/// A case about CM-14's filters or CM-15's functions, which is settled by
+/// expanding it against the corpus fixture build.
+fn expanded(case: &Case) -> bool {
+    case.tags.iter().any(|tag| tag == "filters")
+}
+
 #[test]
 fn no_case_in_the_corpus_panics() {
     for case in corpus() {
@@ -83,6 +89,32 @@ fn every_expected_diagnostic_is_raised() {
                     raised.join(", ")
                 ));
             }
+        }
+    }
+    assert!(failures.is_empty(), "\n{}", failures.join("\n"));
+}
+
+/// A filter case says exactly what expanding it raises, so a case that claims
+/// nothing has to expand clean and one that claims a code may not raise a
+/// second one beside it.
+#[test]
+fn every_filter_case_expands_to_what_it_claims() {
+    let mut failures = Vec::new();
+    for case in corpus().iter().filter(|case| live(case) && expanded(case)) {
+        let Some(expected) = &case.diagnostics else {
+            continue;
+        };
+        let mut raised = on_expansion(case);
+        raised.sort();
+        let mut want = expected.clone();
+        want.sort();
+        if raised != want {
+            failures.push(format!(
+                "{}: claims [{}], raised [{}]",
+                case.id,
+                want.join(", "),
+                raised.join(", ")
+            ));
         }
     }
     assert!(failures.is_empty(), "\n{}", failures.join("\n"));

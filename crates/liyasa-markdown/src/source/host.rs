@@ -84,14 +84,23 @@ impl Host {
     }
 }
 
+/// Where the host's `page` lookup stays reachable after CM-12's `page.*` has
+/// shadowed the global of the same name.
+///
+/// CM-12 spells the front matter `page.title` and CM-15 spells the call
+/// `page("id")`; the context wins the name, so the object expansion puts there
+/// answers the attribute itself and delegates the call to this.
+pub const PAGE_LOOKUP: &str = "__liyasa_page";
+
 /// Installs the seven names a [`Host`] answers.
 pub fn install(env: &mut Environment<'_>, host: Arc<Host>) {
     let at = host.clone();
     env.add_filter("link", move |id: &str| link(&at, id));
     let at = host.clone();
     env.add_filter("asset", move |path: &str| asset(&at, path));
-    let at = host.clone();
-    env.add_function("page", move |id: &str| page(&at, id));
+    let lookup = Value::from_object(PageLookup(host.clone()));
+    env.add_global("page", lookup.clone());
+    env.add_global(PAGE_LOOKUP, lookup);
     let at = host.clone();
     env.add_function("pages", move |glob: &str, kwargs: Kwargs| {
         pages(&at, glob, kwargs)
@@ -105,6 +114,61 @@ pub fn install(env: &mut Environment<'_>, host: Arc<Host>) {
         region_available(&at, feature)
     });
     env.add_function("now", move || now(&host));
+}
+
+/// `page(id)`, reachable under its own name and under [`PAGE_LOOKUP`].
+#[derive(Debug)]
+struct PageLookup(Arc<Host>);
+
+impl minijinja::value::Object for PageLookup {
+    fn call(
+        self: &Arc<Self>,
+        _state: &minijinja::State<'_, '_>,
+        args: &[Value],
+    ) -> Result<Value, Error> {
+        let [id] = args else {
+            return Err(tagged(code::E0213, "`page` takes one page ID"));
+        };
+        let Some(id) = id.as_str() else {
+            return Err(tagged(code::E0213, "`page` takes one page ID"));
+        };
+        page(&self.0, id)
+    }
+}
+
+/// The page's own front matter, which also answers the `page(id)` call.
+///
+/// CM-12 puts the front matter in the context under `page`, where it shadows
+/// CM-15's function of the same name. One object answers to both, the way
+/// [`EnvAccessor`](super::filters::EnvAccessor) does for `env`.
+#[derive(Debug)]
+pub struct PageAccessor(pub Value);
+
+impl minijinja::value::Object for PageAccessor {
+    fn get_value(self: &Arc<Self>, key: &Value) -> Option<Value> {
+        self.0.get_item(key).ok().filter(|f| !f.is_undefined())
+    }
+
+    fn enumerate(self: &Arc<Self>) -> minijinja::value::Enumerator {
+        match self.0.try_iter() {
+            Ok(keys) => minijinja::value::Enumerator::Values(keys.collect()),
+            Err(_) => minijinja::value::Enumerator::NonEnumerable,
+        }
+    }
+
+    fn call(
+        self: &Arc<Self>,
+        state: &minijinja::State<'_, '_>,
+        args: &[Value],
+    ) -> Result<Value, Error> {
+        let Some(lookup) = state.lookup(PAGE_LOOKUP) else {
+            return Err(tagged(
+                code::E0213,
+                "`page()` needs a content tree, and this build installed none",
+            ));
+        };
+        lookup.call(state, args)
+    }
 }
 
 fn tagged(code: liyasa_core::Code, message: impl std::fmt::Display) -> Error {

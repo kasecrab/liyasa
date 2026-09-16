@@ -30,8 +30,66 @@ pub const RAISED_HERE: &[&str] = &["E0101", "E0102", "E0202", "E0210", "E0212", 
 /// a case that expects one is fed to `escape_untrusted_markdown` instead.
 pub const RAISED_ON_ENTRY: &[&str] = &["E0320"];
 
-/// The codes expansion's syntactic pass raises before anything is rendered.
-pub const RAISED_ON_EXPANSION: &[&str] = &["E0208"];
+/// The codes a case is expanded to settle.
+///
+/// `E0208` is settled before anything is rendered; the rest are the filters and
+/// functions of CM-14 and CM-15 answering out of [`fixture_host`] and
+/// [`fixture_context`].
+pub const RAISED_ON_EXPANSION: &[&str] = &[
+    "E0208", "E0209", "E0211", "E0213", "E0214", "E0215", "E0216",
+];
+
+/// The build a `cm-14` or `cm-15` case is expanded against.
+///
+/// One fixture for the whole corpus, so a case is a statement about the filter
+/// rather than about a build it carries with it. `spec/markdown/README.md`
+/// records what is in it.
+pub fn fixture_host() -> super::host::Host {
+    use std::collections::BTreeMap;
+
+    use super::host::{Host, PageEntry};
+    Host {
+        pages: vec![
+            PageEntry {
+                id: "index".to_owned(),
+                route: "/".to_owned(),
+                data: serde_json::json!({ "title": "Home" }),
+            },
+            PageEntry {
+                id: "guides/install".to_owned(),
+                route: "/guides/install".to_owned(),
+                data: serde_json::json!({ "title": "Install", "draft": false }),
+            },
+        ],
+        assets: BTreeMap::from([(
+            "img/logo.svg".to_owned(),
+            "/_liyasa/img/logo.9f8e7d.svg".to_owned(),
+        )]),
+        openapi: BTreeMap::from([(
+            "petstore".to_owned(),
+            BTreeMap::from([(
+                "listPets".to_owned(),
+                serde_json::json!({ "summary": "List pets" }),
+            )]),
+        )]),
+        region: Some("eu".to_owned()),
+        features: BTreeMap::from([("logs".to_owned(), vec!["eu".to_owned()])]),
+        now: Some("2026-01-01T00:00:00Z".to_owned()),
+    }
+}
+
+/// The template context a `cm-14` or `cm-15` case is expanded against.
+pub fn fixture_context() -> TemplateContext {
+    let mut layers = super::context::Layers {
+        site_variables: serde_json::json!({ "product": "Acme" }),
+        facts: serde_json::json!({ "plan": { "pro": { "price": 20 } } }),
+        page: serde_json::json!({ "title": "Rate limits" }),
+        site: serde_json::json!({ "name": "Acme Docs" }),
+        ..super::context::Layers::default()
+    };
+    layers.env = serde_json::json!({ "CI": "true" });
+    layers.build()
+}
 
 /// The case's source without the newline the `%%%` delimiter contributed.
 ///
@@ -82,11 +140,9 @@ pub fn on_expansion(case: &Case) -> Vec<String> {
             .map(|d| d.code.as_str().to_owned())
             .collect();
     }
-    let context = TemplateContext {
-        values: minijinja::Value::UNDEFINED,
-        tracking: true,
-    };
-    let env = super::expand::environment(&super::expand::ExpandOptions::default());
+    let context = fixture_context();
+    let mut env = super::expand::environment(&super::expand::ExpandOptions::default());
+    super::host::install(&mut env, Arc::new(fixture_host()));
     match super::expand(&map, &document, &context, &env) {
         Ok(_) => Vec::new(),
         Err(diagnostics) => diagnostics

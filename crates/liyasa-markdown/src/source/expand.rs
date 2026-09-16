@@ -940,9 +940,10 @@ impl Clock {
 
 /// The root the page is rendered against.
 ///
-/// It does two things the caller's plain map cannot: it makes `env` answer to
-/// both `env.CI` and `env("CI")` (CM-12 with CM-15), and in `dev` it renders an
-/// undefined name as a visible marker instead of failing the build (CM-17).
+/// It does three things the caller's plain map cannot: it makes `env` answer to
+/// both `env.CI` and `env("CI")` and `page` to both `page.title` and
+/// `page("id")` (CM-12 with CM-15), and in `dev` it renders an undefined name
+/// as a visible marker instead of failing the build (CM-17).
 #[derive(Debug)]
 struct Root {
     values: minijinja::Value,
@@ -956,6 +957,9 @@ impl minijinja::value::Object for Root {
             return Some(minijinja::Value::from_object(super::filters::EnvAccessor(
                 found,
             )));
+        }
+        if key.as_str() == Some("page") && !found.is_undefined() {
+            return Some(minijinja::Value::from_object(host::PageAccessor(found)));
         }
         if found.is_undefined() {
             return self
