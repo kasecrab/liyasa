@@ -25,6 +25,9 @@ const INLINE: &[char] = &['`', '~', '*', '_', '[', ']', '<', '>', '|', '\\', '!'
 /// Characters that open a block construct, but only at the start of a line.
 const BLOCK_OPENERS: &[char] = &['#', '>', '-', '+', ':'];
 
+/// The characters an emoji shortcode is spelled with, between its two colons.
+const SHORTCODE: &[char] = &['_', '+', '-'];
+
 /// Every line break Markdown or the surrounding HTML would honour.
 const BREAKS: &[char] = &['\n', '\r', '\u{2028}', '\u{2029}'];
 
@@ -64,12 +67,26 @@ pub fn escape_untrusted_markdown(value: &str, at_line_start: bool) -> Result<Str
         // leading digit run is escaped even though it is not at column zero.
         let ordered =
             at_line_start && leading_digits > 0 && at == leading_digits && matches!(ch, '.' | ')');
-        if INLINE.contains(&ch) || opens_block || ordered {
+        // TODO(rfc-0205): CM-41 turns comrak's shortcodes on, so a matched
+        // pair of colons is an inline node the character list does not stop.
+        // Only the opening colon of a pair is escaped; a lone colon is left
+        // alone, because a backslash before every one of them would reach the
+        // Markdown twin (RX-62) for a hazard that needs two.
+        let opens_shortcode = ch == ':' && closes_a_shortcode(&trimmed[at + 1..]);
+        if INLINE.contains(&ch) || opens_block || ordered || opens_shortcode {
             out.push('\\');
         }
         out.push(ch);
     }
     Ok(out)
+}
+
+/// Whether `rest` begins with a shortcode body and its closing colon.
+fn closes_a_shortcode(rest: &str) -> bool {
+    let body = rest
+        .find(|ch: char| !(ch.is_ascii_alphanumeric() || SHORTCODE.contains(&ch)))
+        .unwrap_or(rest.len());
+    body > 0 && rest[body..].starts_with(':')
 }
 
 #[cfg(test)]
@@ -251,6 +268,81 @@ mod tests {
                 .map(|_| ALPHABET[(next() % ALPHABET.len() as u64) as usize])
                 .collect();
             assert_inert(&value);
+        }
+    }
+
+    /// The `untrusted-escape` invariant stated against the parser rather than
+    /// against the scanner: an escaped value parses to text and nothing else.
+    ///
+    /// `assert_inert` asks the scanner, which sees a heading and a paragraph
+    /// alike as one `Markdown` segment. comrak is what tells them apart, so it
+    /// is what can say that no node appeared.
+    #[test]
+    fn escaping_creates_no_new_markdown_node() {
+        const ALPHABET: &[char] = &[
+            '`', '~', '*', '_', '[', ']', '<', '>', '|', '\\', '!', '#', '-', '+', ':', '.', ')',
+            '(', '=', '&', ';', '/', '1', '0', ' ', '\t', 'a', '"',
+        ];
+        let mut state = 0x2545_f491_4f6c_dd1du64;
+        let mut next = move || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state
+        };
+        for _ in 0..2_000 {
+            let length = (next() % 14) as usize + 1;
+            let value: String = (0..length)
+                .map(|_| ALPHABET[(next() % ALPHABET.len() as u64) as usize])
+                .collect();
+            let text = format!("{}\n", escaped(&value));
+            assert_only_text(&value, &text);
+        }
+    }
+
+    fn assert_only_text(value: &str, text: &str) {
+        use comrak::nodes::NodeValue;
+
+        let arena = comrak::Arena::new();
+        let options = crate::ast::options(&liyasa_core::markdown::ParseOptions::default());
+        let root = comrak::parse_document(&arena, text, &options);
+        for node in root.descendants() {
+            let kind = &node.data.borrow().value;
+            assert!(
+                matches!(
+                    kind,
+                    NodeValue::Document
+                        | NodeValue::Paragraph
+                        | NodeValue::Text(_)
+                        | NodeValue::SoftBreak
+                        | NodeValue::Escaped
+                ),
+                "{value:?} escaped to {text:?} and produced {kind:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_acceptance_values_produce_no_node_either() {
+        for value in [
+            "> quote",
+            "- item",
+            "1. item",
+            "~~~",
+            ":::note",
+            "# heading",
+            "<!--ly:0000:o:0-->",
+            "```bash",
+            "|a|b|",
+            "    indented",
+            "*emphasis*",
+            "<div>",
+            "<script>alert(1)</script>",
+            "[ref]: http://x",
+            "a `code` span",
+            "![alt](src)",
+        ] {
+            assert_only_text(value, &format!("{}\n", escaped(value)));
         }
     }
 
