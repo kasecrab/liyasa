@@ -16,6 +16,8 @@ mod cfg_64;
 mod cfg_65;
 #[path = "../config/cfg_90_diagnostics.rs"]
 mod cfg_90_diagnostics;
+#[path = "../build/cfg_90_rules.rs"]
+mod cfg_90_rules;
 #[path = "../config/cfg_91.rs"]
 mod cfg_91;
 #[path = "../config/cfg_94_schema.rs"]
