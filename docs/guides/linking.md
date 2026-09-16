@@ -70,6 +70,8 @@ redirect in the same commit:
 }
 ```
 
+A plain array is accepted as shorthand for `redirects.rules`.
+
 Redirects support wildcards (`/v1/*` to `/v2/:splat`) and named parameters
 (`/docs/:slug`). Destinations are path-relative by default; an absolute
 destination is accepted only when its host is listed in
@@ -77,8 +79,8 @@ destination is accepted only when its host is listed in
 scheme or host ([`E0109`](/errors/E0109)) so that your documentation domain
 cannot be turned into an open redirect.
 
-`permanent` defaults to `true` (HTTP 301). Use `false` while you are still
-deciding.
+`status` defaults to `301`, a permanent move. Set it to `302` while you are
+still deciding, because search engines and browsers both cache a 301 hard.
 
 :::warning{title="Redirects are not free on every host"}
 Static hosts differ in what they will do with a redirect file. GitHub Pages
