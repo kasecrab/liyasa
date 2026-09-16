@@ -192,6 +192,32 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     tree.pages = crate::versions::expand(tree.pages, &declared);
     phase.mark("content_tree");
 
+    // 2a. Snippets (CM-70, CM-71). `tree::discover` interned them; the graph
+    // is checked once here rather than discovered as a recursion limit inside
+    // one page's expansion.
+    let snippet_texts: BTreeMap<String, String> = tree
+        .snippets
+        .keys()
+        .filter_map(|name| {
+            let id = sources.find(&VfsPath::new(name))?;
+            Some((name.clone(), sources.get(id).text.to_string()))
+        })
+        .collect();
+    let snippets = liyasa_markdown::source::snippets::Graph::of(&snippet_texts);
+    report
+        .diagnostics
+        .extend(snippets.check(snippet_nesting(&load.value)).into_vec());
+    // Every page is keyed on every snippet: which pages include which is known
+    // only after expansion, and a site's snippets are few.
+    let snippets_fingerprint = Fingerprint::of_parts(
+        tree.snippets
+            .iter()
+            .flat_map(|(name, fingerprint)| [name.as_bytes().to_vec(), fingerprint.0.to_vec()])
+            .collect::<Vec<_>>()
+            .iter()
+            .map(Vec::as_slice),
+    );
+
     // 2b. The config's semantic rules (CFG-30, CFG-90). They need the page set,
     // so they run after the walk rather than beside the load
     // (`plan/rfcs/0106-config-rules-in-a-build.md`).
@@ -269,6 +295,9 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         .map(|page| (page.path.as_str().to_owned(), page.fingerprint))
         .collect();
     inputs.insert("liyasa.json".to_owned(), config_fingerprint);
+    for (name, fingerprint) in &tree.snippets {
+        inputs.insert(name.clone(), *fingerprint);
+    }
     inputs.insert(
         format!("{CACHE_DIR}/{GIT_META}"),
         Fingerprint::of(&git_meta),
@@ -375,6 +404,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         strictness,
         &nonce,
         config_fingerprint,
+        snippets_fingerprint,
     );
     phase.mark("pages");
 
@@ -811,6 +841,7 @@ fn render_pages(
     strictness: crate::links::Strictness,
     nonce: &str,
     config_fingerprint: Fingerprint,
+    snippets_fingerprint: Fingerprint,
 ) -> Vec<Outcome> {
     // §6.6: pages render in parallel with rayon.
     tree.pages
@@ -927,6 +958,10 @@ fn render_pages(
                             config_fingerprint,
                             assets_built.fingerprint,
                             navigation_fingerprint,
+                            // A page may include any snippet, so an edit to one
+                            // invalidates every page — which is what keeps a
+                            // fixed-nonce dev rebuild correct (CM-70).
+                            snippets_fingerprint,
                             // The page carries the build nonce (RX-110), so a
                             // build with a different one cannot serve this
                             // body.
@@ -1374,6 +1409,20 @@ fn agent_markdown(
     let produced = crate::agents::render_page(document, &options);
     diagnostics.extend(produced.diagnostics.as_slice().to_vec());
     produced.markdown
+}
+
+/// CM-71's nesting depth.
+// TODO(rfc-0607): there is no `content.snippets.maxNesting` key, so the
+// template recursion limit stands in for it when an operator sets one.
+fn snippet_nesting(config: &serde_json::Value) -> usize {
+    config
+        .get("content")
+        .and_then(|content| content.get("templating"))
+        .and_then(|templating| templating.get("limits"))
+        .and_then(|limits| limits.get("depth"))
+        .and_then(serde_json::Value::as_u64)
+        .map(|depth| depth as usize)
+        .unwrap_or(liyasa_markdown::source::snippets::MAX_NESTING)
 }
 
 /// `security.hstsPreload` (RFC 1201).

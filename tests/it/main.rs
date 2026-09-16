@@ -36,6 +36,8 @@ mod cm_120_changelog;
 mod cm_15_functions;
 #[path = "../build/cm_36_links.rs"]
 mod cm_36_links;
+#[path = "../build/cm_70_snippets.rs"]
+mod cm_70_snippets;
 #[path = "../build/cm_80_hidden.rs"]
 mod cm_80_hidden;
 #[path = "../build/cm_82_redirects.rs"]

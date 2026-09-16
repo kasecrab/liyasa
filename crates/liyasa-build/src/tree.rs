@@ -6,7 +6,7 @@
 //! `.liyasa-aiignore`. Routing rules themselves belong to
 //! `liyasa_markdown::source::route`; this module calls them.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use liyasa_core::diagnostics::Diagnostics;
@@ -28,6 +28,11 @@ const NEVER_WALKED: &[&str] = &[".git", ".liyasa", "node_modules", "target"];
 
 /// Where uploaded and referenced files live (CM-84, CM-131).
 pub const ASSET_DIRECTORIES: &[&str] = &["assets", "public"];
+
+/// Where includable fragments live (CM-70). They are interned into the build's
+/// source map because that is how `liyasa_markdown::source::expand` resolves an
+/// `{% include %}`: by looking the name up in the map.
+pub const SNIPPET_DIR: &str = "snippets";
 
 const MAX_DEPTH: u8 = 32;
 
@@ -122,6 +127,9 @@ pub struct Tree {
     pub ignored: Vec<VfsPath>,
     /// Pages a build without `--drafts` left out.
     pub drafts: Vec<VfsPath>,
+    /// Template name to fingerprint for every file under `snippets/`, each of
+    /// them interned into the source map (CM-70).
+    pub snippets: BTreeMap<String, Fingerprint>,
     pub diagnostics: Diagnostics,
 }
 
@@ -154,6 +162,15 @@ pub fn discover(vfs: &dyn Vfs, map: &mut SourceMap, options: &Options) -> Tree {
             continue;
         }
         tree.files.insert(path.clone());
+        if is_snippet(&path) {
+            // An include names the file by its project path, so the map has to
+            // hold it under exactly that name.
+            if let Some((text, fingerprint)) = read_text(vfs, &path) {
+                map.intern(path.clone(), text);
+                tree.snippets.insert(path.as_str().to_owned(), fingerprint);
+            }
+            continue;
+        }
         if is_asset(&path) {
             if let Ok(fingerprint) = vfs.fingerprint(&path) {
                 tree.assets.push(Asset { path, fingerprint });
@@ -199,6 +216,15 @@ pub fn discover(vfs: &dyn Vfs, map: &mut SourceMap, options: &Options) -> Tree {
     tree
 }
 
+/// Whether a file is an includable fragment rather than content of its own
+/// (CM-70, CM-74).
+pub fn is_snippet(path: &VfsPath) -> bool {
+    path.as_str()
+        .split('/')
+        .next()
+        .is_some_and(|first| first == SNIPPET_DIR)
+}
+
 /// Whether a file is copied to `dist/` rather than rendered (CM-84).
 pub fn is_asset(path: &VfsPath) -> bool {
     let mut segments = path.as_str().split('/');
@@ -210,6 +236,14 @@ pub fn is_asset(path: &VfsPath) -> bool {
     !path
         .extension()
         .is_some_and(|extension| PAGE_EXTENSIONS.contains(&extension))
+}
+
+/// A file's text and the fingerprint of its bytes, or `None` when it is not
+/// UTF-8 — an image under `snippets/` is not a template.
+fn read_text(vfs: &dyn Vfs, path: &VfsPath) -> Option<(Arc<str>, Fingerprint)> {
+    let bytes = vfs.read(path).ok()?;
+    let text = std::str::from_utf8(&bytes).ok()?;
+    Some((Arc::from(text), Fingerprint::of(&bytes)))
 }
 
 fn read_ignore(vfs: &dyn Vfs, name: &str) -> Ignore {
@@ -421,6 +455,44 @@ mod tests {
         assert!(tree.files.contains(&VfsPath::new("assets/manual.pdf")));
         assert!(tree.files.contains(&VfsPath::new("index.md")));
         assert!(!tree.files.contains(&VfsPath::new("drafts/next.md")));
+    }
+
+    #[test]
+    fn a_snippet_is_interned_rather_than_routed() {
+        let files = vfs(&[
+            ("index.md", "# home"),
+            ("snippets/note.md", "Mind the gap."),
+            ("snippets/nested/warning.md", "Careful."),
+        ]);
+        let mut map = SourceMap::new();
+        let tree = discover(&files, &mut map, &Options::default());
+
+        assert_eq!(tree.pages.len(), 1, "a snippet is not a page");
+        assert_eq!(tree.snippets.len(), 2);
+        assert_eq!(
+            tree.snippets.get("snippets/note.md"),
+            Some(&Fingerprint::of("Mind the gap."))
+        );
+        // Interned under the name an include uses, which is what makes
+        // `expand`'s `map.find` succeed.
+        assert!(map.find(&VfsPath::new("snippets/note.md")).is_some());
+        assert!(
+            map.find(&VfsPath::new("snippets/nested/warning.md"))
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn a_binary_file_under_snippets_is_not_a_template() {
+        let vfs: MemVfs = [
+            ("index.md", vec![b'#']),
+            ("snippets/logo.png", vec![0x89, b'P', 0xff, 0xfe]),
+        ]
+        .into_iter()
+        .collect();
+        let mut map = SourceMap::new();
+        let tree = discover(&vfs, &mut map, &Options::default());
+        assert!(tree.snippets.is_empty());
     }
 
     #[test]
