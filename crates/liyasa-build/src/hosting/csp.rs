@@ -187,10 +187,7 @@ impl Policy {
         let mut out: Vec<String> = Vec::with_capacity(12);
         out.push("default-src 'self'".to_owned());
         out.push(directive("script-src", self.script_sources()));
-        out.push(directive(
-            "style-src",
-            self.style_hashes.iter().cloned().collect::<Vec<_>>(),
-        ));
+        out.push(directive("style-src", self.style_hashes.to_vec()));
         out.push(directive(
             "img-src",
             std::iter::once("data:".to_owned())

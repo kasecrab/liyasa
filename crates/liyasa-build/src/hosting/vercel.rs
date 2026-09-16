@@ -40,13 +40,9 @@ struct File {
 /// A `_headers` path as a Vercel `source`.
 pub fn source(path: &str) -> String {
     let mut out = String::with_capacity(path.len() + 8);
-    let mut wildcards = 0;
     for ch in path.chars() {
         match ch {
-            '*' => {
-                out.push_str("(.*)");
-                wildcards += 1;
-            }
+            '*' => out.push_str("(.*)"),
             '.' | '(' | ')' | '+' | '?' | '[' | ']' | '{' | '}' | '\\' | '^' | '$' | '|' => {
                 out.push('\\');
                 out.push(ch);
@@ -54,7 +50,6 @@ pub fn source(path: &str) -> String {
             other => out.push(other),
         }
     }
-    let _ = wildcards;
     out
 }
 

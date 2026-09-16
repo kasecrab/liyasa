@@ -351,32 +351,31 @@ impl Host {
     }
 
     fn add_configured_headers(self, dist: &Dist, path: &str, response: &mut Response) {
-        if self.reads_headers_file() {
-            if let Some(text) = dist.text(super::HEADERS_FILE) {
-                for (name, value) in parse_headers_file(&text).resolve(path) {
-                    response.set(&name, &value);
-                }
+        if self.reads_headers_file()
+            && let Some(text) = dist.text(super::HEADERS_FILE)
+        {
+            for (name, value) in parse_headers_file(&text).resolve(path) {
+                response.set(&name, &value);
             }
         }
-        if self.reads_vercel_json() {
-            if let Some(value) = dist
+        if self.reads_vercel_json()
+            && let Some(value) = dist
                 .text(super::VERCEL_FILE)
                 .and_then(|text| serde_json::from_str::<Value>(&text).ok())
-            {
-                for rule in value["headers"].as_array().into_iter().flatten() {
-                    let Some(source) = rule["source"].as_str() else {
-                        continue;
-                    };
-                    let pattern = source.replace("(.*)", "*").replace('\\', "");
-                    if !headers::matches(&pattern, path) {
-                        continue;
-                    }
-                    for header in rule["headers"].as_array().into_iter().flatten() {
-                        if let (Some(key), Some(value)) =
-                            (header["key"].as_str(), header["value"].as_str())
-                        {
-                            response.set(key, value);
-                        }
+        {
+            for rule in value["headers"].as_array().into_iter().flatten() {
+                let Some(source) = rule["source"].as_str() else {
+                    continue;
+                };
+                let pattern = source.replace("(.*)", "*").replace('\\', "");
+                if !headers::matches(&pattern, path) {
+                    continue;
+                }
+                for header in rule["headers"].as_array().into_iter().flatten() {
+                    if let (Some(key), Some(value)) =
+                        (header["key"].as_str(), header["value"].as_str())
+                    {
+                        response.set(key, value);
                     }
                 }
             }
