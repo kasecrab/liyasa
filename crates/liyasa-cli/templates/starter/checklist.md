@@ -21,7 +21,7 @@ Work down this list and delete each line as you go.
 - `openapi/api.yaml` is a toy specification. Point `openapi[].source` at yours.
 - `facts/pricing.json` and `facts/sources.toml` are a sample fact and its
   source. Delete them if you are not verifying facts yet.
-- `snippets/vars.json` holds values reused across pages.
+- `variables` in `liyasa.json` holds values reused across pages as `vars.*`.
 
 ## Before you deploy
 

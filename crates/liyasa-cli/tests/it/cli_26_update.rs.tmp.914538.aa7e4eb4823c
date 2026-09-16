@@ -1,0 +1,315 @@
+//! CLI-26: the signature is verified before the binary is replaced, a tampered
+//! binary is rejected, and telemetry is off unless it is turned on.
+
+use std::path::{Path, PathBuf};
+
+use ed25519_dalek::{Signer, SigningKey};
+use liyasa_cli::Exit;
+use liyasa_cli::update::{self, TARGET};
+
+use crate::support::{Dir, Run, binary};
+
+/// A fixed seed, so the test needs no randomness and fails identically every
+/// time. The matching public key is handed to the binary through
+/// `LIYASA_RELEASE_PUBKEY`, which is how a private release channel is
+/// configured (RFC 0900).
+const SEED: [u8; 32] = [11; 32];
+
+fn key() -> SigningKey {
+    SigningKey::from_bytes(&SEED)
+}
+
+fn public_key_hex() -> String {
+    hex(key().verifying_key().as_bytes())
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn unhex(text: &str) -> Vec<u8> {
+    (0..text.len())
+        .step_by(2)
+        .filter_map(|at| u8::from_str_radix(&text[at..at + 2], 16).ok())
+        .collect()
+}
+
+/// A release directory holding one release for this target.
+struct Channel {
+    directory: Dir,
+}
+
+impl Channel {
+    /// `signed_over` is what the signature covers; `stored` is what the file
+    /// actually holds. They differ only when the test is tampering.
+    fn new(name: &str, version: &str, stored: &[u8], signed_over: &[u8]) -> Self {
+        let directory = Dir::new(name);
+        let digest_of_signed = update::digest(signed_over);
+        let signature = key().sign(&unhex(&digest_of_signed));
+
+        let index = serde_json::json!({
+            "schemaVersion": "1.0",
+            "releases": [{
+                "version": version,
+                "notes": "Nothing to see here.",
+                "artifacts": [{
+                    "target": TARGET,
+                    "file": "liyasa",
+                    "sha256": update::digest(signed_over),
+                    "signature": hex(&signature.to_bytes()),
+                }],
+            }],
+        });
+
+        directory.write(
+            "index.json",
+            &serde_json::to_string_pretty(&index).expect("the index serialises"),
+        );
+        std::fs::write(directory.path().join("liyasa"), stored).expect("the artifact");
+        Self { directory }
+    }
+
+    /// One release whose artifact matches its signature.
+    fn sound(name: &str, version: &str, bytes: &[u8]) -> Self {
+        Self::new(name, version, bytes, bytes)
+    }
+
+    fn path(&self) -> &Path {
+        self.directory.path()
+    }
+}
+
+/// A copy of the binary under test, which `update` can replace without
+/// destroying the one every other test runs.
+struct Installed {
+    directory: Dir,
+    path: PathBuf,
+}
+
+impl Installed {
+    fn new(name: &str) -> Self {
+        let directory = Dir::new(name);
+        let path = directory.path().join("liyasa");
+        std::fs::copy(binary(), &path).expect("a copy of the binary");
+        Self { directory, path }
+    }
+
+    fn run(&self, arguments: &[&str], channel: &Channel) -> crate::support::Outcome {
+        let mut command = std::process::Command::new(&self.path);
+        command.args(arguments);
+        command.arg("--index");
+        command.arg(channel.path());
+        command.current_dir(self.directory.path());
+        for (name, _) in std::env::vars_os() {
+            if name.to_string_lossy().starts_with("LIYASA_") {
+                command.env_remove(name);
+            }
+        }
+        command.env("NO_COLOR", "1");
+        command.env("LIYASA_RELEASE_PUBKEY", public_key_hex());
+        crate::support::Outcome::of(command.output().expect("the copied binary runs"))
+    }
+
+    fn contents(&self) -> Vec<u8> {
+        std::fs::read(&self.path).expect("the installed binary")
+    }
+}
+
+#[test]
+fn a_signed_release_replaces_the_binary() {
+    let installed = Installed::new("cli26-install");
+    let channel = Channel::sound("cli26-install-channel", "99.0.0", b"the next liyasa");
+
+    let outcome = installed.run(&["update"], &channel);
+    assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
+    assert_eq!(installed.contents(), b"the next liyasa");
+}
+
+/// The acceptance criterion. The artifact is not what was signed, so the
+/// digest check catches it and nothing is written.
+#[test]
+fn a_tampered_binary_is_rejected_and_nothing_is_replaced() {
+    let installed = Installed::new("cli26-tampered");
+    let before = installed.contents();
+    let channel = Channel::new(
+        "cli26-tampered-channel",
+        "99.0.0",
+        b"the next liyasa, with a backdoor",
+        b"the next liyasa",
+    );
+
+    let outcome = installed.run(&["update"], &channel);
+    assert_eq!(outcome.code, Exit::Errors.code(), "{}", outcome.all());
+    assert!(outcome.all().contains("E0008"), "{}", outcome.all());
+    assert_eq!(
+        installed.contents(),
+        before,
+        "the binary was replaced despite the digest failing"
+    );
+}
+
+/// Tampering with the index too moves the failure to the signature, which is
+/// the check that needs the private key to pass.
+#[test]
+fn a_tampered_signature_is_rejected() {
+    let installed = Installed::new("cli26-signature");
+    let before = installed.contents();
+    let channel = Channel::sound("cli26-signature-channel", "99.0.0", b"the next liyasa");
+
+    // Re-sign the same digest with a different key, as an attacker holding the
+    // index but not the release key would have to.
+    let index_path = channel.path().join("index.json");
+    let mut index: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&index_path).expect("the index"))
+            .expect("valid JSON");
+    let other = SigningKey::from_bytes(&[3; 32]);
+    let digest = index["releases"][0]["artifacts"][0]["sha256"]
+        .as_str()
+        .expect("a digest")
+        .to_owned();
+    index["releases"][0]["artifacts"][0]["signature"] =
+        serde_json::Value::String(hex(&other.sign(&unhex(&digest)).to_bytes()));
+    std::fs::write(
+        &index_path,
+        serde_json::to_string_pretty(&index).expect("re-serialises"),
+    )
+    .expect("the rewritten index");
+
+    let outcome = installed.run(&["update"], &channel);
+    assert_eq!(outcome.code, Exit::Errors.code(), "{}", outcome.all());
+    assert!(outcome.all().contains("E0007"), "{}", outcome.all());
+    assert_eq!(installed.contents(), before);
+}
+
+/// `--check` reports and replaces nothing, which is what a cron job runs.
+#[test]
+fn check_reports_without_replacing() {
+    let installed = Installed::new("cli26-check");
+    let before = installed.contents();
+    let channel = Channel::sound("cli26-check-channel", "99.0.0", b"the next liyasa");
+
+    let outcome = installed.run(&["update", "--check"], &channel);
+    assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
+    assert!(outcome.stdout.contains("99.0.0"), "{}", outcome.stdout);
+    assert_eq!(installed.contents(), before);
+}
+
+/// A dry run verifies everything and then stops, so a person can see that the
+/// signature is good before letting it write.
+#[test]
+fn a_dry_run_verifies_and_replaces_nothing() {
+    let installed = Installed::new("cli26-dry-run");
+    let before = installed.contents();
+    let channel = Channel::sound("cli26-dry-run-channel", "99.0.0", b"the next liyasa");
+
+    let outcome = installed.run(&["update", "--dry-run"], &channel);
+    assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
+    assert!(outcome.stdout.contains("verified"), "{}", outcome.stdout);
+    assert_eq!(installed.contents(), before);
+}
+
+/// An index that already names this version has nothing to do.
+#[test]
+fn an_index_at_the_current_version_does_nothing() {
+    let installed = Installed::new("cli26-current");
+    let before = installed.contents();
+    let channel = Channel::sound(
+        "cli26-current-channel",
+        env!("CARGO_PKG_VERSION"),
+        b"the same liyasa",
+    );
+
+    let outcome = installed.run(&["update"], &channel);
+    assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
+    assert_eq!(installed.contents(), before);
+}
+
+/// Without an index there is nothing to read, and this build cannot fetch the
+/// published one. Exit 4 is CLI-31's network class.
+#[test]
+fn no_index_is_a_network_failure() {
+    let outcome = Run::new(["update"]).output();
+    assert_eq!(outcome.code, Exit::Network.code(), "{}", outcome.all());
+    assert!(outcome.all().contains("E0009"), "{}", outcome.all());
+}
+
+#[test]
+fn a_remote_index_says_it_cannot_be_reached() {
+    let outcome = Run::new(["update", "--index", "https://example.com/releases"]).output();
+    assert_eq!(outcome.code, Exit::Network.code(), "{}", outcome.all());
+    assert!(outcome.all().contains("E0006"), "{}", outcome.all());
+}
+
+/// CLI-26's last clause: telemetry defaults to off.
+#[test]
+fn telemetry_defaults_to_off() {
+    let home = Dir::new("cli26-telemetry-default");
+    let outcome = Run::new(["telemetry", "status"])
+        .env("LIYASA_CONFIG_HOME", &home.path().to_string_lossy())
+        .output();
+
+    assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
+    assert!(outcome.stdout.contains("off"), "{}", outcome.stdout);
+}
+
+#[test]
+fn telemetry_can_be_turned_on_and_back_off() {
+    let home = Dir::new("cli26-telemetry-toggle");
+    let config_home = home.path().to_string_lossy().into_owned();
+
+    let on = Run::new(["telemetry", "on"])
+        .env("LIYASA_CONFIG_HOME", &config_home)
+        .output();
+    assert_eq!(on.code, Exit::Success.code(), "{}", on.all());
+
+    let status = Run::new(["telemetry", "status"])
+        .env("LIYASA_CONFIG_HOME", &config_home)
+        .output();
+    assert!(status.stdout.contains("on"), "{}", status.stdout);
+
+    Run::new(["telemetry", "off"])
+        .env("LIYASA_CONFIG_HOME", &config_home)
+        .output();
+    let after = Run::new(["telemetry", "status"])
+        .env("LIYASA_CONFIG_HOME", &config_home)
+        .output();
+    assert!(after.stdout.contains("off"), "{}", after.stdout);
+}
+
+/// A completion script is generated for every shell CLI-26 implies, and it is
+/// not empty.
+#[test]
+fn completions_are_generated_for_every_shell() {
+    for shell in ["bash", "zsh", "fish", "powershell", "elvish"] {
+        let outcome = Run::new(["completions", shell]).output();
+        assert_eq!(outcome.code, Exit::Success.code(), "{shell}: {}", outcome.all());
+        assert!(
+            outcome.stdout.len() > 200,
+            "{shell} produced {} bytes",
+            outcome.stdout.len()
+        );
+        assert!(outcome.stdout.contains("liyasa"), "{shell}");
+    }
+}
+
+/// `liyasa version` is the other half of CLI-26 and has to be readable by a
+/// machine as well as a person.
+#[test]
+fn version_reports_itself_in_both_forms() {
+    let text = Run::new(["version"]).output();
+    assert_eq!(text.code, Exit::Success.code(), "{}", text.all());
+    assert!(
+        text.stdout.contains(env!("CARGO_PKG_VERSION")),
+        "{}",
+        text.stdout
+    );
+
+    let json = Run::new(["version", "--json"]).output();
+    let document: serde_json::Value =
+        serde_json::from_str(&json.stdout).unwrap_or_else(|_| panic!("{}", json.stdout));
+    assert_eq!(
+        document["version"].as_str(),
+        Some(env!("CARGO_PKG_VERSION"))
+    );
+    assert!(document["features"].is_array(), "{}", json.stdout);
+}
