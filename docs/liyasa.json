@@ -179,6 +179,7 @@
           "help/index",
           "help/cli",
           "help/build-errors",
+          "help/importing",
           "help/domains",
           "help/auth",
           "help/previews",

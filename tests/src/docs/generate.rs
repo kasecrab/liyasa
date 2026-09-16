@@ -18,6 +18,10 @@ use liyasa_core::diagnostics::{CodeInfo, Severity, ranges, registry};
 use liyasa_core::markdown::ComponentKind;
 use serde_json::Value;
 
+/// The title of the callout a code's page carries when nobody has written its
+/// body yet. `tests/docs/nfr_70.rs` counts these.
+pub const UNWRITTEN: &str = "This page is not written yet";
+
 /// One generated file, at a path relative to `docs/`.
 pub struct File {
     pub path: String,
@@ -86,6 +90,7 @@ fn article_of(info: &CodeInfo) -> (&'static str, &'static str) {
         // runtimes; the rest of the range is about running the command itself.
         3 | 4 | 600..=699 => ("/help/sandbox", "Toolchain and sandbox setup"),
         1..=99 => ("/help/cli", "Running the CLI"),
+        1100..=1199 => ("/help/importing", "Importing"),
         _ => ("/help/build-errors", "Build errors"),
     }
 }
@@ -123,11 +128,19 @@ fn error_pages() -> Vec<File> {
                     text.push_str("\n\n");
                 }
                 None => {
+                    // An explicit, countable gap rather than filler that reads
+                    // like an explanation. `tests/docs/nfr_70.rs` holds the
+                    // number of these to a ratchet, so the debt is visible and
+                    // can only shrink.
                     let _ = writeln!(
                         text,
-                        "This diagnostic comes from `{}`. The message carries the file, \
-                         the line, and the value that caused it; run the command again \
-                         with `--json` to get it as structured output.\n",
+                        ":::info{{title=\"{UNWRITTEN}\"}}\n\
+                         `{code}` is registered and raised by `{}`, and everything above is \
+                         generated from the registry. What causes it and how to fix it has \
+                         not been written yet.\n\n\
+                         The message itself carries the file, the line, and the value that \
+                         caused it; `--json` gives you the same as structured output.\n\
+                         :::\n",
                         info.krate
                     );
                 }

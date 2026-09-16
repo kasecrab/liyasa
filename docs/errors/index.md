@@ -268,3 +268,22 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W1005`](/errors/W1005) | Warning | `search.boost` or `search.exclude` pattern matched no route |
 | [`E1006`](/errors/E1006) | Error | CJK dictionary not installed for this locale (`liyasa add dictionary <lang>`) |
 
+## Importers
+
+`1100`–`1199`, raised by `liyasa-import`.
+
+| Code | Severity | Meaning |
+|---|---|---|
+| [`E1101`](/errors/E1101) | Error | Source directory is not a documentation project this importer recognizes |
+| [`E1102`](/errors/E1102) | Error | Cannot read a file from the source project |
+| [`E1103`](/errors/E1103) | Error | Cannot write into the destination directory, or the file already exists |
+| [`E1104`](/errors/E1104) | Error | Source configuration file is not valid JSON or YAML |
+| [`E1105`](/errors/E1105) | Error | JavaScript configuration is not a literal object; run the generated Node script and import its JSON |
+| [`W1110`](/errors/W1110) | Warning | Component has no Liyasa equivalent and needs manual attention |
+| [`W1111`](/errors/W1111) | Warning | JavaScript expression left in the page for manual attention |
+| [`W1112`](/errors/W1112) | Warning | `import` or `export` statement dropped; move shared content into `snippets/` |
+| [`W1113`](/errors/W1113) | Warning | Source configuration key has no Liyasa equivalent and was not carried |
+| [`W1114`](/errors/W1114) | Warning | Navigation entry names a page that is not in the source project |
+| [`W1115`](/errors/W1115) | Warning | Page route changed; a redirect from the old URL was generated |
+| [`W1116`](/errors/W1116) | Warning | Converted page does not scan as Liyasa Markdown and needs manual attention |
+

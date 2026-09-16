@@ -51,6 +51,45 @@ fn every_error_code_has_a_page() {
     assert!(missing.is_empty(), "codes with no page: {missing:?}");
 }
 
+/// How many codes may still be waiting for a hand-written body.
+///
+/// A ratchet, not a target. `CLAUDE.md` requires a note in the same commit as a
+/// new code, so this can only go down; if it goes up, someone added a code
+/// without writing what it means, and a page of generated scaffolding that says
+/// "not written yet" is honest but is not documentation.
+const UNWRITTEN_CAP: usize = 106;
+
+#[test]
+fn the_unwritten_pages_are_counted_and_shrinking() {
+    let errors = generate::repository().join("docs/errors");
+    let mut unwritten: Vec<String> = Vec::new();
+    for entry in fs::read_dir(&errors).expect("docs/errors") {
+        let entry = entry.expect("a directory entry");
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !name.ends_with(".md") || name == "index.md" {
+            continue;
+        }
+        if fs::read_to_string(entry.path()).is_ok_and(|text| text.contains(generate::UNWRITTEN)) {
+            unwritten.push(name);
+        }
+    }
+    unwritten.sort();
+    assert!(
+        unwritten.len() <= UNWRITTEN_CAP,
+        "{} codes have no written body, over the cap of {UNWRITTEN_CAP}. A new code \
+         needs its note in `docs/errors/_notes/<CODE>.md` in the same commit \
+         (CLAUDE.md). Undocumented: {unwritten:#?}",
+        unwritten.len()
+    );
+    assert_eq!(
+        unwritten.len(),
+        UNWRITTEN_CAP,
+        "the undocumented count has dropped to {}; lower UNWRITTEN_CAP to match so \
+         it cannot drift back up",
+        unwritten.len()
+    );
+}
+
 #[test]
 fn every_error_page_belongs_to_a_registered_code() {
     let known: BTreeSet<String> = registry()
