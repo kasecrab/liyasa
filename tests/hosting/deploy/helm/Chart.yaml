@@ -1,0 +1,10 @@
+# The published Helm chart (HOST-03).
+apiVersion: v2
+name: liyasa
+description: The Liyasa documentation server, with a separate build worker.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://kasecrab.github.io/liyasa
+sources:
+  - https://github.com/kasecrab/liyasa

@@ -1,0 +1,43 @@
+{{- if .Values.buildWorker.enabled }}
+# A build never runs in the process that serves readers (§6.13). The worker
+# claims jobs from the same store the server writes them to, so it scales
+# independently of serving.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-build-worker
+  labels:
+    app.kubernetes.io/name: liyasa
+    app.kubernetes.io/component: build-worker
+spec:
+  replicas: {{ .Values.buildWorker.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: liyasa
+      app.kubernetes.io/component: build-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: liyasa
+        app.kubernetes.io/component: build-worker
+    spec:
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: build-worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          args: ["serve", "--collector-only"]
+          env:
+            - name: LIYASA_WORKER
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: LIYASA_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.masterKey.existingSecret }}
+                  key: {{ .Values.masterKey.key }}
+          resources:
+            {{- toYaml .Values.buildWorker.resources | nindent 12 }}
+{{- end }}

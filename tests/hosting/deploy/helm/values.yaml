@@ -1,0 +1,67 @@
+# Defaults for the Liyasa chart (HOST-03).
+#
+# Replicas coordinate through the job store, so every scheduled job runs at
+# most once per cluster and a crashed worker's lease is re-claimed. That needs
+# a shared database: `replicaCount` above 1 requires Postgres, and the chart
+# refuses to render otherwise.
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/liyasa/liyasa
+  # Pinned by digest in a real deployment; a tag is the starting point.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Per-instance and lossy by design: the ingest queue, the variant cache, and
+# the hot bundle cache live in each pod and are not shared (§30.2.5, ANA-08).
+server:
+  listen: "0.0.0.0:8080"
+  drainTimeout: 30s
+  jobs:
+    leaseSeconds: 60
+  trustedProxies: []
+
+postgres:
+  # Required for more than one replica. `pgvector` because the assistant's
+  # chunks live here in this topology (§6.8).
+  enabled: true
+  host: liyasa-postgres
+  port: 5432
+  database: liyasa
+  existingSecret: liyasa-postgres
+
+s3:
+  enabled: true
+  endpoint: ""
+  bucket: liyasa
+  existingSecret: liyasa-s3
+
+# The master key is never in values.yaml and never in liyasa.json (NFR-11).
+masterKey:
+  existingSecret: liyasa-master-key
+  key: LIYASA_MASTER_KEY
+
+buildWorker:
+  # Builds never run in the process that serves readers (§6.13).
+  enabled: true
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: "4"
+      memory: 4Gi
+
+sandboxRunner:
+  # Only runners that execute user code need a container (§33.1 item 6).
+  enabled: false
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

@@ -206,6 +206,59 @@ pub async fn challenge(
 /// ninety days and recommends renewing at sixty.
 pub const RENEW_BEFORE: Duration = Duration::from_secs(30 * 86_400);
 
+/// A certificate older than this is renewed. Its age comes from the file's
+/// modification time rather than from parsing the certificate: the only
+/// question here is whether to order a new one, the answer is the same either
+/// way, and an X.509 parser is a dependency this does not need.
+pub const MAX_AGE: Duration = Duration::from_secs(60 * 86_400);
+
+/// What an order needs, all of it from configuration.
+#[derive(Debug, Clone)]
+pub struct Request<'a> {
+    pub directory: &'a str,
+    pub contact_email: &'a str,
+    pub domains: &'a [String],
+    pub cert: &'a Path,
+    pub key: &'a Path,
+}
+
+/// Whether the certificate on disk still has life in it.
+pub fn is_fresh(cert: &Path, now: std::time::SystemTime) -> bool {
+    let Ok(modified) = std::fs::metadata(cert).and_then(|m| m.modified()) else {
+        return false;
+    };
+    now.duration_since(modified)
+        .map(|age| age < MAX_AGE)
+        .unwrap_or(true)
+}
+
+/// Obtains a certificate if the one on disk is missing or old. Returns
+/// whether one was ordered.
+///
+/// An offline instance never orders: HOST-08 means no outbound request of any
+/// kind, and a certificate is one.
+pub async fn ensure(
+    offline: bool,
+    request: &Request<'_>,
+    challenges: Arc<Challenges>,
+) -> Result<bool, AcmeError> {
+    if offline {
+        return Err(AcmeError::Offline);
+    }
+    if is_fresh(request.cert, std::time::SystemTime::now()) {
+        return Ok(false);
+    }
+    let certificate = obtain(
+        request.directory,
+        request.contact_email,
+        request.domains,
+        challenges,
+    )
+    .await?;
+    certificate.write(request.cert, request.key)?;
+    Ok(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,6 +320,45 @@ mod tests {
             super::super::tls::load_config(&cert, &key).is_err(),
             "the fixture is not a real certificate, so rustls refuses it rather than \
              accepting anything that parses"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn an_offline_instance_never_orders_a_certificate() {
+        let domains = ["docs.example.com".to_owned()];
+        let error = ensure(
+            true,
+            &Request {
+                directory: LETS_ENCRYPT,
+                contact_email: "ops@example.com",
+                domains: &domains,
+                cert: Path::new("/nonexistent/fullchain.pem"),
+                key: Path::new("/nonexistent/privkey.pem"),
+            },
+            Arc::new(Challenges::default()),
+        )
+        .await
+        .expect_err("HOST-08 forbids the outbound request");
+        assert!(matches!(error, AcmeError::Offline), "{error}");
+    }
+
+    #[test]
+    fn a_young_certificate_is_left_alone_and_an_old_one_is_not() {
+        let dir = std::env::temp_dir().join(format!("liyasa-acme-age-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("a directory");
+        let cert = dir.join("fullchain.pem");
+        std::fs::write(&cert, "x").expect("a file");
+
+        let now = std::time::SystemTime::now();
+        assert!(is_fresh(&cert, now), "a certificate written now is fresh");
+        assert!(
+            !is_fresh(&cert, now + MAX_AGE + Duration::from_secs(1)),
+            "a certificate past its renewal age is not"
+        );
+        assert!(
+            !is_fresh(&dir.join("absent.pem"), now),
+            "a certificate that is not there has to be ordered"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

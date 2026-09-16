@@ -143,6 +143,47 @@ fn the_compose_file_brings_postgres_and_object_storage() {
 }
 
 #[test]
+fn the_chart_scales_replicas_and_keeps_builds_out_of_the_serving_pods() {
+    let values = deploy("helm/values.yaml");
+    let server = deploy("helm/templates/server.yaml");
+    let worker = deploy("helm/templates/build-worker.yaml");
+
+    // HOST-03: replicas coordinate through the job store, which SQLite
+    // cannot be. The chart refuses rather than producing a cluster whose
+    // replicas each run every scheduled job.
+    assert!(
+        server.contains("requires postgres.enabled"),
+        "the chart renders a multi-replica deployment without Postgres"
+    );
+    assert!(values.contains("pgvector") || values.contains("postgres"));
+
+    for probe in ["/_liyasa/health", "/_liyasa/ready"] {
+        assert!(server.contains(probe), "the chart has no {probe} probe");
+    }
+    assert!(
+        server.contains("terminationGracePeriodSeconds: 45"),
+        "the grace period must outlast server.drainTimeout (NFR-31)"
+    );
+    assert!(
+        server.contains("fieldPath: metadata.name"),
+        "each replica must be a distinct worker in the job table"
+    );
+    assert!(
+        server.contains("readOnlyRootFilesystem: true") && server.contains("runAsNonRoot: true"),
+        "the pods are not hardened"
+    );
+    assert!(
+        !server.contains("LIYASA_MASTER_KEY: ")
+            && server.contains("secretKeyRef"),
+        "the master key must come from a Secret, never from values"
+    );
+    assert!(
+        worker.contains("build-worker"),
+        "§6.13: builds run in their own deployment"
+    );
+}
+
+#[test]
 fn the_container_half_reports_why_it_did_not_run() {
     match container_runtime() {
         Some(runtime) => {
