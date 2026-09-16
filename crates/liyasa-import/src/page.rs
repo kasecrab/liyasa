@@ -283,8 +283,16 @@ fn malformed(text: &str) -> Vec<Attention> {
 /// (CM-53). A name that is already lowercase is left alone.
 pub fn directive_name(tag: &str) -> String {
     let mut out = String::with_capacity(tag.len() + 2);
-    for (at, ch) in tag.char_indices() {
-        if ch.is_ascii_uppercase() && at > 0 {
+    for ch in tag.chars() {
+        // A namespaced JSX name such as `Tree.File` is one component, and `.`
+        // is not in the directive name grammar (§34.8).
+        if ch == '.' {
+            if !out.ends_with('-') && !out.is_empty() {
+                out.push('-');
+            }
+            continue;
+        }
+        if ch.is_ascii_uppercase() && !out.is_empty() && !out.ends_with('-') {
             out.push('-');
         }
         out.extend(ch.to_lowercase());
@@ -305,6 +313,9 @@ pub fn snippet_name(specifier: &str) -> String {
         .trim_start_matches('_')
         .to_owned()
 }
+
+/// The spellings of JSX's explicit space.
+const JSX_SPACE: &[&str] = &["' '", "\" \"", "'\\u00a0'", "\"\\u00a0\""];
 
 struct Walk<'a> {
     text: &'a str,
@@ -392,13 +403,26 @@ impl Walk<'_> {
         let line = rest[..end].trim_end();
         let span = Span::new(SourceId(0), at as u32, (at + line.len()) as u32);
 
-        if let Some((name, specifier)) = parse_import(line) {
+        if let Some((names, specifier)) = parse_import(line) {
             if is_partial(&specifier) {
                 let snippet = snippet_name(&specifier);
-                self.snippets.insert(name, (specifier.clone(), snippet));
+                for name in names {
+                    self.snippets
+                        .insert(name, (specifier.clone(), snippet.clone()));
+                }
                 return at + end;
             }
             if self.convert.boilerplate(&specifier) {
+                return at + end;
+            }
+            // A module that defines components is reported through the
+            // components themselves, each of which is named once with whatever
+            // the importer decided for it. Reporting the import as well says
+            // the same thing twice and makes a page look worse than it is.
+            if names
+                .iter()
+                .all(|name| name.starts_with(|c: char| c.is_ascii_uppercase()))
+            {
                 return at + end;
             }
             self.attention.push(
@@ -518,6 +542,13 @@ impl Walk<'_> {
             return None;
         }
 
+        // `{' '}` is how JSX writes a space it does not want collapsed. In
+        // Markdown a space is a space.
+        if JSX_SPACE.contains(&inner) {
+            self.out.push(' ');
+            return Some(at + end);
+        }
+
         // `{NAME}` where an `export const NAME` supplied the value is §7.1's
         // mapping and needs no human.
         if self.exports.iter().any(|(name, _)| name == inner) {
@@ -555,14 +586,15 @@ fn is_partial(specifier: &str) -> bool {
     specifier.ends_with(".mdx") || specifier.ends_with(".md")
 }
 
-/// `import Name from 'specifier'`, for the default import MDX partials use.
-fn parse_import(line: &str) -> Option<(String, String)> {
+/// The bindings an `import` introduces and where they come from.
+///
+/// Both forms an MDX partial arrives in: the default import
+/// `import Note from './note.mdx'`, and the named one
+/// `import { Note, Tip } from '/snippets/note.mdx'`, which is what a Mintlify
+/// snippet exporting several components looks like.
+fn parse_import(line: &str) -> Option<(Vec<String>, String)> {
     let rest = line.strip_prefix("import ")?.trim_start();
-    let (name, rest) = rest.split_once(" from ")?;
-    let name = name.trim();
-    if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
-        return None;
-    }
+    let (bound, rest) = rest.split_once(" from ")?;
     let specifier = rest.trim().trim_end_matches(';').trim();
     let quoted = specifier
         .strip_prefix('\'')
@@ -572,7 +604,25 @@ fn parse_import(line: &str) -> Option<(String, String)> {
                 .strip_prefix('"')
                 .and_then(|s| s.strip_suffix('"'))
         })?;
-    Some((name.to_owned(), quoted.to_owned()))
+
+    let bound = bound.trim();
+    let names: Vec<String> = match bound.strip_prefix('{').and_then(|b| b.strip_suffix('}')) {
+        Some(named) => named
+            .split(',')
+            .map(|name| name.rsplit(" as ").next().unwrap_or(name).trim())
+            .filter(|name| !name.is_empty())
+            .map(str::to_owned)
+            .collect(),
+        None => vec![bound.to_owned()],
+    };
+    if names.is_empty()
+        || !names
+            .iter()
+            .all(|name| !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_'))
+    {
+        return None;
+    }
+    Some((names, quoted.to_owned()))
 }
 
 /// `export const NAME = "text"`, `= 3`, `= true`: the values that become front

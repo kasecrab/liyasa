@@ -21,6 +21,7 @@ use serde_json::Value;
 use crate::page::{self, Action, Components, Convert, Tag, TagKind};
 use crate::plan::Plan;
 use crate::report::{PageReport, Redirect, Report, Source};
+use crate::stubs::{Choice, Generated, Mapping};
 use crate::tree::{self, read, route_of, site_route, strip, with_md_extension};
 
 /// How to import.
@@ -31,6 +32,10 @@ pub struct Options<'a> {
     /// Write components in the directive form rather than the tag form. MIG-01
     /// offers the conversion and does not impose it.
     pub directives: bool,
+    /// What to do with a component Liyasa cannot render. TODO(rfc-2902): the
+    /// default writes a stub, so the page builds and the operator has one file
+    /// to fill in rather than one page per use to edit.
+    pub mapping: &'a dyn Mapping,
 }
 
 /// Reads a Mintlify project and plans a Liyasa one. Nothing is written.
@@ -64,6 +69,8 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
 
     let convert = Mintlify {
         components: options.components,
+        mapping: options.mapping,
+        generated: Generated::new(),
         frontmatter: BTreeMap::new(),
     };
     let mut files = Vec::new();
@@ -127,6 +134,10 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
         }
     }
 
+    for (path, text) in convert.generated.files() {
+        plan.text(&path, text);
+    }
+    plan.report.attention.extend(convert.generated.attention());
     tree::dangling(&converted.pages, &mut plan);
     redirects(&mut converted.value, &plan.report.redirects);
     match serde_json::to_string_pretty(&converted.value) {
@@ -148,12 +159,16 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
 /// because §9's library was modelled on it; the three that are not are here.
 struct Mintlify<'a> {
     components: &'a dyn Components,
+    mapping: &'a dyn Mapping,
+    generated: Generated,
     frontmatter: BTreeMap<String, String>,
 }
 
 impl Convert for Mintlify<'_> {
     fn known(&self, name: &str) -> bool {
-        self.components.known(name)
+        // A component the importer decided to generate is known from then on,
+        // so it is not also reported page by page.
+        self.components.known(name) || self.generated.knows(name)
     }
 
     fn suggest(&self, name: &str) -> Option<String> {
@@ -187,7 +202,23 @@ impl Convert for Mintlify<'_> {
                 TagKind::SelfClosing => Action::Unwrap,
                 _ => Action::Replace("$".to_owned()),
             },
-            _ => Action::Keep,
+            // A diagram written as a component is a fence in Liyasa (CMP-60),
+            // and both ends of it are the same fence.
+            "Mermaid" => match tag.kind {
+                TagKind::SelfClosing => Action::Unwrap,
+                TagKind::Open => Action::Replace("```mermaid".to_owned()),
+                TagKind::Close => Action::Replace("```".to_owned()),
+            },
+            name => {
+                if !self.components.known(name)
+                    && !self.components.known(&tag.directive_name())
+                    && tag.kind != TagKind::Close
+                    && self.mapping.choose(name) == Choice::Stub
+                {
+                    self.generated.record(tag);
+                }
+                Action::Keep
+            }
         }
     }
 }

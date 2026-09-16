@@ -22,6 +22,7 @@ use liyasa_config::vfs::OsVfs;
 use liyasa_core::vfs::VfsPath;
 use liyasa_import::mintlify;
 use liyasa_import::report::Kind;
+use liyasa_import::stubs::Stubs;
 
 use crate::support::{Builtins, scan_errors};
 
@@ -73,6 +74,7 @@ fn every_public_mintlify_project_converts_with_nothing_left_to_do() {
             &mintlify::Options {
                 components: &components,
                 directives: false,
+                mapping: &Stubs,
             },
         );
         let name = project

@@ -10,6 +10,7 @@ use liyasa_config::vfs::MemVfs;
 use liyasa_core::vfs::VfsPath;
 use liyasa_import::mintlify;
 use liyasa_import::report::Kind;
+use liyasa_import::stubs::Stubs;
 
 use crate::support::{Builtins, config, pages_scan, paths, text_at, validate};
 
@@ -105,6 +106,7 @@ fn import(vfs: &MemVfs) -> liyasa_import::Plan {
         &mintlify::Options {
             components: &Builtins::default(),
             directives: false,
+            mapping: &Stubs,
         },
     )
 }
@@ -253,9 +255,12 @@ fn the_report_names_the_constructs_that_need_a_human_and_no_others() {
         .iter()
         .find(|page| page.from.as_str() == "essentials/settings.mdx")
         .expect("the settings page is in the report");
+    // TODO(rfc-2902): the custom component is a stub and one project-level
+    // entry; what is left on the page is the expression, which is a page
+    // someone has to open.
     let kinds: Vec<Kind> = settings.attention.iter().map(|item| item.kind).collect();
-    assert_eq!(kinds, [Kind::CustomComponent, Kind::Expression]);
-    assert_eq!(settings.confidence(), 30);
+    assert_eq!(kinds, [Kind::Expression]);
+    assert_eq!(settings.confidence(), 70);
 
     for page in &report.pages {
         if page.from.as_str() == "essentials/settings.mdx" {
@@ -274,6 +279,12 @@ fn the_report_names_the_constructs_that_need_a_human_and_no_others() {
         .iter()
         .map(|item| item.what.as_str())
         .collect();
+    assert!(project.contains(&"PricingTable"), "{project:?}");
+    assert!(
+        plan.text_at("components/pricing-table.jinja")
+            .is_some_and(|stub| stub.contains("  plan: { type: string }")),
+        "the component Liyasa cannot render has no stub"
+    );
     assert!(project.contains(&"theme: \"maple\""), "{project:?}");
     assert!(project.contains(&"contextual"), "{project:?}");
     assert!(project.contains(&"api.playground"), "{project:?}");
@@ -286,6 +297,7 @@ fn the_report_is_written_beside_the_project() {
     assert!(report.starts_with("# mintlify import"));
     assert!(report.contains("4 pages, 3 clean (75.0%)"));
     assert!(report.contains("PricingTable"));
+    assert!(report.contains("components/pricing-table.jinja"));
 }
 
 #[test]
@@ -306,6 +318,7 @@ fn the_directive_form_is_offered() {
         &mintlify::Options {
             components: &Builtins::default(),
             directives: true,
+            mapping: &Stubs,
         },
     );
     let index = text_at(&plan, "index.md");

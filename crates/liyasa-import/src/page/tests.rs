@@ -364,3 +364,48 @@ fn inline_directive_props_are_not_an_expression_container() {
     assert_eq!(converted.text, source);
     assert!(converted.attention.is_empty(), "{:?}", codes(&converted));
 }
+
+#[test]
+fn a_jsx_space_is_a_space() {
+    let converted = page("One{' '}two and{\" \"}three.\n");
+    assert_eq!(converted.text, "One two and three.\n");
+    assert!(converted.attention.is_empty(), "{:?}", codes(&converted));
+}
+
+#[test]
+fn a_named_partial_import_becomes_a_snippet_include() {
+    let converted =
+        page("import { WebhookBody } from \"/snippets/webhook-body.mdx\";\n\n<WebhookBody />\n");
+    assert!(
+        converted.text.contains("{% snippet \"webhook-body\" %}"),
+        "{}",
+        converted.text
+    );
+    assert!(converted.attention.is_empty(), "{:?}", codes(&converted));
+}
+
+#[test]
+fn several_named_bindings_all_reach_the_same_snippet() {
+    let converted =
+        page("import { Alpha, Beta as Gamma } from './parts.mdx'\n\n<Alpha />\n\n<Gamma />\n");
+    assert_eq!(converted.text.matches("{% snippet \"parts\" %}").count(), 2);
+    assert!(converted.attention.is_empty(), "{:?}", codes(&converted));
+}
+
+#[test]
+fn importing_a_component_is_reported_through_the_component_not_the_import() {
+    // The module defines `ImageLink`; whatever the importer decides about that
+    // component is the report. Naming the import as well says it twice.
+    let converted = page("import { ImageLink } from '/snippets/components/image-link.jsx'\n");
+    assert!(converted.attention.is_empty(), "{:?}", codes(&converted));
+
+    let used =
+        page("import { ImageLink } from '/snippets/components/image-link.jsx'\n\n<ImageLink />\n");
+    assert_eq!(codes(&used), ["custom component"]);
+}
+
+#[test]
+fn importing_code_that_is_not_a_component_is_still_reported() {
+    let converted = page("import { chart } from '../lib/chart.js'\n");
+    assert_eq!(codes(&converted), ["import or export"]);
+}

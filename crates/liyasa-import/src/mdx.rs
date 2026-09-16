@@ -12,8 +12,7 @@
 //! it was used with, and the operator fills in the markup once instead of
 //! editing every page that used it (CMP-90).
 
-use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use liyasa_core::vfs::{Vfs, VfsPath};
 use serde_json::json;
@@ -21,43 +20,8 @@ use serde_json::json;
 use crate::page::{self, Action, Components, Convert, Tag, TagKind, directive_name};
 use crate::plan::Plan;
 use crate::report::{PageReport, Report, Source};
+use crate::stubs::{Choice, Generated, Mapping};
 use crate::tree::{self, read, route_of, site_route, strip, with_md_extension};
-
-/// What to do with a component Liyasa does not know.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Choice {
-    /// Write it as this Liyasa component instead.
-    Use(String),
-    /// Keep the tag and generate a user-defined component for it.
-    Stub,
-    /// Keep the tag and leave it for a human.
-    Leave,
-}
-
-/// Answers the importer's question about an unknown component.
-pub trait Mapping {
-    fn choose(&self, name: &str) -> Choice;
-}
-
-/// The answer when there is nobody to ask: every unknown component gets a stub,
-/// so the imported project builds on the first try.
-pub struct Stubs;
-
-impl Mapping for Stubs {
-    fn choose(&self, _name: &str) -> Choice {
-        Choice::Stub
-    }
-}
-
-/// The answer for a caller that wants the constructs listed rather than filled
-/// in, which is what a dry run against an unfamiliar tree is for.
-pub struct LeaveAll;
-
-impl Mapping for LeaveAll {
-    fn choose(&self, _name: &str) -> Choice {
-        Choice::Leave
-    }
-}
 
 pub struct Options<'a> {
     /// What Liyasa can render, supplied by the caller (PRD §34.7).
@@ -75,7 +39,7 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
     let convert = Mdx {
         components: options.components,
         mapping: options.mapping,
-        seen: RefCell::new(BTreeMap::new()),
+        generated: Generated::new(),
         frontmatter: BTreeMap::new(),
     };
 
@@ -119,13 +83,10 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
         }
     }
 
-    for (name, use_) in convert.seen.into_inner() {
-        if !use_.stub {
-            continue;
-        }
-        let file = format!("components/{name}.jinja");
-        plan.text(&file, stub(&name, &use_));
+    for (path, text) in convert.generated.files() {
+        plan.text(&path, text);
     }
+    plan.report.attention.extend(convert.generated.attention());
 
     if !has_config {
         let config = json!({
@@ -149,60 +110,10 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
     plan
 }
 
-/// How one unknown component was used across the tree.
-#[derive(Debug, Default)]
-struct Use {
-    stub: bool,
-    /// Every prop name it was given, so the stub declares them all.
-    props: BTreeSet<String>,
-    /// Whether it ever wrapped content.
-    container: bool,
-    /// The tag spelling the author wrote, for the stub's alias.
-    tag: String,
-}
-
-/// A user-defined component that renders nothing yet (CMP-90).
-///
-/// The props are every one the tree used it with, typed as strings: the
-/// importer knows the names an author wrote, not what they meant, and a wrong
-/// type would be an error on a page that used to build.
-fn stub(name: &str, use_: &Use) -> String {
-    let mut out = String::from("{# ---\n");
-    out.push_str(&format!("name: {name}\n"));
-    if use_.tag != name {
-        out.push_str(&format!("aliases: [\"{}\"]\n", use_.tag));
-    }
-    out.push_str(&format!(
-        "kind: {}\n",
-        if use_.container { "container" } else { "leaf" }
-    ));
-    if use_.props.is_empty() {
-        out.push_str("props: {}\n");
-    } else {
-        out.push_str("props:\n");
-        for prop in &use_.props {
-            out.push_str(&format!("  {prop}: {{ type: string }}\n"));
-        }
-    }
-    out.push_str("--- #}\n");
-    out.push_str(&format!("{{# TODO: write the markup for `{name}`. #}}\n"));
-    out.push_str(&format!("<div class=\"{name}\">\n"));
-    for prop in &use_.props {
-        out.push_str(&format!(
-            "  <span class=\"{name}-{prop}\">{{{{ props.{prop} }}}}</span>\n"
-        ));
-    }
-    if use_.container {
-        out.push_str("  {{ content }}\n");
-    }
-    out.push_str("</div>\n");
-    out
-}
-
 struct Mdx<'a> {
     components: &'a dyn Components,
     mapping: &'a dyn Mapping,
-    seen: RefCell<BTreeMap<String, Use>>,
+    generated: Generated,
     frontmatter: BTreeMap<String, String>,
 }
 
@@ -213,10 +124,7 @@ impl Convert for Mdx<'_> {
         }
         // A component the importer decided to generate is known from then on,
         // so it is not also reported as needing attention.
-        self.seen
-            .borrow()
-            .get(&directive_name(name))
-            .is_some_and(|use_| use_.stub)
+        self.generated.knows(name)
     }
 
     fn suggest(&self, name: &str) -> Option<String> {
@@ -232,8 +140,7 @@ impl Convert for Mdx<'_> {
     }
 
     fn element(&self, tag: &Tag) -> Action {
-        let spelling = directive_name(&tag.name);
-        if self.components.known(&tag.name) || self.components.known(&spelling) {
+        if self.components.known(&tag.name) || self.components.known(&directive_name(&tag.name)) {
             return Action::Keep;
         }
 
@@ -249,57 +156,10 @@ impl Convert for Mdx<'_> {
                 props: tag.props.clone(),
             },
             Choice::Stub => {
-                let mut seen = self.seen.borrow_mut();
-                let use_ = seen.entry(spelling).or_default();
-                use_.stub = true;
-                use_.tag = tag.name.clone();
-                use_.container |= tag.kind == TagKind::Open;
-                for prop in &tag.props {
-                    use_.props.insert(prop.name.clone());
-                }
+                self.generated.record(tag);
                 Action::Keep
             }
             Choice::Leave => Action::Keep,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_stub_declares_every_prop_the_tree_used() {
-        let use_ = Use {
-            stub: true,
-            props: ["plan", "highlight"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect(),
-            container: true,
-            tag: "PricingTable".to_owned(),
-        };
-        let text = stub("pricing-table", &use_);
-        assert!(text.starts_with("{# ---\nname: pricing-table\n"));
-        assert!(text.contains("aliases: [\"PricingTable\"]"));
-        assert!(text.contains("kind: container"));
-        assert!(text.contains("  highlight: { type: string }"));
-        assert!(text.contains("  plan: { type: string }"));
-        assert!(text.contains("{{ content }}"));
-        assert!(text.contains("{{ props.plan }}"));
-    }
-
-    #[test]
-    fn a_leaf_stub_has_no_content_slot() {
-        let use_ = Use {
-            stub: true,
-            props: BTreeSet::new(),
-            container: false,
-            tag: "Spacer".to_owned(),
-        };
-        let text = stub("spacer", &use_);
-        assert!(text.contains("kind: leaf"));
-        assert!(text.contains("props: {}"));
-        assert!(!text.contains("{{ content }}"));
     }
 }

@@ -17,8 +17,10 @@ pub mod mintlify;
 pub mod page;
 pub mod plan;
 pub mod report;
+pub mod stubs;
 pub mod tree;
 
 pub use page::{Action, Components, Convert, Page, Prop, Tag, TagKind};
 pub use plan::{Apply, Content, FileWrite, Plan};
 pub use report::{Attention, Kind, PageReport, Redirect, Report, Source};
+pub use stubs::{Choice, Mapping, Stubs};

@@ -5,6 +5,7 @@
 
 use liyasa_config::vfs::MemVfs;
 use liyasa_core::vfs::VfsPath;
+use liyasa_import::stubs::Stubs;
 use liyasa_import::{Apply, mintlify};
 
 use crate::support::{Builtins, text_at};
@@ -30,6 +31,7 @@ fn plan() -> liyasa_import::Plan {
         &mintlify::Options {
             components: &Builtins::default(),
             directives: false,
+            mapping: &Stubs,
         },
     )
 }
@@ -43,13 +45,15 @@ fn the_report_scores_every_page() {
         assert!(score <= 100);
         match page.from.as_str() {
             "index.mdx" => assert_eq!(score, 100),
-            "pricing.mdx" => assert_eq!(score, 30),
+            // TODO(rfc-2902): the custom component became a stub; the
+            // JavaScript expression is what is left for a human.
+            "pricing.mdx" => assert_eq!(score, 70),
             other => panic!("unexpected page {other}"),
         }
     }
     assert_eq!(plan.report.clean_pages(), 1);
     assert_eq!(plan.report.clean_percent(), 50.0);
-    assert_eq!(plan.report.mean_confidence(), 65);
+    assert_eq!(plan.report.mean_confidence(), 85);
 }
 
 #[test]
@@ -60,20 +64,28 @@ fn a_dry_run_names_every_file_and_writes_none_of_them() {
     assert!(summary.contains("write liyasa.json"), "{summary}");
     assert!(summary.contains("write pricing.md"), "{summary}");
     assert!(summary.contains("write images/logo.svg (copy of images/logo.svg)"));
-    assert!(summary.ends_with("5 files, nothing written\n"), "{summary}");
+    assert!(
+        summary.contains("write components/pricing-table.jinja"),
+        "{summary}"
+    );
+    assert!(summary.ends_with("6 files, nothing written\n"), "{summary}");
 }
 
 #[test]
 fn the_report_is_a_file_of_the_imported_project() {
     let plan = plan();
     let report = text_at(&plan, "migration-report.md");
-    assert!(report.contains("2 pages, 1 clean (50.0%), mean confidence 65."));
-    assert!(report.contains("### pricing.mdx (30)"), "{report}");
+    assert!(report.contains("2 pages, 1 clean (50.0%), mean confidence 85."));
+    assert!(report.contains("### pricing.mdx (70)"), "{report}");
+    assert!(report.contains("JavaScript expression"), "{report}");
+    // The component Liyasa cannot render is named once, under the project,
+    // with the stub written for it (RFC 2902).
+    assert!(report.contains("## The project"), "{report}");
     assert!(
         report.contains("custom component: `PricingTable`"),
         "{report}"
     );
-    assert!(report.contains("JavaScript expression"), "{report}");
+    assert!(report.contains("used 1 times"), "{report}");
 }
 
 #[test]

@@ -8,7 +8,8 @@ use std::collections::BTreeMap;
 
 use liyasa_config::vfs::MemVfs;
 use liyasa_core::vfs::VfsPath;
-use liyasa_import::mdx::{self, Choice, LeaveAll, Mapping, Stubs};
+use liyasa_import::mdx;
+use liyasa_import::stubs::{Choice, LeaveAll, Mapping, Stubs};
 
 use crate::support::{Builtins, config, pages_scan, paths, text_at, validate};
 

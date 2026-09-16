@@ -4,6 +4,7 @@
 
 use liyasa_config::vfs::MemVfs;
 use liyasa_core::vfs::VfsPath;
+use liyasa_import::stubs::Stubs;
 use liyasa_import::{docusaurus, mdx, mintlify};
 
 use crate::support::{Builtins, config, paths, validate};
@@ -50,6 +51,7 @@ fn mintlify_plan(vfs: &MemVfs) -> liyasa_import::Plan {
         &mintlify::Options {
             components: &Builtins::default(),
             directives: false,
+            mapping: &Stubs,
         },
     )
 }
@@ -164,7 +166,7 @@ fn the_generic_importer_carries_specs_and_assets_too() {
         &VfsPath::new(""),
         &mdx::Options {
             components: &Builtins::default(),
-            mapping: &mdx::Stubs,
+            mapping: &Stubs,
             directives: false,
             name: "Acme",
         },
