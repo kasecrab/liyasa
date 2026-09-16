@@ -19,11 +19,19 @@ pub enum Kind {
 /// latency actually falls in (NFR-02's budget is 200 ms).
 pub const BUCKETS: &[f64] = &[0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5, 1.0, 2.5, 10.0];
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct Histogram {
     counts: Vec<AtomicU64>,
     sum_micros: AtomicU64,
     total: AtomicU64,
+}
+
+/// The derived `Default` would leave the bucket vector empty, and an empty
+/// histogram silently counts nothing; this one has its buckets.
+impl Default for Histogram {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Histogram {
@@ -136,7 +144,7 @@ impl Metrics {
         let mut histograms = self.histograms.lock().unwrap_or_else(|e| e.into_inner());
         histograms
             .entry(Self::key(name, labels))
-            .or_insert_with(Histogram::new)
+            .or_default()
             .observe(seconds);
     }
 

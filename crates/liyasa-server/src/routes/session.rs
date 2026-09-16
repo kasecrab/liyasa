@@ -284,7 +284,10 @@ mod tests {
 
     #[test]
     fn a_user_agent_reaches_the_key_only_as_a_family() {
-        assert_eq!(ua_family(Some("Mozilla/5.0 Chrome/141.0.1 Safari/537")), "chrome");
+        assert_eq!(
+            ua_family(Some("Mozilla/5.0 Chrome/141.0.1 Safari/537")),
+            "chrome"
+        );
         assert_eq!(ua_family(Some("Mozilla/5.0 Firefox/142.0")), "firefox");
         assert_eq!(ua_family(Some("curl/8.5.0")), "curl");
         assert_eq!(ua_family(None), "none");
@@ -303,7 +306,10 @@ mod tests {
             (CallerKind::Agent, Some("claudebot".to_owned()))
         );
         assert_eq!(classify(Some("Googlebot/2.1"), false).0, CallerKind::Bot);
-        assert_eq!(classify(Some("Mozilla/5.0 Chrome/141"), false).0, CallerKind::Human);
+        assert_eq!(
+            classify(Some("Mozilla/5.0 Chrome/141"), false).0,
+            CallerKind::Human
+        );
         assert_eq!(classify(None, false).0, CallerKind::Integration);
         assert_eq!(
             classify(Some("Mozilla/5.0 Chrome/141"), true).0,

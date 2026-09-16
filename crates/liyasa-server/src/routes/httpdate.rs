@@ -53,6 +53,23 @@ pub fn format(time: SystemTime) -> String {
     )
 }
 
+/// `2026-09-14T02:03:04Z`, the spelling every payload uses (§34.12).
+pub fn iso8601(time: SystemTime) -> String {
+    let secs = time
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let days = secs.div_euclid(86_400);
+    let rest = secs.rem_euclid(86_400);
+    let (year, month, day) = civil_from_days(days);
+    format!(
+        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
+        rest / 3600,
+        (rest % 3600) / 60,
+        rest % 60
+    )
+}
+
 pub fn parse(text: &str) -> Option<SystemTime> {
     // The comma after the weekday is the only punctuation any of the three
     // forms carries, so dropping it leaves plain tokens.
@@ -150,6 +167,12 @@ mod tests {
         for secs in [0, 1, 951_782_400, 1_789_473_600, 2_000_000_000] {
             assert_eq!(parse(&format(at(secs))), Some(at(secs)), "{secs}");
         }
+    }
+
+    #[test]
+    fn the_payload_timestamp_is_iso_8601_in_utc() {
+        assert_eq!(iso8601(at(0)), "1970-01-01T00:00:00Z");
+        assert_eq!(iso8601(at(1_789_473_600)), "2026-09-15T12:00:00Z");
     }
 
     #[test]
