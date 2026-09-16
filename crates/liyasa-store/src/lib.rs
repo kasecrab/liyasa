@@ -5,12 +5,14 @@
 //! records the server reads and writes are declared here (RFC 1400).
 
 pub mod db;
+pub mod facade;
 pub mod ingest;
 pub mod jobs;
 pub mod records;
 pub mod repos;
 pub mod secrets;
 
+pub use facade::SqliteStore;
 pub use ingest::{IngestOptions, IngestQueue, RawSink, Writer};
 pub use jobs::{Enqueue, Enqueued, Jobs};
 pub use liyasa_core::store::*;

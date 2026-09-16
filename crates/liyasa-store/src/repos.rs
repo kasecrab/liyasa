@@ -154,13 +154,27 @@ impl Projects {
         })
     }
 
+    /// Deleting a project takes its builds, deployments, domains, and
+    /// feedback with it: every one of them is meaningless without it, and a
+    /// foreign key would otherwise refuse the delete.
     pub async fn delete(&self, id: &ProjectId) -> Result<(), StoreError> {
-        sqlx::query("DELETE FROM project WHERE id = ?")
-            .bind(id.to_string())
-            .execute(&self.pool)
-            .await
-            .map_err(sql_error)?;
-        Ok(())
+        let id = id.to_string();
+        let mut tx = self.pool.begin().await.map_err(sql_error)?;
+        for statement in [
+            "DELETE FROM deployment WHERE project_id = ?",
+            "DELETE FROM deployment_history WHERE project_id = ?",
+            "DELETE FROM build WHERE project_id = ?",
+            "DELETE FROM domain WHERE project_id = ?",
+            "DELETE FROM feedback WHERE project_id = ?",
+            "DELETE FROM project WHERE id = ?",
+        ] {
+            sqlx::query(statement)
+                .bind(&id)
+                .execute(&mut *tx)
+                .await
+                .map_err(sql_error)?;
+        }
+        tx.commit().await.map_err(sql_error)
     }
 
     pub async fn list(
@@ -242,13 +256,27 @@ impl Builds {
         row.as_ref().map(build_from_row).transpose()
     }
 
+    /// A build that an environment still points at cannot be deleted: that is
+    /// the row that says what is being served.
     pub async fn delete(&self, id: &BuildId) -> Result<(), StoreError> {
-        sqlx::query("DELETE FROM build WHERE id = ?")
-            .bind(id.to_string())
-            .execute(&self.pool)
+        let id = id.to_string();
+        let mut tx = self.pool.begin().await.map_err(sql_error)?;
+        sqlx::query("DELETE FROM deployment_history WHERE build_id = ?")
+            .bind(&id)
+            .execute(&mut *tx)
             .await
             .map_err(sql_error)?;
-        Ok(())
+        sqlx::query("DELETE FROM build WHERE id = ?")
+            .bind(&id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| match e {
+                sqlx::Error::Database(ref d) if d.is_foreign_key_violation() => {
+                    StoreError::Conflict
+                }
+                other => sql_error(other),
+            })?;
+        tx.commit().await.map_err(sql_error)
     }
 
     pub async fn latest_for(
@@ -316,6 +344,10 @@ fn deployment_from_row(row: &SqliteRow) -> Result<DeploymentRecord, StoreError> 
 impl Deployments {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
+    }
+
+    pub fn pool(&self) -> &SqlitePool {
+        &self.pool
     }
 
     /// Points `env` at `build`: the atomic pointer swap of NFR-30, recorded
