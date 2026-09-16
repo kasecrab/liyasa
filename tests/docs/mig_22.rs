@@ -316,3 +316,31 @@ fn hrefs(html: &str) -> Vec<String> {
     }
     out
 }
+
+#[test]
+fn the_component_heavy_pages_render_as_components() {
+    let docs = Docs::build("components");
+
+    // The home page uses cards, steps, columns, and a note. If a directive
+    // failed to parse it would render as literal text, not as markup, and the
+    // build would not necessarily say so.
+    let home = docs.read("index.html");
+    for class in ["ly-card", "ly-steps", "ly-columns", "ly-callout"] {
+        assert!(home.contains(class), "the home page has no {class}");
+    }
+    assert!(!home.contains(":::card"), "a directive rendered as text");
+
+    // The gallery renders every example twice: once as a fenced source block
+    // and once as the component itself.
+    let callouts = docs.read("reference/gallery/callouts/index.html");
+    assert!(callouts.contains("ly-callout"));
+    assert!(
+        callouts.matches("Worth knowing").count() >= 2,
+        "the example is not shown as both source and rendered output"
+    );
+
+    // The steps in the quickstart carry their titles, which is what makes the
+    // Markdown twin readable for an agent.
+    let quickstart = docs.read("getting-started/quickstart.md");
+    assert!(quickstart.contains("Create a project"), "{quickstart}");
+}
