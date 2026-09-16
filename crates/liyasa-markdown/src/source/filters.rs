@@ -1,15 +1,16 @@
 //! Liyasa's template filters and functions (CM-14, CM-15).
 //!
 //! Only the ones that are a pure function of their arguments and the template
-//! context live here. `markdown`, `link`, `asset`, `page`, `pages`, `openapi`,
-//! `region_available`, `now`, and `snippet` need the content tree, the asset
-//! manifest, or the build clock, none of which this crate may reach: it does no
-//! I/O so that it builds for WebAssembly (§6.2). The build installs those on
-//! the same environment before calling [`expand`](super::expand).
+//! context live here. `link`, `asset`, `page`, `pages`, `openapi`,
+//! `region_available`, and `now` answer out of what the build knows rather than
+//! out of the template, so they live in [`host`](super::host) and are installed
+//! from a [`Host`](super::host::Host) the build fills in. Neither module does
+//! any I/O, so both build for WebAssembly (§6.2).
 //!
 //! `fact` and `env` are here because they are lookups into the template context
 //! itself (CM-12), which is also what lets them raise `E0209` and `E0211` with
-//! the name that was missing.
+//! the name that was missing. `markdown` is here because it is a pure function
+//! of its argument (RFC 0204).
 
 use liyasa_core::diagnostics::code;
 use minijinja::value::{Kwargs, Value};
@@ -17,6 +18,7 @@ use minijinja::{Environment, Error, ErrorKind};
 
 /// Installs every filter and function this crate owns.
 pub fn install(env: &mut Environment<'_>) {
+    env.add_filter("markdown", markdown);
     env.add_filter("slugify", slugify_filter);
     env.add_filter("anchor", slugify_filter);
     env.add_filter("truncate_chars", truncate_chars);
@@ -27,6 +29,7 @@ pub fn install(env: &mut Environment<'_>) {
     env.add_filter("json", to_json);
     env.add_filter("yaml", to_yaml);
     env.add_filter("toml", to_toml);
+    env.add_filter("fact", fact);
     env.add_function("fact", fact);
     env.add_function("snippet", snippet);
 }
@@ -40,6 +43,17 @@ fn tagged(code: liyasa_core::Code, message: impl std::fmt::Display) -> Error {
 }
 
 // ---- text ----
+
+/// `{{ notes | markdown }}` renders a Markdown fragment to HTML (RFC 0204).
+///
+/// The fragment is read with `ast::options`, the one comrak configuration
+/// CM-30 defines, so a filter and the page around it cannot disagree about what
+/// Markdown means. The result is HTML like any other in the page and reaches
+/// the sanitizer with it.
+fn markdown(value: &str) -> Value {
+    let options = crate::ast::options(&liyasa_core::markdown::ParseOptions::default());
+    Value::from_safe_string(comrak::markdown_to_html(value, &options))
+}
 
 fn slugify_filter(value: &str) -> String {
     slugify(value)
@@ -730,5 +744,60 @@ mod tests {
     fn a_variable_outside_the_allow_list_is_reported() {
         let values = with_env(context! { CI => "true" });
         assert!(fails("{{ env(\"SECRET\") }}", values).contains("E0211"));
+    }
+
+    // ---- markdown (RFC 0204) ----
+
+    #[test]
+    fn markdown_renders_a_fragment() {
+        assert_eq!(
+            render(
+                "{{ notes | markdown }}",
+                context! { notes => "a **bold** word" }
+            ),
+            "<p>a <strong>bold</strong> word</p>\n"
+        );
+    }
+
+    #[test]
+    fn markdown_reads_the_extensions_the_page_reads() {
+        let table = "| a | b |\n|---|---|\n| 1 | 2 |";
+        let out = render("{{ t | markdown }}", context! { t => table });
+        assert!(out.contains("<table>"), "{out}");
+        assert!(render("{{ t | markdown }}", context! { t => "~~gone~~" }).contains("<del>"),);
+    }
+
+    #[test]
+    fn markdown_does_not_escape_its_own_output() {
+        // The filter returns a safe string, so a second interpolation of it is
+        // still HTML rather than `&lt;p&gt;`.
+        let out = render(
+            "{% set html = notes | markdown %}{{ html }}",
+            context! { notes => "text" },
+        );
+        assert_eq!(out, "<p>text</p>\n");
+    }
+
+    #[test]
+    fn markdown_leaves_an_escaped_untrusted_value_escaped() {
+        // CM-20 escaped the value where it entered the context; the filter has
+        // no way back to the block opener it was hiding.
+        let escaped = crate::source::escape_untrusted_markdown("# not a heading", true)
+            .expect("a single-line value");
+        let out = render("{{ v | markdown }}", context! { v => escaped });
+        assert!(!out.contains("<h1>"), "{out}");
+    }
+
+    #[test]
+    fn fact_reads_the_same_way_as_a_filter_and_a_function() {
+        let values = context! { facts => context! { plan => context! { price => 20 } } };
+        assert_eq!(render("{{ \"plan.price\" | fact }}", values.clone()), "20");
+        assert_eq!(render("{{ fact(\"plan.price\") }}", values), "20");
+    }
+
+    #[test]
+    fn a_missing_fact_is_reported_either_way() {
+        let values = context! { facts => context! { plan => context! { price => 20 } } };
+        assert!(fails("{{ \"plan.free\" | fact }}", values).contains("E0209"));
     }
 }
