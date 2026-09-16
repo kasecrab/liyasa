@@ -88,3 +88,7 @@ result
 # --- web/reader e2e output ---
 web/reader/test-results/
 web/reader/playwright-report/
+
+# --- web/ e2e output, once the runner is rooted there ---
+web/test-results/
+web/playwright-report/

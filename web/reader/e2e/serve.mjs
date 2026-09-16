@@ -65,7 +65,13 @@ export function serve(root, port = 0) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const root = process.env["LIYASA_SITE"] ?? "../../target/reference-site";
+  // Resolved against this file, not the working directory: the npm project
+  // moved up to `web/` and the server is started from there, from
+  // `web/reader/`, and from an editor, and the site is in the same place each
+  // time.
+  const root =
+    process.env["LIYASA_SITE"] ??
+    fileURLToPath(new URL("../../../target/reference-site", import.meta.url));
   const port = Number(process.env["PORT"] ?? 4173);
   serve(root, port).on("listening", () => {
     console.log(`reference site on http://127.0.0.1:${port} from ${resolve(root)}`);
