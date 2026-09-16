@@ -71,3 +71,160 @@ image = { version = "0.25", default-features = false, features = ["webp", "png",
 rayon = { version = "1.12", default-features = false }   # the only parallelism in the workspace, and never in a wasm target (PRD §6.2.1)
 notify = { version = "8.2", default-features = false, features = ["macos_fsevent"] }   # the dev server's file watching (PRD §6.6)
 notify-debouncer-full = { version = "0.6", default-features = false }   # the 50 ms debounce window of §6.6
+
+# Host-only crates build unoptimised (RFC 0006). Proc macros, build scripts and
+# their exclusive dependencies run once at compile time and never enter a
+# binary, so RFC 0005's `package."*"` opt-level 2 was paying to optimise code
+# that has no runtime. `build-override` cannot fix this: cargo's precedence is
+# package.<name> > package."*" > build-override, so a build-override row loses.
+#
+# Every crate here was verified to have NO target consumer in the unit graph,
+# following link edges only and stopping at proc-macro boundaries. Nothing is
+# cross-compiled, so a crate used by both sides compiles to ONE shared unit and
+# listing it would deoptimise the shipped code. serde, serde_json, schemars,
+# thiserror, comrak and libc are all in that category and are deliberately
+# absent. Re-derive from the unit graph before adding a row.
+#
+# Measured: cold `cargo build --workspace --all-targets`, sccache off, 5 jobs,
+# 329s to 209s.
+
+[profile.dev.package."async-trait"]
+opt-level = 0
+
+[profile.dev.package."autocfg"]
+opt-level = 0
+
+[profile.dev.package."bon-macros"]
+opt-level = 0
+
+[profile.dev.package."cc"]
+opt-level = 0
+
+[profile.dev.package."convert_case"]
+opt-level = 0
+
+[profile.dev.package."cssparser-macros"]
+opt-level = 0
+
+[profile.dev.package."darling"]
+opt-level = 0
+
+[profile.dev.package."darling_core"]
+opt-level = 0
+
+[profile.dev.package."darling_macro"]
+opt-level = 0
+
+[profile.dev.package."displaydoc"]
+opt-level = 0
+
+[profile.dev.package."entities"]
+opt-level = 0
+
+[profile.dev.package."find-msvc-tools"]
+opt-level = 0
+
+[profile.dev.package."futures-macro"]
+opt-level = 0
+
+[profile.dev.package."heck"]
+opt-level = 0
+
+[profile.dev.package."ident_case"]
+opt-level = 0
+
+[profile.dev.package."lightningcss-derive"]
+opt-level = 0
+
+[profile.dev.package."pastey"]
+opt-level = 0
+
+[profile.dev.package."phf_codegen"]
+opt-level = 0
+
+[profile.dev.package."phf_generator"]
+opt-level = 0
+
+[profile.dev.package."phf_macros"]
+opt-level = 0
+
+[profile.dev.package."prettyplease"]
+opt-level = 0
+
+[profile.dev.package."proc-macro2"]
+opt-level = 0
+
+[profile.dev.package."quote"]
+opt-level = 0
+
+[profile.dev.package."rand"]
+opt-level = 0
+
+[profile.dev.package."rand_core"]
+opt-level = 0
+
+[profile.dev.package."ref-cast-impl"]
+opt-level = 0
+
+[profile.dev.package."regress"]
+opt-level = 0
+
+[profile.dev.package."rustversion"]
+opt-level = 0
+
+[profile.dev.package."schemars_derive"]
+opt-level = 0
+
+[profile.dev.package."semver"]
+opt-level = 0
+
+[profile.dev.package."serde_derive"]
+opt-level = 0
+
+[profile.dev.package."serde_derive_internals"]
+opt-level = 0
+
+[profile.dev.package."shlex"]
+opt-level = 0
+
+[profile.dev.package."strsim"]
+opt-level = 0
+
+[profile.dev.package."strum_macros"]
+opt-level = 0
+
+[profile.dev.package."syn"]
+opt-level = 0
+
+[profile.dev.package."synstructure"]
+opt-level = 0
+
+[profile.dev.package."thiserror-impl"]
+opt-level = 0
+
+[profile.dev.package."typetag-impl"]
+opt-level = 0
+
+[profile.dev.package."typify"]
+opt-level = 0
+
+[profile.dev.package."typify-impl"]
+opt-level = 0
+
+[profile.dev.package."unicode-ident"]
+opt-level = 0
+
+[profile.dev.package."unicode-segmentation"]
+opt-level = 0
+
+[profile.dev.package."version_check"]
+opt-level = 0
+
+[profile.dev.package."yoke-derive"]
+opt-level = 0
+
+[profile.dev.package."zerofrom-derive"]
+opt-level = 0
+
+[profile.dev.package."zerovec-derive"]
+opt-level = 0
