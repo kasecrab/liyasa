@@ -155,10 +155,10 @@
             ]
           },
           {
-            "group": "Components",
+            "group": "Component gallery",
             "pages": [
               {
-                "directory": "reference/components"
+                "directory": "reference/gallery"
               }
             ]
           },

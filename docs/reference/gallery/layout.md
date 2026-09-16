@@ -49,12 +49,12 @@ A site in a minute.
 A container component. Also written as `Card`.
 
 ````markdown
-:::card{title="A single card" href="/reference/cli" icon="terminal" cta="Read the reference" arrow}
+:::card{title="A single card" href="/reference/cli" icon="terminal" cta="Read the reference" arrow=true}
 A card with a call to action links its whole surface.
 :::
 ````
 
-:::card{title="A single card" href="/reference/cli" icon="terminal" cta="Read the reference" arrow}
+:::card{title="A single card" href="/reference/cli" icon="terminal" cta="Read the reference" arrow=true}
 A card with a call to action links its whole surface.
 :::
 
@@ -291,4 +291,4 @@ A leaf component. Also written as `Divider`.
 
 Props and types above are generated from each component's own schema, which is what the build validates against: a missing required prop is [`E0314`](/errors/E0314), a wrong type is [`E0315`](/errors/E0315), and an unknown prop is [`W0316`](/errors/W0316).
 
-See [the component reference](/reference/components) for the other groups.
+See [the component gallery](/reference/gallery) for the other groups.

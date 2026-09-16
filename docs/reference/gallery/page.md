@@ -14,12 +14,12 @@ Every example below is rendered by this page, not pasted in as a picture of one:
 A container component. Also written as `Banner`.
 
 ````markdown
-:::banner{color="#4338CA" dismissible id="gallery-banner"}
+:::banner{color="#4338CA" dismissible=true id="gallery-banner"}
 A banner sits above the page content and can be dismissed for good.
 :::
 ````
 
-:::banner{color="#4338CA" dismissible id="gallery-banner"}
+:::banner{color="#4338CA" dismissible=true id="gallery-banner"}
 A banner sits above the page content and can be dismissed for good.
 :::
 
@@ -127,12 +127,12 @@ This paragraph is in the HTML and not in the Markdown output.
 A container component. Also written as `Region`.
 
 ````markdown
-:::region{only="us,ca"}
+:::region{only=[us,eu]}
 Payments settle through our United States entity.
 :::
 ````
 
-:::region{only="us,ca"}
+:::region{only=[us,eu]}
 Payments settle through our United States entity.
 :::
 
@@ -213,4 +213,4 @@ A leaf component. Also written as `Toc`, `TableOfContents`.
 
 Props and types above are generated from each component's own schema, which is what the build validates against: a missing required prop is [`E0314`](/errors/E0314), a wrong type is [`E0315`](/errors/E0315), and an unknown prop is [`W0316`](/errors/W0316).
 
-See [the component reference](/reference/components) for the other groups.
+See [the component gallery](/reference/gallery) for the other groups.

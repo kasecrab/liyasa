@@ -126,8 +126,8 @@ closest registered name. The other three are prop problems: missing required,
 wrong type, unknown.
 
 Props are typed. A number is written unquoted (`cols=2`), a string is quoted, a
-bare name is a flag meaning `true`. Every component's props are listed in
-[the component reference](/reference/components), generated from the same
+boolean is `open=true`, and a list is `only=[us,eu]`. Every component's props are listed in
+[the component reference](/reference/gallery), generated from the same
 schema the build validates against.
 :::
 

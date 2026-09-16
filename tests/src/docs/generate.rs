@@ -615,7 +615,7 @@ fn prop_row(prop: &PropDef) -> String {
 }
 
 /// A worked example per component: the source, which is also what renders.
-fn example(name: &str) -> Option<&'static str> {
+pub fn example(name: &str) -> Option<&'static str> {
     let example = match name {
         "note" => ":::note{title=\"Worth knowing\"}\nA note breaks the flow on purpose. Use it when the reader would otherwise carry on past something that changes what they are doing.\n:::",
         "tip" => ":::tip\nTips are for the shortcut a reader would not find on their own.\n:::",
@@ -625,7 +625,7 @@ fn example(name: &str) -> Option<&'static str> {
         "danger" => ":::danger{title=\"Data loss\"}\nDeleting a deployment removes its artifacts; rollback targets are not retained forever.\n:::",
         "callout" => ":::callout{title=\"A callout in your own colour\" icon=\"sparkles\" color=\"#7c3aed\"}\nWhen none of the six named kinds fit, `callout` takes an icon and a colour.\n:::",
         "cards" => "::::cards{cols=2}\n\n:::card{title=\"Install\" href=\"/getting-started/install\" icon=\"download\"}\nOne binary, no runtime.\n:::\n\n:::card{title=\"Quickstart\" href=\"/getting-started/quickstart\" icon=\"rocket\"}\nA site in a minute.\n:::\n\n::::",
-        "card" => ":::card{title=\"A single card\" href=\"/reference/cli\" icon=\"terminal\" cta=\"Read the reference\" arrow}\nA card with a call to action links its whole surface.\n:::",
+        "card" => ":::card{title=\"A single card\" href=\"/reference/cli\" icon=\"terminal\" cta=\"Read the reference\" arrow=true}\nA card with a call to action links its whole surface.\n:::",
         "columns" => "::::columns{cols=2}\n\n:::column\nColumns arrange content side by side and collapse to one column on a narrow screen.\n:::\n\n:::column\nThey carry no meaning of their own, so do not let a distinction live only in which column something is in.\n:::\n\n::::",
         "column" => "::::columns{cols=2}\n\n:::column{span=1}\nA column may span more than one track.\n:::\n\n:::column\nThe rest of the row.\n:::\n\n::::",
         "tiles" => "::::tiles{cols=3}\n\n:::tile{title=\"Build\" icon=\"hammer\"}\n`liyasa build`\n:::\n\n:::tile{title=\"Verify\" icon=\"shield-check\"}\n`liyasa verify`\n:::\n\n:::tile{title=\"Deploy\" icon=\"upload\"}\n`liyasa deploy`\n:::\n\n::::",
@@ -634,7 +634,7 @@ fn example(name: &str) -> Option<&'static str> {
         "panel" => ":::panel\nA panel is a plain surface: no icon, no colour, just separation from the page.\n:::",
         "hero" => ":::hero{title=\"Liyasa\" subtitle=\"Documentation that stays true\"}\nA hero renders its title as the page's heading.\n:::",
         "divider" => "::divider{label=\"Reference\"}",
-        "accordions" => "::::accordions{one}\n\n:::accordion{title=\"What does `one` do?\"}\nOpening one accordion closes the others.\n:::\n\n:::accordion{title=\"When should I use a group?\"}\nWhen the items are alternatives rather than a sequence.\n:::\n\n::::",
+        "accordions" => "::::accordions{one=true}\n\n:::accordion{title=\"What does `one` do?\"}\nOpening one accordion closes the others.\n:::\n\n:::accordion{title=\"When should I use a group?\"}\nWhen the items are alternatives rather than a sequence.\n:::\n\n::::",
         "accordion" => ":::accordion{title=\"Click to open\" icon=\"help-circle\"}\nAn accordion hides detail that most readers do not need, without hiding that it exists.\n:::",
         "expandables" => "::::expandables\n\n:::expandable{title=\"options\"}\nNested fields that would otherwise make a table unreadable.\n:::\n\n::::",
         "expandable" => ":::expandable{title=\"Show the full response\"}\nExpandables are for nested detail inside reference content.\n:::",
@@ -647,7 +647,7 @@ fn example(name: &str) -> Option<&'static str> {
         "terminal" => ":::terminal{title=\"A session\"}\nliyasa build\nliyasa verify\n:::",
         "snippet-from" => "::snippet-from{file=\"README.md\" lines=\"1-3\" title=\"README.md\"}",
         "image" => "::image{src=\"/assets/example.svg\" alt=\"A rectangle labelled example\" width=480 height=180 caption=\"Images carry their dimensions so the page does not shift as they load\"}",
-        "video" => "::video{src=\"/assets/example.mp4\" poster=\"/assets/example.svg\" caption=\"A short clip\" controls}",
+        "video" => "::video{src=\"/assets/example.mp4\" poster=\"/assets/example.svg\" caption=\"A short clip\" controls=true}",
         "iframe" => "::iframe{src=\"/reference/cli\" title=\"The CLI reference, embedded\" height=\"240px\"}",
         "embed" => "::embed{url=\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\" title=\"An embedded video\"}",
         "file" => "::file{src=\"/assets/example.svg\" name=\"example.svg\" size=\"1 KB\" type=\"SVG\"}",
@@ -658,14 +658,14 @@ fn example(name: &str) -> Option<&'static str> {
         "kbd" => "Press :kbd[Ctrl+K] to open search.",
         "color" => "The default accent is :color{value=\"#4338CA\" name=\"indigo\"}.",
         "tooltip" => "A :tooltip[fact]{text=\"A named value with a source of truth\"} is checked on every build.",
-        "fact" => "The Pro plan allows :fact[limits.api.requests_per_minute] requests per minute.",
-        "banner" => ":::banner{color=\"#4338CA\" dismissible id=\"gallery-banner\"}\nA banner sits above the page content and can be dismissed for good.\n:::",
+        "fact" => "The Pro plan allows :fact{id=\"limits.api.requests_per_minute\"} requests per minute.",
+        "banner" => ":::banner{color=\"#4338CA\" dismissible=true id=\"gallery-banner\"}\nA banner sits above the page content and can be dismissed for good.\n:::",
         "update" => ":::update{date=\"2026-09-01\" version=\"0.1\" title=\"First release\"}\nChangelog entries carry a date, a version, and a stable anchor.\n:::",
         "prompt" => ":::prompt{title=\"Ask an assistant\"}\nExplain how Liyasa verifies code samples.\n:::",
         "github" => "::github{repo=\"kasecrab/liyasa\"}",
         "md" => ":::md\nRaw Markdown, passed through without component processing.\n:::",
         "visibility" => ":::visibility{humans=true agents=false}\nThis paragraph is in the HTML and not in the Markdown output.\n:::",
-        "region" => ":::region{only=\"us,ca\"}\nPayments settle through our United States entity.\n:::",
+        "region" => ":::region{only=[us,eu]}\nPayments settle through our United States entity.\n:::",
         "feedback" => "::feedback{question=\"Was this page useful?\"}",
         "assistant" => "::assistant{prompt=\"How do I add a second locale?\" label=\"Ask about locales\"}",
         "tree" => ":::tree{root=\"my-docs\"}\n- liyasa.json\n- index.md\n- guides/\n  - install.md\n:::",
@@ -707,7 +707,7 @@ fn component_pages() -> Vec<File> {
             let aliases = component.aliases();
             index_rows.push((
                 (*name).to_owned(),
-                format!("/reference/components/{slug}"),
+                format!("/reference/gallery/{slug}"),
                 kind_word(component.kind()).to_owned(),
             ));
 
@@ -776,22 +776,22 @@ fn component_pages() -> Vec<File> {
         );
         let _ = writeln!(
             text,
-            "See [the component reference](/reference/components) for the other groups."
+            "See [the component gallery](/reference/gallery) for the other groups."
         );
 
         out.push(File {
-            path: format!("reference/components/{slug}.md"),
+            path: format!("reference/gallery/{slug}.md"),
             text,
         });
     }
 
     index_rows.sort();
     let mut text = String::new();
-    text.push_str("---\ntitle: Components\n");
+    text.push_str("---\ntitle: Component gallery\n");
     text.push_str(
         "description: \"Every built-in component, with its props and a live example of each.\"\n",
     );
-    text.push_str("---\n\n# Components\n\n");
+    text.push_str("---\n\n# Component gallery\n\n");
     text.push_str(
         "Components are written as directives, so a page that uses them is still \
          readable Markdown and still reviewable in a diff.\n\n",
@@ -803,8 +803,8 @@ fn component_pages() -> Vec<File> {
     );
     text.push_str(
         "Nest a container inside another by giving the outer one more colons. Props are \
-         written in braces: strings are quoted, numbers and booleans are not, and a bare \
-         name is a flag that means `true`.\n\n",
+         written in braces: strings are quoted, numbers and booleans are not, and a \
+         list is written `[a,b]`.\n\n",
     );
     text.push_str(
         "Every component also has a Markdown serialization for agents, a plain-text one \
@@ -817,7 +817,7 @@ fn component_pages() -> Vec<File> {
     }
 
     out.push(File {
-        path: "reference/components/index.md".to_owned(),
+        path: "reference/gallery/index.md".to_owned(),
         text,
     });
     out

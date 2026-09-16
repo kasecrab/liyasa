@@ -14,7 +14,7 @@ Every example below is rendered by this page, not pasted in as a picture of one:
 A container component. Also written as `AccordionGroup`, `accordion-group`.
 
 ````markdown
-::::accordions{one}
+::::accordions{one=true}
 
 :::accordion{title="What does `one` do?"}
 Opening one accordion closes the others.
@@ -27,7 +27,7 @@ When the items are alternatives rather than a sequence.
 ::::
 ````
 
-::::accordions{one}
+::::accordions{one=true}
 
 :::accordion{title="What does `one` do?"}
 Opening one accordion closes the others.
@@ -243,4 +243,4 @@ Steps may start at a number other than one when a procedure continues across pag
 
 Props and types above are generated from each component's own schema, which is what the build validates against: a missing required prop is [`E0314`](/errors/E0314), a wrong type is [`E0315`](/errors/E0315), and an unknown prop is [`W0316`](/errors/W0316).
 
-See [the component reference](/reference/components) for the other groups.
+See [the component gallery](/reference/gallery) for the other groups.

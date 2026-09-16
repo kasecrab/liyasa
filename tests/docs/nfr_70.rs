@@ -99,8 +99,8 @@ fn every_top_level_config_key_has_a_reference_entry() {
 #[test]
 fn every_component_has_a_live_example() {
     let registry = liyasa_components::registry::Registry::builtins();
-    let pages: String = fs::read_dir(generate::repository().join("docs/reference/components"))
-        .expect("docs/reference/components")
+    let pages: String = fs::read_dir(generate::repository().join("docs/reference/gallery"))
+        .expect("docs/reference/gallery")
         .map(|entry| fs::read_to_string(entry.expect("a directory entry").path()).unwrap_or_default())
         .collect();
 
@@ -132,4 +132,69 @@ fn every_component_has_a_live_example() {
         missing.is_empty(),
         "components with no rendered example: {missing:?}"
     );
+}
+
+#[test]
+fn every_gallery_example_parses_cleanly() {
+    let registry = liyasa_components::registry::Registry::builtins();
+    let canonical: BTreeSet<&str> = registry
+        .all_names()
+        .filter_map(|name| registry.resolve(name))
+        .map(|component| component.name())
+        .collect();
+
+    let mut broken = Vec::new();
+    for name in canonical {
+        let Some(example) = generate::example(name) else {
+            continue;
+        };
+        let diagnostics = build_one_page(name, example);
+        if !diagnostics.is_empty() {
+            broken.push(format!("{name}: {diagnostics:?}"));
+        }
+    }
+    assert!(broken.is_empty(), "{broken:#?}");
+}
+
+/// Builds a one-page site whose body is the example, and returns its errors.
+fn build_one_page(name: &str, body: &str) -> Vec<String> {
+    let root = std::env::temp_dir().join(format!(
+        "liyasa-example-{name}-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("assets")).expect("a project directory");
+    fs::write(
+        root.join("liyasa.json"),
+        r#"{"name":"Examples","seo":{"canonicalOrigin":"https://example.com"},
+            "regions":{"enabled":true,"list":["us","eu"],"default":"us"}}"#,
+    )
+    .expect("a config");
+    fs::write(root.join("assets/example.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
+        .expect("an asset");
+    fs::write(
+        root.join("index.md"),
+        format!("---\ntitle: Example\ndescription: One component.\n---\n\n# Example\n\n{body}\n"),
+    )
+    .expect("a page");
+
+    let vfs = liyasa_config::vfs::OsVfs::new(&root);
+    let report = liyasa_build::engine::build(
+        &vfs,
+        &liyasa_build::git::NoGit,
+        &root,
+        &liyasa_build::engine::Options {
+            build_time: Some(liyasa_tests::docs::BUILD_TIME),
+            ..Default::default()
+        },
+    );
+    let out = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.is_error())
+        .map(|diagnostic| format!("{} {}", diagnostic.code, diagnostic.message))
+        .collect();
+    let _ = fs::remove_dir_all(&root);
+    out
 }
