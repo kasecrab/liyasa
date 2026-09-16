@@ -23,11 +23,17 @@ the migration between them are `plan/rfcs/1100-reader-toolchain.md`.
 
 ## Building
 
+The npm project is one directory up, at `web/`, because Node resolves upward
+from the importing file and one `node_modules` there is what lets both
+`web/e2e/` and `web/reader/e2e/` see Playwright. Run everything from `web/`:
+
 ```sh
-npm run build          # writes dist/reader.js and dist/measure.js
-npm test               # unit tests against a scripted DOM
+cd ..
+npm run build          # writes reader/dist/reader.js and reader/dist/measure.js
+npm test               # the reader's unit tests against a scripted DOM
 npm run serve          # serves the generated reference site on :4173
-npm run e2e            # Playwright, once the toolchain is installed
+npm run e2e            # every spec under web/e2e/ and web/reader/e2e/
+npm run e2e:gate       # the same, one worker, Lighthouse in its own pass
 ```
 
 `build.mjs` needs nothing installed: Node 24 strips the types and the file
@@ -52,6 +58,10 @@ in bundle has drifted).
 
 `e2e/` is Playwright. It drives the reference site that
 `cargo run -p liyasa-tests --bin reference-site` generates, served by
-`e2e/serve.mjs` (no dependencies). Playwright itself and the Lighthouse
-companion are not vendored; `NEEDS-INPUT.md` carries what installing them
-needs.
+`e2e/serve.mjs` (no dependencies), which resolves the site relative to itself
+so it does not care which directory started it.
+
+The config is `web/playwright.config.ts`, shared with `web/e2e/`, and it names
+both trees in `testMatch`. Playwright, Lighthouse and chrome-launcher are
+pinned in `web/package.json` with a committed lockfile; `npx playwright install
+chromium` fetches the browser.
