@@ -10,6 +10,8 @@ mod cfg_03_presets;
 mod cfg_04;
 #[path = "../config/cfg_30_navigation.rs"]
 mod cfg_30_navigation;
+#[path = "../build/cfg_64.rs"]
+mod cfg_64;
 #[path = "../config/cfg_90_diagnostics.rs"]
 mod cfg_90_diagnostics;
 #[path = "../config/cfg_91.rs"]
