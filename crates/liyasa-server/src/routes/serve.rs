@@ -167,6 +167,21 @@ impl Runtime {
     pub fn stop(&self) {
         let _ = self.shutdown_tx.send(true);
     }
+
+    /// A handle that can stop the runtime from another task.
+    pub fn stopper(&self) -> Stopper {
+        Stopper(self.shutdown_tx.clone())
+    }
+}
+
+/// Stops a [`Runtime`] from a signal handler or a test.
+#[derive(Debug, Clone)]
+pub struct Stopper(watch::Sender<bool>);
+
+impl Stopper {
+    pub fn stop(&self) {
+        let _ = self.0.send(true);
+    }
 }
 
 async fn export(
