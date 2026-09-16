@@ -22,6 +22,19 @@ Cargo.toml merge=union
 */Cargo.toml merge=union
 crates/*/Cargo.toml merge=union
 
+# tests/it/main.rs is the same shape and was union-merged on the same day, after
+# WP-29 and WP-31 both appended `mod` lines to it and conflicted on adjacency.
+# RFC 0007 made this one file the entry point for every integration test in a
+# crate, so every package that adds a test file touches it — the conflict was
+# guaranteed to recur for everyone.
+#
+# Safer than the manifest case, not riskier: a duplicate `mod foo;` fails to
+# compile immediately and loudly, so union keeping both sides cannot produce a
+# silent wrong result. The compiler is a stricter check here than `cargo
+# metadata` is for a duplicate dependency key.
+tests/it/main.rs merge=union
+crates/*/tests/it/main.rs merge=union
+
 *.png binary
 *.jpg binary
 *.woff2 binary
