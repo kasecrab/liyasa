@@ -182,7 +182,12 @@ fn scan_line(line: &str, start: usize, block: &mut Option<usize>, indent: usize)
                 }
             }
         }
-        after_space = bytes[at].is_ascii_whitespace() || at == 0;
+        // An unterminated quoted scalar leaves `at` at the end of the line,
+        // and a line ending in a backslash inside one leaves it one past the
+        // end, because the escape arm steps over two bytes. Both are valid
+        // YAML — an apostrophe in a plain scalar, a quoted scalar continued on
+        // the next line — so neither may index.
+        after_space = bytes.get(at).is_some_and(u8::is_ascii_whitespace) || at == 0;
         at += 1;
     }
     None
@@ -225,6 +230,62 @@ mod tests {
         let value = parse_value("title: Install\ntags: [a, b]\n", None).expect("valid YAML");
         assert_eq!(value["title"], "Install");
         assert_eq!(value["tags"][1], "b");
+    }
+
+    /// The anchor scan runs over every front-matter block of every build, so
+    /// an unterminated quoted scalar in it is a panic on ordinary prose.
+    #[test]
+    fn an_unterminated_quote_does_not_index_past_the_line() {
+        let value = parse_value(
+            "description: Every key a page's YAML front matter accepts\n",
+            None,
+        )
+        .expect("valid YAML");
+        assert_eq!(
+            value["description"],
+            "Every key a page's YAML front matter accepts"
+        );
+    }
+
+    #[test]
+    fn a_backslash_at_the_end_of_a_quoted_line_does_not_index_past_it() {
+        // The escape arm steps over two bytes, so the line ends with `at` one
+        // past the end rather than at it. The trailing backslash is YAML's
+        // line continuation, which also swallows the fold's space.
+        let value =
+            parse_value("note: \"he said \\\"hi\\\"\\\n  and left\"\n", None).expect("valid YAML");
+        assert_eq!(value["note"], "he said \"hi\"and left");
+    }
+
+    #[test]
+    fn a_lone_apostrophe_is_still_scanned_to_the_end_of_the_line() {
+        let value =
+            parse_value("title: what a page's front matter accepts'\n", None).expect("valid YAML");
+        assert_eq!(value["title"], "what a page's front matter accepts'");
+    }
+
+    /// Every byte of a plain scalar, so no arm of the scan can step off the
+    /// end of one.
+    #[test]
+    fn no_single_line_document_panics_the_anchor_scan() {
+        const ALPHABET: &[char] = &[
+            '\'', '"', '\\', '#', '&', '*', '|', '>', ':', '-', ',', '[', ']', '{', '}', '?', ' ',
+            'a', '1', '\t', 'é',
+        ];
+        let mut state = 0x853c_49e6_748f_ea9bu64;
+        let mut next = move || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state
+        };
+        for _ in 0..4_000 {
+            let length = (next() % 16) as usize + 1;
+            let body: String = (0..length)
+                .map(|_| ALPHABET[(next() % ALPHABET.len() as u64) as usize])
+                .collect();
+            let _ = parse_value(&format!("key: {body}\n"), None);
+        }
     }
 
     #[test]
