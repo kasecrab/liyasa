@@ -16,6 +16,8 @@ zeroize.workspace = true
 
 [dependencies]
 comrak.workspace = true       # candidate (a) and (b), PRD §7.5.2
+clap.workspace = true         # the real flag set, read from the command tree itself
+liyasa-cli = { path = "../crates/liyasa-cli", version = "0.1.0" }
 liyasa-core = { path = "../crates/liyasa-core", version = "0.1.0", features = ["conformance"] }
 markdown.workspace = true     # candidate (c)
 pulldown-cmark.workspace = true # candidate (d)

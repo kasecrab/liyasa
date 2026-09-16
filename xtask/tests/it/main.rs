@@ -4,5 +4,6 @@
 
 mod conformance_kits;
 mod corpus;
+mod flags;
 mod schemas;
 mod span_composition;

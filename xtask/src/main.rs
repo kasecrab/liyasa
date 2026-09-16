@@ -4,13 +4,16 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use xtask::spike::engines;
-use xtask::{conformance, corpus, corpus_import, corpus_seed, parity, schemas};
+use xtask::{conformance, corpus, corpus_import, corpus_seed, flags, parity, schemas};
 
 const USAGE: &str = "\
 usage: cargo run -p xtask -- <command>
 
   schemas [--check] [--dir DIR]
       Regenerate schemas/ from the frozen Rust types.
+
+  flags
+      Report prose naming a flag the CLI does not define.
 
   conformance DIR [--engine NAME] [--filter TEXT] [-v]
       Run the conformance corpus in DIR through one engine.
@@ -55,6 +58,7 @@ fn dispatch(args: &[String]) -> Result<(), String> {
                 flag(args, "--dir").map_or_else(|| repo_root().join("schemas"), PathBuf::from);
             schemas::run(&dir, args.iter().any(|a| a == "--check"))
         }
+        Some("flags") => flags::run(&repo_root()),
         Some("conformance") => {
             let dir = positional(args).ok_or("conformance needs a directory")?;
             let engine = flag(args, "--engine").unwrap_or(DEFAULT_ENGINE);
