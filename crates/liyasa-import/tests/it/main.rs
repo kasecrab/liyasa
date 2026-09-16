@@ -5,4 +5,6 @@
 mod mig_01_mintlify;
 mod mig_02_docusaurus;
 mod mig_03_mdx;
+mod mig_05_carry;
+mod mig_06_report;
 mod support;
