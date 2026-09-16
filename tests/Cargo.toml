@@ -116,3 +116,11 @@ path = "build/cm_80_hidden.rs"
 [[test]]
 name = "cm_36_links"
 path = "build/cm_36_links.rs"
+
+[[test]]
+name = "cm_15_functions"
+path = "build/cm_15_functions.rs"
+
+[[test]]
+name = "cli_05_format"
+path = "cli/cli_05_format.rs"
