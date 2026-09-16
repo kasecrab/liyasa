@@ -1,6 +1,11 @@
 //! One module per command, and the table that routes to them.
 
+pub mod build;
 pub mod completions;
+pub mod format;
+pub mod migrate;
+pub mod schema;
+pub mod validate;
 pub mod version;
 
 use crate::Exit;
@@ -15,9 +20,9 @@ pub fn dispatch(global: &Global, command: Command) -> Exit {
         // lands.
         Command::New(_) => pending("new"),
         Command::Dev(_) => pending("dev"),
-        Command::Build(_) => pending("build"),
-        Command::Validate(_) => pending("validate"),
-        Command::Format(_) => pending("format"),
+        Command::Build(args) => build::run(global, &args),
+        Command::Validate(args) => validate::run(global, &args),
+        Command::Format(args) => format::run(global, &args),
         Command::Verify(_) => pending("verify"),
         Command::BrokenLinks(_) => pending("broken-links"),
         Command::Test(_) => pending("test"),
@@ -25,8 +30,8 @@ pub fn dispatch(global: &Global, command: Command) -> Exit {
         Command::Export(_) => pending("export"),
         Command::Serve(_) => pending("serve"),
         Command::Search(_) => pending("search"),
-        Command::Schema(_) => pending("schema"),
-        Command::MigrateConfig(_) => pending("migrate-config"),
+        Command::Schema(args) => schema::run(global, &args),
+        Command::MigrateConfig(args) => migrate::run(global, &args),
         Command::Theme(_) => pending("theme"),
         Command::Update(_) => pending("update"),
         Command::Telemetry(_) => pending("telemetry"),

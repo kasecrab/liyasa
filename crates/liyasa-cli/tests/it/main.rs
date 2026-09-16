@@ -4,3 +4,4 @@
 mod support;
 
 mod cli_31_exit;
+mod cli_34;
