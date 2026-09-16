@@ -17,9 +17,9 @@ renders wrong.
 | `seo.canonicalOrigin` | The absolute base for every generated URL | Before you deploy |
 | `theme.preset` | The colour and type system | Now |
 | `navigation` | The sidebar tree | As you add pages |
-| `openapi` | Specs that become reference pages | When you have one |
+| `openapi` | Specifications that become reference pages | When you have one |
 
-:::callout{type="warning"}
+:::warning
 `seo.canonicalOrigin` is the one people forget. Without it Liyasa cannot write
 `llms.txt`, the sitemap, or any absolute link, and agents reading your docs
 lose the base URL.
@@ -32,13 +32,14 @@ liyasa validate
 ```
 
 `validate` reports configuration, content, link, and specification problems
-together, with a code frame for each. Add `--format json` in CI, or
-`--format sarif` to get them as GitHub code-scanning annotations.
+together, with a code frame for each. Add `--format json` in continuous
+integration, or `--format sarif` to get them as code-scanning annotations.
 
 ## Variables
 
-Values in `snippets/vars.json` are available in every page. This site's support
-address is {{ vars.support }}, written once and used everywhere.
+Values under `variables` in `liyasa.json` are available in every page as
+`vars.*`. This site's support address is {{ vars.support }}, written once and
+used everywhere.
 
 :::note
 Changing a variable rebuilds every page that reads it, and only those pages.

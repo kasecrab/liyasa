@@ -34,7 +34,7 @@ pub fn total_cents(seats: u32, price_cents: u32) -> u32 {
 }
 ```
 
-Add `verify="skip"` with a reason to opt a block out.
+Add `verify="skip"` to opt a block out.
 
 ## Running it
 
@@ -44,7 +44,7 @@ liyasa verify --only links
 liyasa verify --changed main
 ```
 
-:::callout{type="info"}
+:::info
 Code runners that need a container require Docker or Podman. Run
 `liyasa doctor` to see what this machine can do.
 :::

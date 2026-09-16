@@ -8,6 +8,10 @@
   "seo": {
     "canonicalOrigin": "https://example.com"
   },
+  "variables": {
+    "support": "support@example.com",
+    "product": "Acme"
+  },
   "navigation": [
     {
       "group": "Start here",

@@ -34,7 +34,7 @@ jobs:
         run: liyasa format --check
 
       - name: Build
-        run: liyasa build --strict
+        run: liyasa build
 
       - name: Agent readiness
         run: liyasa test --agents

@@ -12,6 +12,8 @@ pub mod diag;
 pub mod exit;
 pub mod git;
 pub mod home;
+pub mod scaffold;
+pub mod update;
 
 pub use exit::Exit;
 

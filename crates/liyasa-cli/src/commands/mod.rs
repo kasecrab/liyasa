@@ -5,8 +5,10 @@ pub mod completions;
 pub mod doctor;
 pub mod format;
 pub mod migrate;
+pub mod new;
 pub mod schema;
 pub mod telemetry;
+pub mod update;
 pub mod validate;
 pub mod version;
 
@@ -20,7 +22,7 @@ pub fn dispatch(global: &Global, command: Command) -> Exit {
 
         // Written in the order of §16.1; each becomes a `mod` line above as it
         // lands.
-        Command::New(_) => pending("new"),
+        Command::New(args) => new::run(global, &args),
         Command::Dev(_) => pending("dev"),
         Command::Build(args) => build::run(global, &args),
         Command::Validate(args) => validate::run(global, &args),
@@ -35,7 +37,7 @@ pub fn dispatch(global: &Global, command: Command) -> Exit {
         Command::Schema(args) => schema::run(global, &args),
         Command::MigrateConfig(args) => migrate::run(global, &args),
         Command::Theme(_) => pending("theme"),
-        Command::Update(_) => pending("update"),
+        Command::Update(args) => update::run(global, &args),
         Command::Telemetry(command) => telemetry::run(global, &command),
         Command::Doctor(args) => doctor::run(global, &args),
         Command::Companion(_) => pending("companion"),
