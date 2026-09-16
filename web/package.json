@@ -1,0 +1,24 @@
+{
+  "name": "@liyasa/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT OR Apache-2.0",
+  "description": "The web workspace: the reader runtime (PRD §11) and the browser suites every package's acceptance tests run from.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node --disable-warning=ExperimentalWarning reader/build.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --test reader/test/*.test.ts",
+    "serve": "node reader/e2e/serve.mjs",
+    "site": "cd .. && cargo run -q -p liyasa-tests --bin reference-site -- target/reference-site",
+    "e2e": "playwright test",
+    "e2e:gate": "playwright test --workers=1 --grep-invert lighthouse && playwright test --workers=1 --grep lighthouse"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "chrome-launcher": "1.2.1",
+    "lighthouse": "13.4.1"
+  }
+}
