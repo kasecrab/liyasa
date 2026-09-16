@@ -20,7 +20,8 @@ pub enum Choice {
     Use(String),
     /// Keep the tag and generate a user-defined component for it.
     Stub,
-    /// Keep the tag and leave it for a human, page by page.
+    /// Keep the tag and report it on every page that used it. RFC 2902
+    /// rejected this as the way an import runs; see [`LeaveAll`].
     Leave,
 }
 
@@ -42,8 +43,13 @@ impl Mapping for Stubs {
     }
 }
 
-/// The answer for a caller that wants every use listed on its own page, which
-/// is `liyasa import --report-components`.
+/// Reports every use on its own page instead of generating anything.
+///
+/// RFC 2902 settled that this is not how an import runs: it is the alternative
+/// the core lead rejected, not a switch back to earlier behaviour, and no CLI
+/// flag selects it. It stays because a caller reading a tree to find out what
+/// is in it wants the per-page listing, and because the tests assert that the
+/// choice is honoured.
 pub struct LeaveAll;
 
 impl Mapping for LeaveAll {
