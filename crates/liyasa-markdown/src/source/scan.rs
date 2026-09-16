@@ -719,7 +719,12 @@ fn close_of(text: &str, kind: Kind) -> Option<usize> {
                     at += if bytes[at] == b'\\' { 2 } else { 1 };
                 }
             }
-            _ if text[at..].starts_with(close) => return Some(at + close.len()),
+            // Compared as bytes, not as a string slice: the arm below walks
+            // one byte at a time, so `at` sits inside a multi-byte character
+            // for every continuation byte of one, and `text[at..]` panics
+            // there. Every closing delimiter is ASCII, and no continuation
+            // byte is, so a byte comparison matches in exactly the same places.
+            _ if bytes[at..].starts_with(close.as_bytes()) => return Some(at + close.len()),
             _ => {}
         }
         at += 1;
@@ -911,6 +916,60 @@ mod tests {
 
     fn at(text: &str, span: Span) -> &str {
         &text[span.start as usize..span.end as usize]
+    }
+
+    /// The tag scan walks a byte at a time, so it stands on a continuation
+    /// byte of every multi-byte character it passes. Slicing there panicked.
+    #[test]
+    fn a_tag_may_hold_a_multibyte_character() {
+        for text in [
+            "{{ café }}\n",
+            "{% if région %}oui{% endif %}\n",
+            "{# commentaire é #}\n",
+            "{{ \"🙂\" }}\n",
+            "{{ '🙂' }}\n",
+            "{{ \"日本語\" }}\n",
+            "{{ x }} café\n",
+            "café {{ x }}\n",
+        ] {
+            let (document, diagnostics) = document(text);
+            assert!(
+                codes(&diagnostics).is_empty(),
+                "{text:?}: {:?}",
+                codes(&diagnostics)
+            );
+            assert!(
+                document
+                    .segments
+                    .iter()
+                    .any(|segment| matches!(segment, Segment::Template { .. })),
+                "{text:?} found no tag: {:?}",
+                document.segments
+            );
+        }
+    }
+
+    /// Every byte of a tag, so no arm of the scan can slice off a boundary or
+    /// step past the end of one.
+    #[test]
+    fn no_tag_like_input_panics_the_scanner() {
+        const ALPHABET: &[char] = &[
+            '{', '}', '%', '#', '"', '\'', '\\', ' ', 'a', '|', '`', 'é', '🙂', '\n',
+        ];
+        let mut state = 0xd1b5_4a32_d192_ed03u64;
+        let mut next = move || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state
+        };
+        for _ in 0..4_000 {
+            let length = (next() % 18) as usize + 1;
+            let text: String = (0..length)
+                .map(|_| ALPHABET[(next() % ALPHABET.len() as u64) as usize])
+                .collect();
+            let _ = scan(&text, ID);
+        }
     }
 
     /// The invariant of §7.16: the front matter span and then the segment
