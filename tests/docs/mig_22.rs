@@ -56,7 +56,10 @@ fn every_page_is_served_as_html_and_as_markdown() {
             docs.exists(&format!("{path}/index.html")),
             "no HTML for /{path}"
         );
-        assert!(docs.exists(&format!("{path}.md")), "no Markdown for /{path}");
+        assert!(
+            docs.exists(&format!("{path}.md")),
+            "no Markdown for /{path}"
+        );
     }
 }
 
@@ -313,4 +316,3 @@ fn hrefs(html: &str) -> Vec<String> {
     }
     out
 }
-

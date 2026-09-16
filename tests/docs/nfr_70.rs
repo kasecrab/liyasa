@@ -64,10 +64,8 @@ fn every_error_page_belongs_to_a_registered_code() {
         let Some(stem) = name.strip_suffix(".md") else {
             continue;
         };
-        if stem == "index" || !known.contains(stem) {
-            if stem != "index" {
-                orphans.push(name);
-            }
+        if stem != "index" && !known.contains(stem) {
+            orphans.push(name);
         }
     }
     assert!(
@@ -101,7 +99,9 @@ fn every_component_has_a_live_example() {
     let registry = liyasa_components::registry::Registry::builtins();
     let pages: String = fs::read_dir(generate::repository().join("docs/reference/gallery"))
         .expect("docs/reference/gallery")
-        .map(|entry| fs::read_to_string(entry.expect("a directory entry").path()).unwrap_or_default())
+        .map(|entry| {
+            fs::read_to_string(entry.expect("a directory entry").path()).unwrap_or_default()
+        })
         .collect();
 
     // `all_names` includes every alias; a component documents under its
@@ -171,8 +171,11 @@ fn build_one_page(name: &str, body: &str) -> Vec<String> {
             "regions":{"enabled":true,"list":["us","eu"],"default":"us"}}"#,
     )
     .expect("a config");
-    fs::write(root.join("assets/example.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
-        .expect("an asset");
+    fs::write(
+        root.join("assets/example.svg"),
+        "<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
+    )
+    .expect("an asset");
     fs::write(
         root.join("index.md"),
         format!("---\ntitle: Example\ndescription: One component.\n---\n\n# Example\n\n{body}\n"),

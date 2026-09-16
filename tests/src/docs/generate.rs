@@ -12,10 +12,10 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
+use liyasa_components::registry::Registry;
 use liyasa_core::components::{PropDef, PropType};
 use liyasa_core::diagnostics::{CodeInfo, Severity, ranges, registry};
 use liyasa_core::markdown::ComponentKind;
-use liyasa_components::registry::Registry;
 use serde_json::Value;
 
 /// One generated file, at a path relative to `docs/`.
@@ -190,10 +190,7 @@ fn errors_index() -> File {
     for ((first, last, area, krate), mut codes) in by_range {
         codes.sort_by_key(|info| info.code.number());
         let _ = writeln!(text, "## {area}\n");
-        let _ = writeln!(
-            text,
-            "`{first:04}`–`{last:04}`, raised by `{krate}`.\n"
-        );
+        let _ = writeln!(text, "`{first:04}`–`{last:04}`, raised by `{krate}`.\n");
         let _ = writeln!(text, "| Code | Severity | Meaning |");
         let _ = writeln!(text, "|---|---|---|");
         for info in codes {
@@ -617,64 +614,150 @@ fn prop_row(prop: &PropDef) -> String {
 /// A worked example per component: the source, which is also what renders.
 pub fn example(name: &str) -> Option<&'static str> {
     let example = match name {
-        "note" => ":::note{title=\"Worth knowing\"}\nA note breaks the flow on purpose. Use it when the reader would otherwise carry on past something that changes what they are doing.\n:::",
+        "note" => {
+            ":::note{title=\"Worth knowing\"}\nA note breaks the flow on purpose. Use it when the reader would otherwise carry on past something that changes what they are doing.\n:::"
+        }
         "tip" => ":::tip\nTips are for the shortcut a reader would not find on their own.\n:::",
-        "warning" => ":::warning{title=\"This is destructive\"}\n`liyasa build --clean` empties the output directory before it writes.\n:::",
+        "warning" => {
+            ":::warning{title=\"This is destructive\"}\n`liyasa build --clean` empties the output directory before it writes.\n:::"
+        }
         "info" => ":::info\nInformation that is useful but not urgent.\n:::",
         "check" => ":::check{title=\"Verified\"}\nThis sample is executed on every build.\n:::",
-        "danger" => ":::danger{title=\"Data loss\"}\nDeleting a deployment removes its artifacts; rollback targets are not retained forever.\n:::",
-        "callout" => ":::callout{title=\"A callout in your own colour\" icon=\"sparkles\" color=\"#7c3aed\"}\nWhen none of the six named kinds fit, `callout` takes an icon and a colour.\n:::",
-        "cards" => "::::cards{cols=2}\n\n:::card{title=\"Install\" href=\"/getting-started/install\" icon=\"download\"}\nOne binary, no runtime.\n:::\n\n:::card{title=\"Quickstart\" href=\"/getting-started/quickstart\" icon=\"rocket\"}\nA site in a minute.\n:::\n\n::::",
-        "card" => ":::card{title=\"A single card\" href=\"/reference/cli\" icon=\"terminal\" cta=\"Read the reference\" arrow=true}\nA card with a call to action links its whole surface.\n:::",
-        "columns" => "::::columns{cols=2}\n\n:::column\nColumns arrange content side by side and collapse to one column on a narrow screen.\n:::\n\n:::column\nThey carry no meaning of their own, so do not let a distinction live only in which column something is in.\n:::\n\n::::",
-        "column" => "::::columns{cols=2}\n\n:::column{span=1}\nA column may span more than one track.\n:::\n\n:::column\nThe rest of the row.\n:::\n\n::::",
-        "tiles" => "::::tiles{cols=3}\n\n:::tile{title=\"Build\" icon=\"hammer\"}\n`liyasa build`\n:::\n\n:::tile{title=\"Verify\" icon=\"shield-check\"}\n`liyasa verify`\n:::\n\n:::tile{title=\"Deploy\" icon=\"upload\"}\n`liyasa deploy`\n:::\n\n::::",
-        "tile" => "::::tiles{cols=2}\n\n:::tile{title=\"A tile\" icon=\"square\"}\nTiles are denser than cards and are meant to be scanned.\n:::\n\n:::tile{title=\"Another\" icon=\"square\"}\nUse them for a grid of short links.\n:::\n\n::::",
-        "frame" => ":::frame{caption=\"A framed figure\" hint=\"Frames add a border and a caption\"}\nAnything inside a frame is presented as a figure.\n:::",
-        "panel" => ":::panel\nA panel is a plain surface: no icon, no colour, just separation from the page.\n:::",
-        "hero" => ":::hero{title=\"Liyasa\" subtitle=\"Documentation that stays true\"}\nA hero renders its title as the page's heading.\n:::",
+        "danger" => {
+            ":::danger{title=\"Data loss\"}\nDeleting a deployment removes its artifacts; rollback targets are not retained forever.\n:::"
+        }
+        "callout" => {
+            ":::callout{title=\"A callout in your own colour\" icon=\"sparkles\" color=\"#7c3aed\"}\nWhen none of the six named kinds fit, `callout` takes an icon and a colour.\n:::"
+        }
+        "cards" => {
+            "::::cards{cols=2}\n\n:::card{title=\"Install\" href=\"/getting-started/install\" icon=\"download\"}\nOne binary, no runtime.\n:::\n\n:::card{title=\"Quickstart\" href=\"/getting-started/quickstart\" icon=\"rocket\"}\nA site in a minute.\n:::\n\n::::"
+        }
+        "card" => {
+            ":::card{title=\"A single card\" href=\"/reference/cli\" icon=\"terminal\" cta=\"Read the reference\" arrow=true}\nA card with a call to action links its whole surface.\n:::"
+        }
+        "columns" => {
+            "::::columns{cols=2}\n\n:::column\nColumns arrange content side by side and collapse to one column on a narrow screen.\n:::\n\n:::column\nThey carry no meaning of their own, so do not let a distinction live only in which column something is in.\n:::\n\n::::"
+        }
+        "column" => {
+            "::::columns{cols=2}\n\n:::column{span=1}\nA column may span more than one track.\n:::\n\n:::column\nThe rest of the row.\n:::\n\n::::"
+        }
+        "tiles" => {
+            "::::tiles{cols=3}\n\n:::tile{title=\"Build\" icon=\"hammer\"}\n`liyasa build`\n:::\n\n:::tile{title=\"Verify\" icon=\"shield-check\"}\n`liyasa verify`\n:::\n\n:::tile{title=\"Deploy\" icon=\"upload\"}\n`liyasa deploy`\n:::\n\n::::"
+        }
+        "tile" => {
+            "::::tiles{cols=2}\n\n:::tile{title=\"A tile\" icon=\"square\"}\nTiles are denser than cards and are meant to be scanned.\n:::\n\n:::tile{title=\"Another\" icon=\"square\"}\nUse them for a grid of short links.\n:::\n\n::::"
+        }
+        "frame" => {
+            ":::frame{caption=\"A framed figure\" hint=\"Frames add a border and a caption\"}\nAnything inside a frame is presented as a figure.\n:::"
+        }
+        "panel" => {
+            ":::panel\nA panel is a plain surface: no icon, no colour, just separation from the page.\n:::"
+        }
+        "hero" => {
+            ":::hero{title=\"Liyasa\" subtitle=\"Documentation that stays true\"}\nA hero renders its title as the page's heading.\n:::"
+        }
         "divider" => "::divider{label=\"Reference\"}",
-        "accordions" => "::::accordions{one=true}\n\n:::accordion{title=\"What does `one` do?\"}\nOpening one accordion closes the others.\n:::\n\n:::accordion{title=\"When should I use a group?\"}\nWhen the items are alternatives rather than a sequence.\n:::\n\n::::",
-        "accordion" => ":::accordion{title=\"Click to open\" icon=\"help-circle\"}\nAn accordion hides detail that most readers do not need, without hiding that it exists.\n:::",
-        "expandables" => "::::expandables\n\n:::expandable{title=\"options\"}\nNested fields that would otherwise make a table unreadable.\n:::\n\n::::",
-        "expandable" => ":::expandable{title=\"Show the full response\"}\nExpandables are for nested detail inside reference content.\n:::",
-        "tabs" => "::::tabs{title=\"Install\"}\n\n:::tab{title=\"npm\" sync=\"npm\"}\n`npm install liyasa`\n:::\n\n:::tab{title=\"pnpm\" sync=\"pnpm\"}\n`pnpm add liyasa`\n:::\n\n::::",
-        "tab" => "::::tabs\n\n:::tab{title=\"Linux\"}\nThe musl build is fully static.\n:::\n\n:::tab{title=\"macOS\"}\nUniversal binaries for both architectures.\n:::\n\n::::",
-        "steps" => "::::steps\n\n:::step{title=\"Install\"}\n`liyasa new acme-docs`\n:::\n\n:::step{title=\"Run\"}\n`liyasa dev`\n:::\n\n::::",
-        "step" => "::::steps{start=3}\n\n:::step{title=\"Deploy\"}\nSteps may start at a number other than one when a procedure continues across pages.\n:::\n\n::::",
-        "code-group" => "::::code-group\n\n```sh {title=\"npm\"}\nnpm install liyasa\n```\n\n```sh {title=\"cargo\"}\ncargo install liyasa\n```\n\n::::",
+        "accordions" => {
+            "::::accordions{one=true}\n\n:::accordion{title=\"What does `one` do?\"}\nOpening one accordion closes the others.\n:::\n\n:::accordion{title=\"When should I use a group?\"}\nWhen the items are alternatives rather than a sequence.\n:::\n\n::::"
+        }
+        "accordion" => {
+            ":::accordion{title=\"Click to open\" icon=\"help-circle\"}\nAn accordion hides detail that most readers do not need, without hiding that it exists.\n:::"
+        }
+        "expandables" => {
+            "::::expandables\n\n:::expandable{title=\"options\"}\nNested fields that would otherwise make a table unreadable.\n:::\n\n::::"
+        }
+        "expandable" => {
+            ":::expandable{title=\"Show the full response\"}\nExpandables are for nested detail inside reference content.\n:::"
+        }
+        "tabs" => {
+            "::::tabs{title=\"Install\"}\n\n:::tab{title=\"npm\" sync=\"npm\"}\n`npm install liyasa`\n:::\n\n:::tab{title=\"pnpm\" sync=\"pnpm\"}\n`pnpm add liyasa`\n:::\n\n::::"
+        }
+        "tab" => {
+            "::::tabs\n\n:::tab{title=\"Linux\"}\nThe musl build is fully static.\n:::\n\n:::tab{title=\"macOS\"}\nUniversal binaries for both architectures.\n:::\n\n::::"
+        }
+        "steps" => {
+            "::::steps\n\n:::step{title=\"Install\"}\n`liyasa new acme-docs`\n:::\n\n:::step{title=\"Run\"}\n`liyasa dev`\n:::\n\n::::"
+        }
+        "step" => {
+            "::::steps{start=3}\n\n:::step{title=\"Deploy\"}\nSteps may start at a number other than one when a procedure continues across pages.\n:::\n\n::::"
+        }
+        "code-group" => {
+            "::::code-group\n\n```sh {title=\"npm\"}\nnpm install liyasa\n```\n\n```sh {title=\"cargo\"}\ncargo install liyasa\n```\n\n::::"
+        }
         "code" => "Press :code[liyasa build]{lang=\"sh\"} to write `dist/`.",
         "terminal" => ":::terminal{title=\"A session\"}\nliyasa build\nliyasa verify\n:::",
         "snippet-from" => "::snippet-from{file=\"README.md\" lines=\"1-3\" title=\"README.md\"}",
-        "image" => "::image{src=\"/assets/example.svg\" alt=\"A rectangle labelled example\" width=480 height=180 caption=\"Images carry their dimensions so the page does not shift as they load\"}",
-        "video" => "::video{src=\"/assets/example.mp4\" poster=\"/assets/example.svg\" caption=\"A short clip\" controls=true}",
-        "iframe" => "::iframe{src=\"/reference/cli\" title=\"The CLI reference, embedded\" height=\"240px\"}",
-        "embed" => "::embed{url=\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\" title=\"An embedded video\"}",
-        "file" => "::file{src=\"/assets/example.svg\" name=\"example.svg\" size=\"1 KB\" type=\"SVG\"}",
+        "image" => {
+            "::image{src=\"/assets/example.svg\" alt=\"A rectangle labelled example\" width=480 height=180 caption=\"Images carry their dimensions so the page does not shift as they load\"}"
+        }
+        "video" => {
+            "::video{src=\"/assets/example.mp4\" poster=\"/assets/example.svg\" caption=\"A short clip\" controls=true}"
+        }
+        "iframe" => {
+            "::iframe{src=\"/reference/cli\" title=\"The CLI reference, embedded\" height=\"240px\"}"
+        }
+        "embed" => {
+            "::embed{url=\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\" title=\"An embedded video\"}"
+        }
+        "file" => {
+            "::file{src=\"/assets/example.svg\" name=\"example.svg\" size=\"1 KB\" type=\"SVG\"}"
+        }
         "files" => "::::files\n\n::file{src=\"/assets/example.svg\" name=\"example.svg\"}\n\n::::",
-        "screenshot" => "::screenshot{src=\"/assets/example.svg\" alt=\"The deployment list\" app=\"dashboard\" route=\"/deployments\" viewport=\"1280x800\"}",
+        "screenshot" => {
+            "::screenshot{src=\"/assets/example.svg\" alt=\"The deployment list\" app=\"dashboard\" route=\"/deployments\" viewport=\"1280x800\"}"
+        }
         "badge" => "Rate limits apply to every plan :badge[beta]{color=\"#7c3aed\"}.",
-        "icon" => "Builds that succeed are marked :icon{name=\"check\" label=\"passed\"} in the list.",
+        "icon" => {
+            "Builds that succeed are marked :icon{name=\"check\" label=\"passed\"} in the list."
+        }
         "kbd" => "Press :kbd[Ctrl+K] to open search.",
         "color" => "The default accent is :color{value=\"#4338CA\" name=\"indigo\"}.",
-        "tooltip" => "A :tooltip[fact]{text=\"A named value with a source of truth\"} is checked on every build.",
-        "fact" => "The Pro plan allows :fact{id=\"limits.api.requests_per_minute\"} requests per minute.",
-        "banner" => ":::banner{color=\"#4338CA\" dismissible=true id=\"gallery-banner\"}\nA banner sits above the page content and can be dismissed for good.\n:::",
-        "update" => ":::update{date=\"2026-09-01\" version=\"0.1\" title=\"First release\"}\nChangelog entries carry a date, a version, and a stable anchor.\n:::",
-        "prompt" => ":::prompt{title=\"Ask an assistant\"}\nExplain how Liyasa verifies code samples.\n:::",
+        "tooltip" => {
+            "A :tooltip[fact]{text=\"A named value with a source of truth\"} is checked on every build."
+        }
+        "fact" => {
+            "The Pro plan allows :fact{id=\"limits.api.requests_per_minute\"} requests per minute."
+        }
+        "banner" => {
+            ":::banner{color=\"#4338CA\" dismissible=true id=\"gallery-banner\"}\nA banner sits above the page content and can be dismissed for good.\n:::"
+        }
+        "update" => {
+            ":::update{date=\"2026-09-01\" version=\"0.1\" title=\"First release\"}\nChangelog entries carry a date, a version, and a stable anchor.\n:::"
+        }
+        "prompt" => {
+            ":::prompt{title=\"Ask an assistant\"}\nExplain how Liyasa verifies code samples.\n:::"
+        }
         "github" => "::github{repo=\"kasecrab/liyasa\"}",
         "md" => ":::md\nRaw Markdown, passed through without component processing.\n:::",
-        "visibility" => ":::visibility{humans=true agents=false}\nThis paragraph is in the HTML and not in the Markdown output.\n:::",
-        "region" => ":::region{only=[us,eu]}\nPayments settle through our United States entity.\n:::",
+        "visibility" => {
+            ":::visibility{humans=true agents=false}\nThis paragraph is in the HTML and not in the Markdown output.\n:::"
+        }
+        "region" => {
+            ":::region{only=[us,eu]}\nPayments settle through our United States entity.\n:::"
+        }
         "feedback" => "::feedback{question=\"Was this page useful?\"}",
-        "assistant" => "::assistant{prompt=\"How do I add a second locale?\" label=\"Ask about locales\"}",
-        "tree" => ":::tree{root=\"my-docs\"}\n- liyasa.json\n- index.md\n- guides/\n  - install.md\n:::",
+        "assistant" => {
+            "::assistant{prompt=\"How do I add a second locale?\" label=\"Ask about locales\"}"
+        }
+        "tree" => {
+            ":::tree{root=\"my-docs\"}\n- liyasa.json\n- index.md\n- guides/\n  - install.md\n:::"
+        }
         "toc" => "::toc{depth=2}",
-        "param" => ":::param{name=\"limit\" in=\"query\" type=\"integer\" default=\"50\" min=1 max=200 example=\"100\"}\nHow many deployments to return in one page of results.\n:::",
-        "response-field" => ":::response-field{name=\"created_at\" type=\"string\" required example=\"2026-09-01T12:00:00Z\"}\nWhen the deployment was created, as an ISO 8601 timestamp with an offset.\n:::",
-        "request-example" => ":::request-example{lang=\"curl\" title=\"List deployments\"}\n```sh\ncurl https://api.acme.com/v1/deployments \\\n  -H \"Authorization: Bearer $ACME_TOKEN\"\n```\n:::",
-        "response-example" => ":::response-example{lang=\"json\" status=\"200\"}\n```json\n{ \"deployments\": [{ \"id\": \"dep_01H\", \"status\": \"ready\" }] }\n```\n:::",
-        "endpoint" => ":::endpoint{method=\"get\" path=\"/v1/deployments/{id}\"}\nReturns one deployment by its identifier.\n:::",
+        "param" => {
+            ":::param{name=\"limit\" in=\"query\" type=\"integer\" default=\"50\" min=1 max=200 example=\"100\"}\nHow many deployments to return in one page of results.\n:::"
+        }
+        "response-field" => {
+            ":::response-field{name=\"created_at\" type=\"string\" required example=\"2026-09-01T12:00:00Z\"}\nWhen the deployment was created, as an ISO 8601 timestamp with an offset.\n:::"
+        }
+        "request-example" => {
+            ":::request-example{lang=\"curl\" title=\"List deployments\"}\n```sh\ncurl https://api.acme.com/v1/deployments \\\n  -H \"Authorization: Bearer $ACME_TOKEN\"\n```\n:::"
+        }
+        "response-example" => {
+            ":::response-example{lang=\"json\" status=\"200\"}\n```json\n{ \"deployments\": [{ \"id\": \"dep_01H\", \"status\": \"ready\" }] }\n```\n:::"
+        }
+        "endpoint" => {
+            ":::endpoint{method=\"get\" path=\"/v1/deployments/{id}\"}\nReturns one deployment by its identifier.\n:::"
+        }
         "openapi-schema" => "::openapi-schema{spec=\"api\" schema=\"Deployment\"}",
         _ => return None,
     };
@@ -853,7 +936,7 @@ pub fn splice_matrix(page: &str) -> String {
         "{}\n\n{}\n{}",
         &page[..after],
         matrix(),
-        &page[next..].trim_start_matches('\n')
+        page[next..].trim_start_matches('\n')
     )
 }
 

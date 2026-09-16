@@ -56,6 +56,10 @@ mod host_04_proxies;
 mod host_05;
 #[path = "../server/host_07_jobs.rs"]
 mod host_07_jobs;
+#[path = "../docs/mig_22.rs"]
+mod mig_22;
+#[path = "../docs/nfr_70.rs"]
+mod nfr_70;
 #[path = "../web/nojs.rs"]
 mod nojs;
 #[path = "../build/rx_02_assets.rs"]
@@ -80,7 +84,3 @@ mod rx_50_feedback;
 mod thm_31;
 #[path = "../web/reader.rs"]
 mod web_reader;
-#[path = "../docs/mig_22.rs"]
-mod mig_22;
-#[path = "../docs/nfr_70.rs"]
-mod nfr_70;
