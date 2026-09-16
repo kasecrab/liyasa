@@ -5,7 +5,7 @@
 //! prompt inside a CI job is a scaffold nobody can script.
 
 use std::io::{IsTerminal, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use liyasa_core::diagnostics::{Diagnostic, code};
 

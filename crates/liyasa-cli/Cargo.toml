@@ -66,3 +66,6 @@ serde_json.workspace = true
 [dev-dependencies]
 jsonschema.workspace = true
 serde_json.workspace = true
+# The update tests sign a release index, which needs the private half of the
+# scheme `src/update.rs` only verifies with.
+ed25519-dalek.workspace = true
