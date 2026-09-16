@@ -14,7 +14,7 @@ pub fn run(global: &Global, args: &Export) -> Exit {
     let project = match ctx::locate(global, &cwd) {
         Ok(project) => project,
         Err(diagnostic) => {
-            ctx::report(global, format, diagnostic);
+            ctx::report(global, format, *diagnostic);
             return Exit::Errors;
         }
     };
@@ -97,10 +97,10 @@ pub fn run(global: &Global, args: &Export) -> Exit {
     for relative in &files {
         let from = source.join(relative);
         let to = target.join(relative);
-        if let Some(parent) = to.parent() {
-            if std::fs::create_dir_all(parent).is_err() {
-                continue;
-            }
+        if let Some(parent) = to.parent()
+            && std::fs::create_dir_all(parent).is_err()
+        {
+            continue;
         }
         let copied = if args.offline && relative.ends_with(".html") {
             std::fs::read_to_string(&from)

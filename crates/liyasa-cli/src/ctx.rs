@@ -9,6 +9,11 @@ use liyasa_core::diagnostics::{Diagnostic, code};
 
 use crate::cli::{Color, Global};
 
+/// A diagnostic that stopped a command before it began. Boxed because it is
+/// several times the size of the value it is returned beside, and every caller
+/// only reports it.
+pub type Failed = Box<Diagnostic>;
+
 /// A located project: the directory holding `liyasa.json`, and the file itself.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Project {
@@ -32,7 +37,7 @@ impl Project {
 ///
 /// E0001 when there is none, E0014 when `--config` names a file that is not
 /// there — two different mistakes that used to read as one.
-pub fn locate(global: &Global, cwd: &Path) -> Result<Project, Diagnostic> {
+pub fn locate(global: &Global, cwd: &Path) -> Result<Project, Failed> {
     if let Some(named) = &global.config {
         let config = if named.is_absolute() {
             named.clone()
@@ -40,7 +45,7 @@ pub fn locate(global: &Global, cwd: &Path) -> Result<Project, Diagnostic> {
             cwd.join(named)
         };
         if !config.is_file() {
-            return Err(Diagnostic::new(
+            return Err(Box::new(Diagnostic::new(
                 code::E0014,
                 format!(
                     "`--config` names `{}`, which is not a file",
@@ -49,7 +54,7 @@ pub fn locate(global: &Global, cwd: &Path) -> Result<Project, Diagnostic> {
             )
             .help(
                 "Point `--config` at a `liyasa.json`, or drop it and run from inside the project.",
-            ));
+            )));
         }
         let root = config
             .parent()
@@ -72,14 +77,16 @@ pub fn locate(global: &Global, cwd: &Path) -> Result<Project, Diagnostic> {
         }
     }
 
-    Err(Diagnostic::new(
-        code::E0001,
-        format!(
-            "no `{CONFIG_FILE}` in `{}` or any directory above it",
-            cwd.display()
-        ),
-    )
-    .help("Run `liyasa new` to start a project, or `cd` into one."))
+    Err(Box::new(
+        Diagnostic::new(
+            code::E0001,
+            format!(
+                "no `{CONFIG_FILE}` in `{}` or any directory above it",
+                cwd.display()
+            ),
+        )
+        .help("Run `liyasa new` to start a project, or `cd` into one."),
+    ))
 }
 
 /// Whether to colour. `--color` decides when it is not `auto`; otherwise a
@@ -100,9 +107,9 @@ pub fn cwd() -> PathBuf {
 
 /// Prints one diagnostic that stopped a command before it started, in whatever
 /// form the command would have used.
-pub fn report(global: &Global, format: crate::cli::Format, diagnostic: Diagnostic) {
+pub fn report(global: &Global, format: crate::cli::Format, diagnostic: impl Into<Diagnostic>) {
     let mut diagnostics = liyasa_core::Diagnostics::new();
-    diagnostics.push(diagnostic);
+    diagnostics.push(diagnostic.into());
     let sources = liyasa_core::source_map::SourceMap::new();
     crate::diag::Printer::new(format, use_color(global)).emit(&diagnostics, &sources);
 }

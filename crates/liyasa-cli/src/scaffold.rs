@@ -122,13 +122,13 @@ fn config(options: &Options) -> String {
         // build writes something rather than panicking on the user.
         return filled;
     };
-    if let Some(object) = value.as_object_mut() {
-        if options.openapi {
-            object.insert(
-                "openapi".to_owned(),
-                serde_json::json!([{ "id": "api", "source": "openapi/api.yaml" }]),
-            );
-        }
+    if options.openapi
+        && let Some(object) = value.as_object_mut()
+    {
+        object.insert(
+            "openapi".to_owned(),
+            serde_json::json!([{ "id": "api", "source": "openapi/api.yaml" }]),
+        );
     }
     let mut text = serde_json::to_string_pretty(&value).unwrap_or(filled);
     text.push('\n');

@@ -16,7 +16,7 @@ pub fn run(global: &Global, which: &Which) -> Exit {
     let project = match ctx::locate(global, &cwd) {
         Ok(project) => project,
         Err(diagnostic) => {
-            ctx::report(global, format, diagnostic);
+            ctx::report(global, format, *diagnostic);
             return Exit::Errors;
         }
     };
@@ -63,18 +63,18 @@ fn eject(global: &Global, project: &ctx::Project, args: &ThemeEject) -> Exit {
         return Exit::Success;
     }
 
-    if let Some(parent) = target.parent() {
-        if let Err(error) = std::fs::create_dir_all(parent) {
-            ctx::report(
-                global,
-                format,
-                Diagnostic::new(
-                    code::E0002,
-                    format!("could not create `{}`: {error}", parent.display()),
-                ),
-            );
-            return Exit::Errors;
-        }
+    if let Some(parent) = target.parent()
+        && let Err(error) = std::fs::create_dir_all(parent)
+    {
+        ctx::report(
+            global,
+            format,
+            Diagnostic::new(
+                code::E0002,
+                format!("could not create `{}`: {error}", parent.display()),
+            ),
+        );
+        return Exit::Errors;
     }
     match std::fs::write(&target, source) {
         Ok(()) => {

@@ -167,14 +167,13 @@ fn surfaces(output: &Path) -> Surfaces {
             let path = entry.path();
             if path.is_dir() {
                 stack.push(path);
-            } else if path.extension().is_some_and(|e| e == "md") {
-                if let (Ok(body), Ok(relative)) =
+            } else if path.extension().is_some_and(|e| e == "md")
+                && let (Ok(body), Ok(relative)) =
                     (std::fs::read_to_string(&path), path.strip_prefix(output))
-                {
-                    let route = format!("/{}", relative.to_string_lossy().replace('\\', "/"));
-                    if !resources.iter().any(|existing| existing.path == route) {
-                        resources.push(Resource::new(route, MARKDOWN, body));
-                    }
+            {
+                let route = format!("/{}", relative.to_string_lossy().replace('\\', "/"));
+                if !resources.iter().any(|existing| existing.path == route) {
+                    resources.push(Resource::new(route, MARKDOWN, body));
                 }
             }
         }

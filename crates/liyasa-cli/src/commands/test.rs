@@ -20,7 +20,7 @@ pub fn run(global: &Global, args: &Test) -> Exit {
     let project = match ctx::locate(global, &cwd) {
         Ok(project) => project,
         Err(diagnostic) => {
-            ctx::report(global, format, diagnostic);
+            ctx::report(global, format, *diagnostic);
             return Exit::Errors;
         }
     };
@@ -42,7 +42,7 @@ pub fn run(global: &Global, args: &Test) -> Exit {
         match accessibility(&project, &output) {
             Ok(found) => diagnostics.extend(found),
             Err(diagnostic) => {
-                ctx::report(global, format, diagnostic);
+                ctx::report(global, format, *diagnostic);
                 return Exit::Errors;
             }
         }
@@ -128,7 +128,7 @@ pub fn run(global: &Global, args: &Test) -> Exit {
 fn accessibility(
     project: &ctx::Project,
     output: &std::path::Path,
-) -> Result<Diagnostics, Diagnostic> {
+) -> Result<Diagnostics, ctx::Failed> {
     let mut out = Diagnostics::new();
 
     let config: serde_json::Value = std::fs::read_to_string(&project.config)

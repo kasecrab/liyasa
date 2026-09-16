@@ -62,7 +62,7 @@ pub fn unlabelled_controls(route: &str, html: &str) -> Diagnostics {
         {
             continue;
         }
-        if id_of(open).is_some_and(|id| labelled.iter().any(|for_id| *for_id == id)) {
+        if id_of(open).is_some_and(|id| labelled.contains(&id)) {
             continue;
         }
 

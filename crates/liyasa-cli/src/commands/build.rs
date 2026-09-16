@@ -23,7 +23,7 @@ pub fn run(global: &Global, args: &Build) -> Exit {
     let project = match ctx::locate(global, &cwd) {
         Ok(project) => project,
         Err(diagnostic) => {
-            ctx::report(global, format, diagnostic);
+            ctx::report(global, format, *diagnostic);
             return Exit::Errors;
         }
     };
@@ -48,13 +48,13 @@ pub fn run(global: &Global, args: &Build) -> Exit {
     let git = SystemGit::new(&project.root);
     let started = Instant::now();
 
-    if args.check_determinism {
-        if let Some(diagnostic) = engine::check_determinism(&vfs, &git, &project.root, &options) {
-            let mut diagnostics = Diagnostics::new();
-            diagnostics.push(diagnostic);
-            printer.emit(&diagnostics, &SourceMap::new());
-            return Exit::Errors;
-        }
+    if args.check_determinism
+        && let Some(diagnostic) = engine::check_determinism(&vfs, &git, &project.root, &options)
+    {
+        let mut diagnostics = Diagnostics::new();
+        diagnostics.push(diagnostic);
+        printer.emit(&diagnostics, &SourceMap::new());
+        return Exit::Errors;
     }
 
     let report = engine::build(&vfs, &git, &project.root, &options);
