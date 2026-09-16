@@ -71,6 +71,13 @@ image = { version = "0.25", default-features = false, features = ["webp", "png",
 rayon = { version = "1.12", default-features = false }   # the only parallelism in the workspace, and never in a wasm target (PRD §6.2.1)
 notify = { version = "8.2", default-features = false, features = ["macos_fsevent"] }   # the dev server's file watching (PRD §6.6)
 notify-debouncer-full = { version = "0.6", default-features = false }   # the 50 ms debounce window of §6.6
+clap = { version = "4.6", features = ["derive", "env", "wrap_help"] }   # RFC 0900: §16's 27 commands and CLI-34's per-flag `env`
+clap_complete = { version = "4.6" }   # RFC 0900: CLI-26 `liyasa completions <shell>`, generated from the same command tree
+miette = { version = "7.6", features = ["fancy-no-backtrace"] }   # CLI-30 code frames (PRD §6.2.1); `fancy-no-backtrace` is the graphical renderer without the `backtrace` crate
+toml = { version = "1.1" }   # RFC 0900: `liyasa.lock` only (§34.12); config is JSON and codes.toml is read by a build script
+sha2 = { version = "0.11" }   # RFC 0900: §34.12 records third-party published SHA-256 digests, which blake3 cannot stand in for
+ed25519-dalek = { version = "3.0" }   # RFC 0900: CLI-26 release signatures
+
 
 # Host-only crates build unoptimised (RFC 0006). Proc macros, build scripts and
 # their exclusive dependencies run once at compile time and never enter a
@@ -227,4 +234,18 @@ opt-level = 0
 opt-level = 0
 
 [profile.dev.package."zerovec-derive"]
+opt-level = 0
+
+# RFC 0900 added clap and miette, whose derive crates are proc macros with no
+# target consumer and so belong under RFC 0006's rule. Note for whoever reads
+# the invariant above: `strsim` and `heck` are listed as host-only and clap
+# links both into the binary, so from now on those two rows deoptimise a target
+# crate. Left alone rather than removed — the rows are append-only, the profile
+# is dev-only, and what it costs is a fractionally slower did-you-mean on a
+# mistyped flag.
+
+[profile.dev.package."clap_derive"]
+opt-level = 0
+
+[profile.dev.package."miette-derive"]
 opt-level = 0

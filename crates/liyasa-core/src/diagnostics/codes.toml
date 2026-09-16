@@ -182,3 +182,15 @@ E0214 = { severity = "error", crate = "liyasa-markdown", title = "`asset()` name
 E0215 = { severity = "error", crate = "liyasa-markdown", title = "`openapi()` names a spec or an operation that does not exist" }
 E0216 = { severity = "error", crate = "liyasa-markdown", title = "Template asked for a build value this build did not supply (`now()`, `region_available()`)" }
 E0722 = { severity = "error", crate = "liyasa-build", title = "CSP source in `security.csp` or `network.allowHosts.embeds` is not a source expression" }
+E0005 = { severity = "error", crate = "liyasa-cli", title = "`liyasa.lock` is not valid TOML or its format version is newer than this CLI" }
+E0006 = { severity = "error", crate = "liyasa-cli", title = "Feature not available in this build" }
+E0007 = { severity = "error", crate = "liyasa-cli", title = "Release signature verification failed" }
+E0008 = { severity = "error", crate = "liyasa-cli", title = "Downloaded artifact digest does not match the release index" }
+E0009 = { severity = "error", crate = "liyasa-cli", title = "Release index could not be read" }
+E0010 = { severity = "error", crate = "liyasa-cli", title = "`--locked` refused a change to `liyasa.lock`" }
+E0011 = { severity = "error", crate = "liyasa-cli", title = "Command needs a built site and the output directory was not found" }
+E0012 = { severity = "error", crate = "liyasa-cli", title = "Scaffold target directory already has files in it" }
+E0013 = { severity = "error", crate = "liyasa-cli", title = "Starter template not found" }
+E0014 = { severity = "error", crate = "liyasa-cli", title = "`--config` names a file that does not exist" }
+W0015 = { severity = "warning", crate = "liyasa-cli", title = "Companion runtime version differs from the one `liyasa.lock` records" }
+E0016 = { severity = "error", crate = "liyasa-cli", title = "Search index not found in the built site" }
