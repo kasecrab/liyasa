@@ -1,0 +1,411 @@
+//! The deployment a request is served from (PRD §6.4, RX-13, RX-60).
+//!
+//! A bundle is `dist/` plus its manifest: what the build produced, read once
+//! at startup and then only from the page cache. The headers come from the
+//! bundle's own `_headers`, parsed with the same reader the host emulators
+//! use, so `liyasa serve` and a static host send the same policy by
+//! construction rather than by a second implementation of it.
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+use liyasa_build::hosting::{self, Rules};
+use liyasa_build::manifest::{self, AssetEntry, Manifest, RouteEntry};
+use liyasa_build::redirects::ManifestEntry as RedirectEntry;
+
+pub const HTML_TYPE: &str = "text/html; charset=utf-8";
+pub const MARKDOWN_TYPE: &str = hosting::headers::MARKDOWN_TYPE;
+
+/// What a request resolved to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Target {
+    Page {
+        route: String,
+        /// The file under `dist/`.
+        path: String,
+        format: Format,
+        /// Whether the choice came from `Accept` rather than the URL, which
+        /// decides `Vary: Accept` (RX-60).
+        negotiated: bool,
+    },
+    Asset {
+        path: String,
+        content_type: String,
+    },
+    Redirect {
+        location: String,
+        status: u16,
+    },
+    NotFound,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Format {
+    Html,
+    Markdown,
+}
+
+impl Format {
+    pub fn content_type(self) -> &'static str {
+        match self {
+            Self::Html => HTML_TYPE,
+            Self::Markdown => MARKDOWN_TYPE,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Bundle {
+    root: PathBuf,
+    manifest: Manifest,
+    rules: Rules,
+    routes: HashMap<String, RouteEntry>,
+    assets: HashMap<String, AssetEntry>,
+    redirects: Vec<RedirectEntry>,
+}
+
+/// `/a/b/` and `/a/b` are the same route; `/` stays `/`.
+fn normalize(path: &str) -> String {
+    let trimmed = path.trim_end_matches('/');
+    if trimmed.is_empty() {
+        "/".to_owned()
+    } else {
+        trimmed.to_owned()
+    }
+}
+
+impl Bundle {
+    pub fn open(root: &Path) -> std::io::Result<Self> {
+        let manifest: Manifest =
+            serde_json::from_str(&std::fs::read_to_string(root.join(manifest::FILE))?)
+                .map_err(std::io::Error::other)?;
+        let rules = std::fs::read_to_string(root.join(hosting::HEADERS_FILE))
+            .map(|text| hosting::emulate::parse_headers_file(&text))
+            .unwrap_or_default();
+        Ok(Self::new(root.to_owned(), manifest, rules))
+    }
+
+    pub fn new(root: PathBuf, manifest: Manifest, rules: Rules) -> Self {
+        let routes = manifest
+            .routes
+            .iter()
+            .map(|entry| (normalize(entry.route.as_str()), entry.clone()))
+            .collect();
+        let assets = manifest
+            .assets
+            .iter()
+            .map(|asset| (asset.url.clone(), asset.clone()))
+            .collect();
+        Self {
+            redirects: manifest.redirects.clone(),
+            root,
+            rules,
+            routes,
+            assets,
+            manifest,
+        }
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn manifest(&self) -> &Manifest {
+        &self.manifest
+    }
+
+    pub fn rules(&self) -> &Rules {
+        &self.rules
+    }
+
+    pub fn base_path(&self) -> &str {
+        &self.manifest.base_path
+    }
+
+    /// Strips `build.basePath` so one instance can serve `acme.com/docs` and
+    /// `docs.acme.com` from the same bundle (HOST-22). `None` when the request
+    /// is outside the prefix.
+    pub fn strip_base(&self, path: &str) -> Option<String> {
+        let base = self.base_path().trim_end_matches('/');
+        if base.is_empty() {
+            return Some(path.to_owned());
+        }
+        if path == base {
+            return Some("/".to_owned());
+        }
+        path.strip_prefix(base)
+            .filter(|rest| rest.starts_with('/'))
+            .map(str::to_owned)
+    }
+
+    pub fn route(&self, route: &str) -> Option<&RouteEntry> {
+        self.routes.get(&normalize(route))
+    }
+
+    /// What `path` resolves to for a client that did or did not ask for
+    /// Markdown. `wants_markdown` is the parsed `Accept` header.
+    pub fn resolve(&self, path: &str, wants_markdown: bool) -> Target {
+        let Some(path) = self.strip_base(path) else {
+            return Target::NotFound;
+        };
+        if let Some(hit) = self
+            .redirects
+            .iter()
+            .find(|rule| normalize(&rule.source) == normalize(&path))
+        {
+            return Target::Redirect {
+                location: hit.destination.clone(),
+                status: hit.status,
+            };
+        }
+        if let Some(asset) = self.assets.get(&path) {
+            return Target::Asset {
+                path: asset.path.clone(),
+                content_type: asset.content_type.clone(),
+            };
+        }
+
+        // `<route>.md` and `<route>/index.md` are the Markdown twin (RX-60).
+        if let Some(stem) = path.strip_suffix("/index.md").or(path.strip_suffix(".md")) {
+            let route = if stem.is_empty() { "/" } else { stem };
+            if let Some(entry) = self.route(route) {
+                return Target::Page {
+                    route: entry.route.as_str().to_owned(),
+                    path: entry.markdown.clone(),
+                    format: Format::Markdown,
+                    negotiated: false,
+                };
+            }
+            return Target::NotFound;
+        }
+
+        let Some(entry) = self.route(&path) else {
+            return Target::NotFound;
+        };
+        if wants_markdown {
+            return Target::Page {
+                route: entry.route.as_str().to_owned(),
+                path: entry.markdown.clone(),
+                format: Format::Markdown,
+                negotiated: true,
+            };
+        }
+        let Some(variant) = entry.variants.first() else {
+            return Target::NotFound;
+        };
+        Target::Page {
+            route: entry.route.as_str().to_owned(),
+            path: variant.path.clone(),
+            format: Format::Html,
+            negotiated: false,
+        }
+    }
+
+    /// The headers `_headers` gives this path, with the base path put back.
+    pub fn headers_for(&self, path: &str) -> Vec<(String, String)> {
+        self.rules.resolve(path)
+    }
+
+    /// Reads a file from the bundle. The path comes from the manifest, never
+    /// from the request, so there is no traversal to defend against; the
+    /// check below is belt and braces for a manifest written by hand.
+    pub fn read(&self, path: &str) -> std::io::Result<Vec<u8>> {
+        let relative = path.trim_start_matches('/');
+        if relative.split('/').any(|part| part == "..") {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "a bundle path may not climb out of the bundle",
+            ));
+        }
+        std::fs::read(self.root.join(relative))
+    }
+
+    /// `404.html`, which every listed host serves by name.
+    pub fn not_found_body(&self) -> Option<Vec<u8>> {
+        self.read("404.html").ok()
+    }
+}
+
+/// Whether the client asked for Markdown (RX-60, §6.4 step 3).
+///
+/// `text/markdown` must beat `text/html` on quality, so a browser sending
+/// `text/html,*/*;q=0.8` still gets HTML and an agent sending
+/// `text/markdown` gets Markdown.
+pub fn prefers_markdown(accept: Option<&str>) -> bool {
+    let Some(accept) = accept else {
+        return false;
+    };
+    let mut markdown = None::<f32>;
+    let mut html = None::<f32>;
+    for part in accept.split(',') {
+        let mut fields = part.split(';').map(str::trim);
+        let Some(media) = fields.next() else {
+            continue;
+        };
+        let quality = fields
+            .find_map(|f| f.strip_prefix("q="))
+            .and_then(|q| q.parse::<f32>().ok())
+            .unwrap_or(1.0);
+        let slot = match media.to_ascii_lowercase().as_str() {
+            "text/markdown" | "text/x-markdown" => &mut markdown,
+            "text/html" | "application/xhtml+xml" | "*/*" | "text/*" => &mut html,
+            _ => continue,
+        };
+        if slot.is_none_or(|current| quality > current) {
+            *slot = Some(quality);
+        }
+    }
+    match (markdown, html) {
+        (Some(md), Some(html)) => md > html,
+        (Some(md), None) => md > 0.0,
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use liyasa_build::manifest::{RouteEntry, VariantEntry};
+    use liyasa_core::ids::{BuildId, Fingerprint, Route};
+
+    use super::*;
+
+    fn route(path: &str) -> RouteEntry {
+        RouteEntry {
+            route: Route::new(path),
+            source: format!("{}.md", path.trim_start_matches('/')),
+            markdown: format!("{path}.md"),
+            hidden: false,
+            dynamic: false,
+            variants: vec![VariantEntry {
+                key: String::new(),
+                path: format!("{}/index.html", path.trim_end_matches('/')),
+                hash: Fingerprint::of(path),
+            }],
+        }
+    }
+
+    fn bundle(base_path: &str) -> Bundle {
+        let manifest = Manifest {
+            build_id: BuildId(Fingerprint::of("build")),
+            liyasa_version: "0.1.0".to_owned(),
+            built_at: 0,
+            base_path: base_path.to_owned(),
+            routes: vec![route("/"), route("/guides/install")],
+            assets: Vec::new(),
+            images: Vec::new(),
+            redirects: vec![RedirectEntry {
+                source: "/old".to_owned(),
+                destination: "/guides/install".to_owned(),
+                status: 301,
+            }],
+            inputs: Default::default(),
+        };
+        Bundle::new(PathBuf::from("/nonexistent"), manifest, Rules::default())
+    }
+
+    #[test]
+    fn a_page_is_reachable_as_html_markdown_and_index_markdown() {
+        let bundle = bundle("");
+        let html = bundle.resolve("/guides/install", false);
+        assert!(matches!(
+            &html,
+            Target::Page {
+                format: Format::Html,
+                negotiated: false,
+                ..
+            }
+        ));
+
+        for path in ["/guides/install.md", "/guides/install/index.md"] {
+            match bundle.resolve(path, false) {
+                Target::Page {
+                    format,
+                    path,
+                    negotiated,
+                    ..
+                } => {
+                    assert_eq!(format, Format::Markdown, "{path}");
+                    assert_eq!(path, "/guides/install.md");
+                    assert!(!negotiated, "the URL said so, not the header");
+                }
+                other => panic!("{path}: {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn accept_chooses_markdown_and_marks_the_response_as_negotiated() {
+        let bundle = bundle("");
+        match bundle.resolve("/guides/install", true) {
+            Target::Page {
+                format, negotiated, ..
+            } => {
+                assert_eq!(format, Format::Markdown);
+                assert!(negotiated, "the response varies on Accept");
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_trailing_slash_is_the_same_route() {
+        let bundle = bundle("");
+        assert_eq!(
+            bundle.resolve("/guides/install/", false),
+            bundle.resolve("/guides/install", false)
+        );
+        assert!(matches!(bundle.resolve("/", false), Target::Page { .. }));
+    }
+
+    #[test]
+    fn a_base_path_is_stripped_and_a_request_outside_it_is_a_miss() {
+        let bundle = bundle("/docs");
+        assert!(matches!(
+            bundle.resolve("/docs/guides/install", false),
+            Target::Page { .. }
+        ));
+        assert!(matches!(
+            bundle.resolve("/docs", false),
+            Target::Page { .. }
+        ));
+        assert_eq!(bundle.resolve("/guides/install", false), Target::NotFound);
+        assert_eq!(bundle.resolve("/docsother", false), Target::NotFound);
+    }
+
+    #[test]
+    fn a_redirect_in_the_manifest_is_served_before_the_route_is_looked_up() {
+        assert_eq!(
+            bundle("").resolve("/old", false),
+            Target::Redirect {
+                location: "/guides/install".to_owned(),
+                status: 301
+            }
+        );
+    }
+
+    #[test]
+    fn an_unknown_route_is_a_miss_in_both_formats() {
+        let bundle = bundle("");
+        assert_eq!(bundle.resolve("/absent", false), Target::NotFound);
+        assert_eq!(bundle.resolve("/absent.md", false), Target::NotFound);
+    }
+
+    #[test]
+    fn a_browsers_accept_header_still_gets_html() {
+        assert!(!prefers_markdown(Some(
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        )));
+        assert!(!prefers_markdown(None));
+        assert!(!prefers_markdown(Some("*/*")));
+        assert!(prefers_markdown(Some("text/markdown")));
+        assert!(prefers_markdown(Some("text/markdown, text/html;q=0.5")));
+        assert!(!prefers_markdown(Some("text/markdown;q=0.4, text/html")));
+        assert!(prefers_markdown(Some("text/markdown;q=0.9, */*;q=0.8")));
+    }
+
+    #[test]
+    fn a_bundle_path_cannot_climb_out_of_the_bundle() {
+        let bundle = bundle("");
+        assert!(bundle.read("../../etc/passwd").is_err());
+    }
+}
