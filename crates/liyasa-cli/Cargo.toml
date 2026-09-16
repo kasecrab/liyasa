@@ -1,0 +1,64 @@
+# The `liyasa` binary (PRD §16). One crate, one binary, and a library half so
+# the acceptance tests can drive the pure parts without a subprocess.
+#
+# Append rows; do not edit existing ones.
+
+[package]
+name = "liyasa-cli"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The Liyasa command-line interface (PRD §16)."
+autobins = false
+autotests = false
+
+[lints]
+workspace = true
+
+[lib]
+name = "liyasa_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "liyasa"
+path = "src/main.rs"
+
+# One test binary per crate (RFC 0007). Add a `mod` line in tests/it/main.rs for
+# a new file; never a second `[[test]]` row.
+[[test]]
+name = "it"
+path = "tests/it/main.rs"
+
+[features]
+# CLI-32's install matrix: `cargo install liyasa` takes build and verify,
+# `--features server,ai` adds the server. `server` and `ai` gate crates that do
+# not exist yet, so they are empty; `build` and `verify` do not gate their
+# crates in 0.1 because every command in the 0.1 surface needs the engine and a
+# `--no-default-features` build would be a configuration nothing compiles.
+# TODO(rfc-0900).
+default = ["build", "verify"]
+build = []
+verify = []
+server = []
+ai = []
+
+[dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+liyasa-config = { path = "../liyasa-config", version = "0.1.0" }
+liyasa-build = { path = "../liyasa-build", version = "0.1.0" }
+liyasa-markdown = { path = "../liyasa-markdown", version = "0.1.0" }
+liyasa-theme = { path = "../liyasa-theme", version = "0.1.0" }
+liyasa-components = { path = "../liyasa-components", version = "0.1.0" }
+liyasa-search = { path = "../liyasa-search", version = "0.1.0" }
+liyasa-verify = { path = "../liyasa-verify", version = "0.1.0" }
+clap.workspace = true
+clap_complete.workspace = true
+miette.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+jsonschema.workspace = true
+serde_json.workspace = true
