@@ -7,7 +7,7 @@
 //!
 //! The crate root is shared. WP-02 owns the file and contributes `source`;
 //! WP-03 contributes `ast`, `directives`, `render`, and `sanitize`. Append to
-//! it; do not rewrite it. `plan/rfcs/0004-markdown-crate-skeleton.md` records
+//! it; do not rewrite it. `plan/rfcs/0300-markdown-crate-skeleton.md` records
 //! how the two halves met.
 
 pub mod source;
