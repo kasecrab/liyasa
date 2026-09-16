@@ -4,6 +4,7 @@
 //! database. The entity structs in `liyasa-core` carry no fields yet, so the
 //! records the server reads and writes are declared here (RFC 1400).
 
+pub mod backup;
 pub mod db;
 pub mod facade;
 pub mod ingest;
@@ -12,6 +13,7 @@ pub mod records;
 pub mod repos;
 pub mod secrets;
 
+pub use backup::{BackupError, BackupManifest, ObjectRef};
 pub use facade::SqliteStore;
 pub use ingest::{IngestOptions, IngestQueue, RawSink, Writer};
 pub use jobs::{Enqueue, Enqueued, Jobs};

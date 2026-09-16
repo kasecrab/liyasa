@@ -151,11 +151,10 @@ pub async fn obtain(
             .challenge(ChallengeType::Http01)
             .ok_or(AcmeError::NoHttpChallenge)?;
         let token = challenge.token.to_owned();
-        challenges.set(&token, &challenge.key_authorization().as_str().to_owned());
+        challenges.set(&token, challenge.key_authorization().as_str());
         challenge.set_ready().await.map_err(acme)?;
         placed.push(token);
     }
-    drop(authorizations);
 
     let status = order
         .poll_ready(&RetryPolicy::default())

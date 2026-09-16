@@ -22,6 +22,8 @@ USAGE:
     liyasa-server jobs list [--name <name>] [--state <state>]
     liyasa-server jobs retry <id>
     liyasa-server jobs cancel <id>
+    liyasa-server backup <file>
+    liyasa-server restore <file>
 
 OPTIONS:
     --config <dir>        project directory holding liyasa.json (default: .)
@@ -64,6 +66,8 @@ enum Command {
     },
     JobsRetry(Options, String),
     JobsCancel(Options, String),
+    Backup(Options, String),
+    Restore(Options, String),
     Help,
 }
 
@@ -117,6 +121,8 @@ fn parse(args: &[String]) -> Result<Command, String> {
         }),
         ["jobs", "retry", id] => Ok(Command::JobsRetry(options, (*id).to_owned())),
         ["jobs", "cancel", id] => Ok(Command::JobsCancel(options, (*id).to_owned())),
+        ["backup", file] => Ok(Command::Backup(options, (*file).to_owned())),
+        ["restore", file] => Ok(Command::Restore(options, (*file).to_owned())),
         other => Err(format!("unknown command `{}`", other.join(" "))),
     }
 }
@@ -503,6 +509,94 @@ async fn run_jobs(
     }
 }
 
+/// HOST-06: one archive holding the databases, the object references, and
+/// the secrets as they are already encrypted.
+async fn run_backup(options: Options, file: String) -> Result<(), String> {
+    let store = open_store(&options, IngestQueue::new(64, 16)).await?;
+    let analytics_path = options.storage().join("analytics.db");
+    let analytics = match analytics_path.exists() {
+        true => liyasa_store::db::open(
+            &analytics_path,
+            &liyasa_store::db::OpenOptions::default(),
+            liyasa_store::db::ANALYTICS,
+        )
+        .await
+        .ok(),
+        false => None,
+    };
+    // The bundles the deployments point at, by key rather than by content:
+    // an archive stays small enough to take daily (NFR-34).
+    let objects: Vec<liyasa_store::ObjectRef> = store
+        .builds_typed()
+        .list(
+            None,
+            None,
+            None,
+            &liyasa_core::store::Page {
+                cursor: None,
+                limit: 500,
+            },
+        )
+        .await
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|build| liyasa_store::ObjectRef {
+            kind: "bundle".to_owned(),
+            key: build.dist,
+        })
+        .collect();
+
+    let manifest = liyasa_store::backup::export(
+        store.pool(),
+        analytics.as_ref(),
+        &objects,
+        std::path::Path::new(&file),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    println!(
+        "{file}: {} projects, {} builds, {} secrets{}",
+        manifest.projects,
+        manifest.builds,
+        manifest.secrets,
+        if manifest.includes_analytics {
+            ", analytics included"
+        } else {
+            ""
+        }
+    );
+    Ok(())
+}
+
+async fn run_restore(options: Options, file: String) -> Result<(), String> {
+    let key = master_key()?;
+    let into = options
+        .db()
+        .parent()
+        .map(Path::to_owned)
+        .unwrap_or_else(|| PathBuf::from("."));
+    if options.db().exists() {
+        return Err(format!(
+            "{} already exists; restore into an empty directory with --db",
+            options.db().display()
+        ));
+    }
+    let restored =
+        liyasa_store::backup::restore(std::path::Path::new(&file), &into, Some(key.id()))
+            .map_err(|e| e.to_string())?;
+    println!(
+        "restored into {}: {} projects, {} builds, {} object references to check",
+        into.display(),
+        restored.manifest.projects,
+        restored.manifest.builds,
+        restored.objects.len()
+    );
+    for object in &restored.objects {
+        println!("  {} {}", object.kind, object.key);
+    }
+    Ok(())
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let command = match parse(&args) {
@@ -534,6 +628,8 @@ fn main() -> ExitCode {
             } => run_jobs(options, "list", name, state).await,
             Command::JobsRetry(options, id) => run_jobs(options, "retry", Some(id), None).await,
             Command::JobsCancel(options, id) => run_jobs(options, "cancel", Some(id), None).await,
+            Command::Backup(options, file) => run_backup(options, file).await,
+            Command::Restore(options, file) => run_restore(options, file).await,
             Command::Help => Ok(()),
         }
     });

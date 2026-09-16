@@ -98,6 +98,12 @@ impl SqliteStore {
         &self.app
     }
 
+    /// A second handle on the same pool, for a caller that needs to write
+    /// alongside the store rather than through it.
+    pub fn clone_pool(&self) -> SqlitePool {
+        self.app.clone()
+    }
+
     pub fn projects_typed(&self) -> &Projects {
         &self.projects.0
     }

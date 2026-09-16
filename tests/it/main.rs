@@ -74,6 +74,8 @@ mod rx_13;
 mod rx_13_headers;
 #[path = "../budget/rx_14_transfer.rs"]
 mod rx_14_transfer;
+#[path = "../server/rx_50_feedback.rs"]
+mod rx_50_feedback;
 #[path = "../budget/thm_31.rs"]
 mod thm_31;
 #[path = "../web/reader.rs"]
