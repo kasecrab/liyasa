@@ -7,9 +7,9 @@ use liyasa_core::diagnostics::{Diagnostics, Severity};
 use liyasa_core::span::SourceId;
 
 const SOURCE: SourceId = SourceId(0);
-const EXAMPLE: &str = include_str!("fixtures/example.json");
+const EXAMPLE: &str = include_str!("../fixtures/example.json");
 /// PRD §34.2 byte for byte. Two of its keys do not validate; RFC 0101.
-const EXAMPLE_PRD: &str = include_str!("fixtures/example-prd.json");
+const EXAMPLE_PRD: &str = include_str!("../fixtures/example-prd.json");
 
 fn check(text: &str) -> Diagnostics {
     let value = serde_json::from_str(text).expect("the fixture is valid JSON");

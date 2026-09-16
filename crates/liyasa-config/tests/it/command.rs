@@ -32,7 +32,7 @@ fn config_and_frontmatter_are_both_addressable() {
 #[test]
 fn the_emitted_config_schema_validates_the_example() {
     let example: serde_json::Value =
-        serde_json::from_str(include_str!("fixtures/example.json")).expect("valid JSON");
+        serde_json::from_str(include_str!("../fixtures/example.json")).expect("valid JSON");
     let emitted: serde_json::Value =
         serde_json::from_str(schema::named("config").expect("config").json).expect("valid JSON");
     let validator = jsonschema::options()

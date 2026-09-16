@@ -5,8 +5,8 @@ use liyasa_config::{migrate, schema};
 use liyasa_core::span::SourceId;
 use serde_json::Value;
 
-const V0: &str = include_str!("fixtures/v0.json");
-const GOLDEN: &str = include_str!("fixtures/v0-migrated.json");
+const V0: &str = include_str!("../fixtures/v0.json");
+const GOLDEN: &str = include_str!("../fixtures/v0-migrated.json");
 
 fn run(text: &str) -> migrate::Migrated {
     let value: Value = serde_json::from_str(text).expect("the fixture is valid JSON");

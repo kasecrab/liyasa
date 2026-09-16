@@ -5,7 +5,7 @@ use liyasa_config::model::{Navigation, NavigationNode};
 
 /// PRD §34.2, with the two keys RFC 0101 records as schema drift written the
 /// way the schema accepts them.
-const EXAMPLE: &str = include_str!("fixtures/example.json");
+const EXAMPLE: &str = include_str!("../fixtures/example.json");
 
 fn example() -> SiteConfig {
     serde_json::from_str(EXAMPLE).expect("the §34.2 example deserializes")
