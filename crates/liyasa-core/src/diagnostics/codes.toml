@@ -194,3 +194,4 @@ E0013 = { severity = "error", crate = "liyasa-cli", title = "Starter template no
 E0014 = { severity = "error", crate = "liyasa-cli", title = "`--config` names a file that does not exist" }
 W0015 = { severity = "warning", crate = "liyasa-cli", title = "Companion runtime version differs from the one `liyasa.lock` records" }
 E0016 = { severity = "error", crate = "liyasa-cli", title = "Search index not found in the built site" }
+W0017 = { severity = "warning", crate = "liyasa-cli", title = "Remote OpenAPI source was not checked; this build has no network client" }

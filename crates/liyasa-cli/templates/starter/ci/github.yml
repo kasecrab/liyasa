@@ -1,0 +1,40 @@
+name: docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Liyasa
+        run: curl -fsSL https://kasecrab.github.io/liyasa/install.sh | sh
+
+      - name: Cache the build
+        uses: actions/cache@v4
+        with:
+          path: .liyasa
+          key: liyasa-${{ runner.os }}-${{ hashFiles('liyasa.json') }}
+          restore-keys: liyasa-${{ runner.os }}-
+
+      - name: Validate
+        run: liyasa validate --format sarif > liyasa.sarif
+        continue-on-error: true
+
+      - name: Upload diagnostics
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: liyasa.sarif
+
+      - name: Check formatting
+        run: liyasa format --check
+
+      - name: Build
+        run: liyasa build --strict
+
+      - name: Agent readiness
+        run: liyasa test --agents

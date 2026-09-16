@@ -1,0 +1,9 @@
+# Where each fact is supposed to come from. `liyasa verify` re-reads the source
+# and reports drift when the recorded value no longer matches.
+#
+# This file is a sample. Delete it, or point it at something real.
+
+[sources.pricing]
+kind = "file"
+path = "facts/pricing.json"
+description = "The published price list."

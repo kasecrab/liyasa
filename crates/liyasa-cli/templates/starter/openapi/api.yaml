@@ -1,0 +1,113 @@
+openapi: 3.1.0
+info:
+  title: Acme API
+  version: "1.0.0"
+  description: A small specification so the reference pages have something to render.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List pets
+      description: Returns the pets visible to the authenticated account.
+      parameters:
+        - name: limit
+          in: query
+          description: How many to return, at most 100.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: A page of pets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PetList"
+        "401":
+          description: The API key was missing or not accepted.
+    post:
+      operationId: createPet
+      summary: Create a pet
+      description: Adds one pet to the account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPet"
+      responses:
+        "201":
+          description: The pet that was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+  /pets/{petId}:
+    get:
+      operationId: getPet
+      summary: Get a pet
+      description: Returns one pet by its identifier.
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          description: The pet's identifier.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The pet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+        "404":
+          description: No pet has that identifier.
+components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+  schemas:
+    Pet:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: The pet's identifier.
+        name:
+          type: string
+          description: The pet's name.
+        tag:
+          type: string
+          description: A free-form label.
+    NewPet:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: The pet's name.
+        tag:
+          type: string
+          description: A free-form label.
+    PetList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          description: The pets on this page.
+          items:
+            $ref: "#/components/schemas/Pet"
+        nextCursor:
+          type: string
+          description: Pass as `cursor` to get the next page.
+security:
+  - apiKey: []

@@ -94,6 +94,18 @@ fn no_subcommand_at_all_is_a_usage_error() {
 /// project was wrong, and a CI script keys on the difference.
 #[test]
 fn a_command_that_cannot_do_its_job_exits_one_not_two() {
-    let outcome = Run::new(["doctor"]).output();
+    let empty = crate::support::Dir::new("cli31-no-project");
+    let outcome = Run::new(["build"]).cwd(empty.path()).output();
     assert_eq!(outcome.code, Exit::Errors.code(), "{}", outcome.all());
+    assert!(outcome.all().contains("E0001"), "{}", outcome.all());
+}
+
+/// `doctor` reports the machine, so it works outside a project and says so
+/// rather than refusing.
+#[test]
+fn doctor_works_outside_a_project() {
+    let empty = crate::support::Dir::new("cli31-doctor");
+    let outcome = Run::new(["doctor"]).cwd(empty.path()).output();
+    assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
+    assert!(outcome.stdout.contains("liyasa"), "{}", outcome.stdout);
 }

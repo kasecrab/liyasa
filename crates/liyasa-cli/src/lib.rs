@@ -11,6 +11,7 @@ pub mod ctx;
 pub mod diag;
 pub mod exit;
 pub mod git;
+pub mod home;
 
 pub use exit::Exit;
 

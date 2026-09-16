@@ -3,5 +3,7 @@
 
 mod support;
 
+mod cli_04_validate;
+mod cli_30_diagnostics;
 mod cli_31_exit;
 mod cli_34;

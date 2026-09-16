@@ -53,6 +53,7 @@ liyasa-theme = { path = "../liyasa-theme", version = "0.1.0" }
 liyasa-components = { path = "../liyasa-components", version = "0.1.0" }
 liyasa-search = { path = "../liyasa-search", version = "0.1.0" }
 liyasa-verify = { path = "../liyasa-verify", version = "0.1.0" }
+liyasa-openapi = { path = "../liyasa-openapi", version = "0.1.0" }
 clap.workspace = true
 clap_complete.workspace = true
 miette.workspace = true

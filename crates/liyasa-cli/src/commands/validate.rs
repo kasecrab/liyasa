@@ -6,6 +6,9 @@
 //! answers. The throwaway output goes inside `.liyasa/`, which is already the
 //! engine's own state directory and already ignored, so `dist/` is untouched
 //! whatever the project's configuration says.
+//!
+//! See the note on `clean` below: the run is always cold, because a warm one
+//! answers a different question.
 
 use liyasa_build::engine;
 use liyasa_config::vfs::OsVfs;
@@ -40,7 +43,14 @@ pub fn run(global: &Global, args: &Validate) -> Exit {
 
     let options = engine::Options {
         output: Some(project.root.join(SCRATCH)),
-        clean: false,
+        // A warm build reuses a cached page without replaying the diagnostics
+        // that page produced, so a second `validate` on an unchanged project
+        // reports fewer problems than the first: E0401, E0403 and W0406 all
+        // disappear. Validation that depends on whether the cache is warm is
+        // not validation, so this command always starts cold. The cost is that
+        // the next `liyasa build` is cold too.
+        // TODO(rfc-0904): drop this once a cache hit replays its diagnostics.
+        clean: true,
         drafts: false,
         strict: args.strict,
         base_path: None,
@@ -64,7 +74,12 @@ pub fn run(global: &Global, args: &Validate) -> Exit {
     let sources = reconstruct_sources(&vfs, &options);
     let _ = std::fs::remove_dir_all(project.root.join(SCRATCH));
 
-    let selected = filter(&report.diagnostics, &subsets(args));
+    // The engine does not read `openapi` yet, so the spec half of CLI-04 is
+    // run here against `liyasa-openapi` directly.
+    let mut all = report.diagnostics.clone();
+    all.extend(specs(&vfs, &project.root));
+
+    let selected = filter(&all, &subsets(args));
     printer.emit(&selected, &sources);
 
     if !global.quiet && format == crate::cli::Format::Text && selected.is_empty() {
@@ -72,6 +87,58 @@ pub fn run(global: &Global, args: &Validate) -> Exit {
     }
 
     Exit::of_diagnostics(&selected, args.strict)
+}
+
+/// CLI-04's OpenAPI half: every `openapi[]` entry is loaded and validated.
+///
+/// Remote sources need an `HttpClient`, which lives in `liyasa-net` and does
+/// not exist; those are reported as W0017 rather than silently passing, so
+/// `--only openapi` never claims a spec is sound when it was never read.
+fn specs(vfs: &OsVfs, root: &std::path::Path) -> Diagnostics {
+    use liyasa_core::diagnostics::code;
+    use liyasa_core::vfs::Vfs;
+    use liyasa_openapi::source::Location;
+
+    let mut out = Diagnostics::new();
+    let text =
+        std::fs::read_to_string(root.join(liyasa_config::load::CONFIG_FILE)).unwrap_or_default();
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return out;
+    };
+
+    let (configured, _) = liyasa_openapi::config::specs(value.get("openapi"));
+    for spec in configured {
+        match Location::parse(&spec.source) {
+            Location::Remote(url) => out.push(
+                Diagnostic::new(
+                    code::W0017,
+                    format!("`{url}` was not checked: this build cannot fetch a remote spec"),
+                )
+                .help(
+                    "Download the spec into the project and point `openapi[].source` at the file.",
+                ),
+            ),
+            Location::File(path) => match vfs.read(&path) {
+                Err(error) => out.push(
+                    Diagnostic::new(
+                        code::E0002,
+                        format!("`{}` could not be read: {error:?}", spec.source),
+                    )
+                    .help("Check `openapi[].source` against the files in the project."),
+                ),
+                Ok(bytes) => {
+                    match liyasa_openapi::load::from_bytes(&spec.id, &path.to_string(), &bytes) {
+                        Err(diagnostic) => out.push(*diagnostic),
+                        Ok(loaded) => {
+                            out.extend(liyasa_openapi::validate::all(&loaded));
+                            out.extend(loaded.diagnostics);
+                        }
+                    }
+                }
+            },
+        }
+    }
+    out
 }
 
 /// The subsets this invocation asked for, or none at all for "everything".
@@ -125,7 +192,7 @@ fn covers(subset: Subset, number: u16) -> bool {
         Subset::Components => (350..=399).contains(&number),
         Subset::Links => (400..=416).contains(&number),
         Subset::Navigation => matches!(number, 104 | 130 | 133) || (400..=416).contains(&number),
-        Subset::Openapi => (500..=599).contains(&number),
+        Subset::Openapi => number == 17 || (500..=599).contains(&number),
     }
 }
 
