@@ -147,6 +147,12 @@ pub enum Command {
     /// Inspect and refresh `liyasa.lock` (CLI-33).
     #[command(subcommand)]
     Lock(Lock),
+    /// Print the artifact size budgets (CLI-35).
+    ///
+    /// Hidden: it exists so the release job reads the table from one place
+    /// rather than carrying its own copy of every number.
+    #[command(hide = true)]
+    Budgets,
 }
 
 #[derive(Debug, Args)]

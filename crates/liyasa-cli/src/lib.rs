@@ -6,6 +6,7 @@
 //! that belongs to the content lives in the crate that owns it, never here.
 
 pub mod a11y;
+pub mod budget;
 pub mod built;
 pub mod cli;
 pub mod commands;

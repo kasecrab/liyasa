@@ -114,9 +114,7 @@ fn new_then_dev_serves_the_site() {
     let root = Dir::new("mig10-quickstart");
     let project = root.path().join("docs");
 
-    let created = Run::new(["new", "docs", "--yes"])
-        .cwd(root.path())
-        .output();
+    let created = Run::new(["new", "docs", "--yes"]).cwd(root.path()).output();
     assert_eq!(created.code, Exit::Success.code(), "{}", created.all());
 
     let dev = Dev::start(&project);
@@ -148,7 +146,9 @@ fn the_dev_server_injects_live_reload() {
         "no reload script: {body}"
     );
 
-    let (status, counter) = dev.get(liyasa_cli::serve::BUILD_ENDPOINT).expect("the counter");
+    let (status, counter) = dev
+        .get(liyasa_cli::serve::BUILD_ENDPOINT)
+        .expect("the counter");
     assert_eq!(status, 200);
     assert!(counter.trim().parse::<u64>().is_ok(), "{counter:?}");
 }

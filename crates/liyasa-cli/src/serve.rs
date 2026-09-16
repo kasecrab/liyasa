@@ -7,7 +7,7 @@
 //! dependency move §31.6 forbids. `liyasa serve` (CLI-11) is a different
 //! program with authentication, TLS, and a database, and is WP-14's.
 
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
