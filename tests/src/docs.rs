@@ -15,10 +15,7 @@ use std::path::{Path, PathBuf};
 
 use liyasa_build::engine::{self, Options, Report};
 use liyasa_build::git::NoGit;
-use liyasa_build::hosting::{self, Inputs};
 use liyasa_config::vfs::OsVfs;
-use liyasa_core::source_map::SourceMap;
-use liyasa_core::vfs::VfsPath;
 
 /// A fixed clock, so a build is reproducible and a test can assert on dates.
 pub const BUILD_TIME: i64 = 1_789_473_600;
@@ -64,35 +61,6 @@ impl Docs {
         };
         let vfs = OsVfs::new(&root);
         let report = engine::build(&vfs, &NoGit, &root, &options);
-
-        // `engine::build` writes only the asset-derived `_headers`; the
-        // security headers, the content security policy, `_redirects`, and
-        // `vercel.json` come from `hosting::generate`, which nothing in the
-        // engine calls (see NEEDS-INPUT.md [WP-31]). The release pipeline has
-        // to run both, so the harness does what the pipeline does.
-        if let Some(manifest) = report.manifest.as_ref() {
-            let mut sources = SourceMap::new();
-            let load = liyasa_config::load(
-                &vfs,
-                &mut sources,
-                &liyasa_config::Options {
-                    root: VfsPath::new(""),
-                    env: options.env.clone(),
-                },
-            );
-            let home = fs::read_to_string(root.join("dist").join("index.html")).unwrap_or_default();
-            let output = hosting::generate(&Inputs {
-                config: &load.value,
-                manifest,
-                critical_css: &crate::hosting::critical_block(&home),
-                frame_routes: &[],
-                image_hosts: &[],
-                media_hosts: &[],
-                hsts_preload: false,
-            });
-            let diagnostics = hosting::write(&output, &root.join("dist"));
-            assert!(diagnostics.is_empty(), "{diagnostics:?}");
-        }
 
         Self { root, report }
     }
