@@ -134,6 +134,7 @@ fn docusaurus_carries_its_sidebar_and_generates_redirects_for_what_moved() {
         &docusaurus::Options {
             components: &Builtins::default(),
             directives: false,
+            mapping: &Stubs,
         },
     );
 

@@ -8,6 +8,7 @@
 use liyasa_config::vfs::MemVfs;
 use liyasa_core::vfs::VfsPath;
 use liyasa_import::docusaurus;
+use liyasa_import::stubs::Stubs;
 
 use crate::support::{Builtins, config, pages_scan, paths, text_at, validate};
 
@@ -121,6 +122,7 @@ fn import(vfs: &MemVfs) -> liyasa_import::Plan {
         &docusaurus::Options {
             components: &Builtins::default(),
             directives: false,
+            mapping: &Stubs,
         },
     )
 }

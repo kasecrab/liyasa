@@ -22,6 +22,7 @@ use serde_json::{Value, json};
 use crate::page::{self, Action, Components, Convert, Prop, Tag, TagKind};
 use crate::plan::Plan;
 use crate::report::{Attention, Kind, PageReport, Report, Source};
+use crate::stubs::{Choice, Generated, Mapping};
 use crate::tree::{self, read, route_of, site_route, strip, with_md_extension};
 
 /// How to import.
@@ -30,6 +31,8 @@ pub struct Options<'a> {
     pub components: &'a dyn Components,
     /// Write components in the directive form rather than the tag form.
     pub directives: bool,
+    /// What to do with a component Liyasa cannot render (RFC 2902).
+    pub mapping: &'a dyn Mapping,
 }
 
 /// Reads a Docusaurus project and plans a Liyasa one. Nothing is written.
@@ -72,6 +75,8 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
 
     let convert = Docusaurus {
         components: options.components,
+        mapping: options.mapping,
+        generated: Generated::new(),
         frontmatter: frontmatter_renames(),
         open: RefCell::new(Vec::new()),
     };
@@ -160,6 +165,11 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
     for redirect in &converted.redirects {
         plan.report.redirects.push(redirect.clone());
     }
+
+    for (path, text) in convert.generated.files() {
+        plan.text(&path, text);
+    }
+    plan.report.attention.extend(convert.generated.attention());
 
     match serde_json::to_string_pretty(&converted.value) {
         Ok(mut text) => {
@@ -414,6 +424,8 @@ fn frontmatter_renames() -> BTreeMap<String, String> {
 /// The four components MIG-02 names, plus the module specifiers that carry them.
 struct Docusaurus<'a> {
     components: &'a dyn Components,
+    mapping: &'a dyn Mapping,
+    generated: Generated,
     frontmatter: BTreeMap<String, String>,
     /// Open tags and the names they were written as, so a closing tag can be
     /// written the same way. `<TabItem>` becomes `<Tab>` at both ends.
@@ -422,7 +434,7 @@ struct Docusaurus<'a> {
 
 impl Convert for Docusaurus<'_> {
     fn known(&self, name: &str) -> bool {
-        self.components.known(name)
+        self.components.known(name) || self.generated.knows(name)
     }
 
     fn suggest(&self, name: &str) -> Option<String> {
@@ -531,7 +543,17 @@ impl Docusaurus<'_> {
                 }
                 Action::Replace(fence)
             }
-            _ => Action::Keep,
+            name => {
+                // TODO(rfc-2902): a component Liyasa cannot render becomes a
+                // stub and one project-level entry, as it does for Mintlify.
+                if !self.components.known(name)
+                    && !self.components.known(&tag.directive_name())
+                    && self.mapping.choose(name) == Choice::Stub
+                {
+                    self.generated.record(tag);
+                }
+                Action::Keep
+            }
         }
     }
 }

@@ -180,3 +180,42 @@ fn the_imported_project_loads_and_validates() {
     assert!(problems.is_empty(), "{problems:?}");
     pages_scan(&plan);
 }
+
+#[test]
+fn every_importer_answers_an_unknown_component_the_same_way() {
+    // RFC 2902: a component Liyasa cannot render is a stub and one
+    // project-level entry, whichever product the pages came from.
+    let source = liyasa_config::vfs::MemVfs::new()
+        .with(
+            "docusaurus.config.js",
+            b"module.exports = { title: 'Acme' };".to_vec(),
+        )
+        .with(
+            "docs/intro.md",
+            b"---\ntitle: Intro\n---\n\n<Gauge value=\"3\" />\n".to_vec(),
+        );
+    let plan = liyasa_import::docusaurus::import(
+        &source,
+        &VfsPath::new(""),
+        &liyasa_import::docusaurus::Options {
+            components: &Builtins::default(),
+            directives: false,
+            mapping: &Stubs,
+        },
+    );
+
+    assert!(
+        paths(&plan).contains(&"components/gauge.jinja"),
+        "{:?}",
+        paths(&plan)
+    );
+    assert!(plan.report.pages.iter().all(|page| page.is_clean()));
+    assert_eq!(
+        plan.report
+            .attention
+            .iter()
+            .filter(|item| item.what == "Gauge")
+            .count(),
+        1
+    );
+}
