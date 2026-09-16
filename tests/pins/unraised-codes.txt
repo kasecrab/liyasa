@@ -1,0 +1,38 @@
+# Codes registered in codes.toml that nothing in crates/*/src/ raises (RFC 0008).
+#
+# Claiming a code before the thing that raises it is the intended workflow, so
+# this is not a list of defects. It is pinned so the set cannot change without
+# someone saying why: add a line when you claim a code ahead of its
+# implementation, and DELETE the line in the commit that makes it raise.
+#
+# Regenerate with: cargo run -p xtask -- pins --update
+E0110
+E0604
+E0605
+E0606
+E0608
+E0620
+E0621
+E0704
+E0721
+E0801
+E0802
+E0803
+E0804
+E0808
+E0809
+E0810
+E0901
+E0902
+E0903
+E0904
+E0905
+W0015
+W0622
+W0713
+W0720
+W0811
+W0813
+W0906
+W1001
+W1005

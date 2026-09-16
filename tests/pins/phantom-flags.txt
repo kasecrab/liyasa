@@ -1,0 +1,12 @@
+# Flags named in a doc comment or a diagnostic that the `liyasa` CLI does not
+# define. Each is a defect: the worse ones reach a user in help text.
+#
+# DELETE a line in the commit that builds the flag or fixes the text. A flag
+# belonging to another tool goes in FOREIGN in xtask/src/flags.rs instead, with
+# a note saying whose.
+#
+# Regenerate with: cargo run -p xtask -- pins --update
+--build-time
+--images
+--personalization
+--urls

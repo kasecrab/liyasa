@@ -41,26 +41,6 @@ pub const FOREIGN: &[(&str, &str)] = &[
     ),
 ];
 
-/// Flags named in prose that `liyasa` does not define, pinned so the set can
-/// only shrink (the shape RFC 0008 settled on for unraised codes).
-///
-/// Four of these reach an end user in a diagnostic's help text, which is the
-/// worse half of the defect: `--force` in `liyasa-import`, `--build-time` in
-/// `liyasa-build`'s clock, `--personalization` in its variant reporting, and
-/// `--urls` in the agent-readiness scan. `--images` is doc comments only.
-/// Every one is in another package's path, so they are recorded here rather
-/// than fixed here; the CLI is WP-09's and the prose belongs to WP-06 and
-/// WP-29.
-///
-/// Delete an entry in the commit that builds the flag or fixes the text.
-pub const KNOWN_PHANTOMS: &[&str] = &[
-    "--build-time",
-    "--force",
-    "--images",
-    "--personalization",
-    "--urls",
-];
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Phantom {
     pub flag: String,
@@ -124,21 +104,10 @@ pub fn audit(root: &Path) -> Result<Vec<Phantom>, String> {
 /// Entry point for `xtask flags`.
 pub fn run(root: &Path) -> Result<(), String> {
     let phantoms = audit(root)?;
-    println!(
-        "flags: {} known to the command tree, {} pinned as missing",
-        known_flags().len(),
-        KNOWN_PHANTOMS.len()
-    );
-    let unpinned: Vec<&Phantom> = phantoms
-        .iter()
-        .filter(|p| !KNOWN_PHANTOMS.contains(&p.flag.as_str()))
-        .collect();
+    println!("flags: {} known to the command tree", known_flags().len());
     for p in &phantoms {
-        if KNOWN_PHANTOMS.contains(&p.flag.as_str()) {
-            println!("  known: {}:{}: {}", p.file.display(), p.line, p.flag);
-        }
+        println!("  {}:{}: {}", p.file.display(), p.line, p.flag);
     }
-    let phantoms: Vec<Phantom> = unpinned.into_iter().cloned().collect();
     if phantoms.is_empty() {
         return Ok(());
     }
