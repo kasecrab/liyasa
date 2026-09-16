@@ -1,0 +1,55 @@
+[package]
+name = "liyasa-server"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The axum server: site serving with content negotiation, the rate limiter, health and metrics, the ingest queue, feedback, jobs, webhooks (PRD §18, §30.2.5)."
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "liyasa-server"
+path = "src/main.rs"
+
+[dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+liyasa-config = { path = "../liyasa-config", version = "0.1.0" }
+liyasa-build = { path = "../liyasa-build", version = "0.1.0" }
+liyasa-net = { path = "../liyasa-net", version = "0.1.0" }
+liyasa-store = { path = "../liyasa-store", version = "0.1.0" }
+blake3.workspace = true
+bytes.workspace = true
+http.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+url.workspace = true
+zeroize.workspace = true
+ulid = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "time", "sync", "signal", "fs", "io-util"] }
+axum = { workspace = true, features = ["http1", "http2", "json", "query", "tokio", "matched-path", "original-uri"] }
+tower = { workspace = true, features = ["util"] }
+tower-http = { workspace = true, features = ["compression-gzip", "limit"] }
+rustls = { workspace = true, features = ["ring", "std", "tls12", "logging"] }
+instant-acme = { workspace = true, features = ["ring", "hyper-rustls"] }
+# Transitives of axum and reqwest used directly: TLS termination needs the
+# connection loop hyper-util exposes, and axum's serve helper only takes a TCP
+# listener (RFC 1401).
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
+hyper = { version = "1", default-features = false, features = ["server", "http1", "http2"] }
+hyper-util = { version = "0.1", default-features = false, features = ["server", "server-auto", "tokio", "http1", "http2", "service"] }
+# Webhook signatures are HMAC-SHA256 over the raw body (REST-10); both crates
+# are RustCrypto and already in the graph through aes-gcm (RFC 1401).
+hmac = { version = "0.13", default-features = false }
+sha2 = { version = "0.11", default-features = false }
+getrandom = { version = "0.3", default-features = false }
+tracing = { version = "0.1", default-features = false, features = ["std", "attributes"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "env-filter", "std"] }
+
+[dev-dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0", features = ["conformance"] }
+liyasa-tests = { path = "../../tests", version = "0.1.0" }
+tower = { workspace = true, features = ["util"] }
