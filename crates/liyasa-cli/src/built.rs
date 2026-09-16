@@ -142,13 +142,41 @@ pub fn read(root: &Path, output: &Path) -> Result<Snapshot, Missing> {
 /// regenerated, so what is graded is what was actually written.
 fn surfaces(output: &Path) -> Surfaces {
     let mut resources = Vec::new();
-    for (name, media) in [
-        ("llms.txt", PLAIN_TEXT),
-        ("llms-full.txt", PLAIN_TEXT),
-        ("skill.md", MARKDOWN),
+    // The paths carry a leading slash, because that is how a resource is
+    // addressed and how the §25 checks look one up. Reading them back under
+    // the bare file name made every `llms.txt` check fail on a site that had
+    // one.
+    for (path, media) in [
+        (liyasa_build::agents::llms::ROOT_PATH, PLAIN_TEXT),
+        (liyasa_build::agents::llms::FULL_PATH, PLAIN_TEXT),
+        (liyasa_build::agents::skill::SKILL_PATH, MARKDOWN),
     ] {
-        if let Ok(body) = std::fs::read_to_string(output.join(name)) {
-            resources.push(Resource::new(name, media, body));
+        if let Ok(body) = std::fs::read_to_string(output.join(path.trim_start_matches('/'))) {
+            resources.push(Resource::new(path, media, body));
+        }
+    }
+
+    // The Markdown twin of every page is a resource too: the coverage and
+    // parity checks ask whether the routes `llms.txt` names can be fetched.
+    let mut stack = vec![output.to_path_buf()];
+    while let Some(at) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&at) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.extension().is_some_and(|e| e == "md") {
+                if let (Ok(body), Ok(relative)) =
+                    (std::fs::read_to_string(&path), path.strip_prefix(output))
+                {
+                    let route = format!("/{}", relative.to_string_lossy().replace('\\', "/"));
+                    if !resources.iter().any(|existing| existing.path == route) {
+                        resources.push(Resource::new(route, MARKDOWN, body));
+                    }
+                }
+            }
         }
     }
     Surfaces {

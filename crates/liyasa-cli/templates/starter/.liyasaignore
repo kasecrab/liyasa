@@ -1,3 +1,6 @@
 # Files excluded from the build and from AI indexing.
 drafts/
 *.wip.md
+
+# Repository furniture rather than documentation.
+README.md

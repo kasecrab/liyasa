@@ -50,7 +50,18 @@ pub fn dispatch(global: &Global, command: Command) -> Exit {
         Command::Doctor(args) => doctor::run(global, &args),
         Command::Companion(which) => companion::run(global, &which),
         Command::Lock(which) => lock::run(global, &which),
+        Command::Budgets => budgets(global),
     }
+}
+
+/// CLI-35's table, for the release job. Always JSON: its only reader is a
+/// script.
+fn budgets(_global: &Global) -> Exit {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&crate::budget::as_json()).unwrap_or_else(|_| "[]".to_owned())
+    );
+    Exit::Success
 }
 
 /// The output directory a project's configuration names, resolved against its

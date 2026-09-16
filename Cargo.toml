@@ -249,3 +249,11 @@ opt-level = 0
 
 [profile.dev.package."miette-derive"]
 opt-level = 0
+
+# CLI-35 measures the release artifacts built with `lto = "fat"` and stripped.
+# `profile.release` stays on thin LTO so a developer's release build is not a
+# ten-minute link; `--profile dist` is what the release job uses.
+[profile.dist]
+inherits = "release"
+lto = "fat"
+strip = "symbols"
