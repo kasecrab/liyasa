@@ -34,7 +34,7 @@ use liyasa_core::source_map::SourceMap;
 use liyasa_core::span::{SourceId, Span};
 use liyasa_core::vfs::VfsPath;
 
-use super::{filters, scan};
+use super::{filters, host, scan};
 
 /// Opens a sentinel; the segment index follows in decimal.
 pub const SENTINEL_START: char = '\u{e000}';
@@ -119,6 +119,10 @@ pub fn environment(options: &ExpandOptions) -> minijinja::Environment<'static> {
     // where one reaches a component or HTML attribute, in the render pass.
     env.set_auto_escape_callback(|_| minijinja::AutoEscape::None);
     filters::install(&mut env);
+    // An empty host, so a page that calls one of CM-15's build-backed names in
+    // a build that installed no `Host` is answered with the code for what was
+    // missing rather than `E0203 unknown filter`.
+    host::install(&mut env, Arc::new(host::Host::default()));
     env
 }
 
