@@ -26,6 +26,14 @@ todo = "allow"
 # line tables keep backtraces useful at a fraction of the size.
 debug = "line-tables-only"
 
+# Dependencies build optimized even in dev: the test suite runs dependency code
+# in its hot path (serde over a 27 MB spec corpus, syntect's regex engine over
+# pathological bodies). Measured on the openapi compatibility corpus: 87.4s to
+# 36.4s, 2.4x. Our own crates stay at opt-level 0 so the edit-compile cycle a
+# work-package session lives in is unaffected. RFC 0005.
+[profile.dev.package."*"]
+opt-level = 2
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
