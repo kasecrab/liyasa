@@ -3,9 +3,24 @@
 # codes.toml is a table of one-line rows, so keeping both sides is always right.
 crates/liyasa-core/src/diagnostics/codes.toml merge=union
 
-# Cargo.toml is NOT union-merged: two branches adding the same dependency with
-# different features produced a duplicate key that only `cargo metadata` caught.
-# A conflict there is better than a manifest that does not parse.
+# Cargo.toml IS union-merged, reversing the earlier rule, by the core lead's
+# decision on 2026-09-16.
+#
+# The old rule protected against two branches adding the SAME dependency with
+# different features, producing a duplicate key. That is real, but `cargo
+# metadata` catches it and `bin/gate` runs it, so the check does not depend on
+# the conflict happening.
+#
+# What the rule actually cost: WP-14 appended ten dependency rows and WP-29
+# appended one, on the same blank line after `ed25519-dalek`. Git conflicted on
+# adjacency even though the row NAMES did not intersect at all — there was no
+# duplicate key to find. Two packages paid for a manual reconciliation in one
+# afternoon, for a case the rule was not written about. Union keeps both sides,
+# which is exactly right for an append-only list, and `cargo metadata` still
+# fails the gate if a genuine duplicate ever appears.
+Cargo.toml merge=union
+*/Cargo.toml merge=union
+crates/*/Cargo.toml merge=union
 
 *.png binary
 *.jpg binary
