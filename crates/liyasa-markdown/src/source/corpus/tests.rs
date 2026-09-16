@@ -71,6 +71,8 @@ fn every_expected_diagnostic_is_raised() {
                 &scanned
             } else if RAISED_ON_ENTRY.contains(&want.as_str()) && untrusted(case) {
                 &on_entry(case)
+            } else if RAISED_ON_EXPANSION.contains(&want.as_str()) {
+                &on_expansion(case)
             } else {
                 continue;
             };

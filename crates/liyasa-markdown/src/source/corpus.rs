@@ -9,7 +9,12 @@
 //! Case discovery and the `%%%` format live in [`crate::ast::corpus`]; only the
 //! `source-document` section, which that loader has no use for, is read here.
 
+use std::sync::Arc;
+
+use liyasa_core::markdown::TemplateContext;
+use liyasa_core::source_map::SourceMap;
 use liyasa_core::span::SourceId;
+use liyasa_core::vfs::VfsPath;
 
 pub use crate::ast::corpus::{Case, load};
 
@@ -57,6 +62,37 @@ pub fn on_entry(case: &Case) -> Vec<String> {
     match super::escape_untrusted_markdown(source_of(case), true) {
         Ok(_) => Vec::new(),
         Err(diagnostic) => vec![diagnostic.code.as_str().to_owned()],
+    }
+}
+
+/// The codes expansion raises before it renders anything.
+///
+/// `E0208` is the one the corpus asks for: reading `reader.*` on a page that
+/// did not declare `personalized: true` is a fact about the page's front matter
+/// and its template text, so it is settled without a context and without a
+/// value for `reader`.
+pub fn on_expansion(case: &Case) -> Vec<String> {
+    let text = source_of(case);
+    let mut map = SourceMap::new();
+    let id = map.intern(VfsPath::new("page.md"), Arc::from(text));
+    let (document, diagnostics) = super::scan(text, id);
+    if diagnostics.has_errors() {
+        return diagnostics
+            .iter()
+            .map(|d| d.code.as_str().to_owned())
+            .collect();
+    }
+    let context = TemplateContext {
+        values: minijinja::Value::UNDEFINED,
+        tracking: true,
+    };
+    let env = super::expand::environment(&super::expand::ExpandOptions::default());
+    match super::expand(&map, &document, &context, &env) {
+        Ok(_) => Vec::new(),
+        Err(diagnostics) => diagnostics
+            .iter()
+            .map(|d| d.code.as_str().to_owned())
+            .collect(),
     }
 }
 
