@@ -1,0 +1,37 @@
+[package]
+name = "liyasa-net"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The only HTTP client in the workspace: SSRF-hardened, policy enforced at connect time, redirects re-validated per hop, size and time caps (PRD §30.2.3)."
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+bytes.workspace = true
+http.workspace = true
+thiserror.workspace = true
+url.workspace = true
+tokio = { workspace = true, features = ["rt", "net", "time", "sync"] }
+# `rustls-no-provider`: the TLS provider is chosen here (ring, RFC 1401) rather
+# than by reqwest's default, which is aws-lc-rs. No `json`, `gzip`, `cookies`,
+# `socks` or `system-proxy`: every request is built by this crate and ambient
+# proxies are never honoured (§30.2.3).
+reqwest = { workspace = true, features = ["rustls-no-provider", "http2"] }
+rustls = { workspace = true, features = ["ring", "std", "tls12", "logging"] }
+hickory-resolver = { workspace = true, features = ["tokio", "system-config"] }
+# Already in the graph through axum, tower-http and sqlx; used directly for the
+# structured log lines the server emits (RFC 1401).
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0", features = ["conformance"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-util"] }
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"
