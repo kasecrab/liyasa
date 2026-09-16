@@ -95,7 +95,7 @@ id
     </span>
   </div>
   <div class="ly-field-body">
-    <details class="ly-expandable" data-liyasa="expandable">
+    <details class="ly-expandable" data-liyasa="expandable" data-ly-accordion>
       <summary class="ly-expandable-title">
         owner properties
       </summary>

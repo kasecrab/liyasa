@@ -2,7 +2,7 @@
 
 === case: default
 --- html
-<details class="ly-accordion" data-liyasa="accordion" id="what-is-a-fact">
+<details class="ly-accordion" data-liyasa="accordion" data-ly-accordion id="what-is-a-fact">
   <summary class="ly-accordion-title">
     What is a fact?
   </summary>
@@ -21,7 +21,7 @@ What is a fact? A value with a source.
 
 === case: every prop
 --- html
-<details class="ly-accordion" data-liyasa="accordion" id="facts" open>
+<details class="ly-accordion" data-liyasa="accordion" data-ly-accordion id="facts" open>
   <summary class="ly-accordion-title">
     <span class="ly-icon" data-icon="help" aria-hidden="true">
     </span>
@@ -42,7 +42,7 @@ What is a fact? A value with a source.
 
 === case: empty body
 --- html
-<details class="ly-accordion" data-liyasa="accordion" id="a-4033e1a9b198bb0c082ba5b2">
+<details class="ly-accordion" data-liyasa="accordion" data-ly-accordion id="a-4033e1a9b198bb0c082ba5b2">
   <summary class="ly-accordion-title">
     Details
   </summary>
@@ -57,7 +57,7 @@ What is a fact? A value with a source.
 === case: grouped
 --- html
 <div class="ly-accordions" data-liyasa="accordions" data-one>
-  <details class="ly-accordion" data-liyasa="accordion" id="first">
+  <details class="ly-accordion" data-liyasa="accordion" data-ly-accordion id="first">
     <summary class="ly-accordion-title">
       First
     </summary>
@@ -67,7 +67,7 @@ What is a fact? A value with a source.
       </p>
     </div>
   </details>
-  <details class="ly-accordion" data-liyasa="accordion" id="second">
+  <details class="ly-accordion" data-liyasa="accordion" data-ly-accordion id="second">
     <summary class="ly-accordion-title">
       Second
     </summary>
@@ -91,12 +91,12 @@ First One. Second Two.
 
 === case: nesting
 --- html
-<details class="ly-accordion" data-liyasa="accordion" id="outer">
+<details class="ly-accordion" data-liyasa="accordion" data-ly-accordion id="outer">
   <summary class="ly-accordion-title">
     Outer
   </summary>
   <div class="ly-accordion-body">
-    <details class="ly-expandable" data-liyasa="expandable">
+    <details class="ly-expandable" data-liyasa="expandable" data-ly-accordion>
       <summary class="ly-expandable-title">
         Inner
       </summary>
@@ -119,7 +119,7 @@ Outer Inner Nested body.
 
 === case: invalid prop
 --- html
-<details class="ly-accordion" data-liyasa="accordion" id="a-4033e1a9b198bb0c082ba5b2" open>
+<details class="ly-accordion" data-liyasa="accordion" data-ly-accordion id="a-4033e1a9b198bb0c082ba5b2" open>
   <summary class="ly-accordion-title">
     Details
   </summary>

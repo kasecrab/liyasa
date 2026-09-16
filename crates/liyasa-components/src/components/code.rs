@@ -67,6 +67,7 @@ impl Render for CodeGroup {
             .open("div")
             .attr("class", "ly-code-group")
             .attr("data-liyasa", "code-group")
+            .flag_if("data-ly-tabs", !dropdown)
             .attr_if("data-sync", props.str("sync"))
             .flag_if("data-dropdown", dropdown);
 
@@ -131,6 +132,7 @@ impl Render for CodeGroup {
                 &code_body(block),
                 options,
                 highlighted.as_deref(),
+                Some(&format!("{group}-code-{at}")),
             );
             ctx.out.close();
         }

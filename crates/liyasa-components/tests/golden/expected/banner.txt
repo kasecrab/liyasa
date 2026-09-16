@@ -16,7 +16,7 @@ Version 0.5 is out.
 
 === case: every prop
 --- html
-<div class="ly-banner" data-liyasa="banner" role="region" aria-label="Announcement" data-color="#3355ff" id="v05" data-dismissible>
+<div class="ly-banner" data-liyasa="banner" role="region" aria-label="Announcement" data-color="#3355ff" id="v05" data-ly-banner-id="v05" data-dismissible>
   <div class="ly-banner-body">
     <p>
       Version 0.5 is out.

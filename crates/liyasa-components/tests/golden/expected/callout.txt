@@ -18,7 +18,7 @@ Plain.
 
 === case: every prop
 --- html
-<details class="ly-callout ly-callout-callout" data-liyasa="callout" data-variant="callout" data-color="#ff8800" data-callout-variant="solid">
+<details class="ly-callout ly-callout-callout" data-liyasa="callout" data-ly-accordion data-variant="callout" data-color="#ff8800" data-callout-variant="solid">
   <summary class="ly-callout-title">
     <span class="ly-icon" data-icon="bell" aria-hidden="true">
     </span>

@@ -2,14 +2,14 @@
 
 === case: default
 --- html
-<form class="ly-feedback" data-liyasa="feedback" method="post" action="/_liyasa/feedback" aria-labelledby="fb-1ffab4d334112e636b81026a">
+<form class="ly-feedback" data-liyasa="feedback" data-ly-feedback method="post" action="/_liyasa/feedback" aria-labelledby="fb-1ffab4d334112e636b81026a">
   <p class="ly-feedback-question" id="fb-1ffab4d334112e636b81026a">
     Was this helpful?
   </p>
-  <button class="ly-button ly-button-secondary" type="submit" name="answer" value="yes">
+  <button class="ly-button ly-button-secondary" type="submit" name="answer" value="yes" data-ly-feedback-value="yes">
     Yes
   </button>
-  <button class="ly-button ly-button-secondary" type="submit" name="answer" value="no">
+  <button class="ly-button ly-button-secondary" type="submit" name="answer" value="no" data-ly-feedback-value="no">
     No
   </button>
 </form>
@@ -19,14 +19,14 @@
 
 === case: every prop
 --- html
-<form class="ly-feedback" data-liyasa="feedback" method="post" action="/_liyasa/feedback" aria-labelledby="fb-1ffab4d334112e636b81026a">
+<form class="ly-feedback" data-liyasa="feedback" data-ly-feedback method="post" action="/_liyasa/feedback" aria-labelledby="fb-1ffab4d334112e636b81026a">
   <p class="ly-feedback-question" id="fb-1ffab4d334112e636b81026a">
     Did this answer your question?
   </p>
-  <button class="ly-button ly-button-secondary" type="submit" name="answer" value="yes">
+  <button class="ly-button ly-button-secondary" type="submit" name="answer" value="yes" data-ly-feedback-value="yes">
     Yes
   </button>
-  <button class="ly-button ly-button-secondary" type="submit" name="answer" value="no">
+  <button class="ly-button ly-button-secondary" type="submit" name="answer" value="no" data-ly-feedback-value="no">
     No
   </button>
 </form>
@@ -36,7 +36,7 @@
 
 === case: assistant
 --- html
-<button class="ly-assistant" type="button" data-liyasa="assistant" data-prompt="How do I verify a code sample?">
+<button class="ly-assistant" type="button" data-liyasa="assistant" data-ly-assistant-trigger data-prompt="How do I verify a code sample?">
   Ask about verification
 </button>
 --- markdown
@@ -46,7 +46,7 @@ Ask about verification How do I verify a code sample?
 
 === case: assistant with no prompt
 --- html
-<button class="ly-assistant" type="button" data-liyasa="assistant" data-prompt="">
+<button class="ly-assistant" type="button" data-liyasa="assistant" data-ly-assistant-trigger data-prompt="">
 </button>
 --- markdown
 --- text

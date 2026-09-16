@@ -38,6 +38,9 @@ fn render_html(
         .open(tag)
         .attr("class", &format!("ly-callout ly-callout-{}", style.variant))
         .attr("data-liyasa", "callout")
+        // Only a collapsible callout is a `<details>`, and only a `<details>`
+        // has a toggle for `accordion.js` to hook.
+        .flag_if("data-ly-accordion", collapsible)
         .attr("data-variant", style.variant)
         .attr_if("data-color", color)
         .attr_if(

@@ -23,7 +23,7 @@ Note Read this first.
 
 === case: every prop
 --- html
-<details class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note" open>
+<details class="ly-callout ly-callout-note" data-liyasa="callout" data-ly-accordion data-variant="note" open>
   <summary class="ly-callout-title">
     <span class="ly-icon" data-icon="rocket" aria-hidden="true">
     </span>
@@ -92,7 +92,7 @@ Note Outer. Inner.
 
 === case: invalid prop
 --- html
-<details class="ly-callout ly-callout-note" data-liyasa="callout" data-variant="note">
+<details class="ly-callout ly-callout-note" data-liyasa="callout" data-ly-accordion data-variant="note">
   <summary class="ly-callout-title">
     <span class="ly-icon" data-icon="info" aria-hidden="true">
     </span>

@@ -46,6 +46,7 @@ impl Render for Accordion {
             .open("details")
             .attr("class", "ly-accordion")
             .attr("data-liyasa", "accordion")
+            .flag("data-ly-accordion")
             .attr("id", &id)
             .flag_if("open", props.bool("open"));
         ctx.out.open("summary").attr("class", "ly-accordion-title");
@@ -128,6 +129,7 @@ impl Render for Expandable {
             .open("details")
             .attr("class", "ly-expandable")
             .attr("data-liyasa", "expandable")
+            .flag("data-ly-accordion")
             .flag_if("open", props.bool("open"));
         ctx.out
             .open("summary")

@@ -52,6 +52,7 @@ impl Render for Tabs {
             .open("div")
             .attr("class", "ly-tabs")
             .attr("data-liyasa", "tabs")
+            .flag("data-ly-tabs")
             .attr_if("data-sync", props.str("sync"));
 
         ctx.out

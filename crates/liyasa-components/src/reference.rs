@@ -126,6 +126,7 @@ impl<'r> Reference<'r> {
                         &body,
                         &options,
                         highlighted.as_deref(),
+                        Some(&format!("c-{}", block.id.to_hex())),
                     );
                 }
             }

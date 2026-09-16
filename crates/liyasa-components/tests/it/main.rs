@@ -4,4 +4,5 @@
 
 mod contracts;
 mod deps;
+mod hooks;
 mod user_components;

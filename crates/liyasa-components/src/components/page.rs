@@ -36,6 +36,7 @@ impl Render for Banner {
             .attr("aria-label", "Announcement")
             .attr_if("data-color", props.str("color"))
             .attr_if("id", props.str("id"))
+            .attr_if("data-ly-banner-id", props.str("id"))
             .flag_if("data-dismissible", dismissible);
         ctx.out.open("div").attr("class", "ly-banner-body");
         ctx.children(&inst.children)?;
@@ -448,6 +449,7 @@ impl Render for Feedback {
             .open("form")
             .attr("class", "ly-feedback")
             .attr("data-liyasa", "feedback")
+            .flag("data-ly-feedback")
             .attr("method", "post")
             .attr("action", "/_liyasa/feedback")
             .attr("aria-labelledby", &id);
@@ -464,6 +466,7 @@ impl Render for Feedback {
                 .attr("type", "submit")
                 .attr("name", "answer")
                 .attr("value", value)
+                .attr("data-ly-feedback-value", value)
                 .text(label)
                 .close();
         }
@@ -507,6 +510,7 @@ impl Render for Assistant {
             .attr("class", "ly-assistant")
             .attr("type", "button")
             .attr("data-liyasa", "assistant")
+            .flag("data-ly-assistant-trigger")
             .attr("data-prompt", prompt)
             .text(props.str_or("label", prompt))
             .close();

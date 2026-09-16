@@ -302,6 +302,7 @@ pub fn render_html(
     body: &str,
     options: &CodeOptions,
     highlighted: Option<&str>,
+    id: Option<&str>,
 ) {
     out.open("div")
         .attr("class", "ly-code")
@@ -328,17 +329,25 @@ pub fn render_html(
         out.text(title).close();
     }
 
-    if options.copy {
+    // TODO(rfc-0400): `copy.js` binds to `data-ly-copy` and reveals the button
+    // itself, so a button it never sees must not offer a copy that cannot
+    // happen. Without an id there is nothing for it to name, so no button.
+    if options.copy
+        && let Some(id) = id
+    {
         out.open("button")
             .attr("class", "ly-code-copy")
             .attr("type", "button")
             .attr("data-liyasa", "copy")
+            .attr("data-ly-copy", id)
+            .flag("hidden")
             .text("Copy")
             .close();
     }
 
     out.open("pre").attr("class", "ly-code-body");
     out.open("code")
+        .attr_if("id", id)
         .attr_if("class", lang.map(|l| format!("language-{l}")).as_deref());
 
     if options.line_features() {

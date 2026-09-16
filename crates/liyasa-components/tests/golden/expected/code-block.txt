@@ -10,11 +10,11 @@
   </p>
   <div class="ly-terminal-body">
     <div class="ly-code" data-liyasa="code-block" data-lang="rust">
-      <button class="ly-code-copy" type="button" data-liyasa="copy">
+      <button class="ly-code-copy" type="button" data-liyasa="copy" data-ly-copy="c-58b64edaaff1508e9f037d21" hidden>
         Copy
       </button>
       <pre class="ly-code-body">
-        <code class="language-rust">
+        <code id="c-58b64edaaff1508e9f037d21" class="language-rust">
           fn main() {}
         </code>
       </pre>
@@ -43,11 +43,11 @@ plain fn main() {}
         </span>
         main.rs
       </div>
-      <button class="ly-code-copy" type="button" data-liyasa="copy">
+      <button class="ly-code-copy" type="button" data-liyasa="copy" data-ly-copy="c-58b64edaaff1508e9f037d21" hidden>
         Copy
       </button>
       <pre class="ly-code-body">
-        <code class="language-rust">
+        <code id="c-58b64edaaff1508e9f037d21" class="language-rust">
           <span class="ly-line ly-line-highlight" data-line="10">
             let a = 1;
           </span>
@@ -81,11 +81,11 @@ every attribute let a = 1; let b = 2; let c = 3;
   </p>
   <div class="ly-terminal-body">
     <div class="ly-code" data-liyasa="code-block" data-diff>
-      <button class="ly-code-copy" type="button" data-liyasa="copy">
+      <button class="ly-code-copy" type="button" data-liyasa="copy" data-ly-copy="c-58b64edaaff1508e9f037d21" hidden>
         Copy
       </button>
       <pre class="ly-code-body">
-        <code>
+        <code id="c-58b64edaaff1508e9f037d21">
           <span class="ly-line ly-line-del" data-change="del">
             let a = 1;
           </span>
@@ -120,7 +120,7 @@ diff -let a = 1; +let a = 2; let b = 3;
   <div class="ly-terminal-body">
     <div class="ly-code" data-liyasa="code-block" data-lang="sh" data-prompt="$ ">
       <pre class="ly-code-body">
-        <code class="language-sh">
+        <code id="c-58b64edaaff1508e9f037d21" class="language-sh">
           $ liyasa build
         </code>
       </pre>
@@ -144,11 +144,11 @@ prompt $ liyasa build
   </p>
   <div class="ly-terminal-body">
     <div class="ly-code" data-liyasa="code-block" data-lang="rust">
-      <button class="ly-code-copy" type="button" data-liyasa="copy">
+      <button class="ly-code-copy" type="button" data-liyasa="copy" data-ly-copy="c-58b64edaaff1508e9f037d21" hidden>
         Copy
       </button>
       <pre class="ly-code-body">
-        <code class="language-rust">
+        <code id="c-58b64edaaff1508e9f037d21" class="language-rust">
           fn main() {}
         </code>
       </pre>
