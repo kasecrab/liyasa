@@ -36,6 +36,13 @@ allow = [
   # outright that it imposes nothing on Results, so it reaches no Liyasa source.
   # The same shape as Unicode-DFS-2016 above. Shipping the store in a binary
   # carries §2.1's notice into the third-party licence inventory.
+  #
+  # This row outruns its requirement: NFR-15 lists the licences CI accepts and
+  # does not name CDLA-Permissive-2.0. The requirement is the authority, so the
+  # two have to be reconciled — by NFR-15's owner (WP-32), not here. It is kept
+  # rather than reverted because §6.2.1 mandates reqwest 0.13 on rustls, and no
+  # reqwest TLS feature set avoids this crate, so the alternative is a red gate
+  # on a dependency the PRD itself chose.
   "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.9
