@@ -36,6 +36,15 @@ pub fn run(global: &Global, args: &Build) -> Exit {
         return plan(global, args, &project, &options, &vfs, &printer);
     }
 
+    // CLI-33: `--locked` refuses a build that would change the lock, and a
+    // build that is allowed to writes one when there is none.
+    if let Some(diagnostic) =
+        crate::commands::lock::enforce(&project.root, &project.config, args.locked)
+    {
+        ctx::report(global, format, diagnostic);
+        return Exit::Errors;
+    }
+
     let git = SystemGit::new(&project.root);
     let started = Instant::now();
 
