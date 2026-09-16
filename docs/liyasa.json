@@ -1,0 +1,150 @@
+{
+  "$schema": "https://kasecrab.github.io/liyasa/schema/v1/liyasa.schema.json",
+  "name": "Liyasa",
+  "description": "Documentation that stays true. Liyasa builds a docs site from Markdown in your repository and checks, on every build, that what the pages claim still matches the product.",
+  "theme": {
+    "preset": "aurora"
+  },
+  "seo": {
+    "canonicalOrigin": "https://kasecrab.github.io",
+    "indexing": "navigable"
+  },
+  "build": {
+    "basePath": "/liyasa/docs",
+    "strictLinks": true
+  },
+  "locales": [
+    { "code": "en", "default": true, "label": "English" },
+    { "code": "de", "label": "Deutsch" }
+  ],
+  "localization": {
+    "fallback": "notice"
+  },
+  "regions": {
+    "enabled": true,
+    "list": ["us", "eu", "in"],
+    "default": "us",
+    "detection": ["choice"]
+  },
+  "search": {
+    "placeholder": "Search the documentation"
+  },
+  "agents": {
+    "llms": { "full": true },
+    "markdown": { "includeOpenApiSchema": true }
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "label": "GitHub",
+      "href": "https://github.com/kasecrab/liyasa"
+    }
+  },
+  "footer": {
+    "branding": true,
+    "links": [
+      {
+        "header": "Documentation",
+        "items": [
+          { "label": "Install", "href": "/getting-started/install" },
+          { "label": "Configuration", "href": "/reference/config" },
+          { "label": "Error codes", "href": "/errors" }
+        ]
+      },
+      {
+        "header": "Project",
+        "items": [
+          { "label": "Source", "href": "https://github.com/kasecrab/liyasa" },
+          { "label": "Licence", "href": "https://github.com/kasecrab/liyasa/blob/main/LICENSE-MIT" }
+        ]
+      }
+    ]
+  },
+  "navigation": {
+    "breadcrumbs": "path",
+    "pages": [
+      "index",
+      {
+        "tab": "Guides",
+        "icon": "book",
+        "pages": [
+          {
+            "group": "Getting started",
+            "icon": "rocket",
+            "expanded": true,
+            "pages": [
+              "getting-started/install",
+              "getting-started/quickstart",
+              "getting-started/project-layout"
+            ]
+          },
+          {
+            "group": "Writing",
+            "pages": [
+              "guides/diataxis",
+              "guides/style",
+              "guides/navigation",
+              "guides/linking",
+              "guides/media",
+              "guides/writing-for-agents"
+            ]
+          },
+          {
+            "group": "Keeping it true",
+            "pages": [
+              "guides/verification",
+              "guides/fact-modelling",
+              "guides/maintenance"
+            ]
+          },
+          {
+            "group": "Reaching readers",
+            "pages": [
+              "guides/accessibility",
+              "guides/seo",
+              "guides/regions-and-localization",
+              "guides/hosting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "icon": "list",
+        "pages": [
+          "reference/cli",
+          "reference/frontmatter",
+          { "group": "Configuration", "root": "reference/config", "pages": [] },
+          { "group": "Components", "root": "reference/components", "pages": [] },
+          { "group": "Error codes", "root": "errors", "pages": [] }
+        ]
+      },
+      {
+        "tab": "Help",
+        "icon": "life-buoy",
+        "pages": [
+          "help/index",
+          "help/build-errors",
+          "help/domains",
+          "help/auth",
+          "help/previews",
+          "help/editor",
+          "help/sandbox"
+        ]
+      },
+      {
+        "language": "de",
+        "pages": [
+          "de/index",
+          "de/erste-schritte",
+          "de/verifizierung"
+        ]
+      },
+      {
+        "anchor": "Source",
+        "href": "https://github.com/kasecrab/liyasa",
+        "icon": "github"
+      }
+    ]
+  }
+}

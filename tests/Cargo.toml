@@ -50,6 +50,10 @@ http.workspace = true
 name = "reference-site"
 path = "src/bin/reference_site.rs"
 
+[[bin]]
+name = "docs-reference"
+path = "src/bin/docs_reference.rs"
+
 [[test]]
 name = "it"
 path = "it/main.rs"

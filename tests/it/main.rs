@@ -80,3 +80,7 @@ mod rx_50_feedback;
 mod thm_31;
 #[path = "../web/reader.rs"]
 mod web_reader;
+#[path = "../docs/mig_22.rs"]
+mod mig_22;
+#[path = "../docs/nfr_70.rs"]
+mod nfr_70;
