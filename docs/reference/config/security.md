@@ -18,6 +18,7 @@ Specified by CFG-85.
 | `security.csp.imgHostsAllow` | string[] | — | — |
 | `security.csp.reportUri` | string | — | — |
 | `security.frameAncestors` | string[] | — | — |
+| `security.hstsPreload` | boolean | `false` | Add `preload` to `Strict-Transport-Security` (RX-112). Off by default: preload is a one-way submission to browser lists. |
 | `security.styleAttribute` | `allowlist` \| `off` | — | — |
 | `security.txt` | boolean \| object | — | RFC 9116 `security.txt` fields, emitted at `/.well-known/security.txt`. |
 | `security.uploads.allowTypes` | string[] | — | — |

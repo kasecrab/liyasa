@@ -39,7 +39,7 @@ Pointing `$schema` at the published URL is what gives you completion and inline 
 | [`feeds`](/reference/config/feeds) | Changelog and update feeds. |
 | [`footer`](/reference/config/footer) | Footer socials, link columns, branding, and legal line (§8.5). |
 | [`graphql`](/reference/config/graphql) | GraphQL schemas bound to this site. |
-| [`integrations`](/reference/config/integrations) | Third-party scripts and consent (§26.8). |
+| [`integrations`](/reference/config/integrations) | Third-party scripts and consent (§26.8). A vendor key is enabled when present and not `false` or `null`; Liyasa maintains its CSP sources (ANA-62). |
 | [`locales`](/reference/config/locales) | Languages this site is published in (§7.11). |
 | [`localization`](/reference/config/localization) | Locale fallback and visitor routing (§7.11). |
 | [`logo`](/reference/config/logo) | The `logo` setting. |
