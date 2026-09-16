@@ -1,15 +1,25 @@
 //! One module per command, and the table that routes to them.
 
 pub mod build;
+pub mod companion;
 pub mod completions;
+pub mod dev;
 pub mod doctor;
+pub mod export;
 pub mod format;
+pub mod lock;
 pub mod migrate;
 pub mod new;
 pub mod schema;
+pub mod score;
+pub mod search;
+pub mod serve;
 pub mod telemetry;
+pub mod test;
+pub mod theme;
 pub mod update;
 pub mod validate;
+pub mod verify;
 pub mod version;
 
 use crate::Exit;
@@ -20,34 +30,41 @@ pub fn dispatch(global: &Global, command: Command) -> Exit {
         Command::Version(args) => version::run(global, &args),
         Command::Completions(args) => completions::run(global, &args),
 
-        // Written in the order of §16.1; each becomes a `mod` line above as it
-        // lands.
         Command::New(args) => new::run(global, &args),
-        Command::Dev(_) => pending("dev"),
+        Command::Dev(args) => dev::run(global, &args),
         Command::Build(args) => build::run(global, &args),
         Command::Validate(args) => validate::run(global, &args),
         Command::Format(args) => format::run(global, &args),
-        Command::Verify(_) => pending("verify"),
-        Command::BrokenLinks(_) => pending("broken-links"),
-        Command::Test(_) => pending("test"),
-        Command::Score(_) => pending("score"),
-        Command::Export(_) => pending("export"),
-        Command::Serve(_) => pending("serve"),
-        Command::Search(_) => pending("search"),
+        Command::Verify(args) => verify::run(global, &args),
+        Command::BrokenLinks(args) => verify::links(global, &args),
+        Command::Test(args) => test::run(global, &args),
+        Command::Score(args) => score::run(global, &args),
+        Command::Export(args) => export::run(global, &args),
+        Command::Serve(args) => serve::run(global, &args),
+        Command::Search(args) => search::run(global, &args),
         Command::Schema(args) => schema::run(global, &args),
         Command::MigrateConfig(args) => migrate::run(global, &args),
-        Command::Theme(_) => pending("theme"),
+        Command::Theme(which) => theme::run(global, &which),
         Command::Update(args) => update::run(global, &args),
         Command::Telemetry(command) => telemetry::run(global, &command),
         Command::Doctor(args) => doctor::run(global, &args),
-        Command::Companion(_) => pending("companion"),
-        Command::Lock(_) => pending("lock"),
+        Command::Companion(which) => companion::run(global, &which),
+        Command::Lock(which) => lock::run(global, &which),
     }
 }
 
-/// A command whose arguments parse but whose body is not written yet. It is a
-/// project error rather than a usage error: the command line was correct.
-fn pending(name: &str) -> Exit {
-    eprintln!("liyasa {name}: not implemented in this build");
-    Exit::Errors
+/// The output directory a project's configuration names, resolved against its
+/// root. `LIYASA_OUTPUT` and `--output` override it per command.
+pub fn output_dir(project: &crate::ctx::Project) -> std::path::PathBuf {
+    let configured = std::fs::read_to_string(&project.config)
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .and_then(|value| {
+            value
+                .pointer("/build/output")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+        })
+        .unwrap_or_else(|| "dist".to_owned());
+    project.root.join(configured)
 }

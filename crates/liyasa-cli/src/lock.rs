@@ -271,7 +271,10 @@ mod tests {
     #[test]
     fn the_lock_records_the_preset_and_the_bundled_fonts() {
         let lock = compute(&config());
-        assert_eq!(lock.theme.as_ref().map(|t| t.preset.as_str()), Some("ember"));
+        assert_eq!(
+            lock.theme.as_ref().map(|t| t.preset.as_str()),
+            Some("ember")
+        );
         assert_eq!(lock.version, FORMAT_VERSION);
         assert!(!lock.fonts.is_empty(), "no fonts were recorded");
         for font in lock.fonts.values() {
@@ -305,8 +308,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&directory);
         std::fs::create_dir_all(&directory).expect("a directory");
         let path = directory.join(LOCK_FILE);
-        std::fs::write(&path, "version = 99\n[liyasa]\nversion = \"9.9.9\"\n")
-            .expect("the lock");
+        std::fs::write(&path, "version = 99\n[liyasa]\nversion = \"9.9.9\"\n").expect("the lock");
 
         assert_eq!(
             read(&path),

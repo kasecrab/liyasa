@@ -29,14 +29,14 @@ pub fn run(global: &Global, args: &Format_) -> Exit {
     };
 
     let files = if args.paths.is_empty() {
-        walk(&project.root, &output_dir(&project.root))
+        walk(&project.root, &crate::commands::output_dir(&project))
     } else {
         args.paths
             .iter()
             .flat_map(|path| {
                 let path = crate::commands::build::absolute(path, &cwd);
                 if path.is_dir() {
-                    walk(&path, &output_dir(&project.root))
+                    walk(&path, &crate::commands::output_dir(&project))
                 } else {
                     vec![path]
                 }
@@ -143,21 +143,6 @@ fn canonical_config(path: &Path) -> Option<String> {
     let mut canonical = serde_json::to_string_pretty(&value).ok()?;
     canonical.push('\n');
     (canonical != text).then_some(canonical)
-}
-
-fn output_dir(root: &Path) -> PathBuf {
-    let text =
-        std::fs::read_to_string(root.join(liyasa_config::load::CONFIG_FILE)).unwrap_or_default();
-    let configured = serde_json::from_str::<serde_json::Value>(&text)
-        .ok()
-        .and_then(|value| {
-            value
-                .pointer("/build/output")
-                .and_then(serde_json::Value::as_str)
-                .map(str::to_owned)
-        })
-        .unwrap_or_else(|| "dist".to_owned());
-    root.join(configured)
 }
 
 /// Every `.md` under `root`, skipping the output directory, the never-format

@@ -5,6 +5,8 @@
 //! come back (CLI-30), and returns the documented exit code (CLI-31). Behaviour
 //! that belongs to the content lives in the crate that owns it, never here.
 
+pub mod a11y;
+pub mod built;
 pub mod cli;
 pub mod commands;
 pub mod ctx;
@@ -12,7 +14,9 @@ pub mod diag;
 pub mod exit;
 pub mod git;
 pub mod home;
+pub mod lock;
 pub mod scaffold;
+pub mod serve;
 pub mod update;
 
 pub use exit::Exit;
