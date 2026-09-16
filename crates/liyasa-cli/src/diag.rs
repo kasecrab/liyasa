@@ -65,10 +65,14 @@ impl Printer {
     }
 
     fn text(&self, diagnostics: &Diagnostics, sources: &SourceMap) -> String {
+        // Without colour the output is going into a file or a pipe, where an
+        // OSC 8 hyperlink escape is noise a reader has to look past; the help
+        // URL is printed as text either way.
         let handler = if self.color {
             miette::GraphicalReportHandler::new()
         } else {
             miette::GraphicalReportHandler::new_themed(miette::GraphicalTheme::unicode_nocolor())
+                .with_links(false)
         };
         let mut out = String::new();
         for diagnostic in diagnostics {

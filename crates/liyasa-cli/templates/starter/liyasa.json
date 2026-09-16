@@ -1,0 +1,25 @@
+{
+  "$schema": "__LIYASA_SCHEMA__",
+  "name": "__LIYASA_NAME__",
+  "description": "Documentation that proves itself.",
+  "theme": {
+    "preset": "__LIYASA_PRESET__"
+  },
+  "seo": {
+    "canonicalOrigin": "https://example.com"
+  },
+  "navigation": [
+    {
+      "group": "Start here",
+      "pages": ["index", "guides/quickstart", "guides/configuration"]
+    },
+    {
+      "group": "Keeping it true",
+      "pages": ["guides/verification"]
+    },
+    {
+      "group": "Next steps",
+      "pages": ["checklist"]
+    }
+  ]
+}

@@ -2,9 +2,11 @@
 
 pub mod build;
 pub mod completions;
+pub mod doctor;
 pub mod format;
 pub mod migrate;
 pub mod schema;
+pub mod telemetry;
 pub mod validate;
 pub mod version;
 
@@ -34,8 +36,8 @@ pub fn dispatch(global: &Global, command: Command) -> Exit {
         Command::MigrateConfig(args) => migrate::run(global, &args),
         Command::Theme(_) => pending("theme"),
         Command::Update(_) => pending("update"),
-        Command::Telemetry(_) => pending("telemetry"),
-        Command::Doctor(_) => pending("doctor"),
+        Command::Telemetry(command) => telemetry::run(global, &command),
+        Command::Doctor(args) => doctor::run(global, &args),
         Command::Companion(_) => pending("companion"),
         Command::Lock(_) => pending("lock"),
     }

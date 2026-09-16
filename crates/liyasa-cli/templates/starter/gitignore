@@ -1,0 +1,8 @@
+# Liyasa build output and cache.
+dist/
+.liyasa/
+
+# Local environment.
+.env
+.env.*
+!.env.example
