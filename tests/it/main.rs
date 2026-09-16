@@ -42,12 +42,22 @@ mod cm_80_hidden;
 mod cm_82_redirects;
 #[path = "../build/cm_84_files.rs"]
 mod cm_84_files;
+#[path = "../hosting/host_01_matrix.rs"]
+mod host_01_matrix;
 #[path = "../web/nojs.rs"]
 mod nojs;
 #[path = "../build/rx_02_assets.rs"]
 mod rx_02_assets;
+#[path = "../build/rx_110_csp.rs"]
+mod rx_110_csp;
+#[path = "../build/rx_111_base_path.rs"]
+mod rx_111_base_path;
+#[path = "../build/rx_112_static.rs"]
+mod rx_112_static;
 #[path = "../budget/rx_12.rs"]
 mod rx_12;
+#[path = "../build/rx_13_headers.rs"]
+mod rx_13_headers;
 #[path = "../budget/rx_14_transfer.rs"]
 mod rx_14_transfer;
 #[path = "../budget/thm_31.rs"]

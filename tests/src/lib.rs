@@ -5,4 +5,5 @@
 
 pub mod budget;
 pub mod config;
+pub mod hosting;
 pub mod site;
