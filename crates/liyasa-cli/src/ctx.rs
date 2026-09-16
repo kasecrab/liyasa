@@ -106,3 +106,17 @@ pub fn report(global: &Global, format: crate::cli::Format, diagnostic: Diagnosti
     let sources = liyasa_core::source_map::SourceMap::new();
     crate::diag::Printer::new(format, use_color(global)).emit(&diagnostics, &sources);
 }
+
+/// Shortens a path to something a reader can place, relative to where they are.
+pub fn display_relative(path: &std::path::Path, cwd: &std::path::Path) -> String {
+    path.strip_prefix(cwd).map_or_else(
+        |_| path.display().to_string(),
+        |relative| {
+            if relative.as_os_str().is_empty() {
+                ".".to_owned()
+            } else {
+                relative.display().to_string()
+            }
+        },
+    )
+}
