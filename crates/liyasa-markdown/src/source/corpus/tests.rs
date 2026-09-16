@@ -120,9 +120,7 @@ fn an_escaped_untrusted_value_opens_nothing() {
         let opened: Vec<_> = document
             .segments
             .iter()
-            .filter(|segment| {
-                !matches!(segment, liyasa_core::document::Segment::Markdown { .. })
-            })
+            .filter(|segment| !matches!(segment, liyasa_core::document::Segment::Markdown { .. }))
             .collect();
         assert!(
             opened.is_empty(),
