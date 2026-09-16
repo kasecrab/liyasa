@@ -1,0 +1,72 @@
+# The published Compose file (HOST-02): the server with Postgres and MinIO,
+# which is the topology a team outgrowing SQLite moves to (§6.9).
+#
+#   docker compose -f tests/hosting/deploy/docker-compose.yml up
+
+services:
+  liyasa:
+    build:
+      context: ../../..
+      dockerfile: tests/hosting/deploy/Dockerfile
+    image: ghcr.io/liyasa/liyasa:latest
+    command:
+      - serve
+      - --listen
+      - 0.0.0.0:8080
+      - --config
+      - /var/lib/liyasa
+      - --json-logs
+    environment:
+      # Never in liyasa.json (NFR-11).
+      LIYASA_MASTER_KEY: ${LIYASA_MASTER_KEY:?set LIYASA_MASTER_KEY to 64 hex characters}
+      LIYASA_DATABASE_URL: postgres://liyasa:liyasa@postgres:5432/liyasa
+      LIYASA_S3_ENDPOINT: http://minio:9000
+      LIYASA_S3_BUCKET: liyasa
+      AWS_ACCESS_KEY_ID: liyasa
+      AWS_SECRET_ACCESS_KEY: liyasa-secret
+      RUST_LOG: info
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./site:/var/lib/liyasa
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    # The drain of NFR-31 needs longer than Compose's ten-second default.
+    stop_grace_period: 45s
+
+  postgres:
+    # pgvector rather than plain Postgres: the assistant's chunks live here
+    # in this topology (§6.8).
+    image: docker.io/pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: liyasa
+      POSTGRES_PASSWORD: liyasa
+      POSTGRES_DB: liyasa
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U liyasa"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: docker.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: liyasa
+      MINIO_ROOT_PASSWORD: liyasa-secret
+    volumes:
+      - minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres:
+  minio:

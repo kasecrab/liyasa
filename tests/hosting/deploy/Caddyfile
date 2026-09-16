@@ -1,0 +1,33 @@
+# Caddy in front of `liyasa serve` (HOST-04).
+#
+# Caddy obtains its own certificate, so `liyasa serve` runs plain HTTP behind
+# it and `--tls-cert` is not used. Set `server.trustedProxies` to Caddy's
+# address or the server ignores the headers below.
+
+docs.example.com {
+	encode zstd gzip
+
+	reverse_proxy 127.0.0.1:8080 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+
+		# Whole bodies, promptly: AUTH-14 forbids holding one open.
+		flush_interval -1
+	}
+}
+
+# Subpath hosting (HOST-22). The site is built with `build.basePath: "/docs"`,
+# so the prefix reaches the server rather than being stripped.
+example.com {
+	handle_path /docs/* {
+		rewrite * /docs{uri}
+		reverse_proxy 127.0.0.1:8080 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+		}
+	}
+}

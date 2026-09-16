@@ -6,6 +6,7 @@
 //! read-only, the queue and the limiter are internally synchronized, and the
 //! store is the only thing that persists.
 
+pub mod acme;
 pub mod api;
 pub mod bundle;
 pub mod client_ip;
@@ -97,6 +98,8 @@ pub struct AppState {
     pub salt: DailySalt,
     pub idempotency: Idempotency,
     pub scrubber: Scrubber,
+    /// The ACME tokens this replica is answering for (HOST-02).
+    pub challenges: Arc<acme::Challenges>,
     pub started: Instant,
     draining: AtomicBool,
 }
@@ -123,6 +126,7 @@ impl AppState {
             salt: DailySalt::new(),
             idempotency: Idempotency::default(),
             scrubber: Scrubber::new(),
+            challenges: Arc::new(acme::Challenges::default()),
             started: Instant::now(),
             draining: AtomicBool::new(false),
             config,
@@ -266,6 +270,9 @@ impl AppState {
 pub fn pool_for(path: &str, wants_markdown: bool) -> Option<RateLimitPool> {
     match path {
         "/_liyasa/health" | "/_liyasa/ready" | "/_liyasa/metrics" => None,
+        // A directory validating a challenge must never be rate limited: the
+        // certificate would fail to issue.
+        p if p.starts_with("/.well-known/acme-challenge/") => None,
         "/_liyasa/e" => Some(RateLimitPool::Pages),
         p if p.starts_with("/_liyasa/feedback") => Some(RateLimitPool::Feedback),
         p if p.starts_with("/_liyasa/api/") => Some(RateLimitPool::Rest),
@@ -419,7 +426,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route(
             "/_liyasa/e",
             post(events::ingest).options(events::preflight),
-        );
+        )
+        // HOST-02: answered from memory while an order is in flight, and a
+        // 404 the rest of the time.
+        .route("/.well-known/acme-challenge/{token}", get(acme::challenge));
 
     if !collector_only {
         router = router

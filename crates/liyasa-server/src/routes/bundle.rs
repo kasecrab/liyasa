@@ -86,15 +86,29 @@ impl Bundle {
     }
 
     pub fn new(root: PathBuf, manifest: Manifest, rules: Rules) -> Self {
+        // The manifest records URLs for the Markdown twin and for assets, so
+        // both carry `build.basePath`; routes and variant paths do not. The
+        // maps are keyed the way a stripped request path is spelled.
+        let base = manifest.base_path.trim_end_matches('/').to_owned();
+        let without_base = |url: &str| -> String {
+            match base.is_empty() {
+                true => url.to_owned(),
+                false => url.strip_prefix(&base).unwrap_or(url).to_owned(),
+            }
+        };
         let routes = manifest
             .routes
             .iter()
-            .map(|entry| (normalize(entry.route.as_str()), entry.clone()))
+            .map(|entry| {
+                let mut entry = entry.clone();
+                entry.markdown = without_base(&entry.markdown);
+                (normalize(entry.route.as_str()), entry)
+            })
             .collect();
         let assets = manifest
             .assets
             .iter()
-            .map(|asset| (asset.url.clone(), asset.clone()))
+            .map(|asset| (without_base(&asset.url), asset.clone()))
             .collect();
         Self {
             redirects: manifest.redirects.clone(),
@@ -285,12 +299,16 @@ mod tests {
     }
 
     fn bundle(base_path: &str) -> Bundle {
+        let with_base = |entry: RouteEntry| RouteEntry {
+            markdown: format!("{base_path}{}", entry.markdown),
+            ..entry
+        };
         let manifest = Manifest {
             build_id: BuildId(Fingerprint::of("build")),
             liyasa_version: "0.1.0".to_owned(),
             built_at: 0,
             base_path: base_path.to_owned(),
-            routes: vec![route("/"), route("/guides/install")],
+            routes: vec![with_base(route("/")), with_base(route("/guides/install"))],
             assets: Vec::new(),
             images: Vec::new(),
             redirects: vec![RedirectEntry {
@@ -364,6 +382,18 @@ mod tests {
             bundle.resolve("/docs/guides/install", false),
             Target::Page { .. }
         ));
+        // The manifest writes the Markdown twin as a URL, so it carries the
+        // base path; the file under `dist/` does not.
+        match bundle.resolve("/docs/guides/install.md", false) {
+            Target::Page { path, format, .. } => {
+                assert_eq!(format, Format::Markdown);
+                assert_eq!(
+                    path, "/guides/install.md",
+                    "the path is under dist/, not a URL"
+                );
+            }
+            other => panic!("{other:?}"),
+        }
         assert!(matches!(
             bundle.resolve("/docs", false),
             Target::Page { .. }

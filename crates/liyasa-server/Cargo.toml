@@ -37,7 +37,10 @@ axum = { workspace = true, features = ["http1", "http2", "json", "query", "tokio
 tower = { workspace = true, features = ["util"] }
 tower-http = { workspace = true, features = ["compression-gzip", "limit"] }
 rustls = { workspace = true, features = ["ring", "std", "tls12", "logging"] }
-instant-acme = { workspace = true, features = ["ring", "hyper-rustls"] }
+# `rcgen` lets `Order::finalize` build the signing request; without it the
+# certificate flow would need a second crate for one call. `ring` rather than
+# the default `aws-lc-rs`, matching the provider liyasa-net installs (RFC 1401).
+instant-acme = { workspace = true, features = ["ring", "hyper-rustls", "rcgen"] }
 # Transitives of axum and reqwest used directly: TLS termination needs the
 # connection loop hyper-util exposes, and axum's serve helper only takes a TCP
 # listener (RFC 1401).

@@ -35,6 +35,16 @@ liyasa-build = { path = "../crates/liyasa-build", version = "0.1.0" }
 liyasa-markdown = { path = "../crates/liyasa-markdown", version = "0.1.0" }
 # The image fixtures are generated rather than checked in: the corpus is not committed.
 image.workspace = true
+# WP-14: the server under test, its store, and the outbound client. The
+# acceptance tests drive the router in process with `tower::ServiceExt`
+# rather than binding a port, so a test needs no listener.
+liyasa-server = { path = "../crates/liyasa-server", version = "0.1.0" }
+liyasa-store = { path = "../crates/liyasa-store", version = "0.1.0" }
+liyasa-net = { path = "../crates/liyasa-net", version = "0.1.0" }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "net", "io-util"] }
+axum = { workspace = true, features = ["http1", "json", "query", "tokio"] }
+tower = { workspace = true, features = ["util"] }
+http.workspace = true
 
 [[bin]]
 name = "reference-site"

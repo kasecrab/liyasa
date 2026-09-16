@@ -2,6 +2,8 @@
 //! add a `mod` line for a new file. One binary links the dependency tree once
 //! instead of once per file, which is most of a test build's cost and disk.
 
+#[path = "../server/auth_14_bot_protection.rs"]
+mod auth_14_bot_protection;
 #[path = "../config/cfg_01.rs"]
 mod cfg_01;
 #[path = "../config/cfg_03_presets.rs"]
@@ -46,6 +48,14 @@ mod cm_82_redirects;
 mod cm_84_files;
 #[path = "../hosting/host_01_matrix.rs"]
 mod host_01_matrix;
+#[path = "../hosting/host_02.rs"]
+mod host_02;
+#[path = "../hosting/host_04_proxies.rs"]
+mod host_04_proxies;
+#[path = "../server/host_05.rs"]
+mod host_05;
+#[path = "../server/host_07_jobs.rs"]
+mod host_07_jobs;
 #[path = "../web/nojs.rs"]
 mod nojs;
 #[path = "../build/rx_02_assets.rs"]
@@ -58,6 +68,8 @@ mod rx_111_base_path;
 mod rx_112_static;
 #[path = "../budget/rx_12.rs"]
 mod rx_12;
+#[path = "../server/rx_13.rs"]
+mod rx_13;
 #[path = "../build/rx_13_headers.rs"]
 mod rx_13_headers;
 #[path = "../budget/rx_14_transfer.rs"]

@@ -125,6 +125,16 @@ impl Runtime {
         }));
     }
 
+    /// Sends whatever spans are buffered, once. The export loop calls this on
+    /// a timer; a test calls it directly rather than waiting on one.
+    pub async fn export_once(
+        &self,
+        http: &dyn liyasa_core::net::HttpClient,
+        endpoint: &liyasa_core::net::Url,
+    ) {
+        export(&self.state, http, endpoint).await;
+    }
+
     /// Serves until `shutdown` fires, then drains.
     pub async fn serve(mut self, listener: TcpListener, router: Router) -> std::io::Result<()> {
         let state = self.state.clone();

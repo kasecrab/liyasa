@@ -1,0 +1,37 @@
+# Cloudflare Tunnel in front of `liyasa serve` (HOST-04).
+#
+#   cloudflared tunnel --config cloudflared.yml run
+#
+# Cloudflare is the trusted proxy here, so `server.trustedProxies` lists a
+# Cloudflare range and the server reads `CF-Connecting-IP` for the limiter and
+# `CF-IPCountry` for region selection (§33.1 item 10). Without that list both
+# headers are ignored, which is the safe default.
+#
+# AUTH-14: the documentation routes, `/llms.txt`, and every `.md` route are
+# exempted from behavioural bot management in the zone's WAF configuration.
+# Bot Fight Mode must be off for this hostname, or agents are served a
+# challenge and the server never sees the request.
+
+tunnel: liyasa-docs
+credentials-file: /etc/cloudflared/liyasa-docs.json
+
+originRequest:
+  # The server answers whole bodies; no chunked buffering is needed.
+  noTLSVerify: false
+  connectTimeout: 10s
+  # Longer than the server's own drain so a rolling restart does not cut a
+  # request short (NFR-31).
+  gracePeriod: 45s
+  httpHostHeader: docs.example.com
+
+ingress:
+  - hostname: docs.example.com
+    service: http://127.0.0.1:8080
+
+  # Subpath hosting (HOST-22): built with `build.basePath: "/docs"`, so the
+  # prefix reaches the server intact.
+  - hostname: example.com
+    path: ^/docs(/.*)?$
+    service: http://127.0.0.1:8080
+
+  - service: http_status:404

@@ -1,0 +1,36 @@
+# Traefik dynamic configuration (HOST-04), including a subpath.
+
+http:
+  routers:
+    liyasa:
+      rule: "Host(`docs.example.com`)"
+      entryPoints: [websecure]
+      service: liyasa
+      middlewares: [liyasa-forwarded]
+
+    # Subpath hosting (HOST-22): the site is built with
+    # `build.basePath: "/docs"`, so the prefix is forwarded intact and no
+    # StripPrefix middleware is used.
+    liyasa-subpath:
+      rule: "Host(`example.com`) && PathPrefix(`/docs`)"
+      entryPoints: [websecure]
+      service: liyasa
+      middlewares: [liyasa-forwarded]
+
+  middlewares:
+    liyasa-forwarded:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        # The server sends its own security headers (RX-112); Traefik adds
+        # none, or every response carries two of each.
+
+  services:
+    liyasa:
+      loadBalancer:
+        servers:
+          - url: "http://liyasa:8080"
+        passHostHeader: true
+        responseForwarding:
+          # Whole bodies, promptly (AUTH-14).
+          flushInterval: 1ms

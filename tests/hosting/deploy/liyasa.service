@@ -1,0 +1,54 @@
+# The published systemd unit (HOST-02).
+#
+#   install -m 0644 liyasa.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now liyasa
+
+[Unit]
+Description=Liyasa documentation server
+Documentation=https://kasecrab.github.io/liyasa/docs/hosting/self-hosting
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=liyasa
+Group=liyasa
+WorkingDirectory=/var/lib/liyasa
+ExecStart=/usr/local/bin/liyasa-server serve --config /var/lib/liyasa --listen 127.0.0.1:8080 --json-logs
+Restart=on-failure
+RestartSec=2s
+
+# NFR-31: SIGTERM starts the drain, and the unit waits for it rather than
+# killing the process mid-request. Matches `server.drainTimeout`.
+KillSignal=SIGTERM
+TimeoutStopSec=45s
+
+# The master key is read from the environment and never from liyasa.json.
+EnvironmentFile=-/etc/liyasa/server.env
+
+# Hardening. The server writes only its own state directory.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+StateDirectory=liyasa
+ReadWritePaths=/var/lib/liyasa
+
+[Install]
+WantedBy=multi-user.target
