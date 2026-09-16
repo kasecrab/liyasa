@@ -202,21 +202,45 @@ fn the_second_build_hits_the_cache_for_every_page() {
 }
 
 #[test]
-fn editing_one_page_invalidates_only_that_page() {
+fn editing_one_page_re_renders_the_site_because_the_nonce_moved() {
+    // RX-110 gives a deploy one nonce, derived from the build ID, and every
+    // page carries it. An edit changes the ID, so every page's HTML is stale
+    // by definition — a page rendered with the old nonce would be refused by
+    // the policy in `_headers` (RFC 1200). What stays cached is everything
+    // that does not carry the nonce.
     let project = site("incremental");
-    build(&project, options());
+    let first = build(&project, options());
     project.write(
         "guides/install.md",
         "---\ntitle: Install\n---\n# Install\n\nRun it twice.\n",
     );
     let second = build(&project, options());
-    assert_eq!(second.cache_misses, 1, "{:?}", second.diagnostics);
-    assert_eq!(second.cache_hits, second.variants - 1);
+    assert_ne!(first.build_id, second.build_id);
+    assert_eq!(second.cache_misses, second.variants);
     assert!(
         project
             .read_dist("guides/install/index.html")
             .contains("Run it twice.")
     );
+}
+
+#[test]
+fn a_fixed_nonce_keeps_a_rebuild_incremental() {
+    // What `liyasa dev` does: it serves its own headers, so the nonce is
+    // fixed and an edit costs one page.
+    let project = site("incremental-fixed");
+    let fixed = || Options {
+        nonce: Some("preview".to_owned()),
+        ..options()
+    };
+    build(&project, fixed());
+    project.write(
+        "guides/install.md",
+        "---\ntitle: Install\n---\n# Install\n\nRun it twice.\n",
+    );
+    let second = build(&project, fixed());
+    assert_eq!(second.cache_misses, 1, "{:?}", second.diagnostics);
+    assert_eq!(second.cache_hits, second.variants - 1);
 }
 
 #[test]

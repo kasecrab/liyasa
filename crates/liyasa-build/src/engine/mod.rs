@@ -35,7 +35,7 @@ use crate::manifest::{
 };
 use crate::redirects::Table;
 use crate::variants::{self, Coordinates, Mode, Reads};
-use crate::{assets, clock, images, manifest, redirects, render, tree};
+use crate::{assets, clock, images, manifest, render, tree};
 
 pub use settings::Settings;
 
@@ -63,6 +63,15 @@ pub struct Options {
     pub profile: bool,
     /// `--images`: run the image pre-pass in this build.
     pub eager_images: bool,
+    /// The nonce every page is rendered with (RX-110).
+    ///
+    /// `None` derives it from the build ID, which is what a deploy needs: the
+    /// `_headers` policy and the markup then agree, and a page cached from a
+    /// build with another ID cannot be served. A caller that serves its own
+    /// responses — the dev server, which sends no static policy — passes a
+    /// fixed one, so that an edit re-renders the page that changed rather than
+    /// the whole site.
+    pub nonce: Option<String>,
     /// The environment `env()` and `build.env` read. `None` is the process
     /// environment; a caller that wants a reproducible build passes its own,
     /// and so does a test, because the workspace forbids `unsafe` and
@@ -217,6 +226,57 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     }
     phase.mark("theme");
 
+    // 6b. The build ID, and the nonce every page is rendered with.
+    //
+    // §6.6.2 computes the ID from inputs that are all known by now, so moving
+    // it ahead of rendering is a move rather than a change — and RX-110 needs
+    // the nonce in the markup, which means before (RFC 1200).
+    let mut inputs: BTreeMap<String, Fingerprint> = tree
+        .pages
+        .iter()
+        .map(|page| (page.path.as_str().to_owned(), page.fingerprint))
+        .collect();
+    inputs.insert("liyasa.json".to_owned(), config_fingerprint);
+    inputs.insert(
+        format!("{CACHE_DIR}/{GIT_META}"),
+        Fingerprint::of(&git_meta),
+    );
+    let previous_env = Outputs::load_env(&cache_root);
+    let mut current_env: BTreeMap<String, Fingerprint> = BTreeMap::new();
+    for name in &settings.env {
+        if let Some(value) = options.env_value(name) {
+            let fingerprint = Fingerprint::of(value);
+            inputs.insert(format!("env:{name}"), fingerprint);
+            current_env.insert(name.clone(), fingerprint);
+            // §6.6.2 rule 6: a changed value invalidates every page that read
+            // it, and the operator is told which one collapsed their cache.
+            if previous_env
+                .get(name)
+                .is_some_and(|before| before != &fingerprint)
+            {
+                report.diagnostics.push(
+                    Diagnostic::new(
+                        code::W0718,
+                        format!("`{name}` changed since the last build, so its pages were rebuilt"),
+                    )
+                    .help("every page that reads the variable is invalidated by its value"),
+                );
+            }
+        }
+    }
+    Outputs::save_env(&cache_root, &current_env);
+    let lockfile = vfs
+        .fingerprint(&VfsPath::new("liyasa.lock"))
+        .ok()
+        .or_else(|| vfs.fingerprint(&VfsPath::new("Cargo.lock")).ok());
+
+    let build_id = manifest::build_id(&inputs, report.clock_unix, lockfile);
+    let nonce = options
+        .nonce
+        .clone()
+        .unwrap_or_else(|| crate::hosting::build_nonce(&build_id));
+    phase.mark("build_id");
+
     // 7. Pages.
     let cache = DiskCache::new(cache_root.join("cache"));
     let (mut index, index_diagnostics) = Index::load(&cache_root.join("cache").join(Index::FILE));
@@ -279,6 +339,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         options,
         &link_table,
         strictness,
+        &nonce,
         config_fingerprint,
     );
     phase.mark("pages");
@@ -338,6 +399,24 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     }
     phase.mark("write_pages");
 
+    // 8a. What `hosting` needs and the manifest does not carry (RFC 1200):
+    // the routes rendered in frame mode, and the hosts content loads media
+    // from.
+    let frame_routes: Vec<Route> = tree
+        .pages
+        .iter()
+        .filter(|page| page.front.mode == Some(liyasa_core::frontmatter::PageMode::Frame))
+        .map(|page| page.route.clone())
+        .collect();
+    let mut image_hosts: BTreeSet<String> = BTreeSet::new();
+    let mut media_hosts: BTreeSet<String> = BTreeSet::new();
+    for outcome in &pages {
+        image_hosts.extend(outcome.hosts.images.iter().cloned());
+        media_hosts.extend(outcome.hosts.media.iter().cloned());
+    }
+    let image_hosts: Vec<String> = image_hosts.into_iter().collect();
+    let media_hosts: Vec<String> = media_hosts.into_iter().collect();
+
     // 8b. The changelog stream and its feeds (CM-120, CM-121).
     //
     // A directory of dated files is a stream too: each file is its own page and
@@ -383,12 +462,15 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         let navigation = navigations.get(&None).cloned().unwrap_or_default();
         let mut stream_diagnostics = Diagnostics::new();
         let html = theme::page_html(
-            &settings,
-            &assets_built,
+            theme::Shell {
+                settings: &settings,
+                assets: &assets_built,
+                navigation: &navigation,
+                nonce: &nonce,
+            },
             &stream_page,
             &Variant::default(),
             &crate::changelog::stream_html(&entries),
-            &navigation,
             &mut stream_diagnostics,
         );
         report.diagnostics.extend(stream_diagnostics.into_vec());
@@ -458,7 +540,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     }
 
     // 9. Assets and the image tier.
-    let (asset_entries, image_entries, generated, headers) = copy_assets(
+    let (asset_entries, image_entries, generated) = copy_assets(
         vfs,
         root,
         &output,
@@ -473,69 +555,15 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     report.images_generated = generated;
     phase.mark("assets");
 
-    // 10. Redirects and headers.
+    // 10. Redirects. The files themselves are `hosting`'s (RFC 1200); what
+    // the engine owns is the table the manifest and the server read.
     let (table, redirect_diagnostics) =
         Table::compile(&settings.redirects, &settings.external_allow);
     report.diagnostics.extend(redirect_diagnostics.into_vec());
-    if !table.is_empty() {
-        write_file(
-            &output,
-            "_redirects",
-            redirects::netlify(&table).as_bytes(),
-            &mut report,
-            &mut outputs,
-        );
-        write_file(
-            &output,
-            "vercel.json",
-            redirects::vercel(&table).as_bytes(),
-            &mut report,
-            &mut outputs,
-        );
-    }
 
     // 11. The manifest.
-    let mut inputs: BTreeMap<String, Fingerprint> = tree
-        .pages
-        .iter()
-        .map(|page| (page.path.as_str().to_owned(), page.fingerprint))
-        .collect();
-    inputs.insert("liyasa.json".to_owned(), config_fingerprint);
-    inputs.insert(
-        format!("{CACHE_DIR}/{GIT_META}"),
-        Fingerprint::of(&git_meta),
-    );
-    let previous_env = Outputs::load_env(&cache_root);
-    let mut current_env: BTreeMap<String, Fingerprint> = BTreeMap::new();
-    for name in &settings.env {
-        if let Some(value) = options.env_value(name) {
-            let fingerprint = Fingerprint::of(value);
-            inputs.insert(format!("env:{name}"), fingerprint);
-            current_env.insert(name.clone(), fingerprint);
-            // §6.6.2 rule 6: a changed value invalidates every page that read
-            // it, and the operator is told which one collapsed their cache.
-            if previous_env
-                .get(name)
-                .is_some_and(|before| before != &fingerprint)
-            {
-                report.diagnostics.push(
-                    Diagnostic::new(
-                        code::W0718,
-                        format!("`{name}` changed since the last build, so its pages were rebuilt"),
-                    )
-                    .help("every page that reads the variable is invalidated by its value"),
-                );
-            }
-        }
-    }
-    Outputs::save_env(&cache_root, &current_env);
-    let lockfile = vfs
-        .fingerprint(&VfsPath::new("liyasa.lock"))
-        .ok()
-        .or_else(|| vfs.fingerprint(&VfsPath::new("Cargo.lock")).ok());
-
     let built = Manifest {
-        build_id: manifest::build_id(&inputs, report.clock_unix, lockfile),
+        build_id,
         liyasa_version: crate::cache::VERSION.to_owned(),
         built_at: report.clock_unix,
         base_path: settings.base_path.clone(),
@@ -553,11 +581,28 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         &mut report,
         &mut outputs,
     );
-    if !headers.is_empty() {
+
+    // 12. The host files: `_headers`, `vercel.json`, and `_redirects`, all
+    // from one writer (RFC 1200).
+    let hosting_output = crate::hosting::generate(&crate::hosting::Inputs {
+        config: &load.value,
+        manifest: &built,
+        critical_css: &assets_built.critical,
+        frame_routes: &frame_routes,
+        image_hosts: &image_hosts,
+        media_hosts: &media_hosts,
+        // TODO(rfc-1201): opt-in, and not a config key yet.
+        hsts_preload: false,
+    });
+    let hosting_output = with_download_rules(hosting_output, &built.assets);
+    report
+        .diagnostics
+        .extend(hosting_output.diagnostics.as_slice().to_vec());
+    for file in &hosting_output.files {
         write_file(
             &output,
-            "_headers",
-            headers.as_bytes(),
+            &file.path,
+            file.contents.as_bytes(),
             &mut report,
             &mut outputs,
         );
@@ -704,6 +749,8 @@ struct Outcome {
     referenced: Vec<VfsPath>,
     /// `::update` entries this page holds (CM-120).
     changelog: Vec<crate::changelog::Entry>,
+    /// Remote hosts this page loads images and media from (CM-35, RX-110).
+    hosts: ContentHosts,
     cache_hits: usize,
     cache_misses: usize,
     /// How long this page spent expanding and rendering, for the build-wide
@@ -726,6 +773,7 @@ fn render_pages(
     build_options: &Options,
     link_table: &crate::links::Table,
     strictness: crate::links::Strictness,
+    nonce: &str,
     config_fingerprint: Fingerprint,
 ) -> Vec<Outcome> {
     // §6.6: pages render in parallel with rayon.
@@ -743,6 +791,7 @@ fn render_pages(
                     variants: Vec::new(),
                     referenced: Vec::new(),
                     changelog: Vec::new(),
+                    hosts: ContentHosts::default(),
                     cache_hits: 0,
                     cache_misses: 0,
                     spent: Duration::ZERO,
@@ -800,6 +849,10 @@ fn render_pages(
             let deps_key = crate::cache::key("page_deps", &[page.fingerprint, config_fingerprint]);
             let changelog_key =
                 crate::cache::key("page_changelog", &[page.fingerprint, config_fingerprint]);
+            let hosts_key = crate::cache::key(
+                "page_content_hosts",
+                &[page.fingerprint, config_fingerprint],
+            );
             let mut markdown = cache
                 .get(&markdown_key)
                 .and_then(|bytes| String::from_utf8(bytes.to_vec()).ok())
@@ -811,6 +864,10 @@ fn render_pages(
                 .unwrap_or_default();
             let mut changelog: Vec<crate::changelog::Entry> = cache
                 .get(&changelog_key)
+                .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+                .unwrap_or_default();
+            let mut hosts: ContentHosts = cache
+                .get(&hosts_key)
                 .and_then(|bytes| serde_json::from_slice(&bytes).ok())
                 .unwrap_or_default();
             let mut recorded = false;
@@ -834,6 +891,10 @@ fn render_pages(
                             config_fingerprint,
                             assets_built.fingerprint,
                             navigation_fingerprint,
+                            // The page carries the build nonce (RX-110), so a
+                            // build with a different one cannot serve this
+                            // body.
+                            Fingerprint::of(nonce),
                             Fingerprint::of(variants::key(&variant)),
                         ],
                     );
@@ -868,16 +929,20 @@ fn render_pages(
                                         crate::changelog::from_page(&page.route, document)
                                     })
                                     .unwrap_or_default();
+                                hosts = content_hosts(&page_render);
                             }
                             let navigation =
                                 navigations.get(&page.version).cloned().unwrap_or_default();
                             let html = theme::page_html(
-                                settings,
-                                assets_built,
+                                theme::Shell {
+                                    settings,
+                                    assets: assets_built,
+                                    navigation: &navigation,
+                                    nonce,
+                                },
                                 page,
                                 &variant,
                                 &page_render.html,
-                                &navigation,
                                 &mut diagnostics,
                             );
                             let _ = cache.put(
@@ -926,6 +991,7 @@ fn render_pages(
                     .as_ref()
                     .map(|document| crate::changelog::from_page(&page.route, document))
                     .unwrap_or_default();
+                hosts = content_hosts(&page_render);
                 recorded = true;
             }
             if recorded {
@@ -948,6 +1014,13 @@ fn render_pages(
                         &[page.fingerprint, config_fingerprint],
                     );
                 }
+                if let Ok(encoded) = serde_json::to_vec(&hosts) {
+                    let _ = cache.put(
+                        &hosts_key,
+                        liyasa_core::vfs::Bytes::from(encoded),
+                        &[page.fingerprint, config_fingerprint],
+                    );
+                }
             }
 
             Outcome {
@@ -959,6 +1032,7 @@ fn render_pages(
                 variants: rendered,
                 referenced,
                 changelog,
+                hosts,
                 cache_hits: hits,
                 cache_misses: misses,
                 spent,
@@ -1058,6 +1132,44 @@ fn template_budget(
         )
         .help(format!("slowest pages: {table}")),
     )
+}
+
+/// Re-renders the host files with one rule per download.
+///
+/// `hosting` writes the security and cache policy; `Content-Disposition` is
+/// CM-84's, per extension, and known only from the asset plan. RFC 1200 leaves
+/// the choice of where it goes to the engine, and appending keeps one writer
+/// per file.
+fn with_download_rules(
+    mut output: crate::hosting::Output,
+    assets: &[AssetEntry],
+) -> crate::hosting::Output {
+    let downloads: Vec<crate::hosting::headers::Rule> = assets
+        .iter()
+        .filter(|asset| asset.disposition == assets::Disposition::Attachment)
+        .map(|asset| crate::hosting::headers::Rule {
+            path: asset
+                .url
+                .split(['?', '#'])
+                .next()
+                .unwrap_or(&asset.url)
+                .to_owned(),
+            headers: vec![("Content-Disposition".to_owned(), "attachment".to_owned())],
+        })
+        .collect();
+    if downloads.is_empty() {
+        return output;
+    }
+    output.rules.0.extend(downloads);
+    for file in &mut output.files {
+        if file.path == crate::hosting::HEADERS_FILE {
+            file.contents = output.rules.render();
+        }
+        if file.path == crate::hosting::VERCEL_FILE {
+            file.contents = crate::hosting::vercel::render(&output.rules, &output.redirects);
+        }
+    }
+    output
 }
 
 /// Builds and writes every agent surface, one set per version (CM-92).
@@ -1224,6 +1336,80 @@ fn agent_markdown(
     produced.markdown
 }
 
+/// The remote hosts one page loads images and media from, which decide
+/// `img-src` and `media-src` (RX-110).
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+struct ContentHosts {
+    images: Vec<String>,
+    media: Vec<String>,
+}
+
+fn content_hosts(page: &render::Page) -> ContentHosts {
+    let mut hosts = ContentHosts::default();
+    if let Some(document) = &page.document {
+        collect_hosts(&document.root, &mut hosts);
+    }
+    hosts.images.sort();
+    hosts.images.dedup();
+    hosts.media.sort();
+    hosts.media.dedup();
+    hosts
+}
+
+/// Media components carry their source in a prop; an image carries it on the
+/// node. Both reach the policy through `hosting::csp::content_host`, which
+/// returns `None` for a local path.
+const MEDIA_COMPONENTS: &[&str] = &["video", "audio"];
+
+fn collect_hosts(block: &liyasa_core::document::Block, out: &mut ContentHosts) {
+    use liyasa_core::document::{BlockKind, Node, PropValue};
+
+    if let BlockKind::Component { name, props, .. } = &block.kind
+        && MEDIA_COMPONENTS.contains(&name.as_str())
+    {
+        for key in ["src", "poster"] {
+            if let Some(PropValue::Str(value)) = props.get(key)
+                && let Some(host) = crate::hosting::csp::content_host(value)
+            {
+                match key {
+                    "poster" => out.images.push(host),
+                    _ => out.media.push(host),
+                }
+            }
+        }
+    }
+    for child in &block.children {
+        match child {
+            Node::Block(child) => collect_hosts(child, out),
+            Node::Inline(child) => collect_inline_hosts(child, out),
+        }
+    }
+}
+
+fn collect_inline_hosts(inline: &liyasa_core::document::Inline, out: &mut ContentHosts) {
+    use liyasa_core::document::Inline;
+    match inline {
+        Inline::Image { src, dark, .. } => {
+            for source in [Some(src), dark.as_ref()].into_iter().flatten() {
+                if let Some(host) = crate::hosting::csp::content_host(source) {
+                    out.images.push(host);
+                }
+            }
+        }
+        Inline::Emph(children) | Inline::Strong(children) | Inline::Strike(children) => {
+            for child in children {
+                collect_inline_hosts(child, out);
+            }
+        }
+        Inline::Link { children, .. } => {
+            for child in children {
+                collect_inline_hosts(child, out);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Files a page links to that are not pages, which the asset pass copies
 /// (CM-84).
 fn referenced_files(page: &render::Page) -> Vec<VfsPath> {
@@ -1293,7 +1479,7 @@ fn copy_assets(
     cache: &DiskCache,
     report: &mut Report,
     outputs: &mut Outputs,
-) -> (Vec<AssetEntry>, Vec<ImageEntry>, u64, String) {
+) -> (Vec<AssetEntry>, Vec<ImageEntry>, u64) {
     let from_tree: Vec<(VfsPath, Fingerprint)> = tree
         .assets
         .iter()
@@ -1375,7 +1561,7 @@ fn copy_assets(
         });
     }
     let _ = root;
-    (entries, image_entries, generated, assets::headers(&plan))
+    (entries, image_entries, generated)
 }
 
 fn site_meta(settings: &Settings) -> SiteMeta {

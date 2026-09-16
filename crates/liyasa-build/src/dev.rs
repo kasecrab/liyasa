@@ -20,6 +20,10 @@ use crate::engine::{self, Options, Report};
 use crate::git::{GitMeta, NoGit};
 use crate::watch::{Batch, Kind};
 
+/// What `liyasa dev` renders `<script nonce>` with. A preview is not a deploy;
+/// the value only has to be stable within the session.
+pub const PREVIEW_NONCE: &str = "liyasa-dev-preview";
+
 /// The dev-only flags that change what is built rather than how it is served.
 #[derive(Debug, Clone, Default)]
 pub struct Flags {
@@ -54,6 +58,10 @@ impl Flags {
         Options {
             drafts: self.drafts,
             base_path: self.base_path.clone(),
+            // The dev server sends its own headers and no static policy, so
+            // the nonce is fixed: tying it to the build ID would re-render
+            // every page on every keystroke (RX-110, RFC 1200).
+            nonce: Some(PREVIEW_NONCE.to_owned()),
             // A dev build is dated from the repository or the epoch, never the
             // wall clock: an edit must not change every page's timestamp.
             build_time: Some(0),
@@ -206,5 +214,13 @@ mod tests {
     #[test]
     fn a_dev_build_is_dated_from_the_epoch_rather_than_the_wall_clock() {
         assert_eq!(Flags::default().options().build_time, Some(0));
+    }
+
+    #[test]
+    fn a_dev_build_renders_with_a_fixed_nonce() {
+        assert_eq!(
+            Flags::default().options().nonce.as_deref(),
+            Some(PREVIEW_NONCE)
+        );
     }
 }

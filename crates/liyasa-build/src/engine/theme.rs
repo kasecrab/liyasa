@@ -129,17 +129,26 @@ pub fn build(config: &Value, settings: &Settings, report: &mut super::Report) ->
     }
 }
 
+/// Everything a page's shell needs that is not the page.
+#[derive(Clone, Copy)]
+pub struct Shell<'a> {
+    pub settings: &'a Settings,
+    pub assets: &'a Assets,
+    pub navigation: &'a Navigation,
+    /// The build nonce every element the theme emits carries (RX-110).
+    pub nonce: &'a str,
+}
+
 /// Wraps one page's body in the theme's shell.
 pub fn page_html(
-    settings: &Settings,
-    assets: &Assets,
+    shell: Shell<'_>,
     page: &tree::Page,
     variant: &Variant,
     body: &str,
-    navigation: &Navigation,
     diagnostics: &mut Diagnostics,
 ) -> String {
-    let context = render_context(settings, assets, page, variant, body, navigation);
+    let assets = shell.assets;
+    let context = render_context(shell, page, variant, body);
     let Some(theme) = &assets.theme else {
         return body.to_owned();
     };
@@ -159,13 +168,17 @@ pub fn page_html(
 }
 
 fn render_context(
-    settings: &Settings,
-    assets: &Assets,
+    shell: Shell<'_>,
     page: &tree::Page,
     variant: &Variant,
     body: &str,
-    navigation: &Navigation,
 ) -> RenderContext {
+    let Shell {
+        settings,
+        assets,
+        navigation,
+        nonce,
+    } = shell;
     let route = page.route.as_str().to_owned();
     let (previous, next) = navigation.neighbours(&route);
     let trail = navigation.trail(&route);
@@ -224,6 +237,9 @@ fn render_context(
             bootstrap: assets.bootstrap.clone(),
             ..context::Assets::default()
         },
+        // RX-110: one nonce per build, in the header and in every page the
+        // theme renders (`plan/rfcs/1200-hosting-engine-seam.md`).
+        nonce: nonce.to_owned(),
         ..RenderContext::default()
     };
     context.assets.page_data = context::page_data(&context);

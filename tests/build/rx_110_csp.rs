@@ -49,8 +49,18 @@ fn the_nonce_is_the_build_nonce_and_stable_across_a_rebuild() {
     // cached page still matches the header a redeploy of the same build sends.
     let again = Site::build("rx110-nonce-again", CONFIG, Options::default());
     assert_eq!(again.output.policy.nonce, nonce);
-    // TODO(rfc-1200): once the engine renders with `hosting::build_nonce`,
-    // assert the page's `<script nonce="…">` carries the same value.
+    // The markup half: the engine renders with `hosting::build_nonce`, so the
+    // page's own elements carry the value the policy allows (RFC 1200).
+    let home = first.read("index.html");
+    assert!(
+        home.contains(&format!("<script nonce=\"{nonce}\"")),
+        "the page's script carries the build nonce: {home}"
+    );
+    assert!(
+        home.contains(&format!("<style nonce=\"{nonce}\"")),
+        "the page's inline style carries it too"
+    );
+    assert!(!home.contains("nonce=\"\""), "no element is left unsigned");
 }
 
 #[test]
