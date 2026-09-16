@@ -184,6 +184,16 @@ fn surfaces(output: &Path) -> Surfaces {
     }
 }
 
+/// The routes the navigation lists, in reading order. `liyasa export --pdf`
+/// prints in this order, so a book reads the way the sidebar does.
+pub fn navigation_routes(config: &serde_json::Value) -> Vec<String> {
+    navigation(config)
+        .into_iter()
+        .flat_map(|section| section.routes)
+        .map(|route| route.as_str().to_owned())
+        .collect()
+}
+
 /// The navigation as the configuration declares it, which is enough for the
 /// coverage checks: they ask which routes are reachable, not how the sidebar
 /// renders.

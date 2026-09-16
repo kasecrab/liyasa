@@ -6,7 +6,7 @@ use liyasa_core::diagnostics::{Diagnostic, code};
 
 use crate::Exit;
 use crate::cli::{Export, Global};
-use crate::{ctx, home};
+use crate::ctx;
 
 pub fn run(global: &Global, args: &Export) -> Exit {
     let format = global.resolve(crate::cli::Format::Text);
@@ -19,23 +19,22 @@ pub fn run(global: &Global, args: &Export) -> Exit {
         }
     };
 
-    if args.pdf {
-        // RX-80: unavailable without the companion runtime, and the message
-        // explains why rather than failing obscurely.
-        let detail = home::companion_version().map_or_else(
-            || "whole-site PDF needs the companion runtime".to_owned(),
-            |version| {
-                format!("the companion runtime {version} is installed, but this build cannot drive it yet")
-            },
-        );
+    let source = crate::commands::output_dir(&project);
+    if !source.is_dir() {
         ctx::report(
             global,
             format,
-            Diagnostic::new(code::E0003, detail).help(
-                "Run `liyasa companion install`, or export `--static` and print from a browser.",
-            ),
+            Diagnostic::new(
+                code::E0011,
+                format!("`{}` does not exist", source.display()),
+            )
+            .help("Run `liyasa build` first."),
         );
         return Exit::Errors;
+    }
+
+    if args.pdf {
+        return pdf(global, &project, &source, args, &cwd);
     }
 
     if args.zip {
@@ -47,20 +46,6 @@ pub fn run(global: &Global, args: &Export) -> Exit {
                 "this build cannot write a zip archive".to_owned(),
             )
             .help("Export the directory and archive it with your own tool."),
-        );
-        return Exit::Errors;
-    }
-
-    let source = crate::commands::output_dir(&project);
-    if !source.is_dir() {
-        ctx::report(
-            global,
-            format,
-            Diagnostic::new(
-                code::E0011,
-                format!("`{}` does not exist", source.display()),
-            )
-            .help("Run `liyasa build` first."),
         );
         return Exit::Errors;
     }
@@ -125,6 +110,167 @@ pub fn run(global: &Global, args: &Export) -> Exit {
         }
     }
     Exit::Success
+}
+
+/// RX-80: the whole site as one PDF, printed by the companion runtime from the
+/// theme's print stylesheet.
+fn pdf(global: &Global, project: &ctx::Project, source: &Path, args: &Export, cwd: &Path) -> Exit {
+    let format = global.resolve(crate::cli::Format::Text);
+
+    let Some(browser) = crate::browser::find() else {
+        ctx::report(
+            global,
+            format,
+            Diagnostic::new(
+                code::E0003,
+                "a whole-site PDF needs the companion runtime, and this machine has no browser"
+                    .to_owned(),
+            )
+            .help(
+                "Run `liyasa companion install --source <dir>`, or set `LIYASA_COMPANION_CHROME`.",
+            ),
+        );
+        return Exit::Errors;
+    };
+
+    let config: serde_json::Value = std::fs::read_to_string(&project.config)
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or(serde_json::Value::Null);
+    let site = config
+        .get("name")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("Documentation");
+
+    let order = crate::built::navigation_routes(&config);
+    let pages = crate::pdf::collect(source, &order);
+    if pages.is_empty() {
+        ctx::report(
+            global,
+            format,
+            Diagnostic::new(
+                code::E0011,
+                format!("`{}` has no pages to print", source.display()),
+            ),
+        );
+        return Exit::Errors;
+    }
+
+    let stylesheet = pages.first().and_then(|first| {
+        let path = if first.route == "/" {
+            source.join("index.html")
+        } else {
+            source
+                .join(first.route.trim_start_matches('/'))
+                .join("index.html")
+        };
+        std::fs::read_to_string(path)
+            .ok()
+            .as_deref()
+            .and_then(crate::pdf::stylesheet_href)
+    });
+
+    // A `.pdf` path is the file; anything else is a directory to put it in.
+    let target = match args.output.as_ref() {
+        Some(given) if given.extension().is_some_and(|e| e == "pdf") => {
+            crate::commands::build::absolute(given, cwd)
+        }
+        Some(given) => crate::commands::build::absolute(given, cwd).join("site.pdf"),
+        None => project.root.join("export").join("site.pdf"),
+    };
+
+    if global.dry_run {
+        println!("pdf plan (--dry-run; nothing was written)");
+        println!(
+            "  browser   {} ({})",
+            browser.version,
+            browser.source.name()
+        );
+        println!("  pages     {}", pages.len());
+        println!("  from      {}", ctx::display_relative(source, cwd));
+        println!("  to        {}", ctx::display_relative(&target, cwd));
+        return Exit::Success;
+    }
+
+    if let Some(parent) = target.parent()
+        && std::fs::create_dir_all(parent).is_err()
+    {
+        ctx::report(
+            global,
+            format,
+            Diagnostic::new(
+                code::E0002,
+                format!("could not create `{}`", parent.display()),
+            ),
+        );
+        return Exit::Errors;
+    }
+
+    // The document is written inside the output directory so that every
+    // relative reference in a page resolves the way it does when served, and
+    // removed whether the print succeeds or not.
+    let document = source.join("_liyasa").join("print.html");
+    let html = crate::pdf::document(site, &pages, stylesheet.as_deref(), source);
+    if let Some(parent) = document.parent()
+        && std::fs::create_dir_all(parent).is_err()
+    {
+        ctx::report(
+            global,
+            format,
+            Diagnostic::new(code::E0002, "could not write the print document"),
+        );
+        return Exit::Errors;
+    }
+    if std::fs::write(&document, &html).is_err() {
+        ctx::report(
+            global,
+            format,
+            Diagnostic::new(
+                code::E0002,
+                format!("could not write `{}`", document.display()),
+            ),
+        );
+        return Exit::Errors;
+    }
+
+    let printed = crate::browser::print_to_pdf(&browser, &document, &target);
+    let _ = std::fs::remove_file(&document);
+
+    match printed {
+        Ok(()) => {
+            if !global.quiet {
+                let bytes = std::fs::metadata(&target).map_or(0, |meta| meta.len());
+                println!(
+                    "printed {} page{} to {} ({} KB)",
+                    pages.len(),
+                    if pages.len() == 1 { "" } else { "s" },
+                    ctx::display_relative(&target, cwd),
+                    bytes / 1024
+                );
+                if !browser.source.is_pinned() {
+                    println!(
+                        "note: rendered with the {} ({}), which `liyasa.lock` does not pin",
+                        browser.source.name(),
+                        browser.version
+                    );
+                }
+                // TODO(rfc-0907): RX-80 also asks for PDF bookmarks.
+                println!(
+                    "note: the table of contents is in the document; PDF bookmarks need a PDF toolkit this build does not have"
+                );
+            }
+            Exit::Success
+        }
+        Err(error) => {
+            ctx::report(
+                global,
+                format,
+                Diagnostic::new(code::E0003, error.to_string())
+                    .help("Run `liyasa doctor` to see which browser was used."),
+            );
+            Exit::Errors
+        }
+    }
 }
 
 /// `--markdown`: only the `.md` twins and the agent surfaces (§11.7).

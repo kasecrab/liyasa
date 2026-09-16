@@ -213,6 +213,9 @@ pub fn options(args: &Build, cwd: &Path) -> Options {
         // `env()`. An empty map is GIT-31's untrusted build, which is the
         // server's business, not a flag here.
         environment: None,
+        // `None` derives the nonce from the build ID, so the `_headers` policy
+        // and the markup agree (RX-110).
+        nonce: None,
     }
 }
 

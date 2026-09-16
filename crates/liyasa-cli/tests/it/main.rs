@@ -10,3 +10,4 @@ mod cli_30_diagnostics;
 mod cli_31_exit;
 mod cli_34;
 mod mig_10_quickstart;
+mod rx_80_pdf;
