@@ -67,3 +67,29 @@ fn frame_ancestors_is_relaxed_on_the_frame_route_only() {
         }
     }
 }
+
+#[test]
+#[ignore = "waits on WP-00's RFC 1201 schema rows; `load` strips the key until then"]
+fn hsts_preload_is_opt_in_from_the_config() {
+    // RFC 1201's key: a build reads `security.hstsPreload` into the policy, so
+    // an operator who sets it gets the preload directive and one who does not
+    // gets the plain HSTS header. `liyasa_config::load` strips a key the
+    // schema does not declare, so this passes once WP-00's rows are on `main`;
+    // the engine's own reader is covered by a unit test either way.
+    const PRELOAD: &str = r#"{
+      "name": "Acme docs",
+      "seo": { "canonicalOrigin": "https://docs.acme.com" },
+      "security": { "hstsPreload": true }
+    }"#;
+    let site = Site::build("rx112-preload", PRELOAD, Options::default());
+    let headers = site.headers_file();
+    assert!(
+        headers.contains("Strict-Transport-Security: max-age=63072000; includeSubDomains; preload"),
+        "{headers}"
+    );
+
+    let without = Site::build("rx112-no-preload", CONFIG, Options::default());
+    let plain = without.headers_file();
+    assert!(plain.contains("Strict-Transport-Security: max-age=63072000; includeSubDomains\n"));
+    assert!(!plain.contains("preload"), "{plain}");
+}

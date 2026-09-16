@@ -1,7 +1,8 @@
-//! A project built by the engine and given its host files, the way
-//! `liyasa build` does once the engine calls `hosting::generate`
-//! (`plan/rfcs/1200-hosting-engine-seam.md`). The tests of RX-13, RX-110,
-//! RX-111, RX-112, and HOST-01 all start from this upload.
+//! A project built by the engine, which writes its own host files now that
+//! the seam is wired (`plan/rfcs/1200-hosting-engine-seam.md`). The `Output`
+//! here is the same computation run again for the tests to read policy and
+//! rules from; `dist/` is the engine's. The tests of RX-13, RX-110, RX-111,
+//! RX-112, and HOST-01 all start from this upload.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -110,10 +111,24 @@ impl Site {
             frame_routes: &frame_routes,
             image_hosts: &[],
             media_hosts: &[],
-            hsts_preload: false,
+            hsts_preload: load
+                .value
+                .get("security")
+                .and_then(|security| security.get("hstsPreload"))
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
         });
-        let diagnostics = hosting::write(&output, &root.join("dist"));
-        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        // The engine already wrote these files; generating again would make
+        // the harness the second writer of one file, which is what RFC 1200
+        // set out to avoid.
+        for file in &output.files {
+            assert_eq!(
+                fs::read_to_string(root.join("dist").join(&file.path)).ok(),
+                Some(file.contents.clone()),
+                "the engine's {} differs from what the tests generate",
+                file.path
+            );
+        }
         Self {
             root,
             report,

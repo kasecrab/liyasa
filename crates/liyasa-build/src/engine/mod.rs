@@ -628,8 +628,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         frame_routes: &frame_routes,
         image_hosts: &image_hosts,
         media_hosts: &media_hosts,
-        // TODO(rfc-1201): opt-in, and not a config key yet.
-        hsts_preload: false,
+        hsts_preload: hsts_preload(&load.value),
     });
     let hosting_output = with_download_rules(hosting_output, &built.assets);
     report
@@ -1377,6 +1376,20 @@ fn agent_markdown(
     produced.markdown
 }
 
+/// `security.hstsPreload` (RFC 1201).
+///
+/// Read from the config value rather than the generated type, so a project
+/// that predates the schema row simply has it off. Until that row is on
+/// `main`, `liyasa_config::load` strips the key as unknown and this is always
+/// `false` whatever the operator wrote.
+fn hsts_preload(config: &serde_json::Value) -> bool {
+    config
+        .get("security")
+        .and_then(|security| security.get("hstsPreload"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
 /// Diagnostics from an engine module, with the ones the config already
 /// reported removed.
 fn not_already_said(
@@ -1744,5 +1757,35 @@ fn write_file(
             code::E0002,
             format!("could not write {}: {error}", path.display()),
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn value(json: &str) -> serde_json::Value {
+        serde_json::from_str(json).expect("the fixture is JSON")
+    }
+
+    #[test]
+    fn hsts_preload_is_off_unless_the_config_asks_for_it() {
+        assert!(!hsts_preload(&value("{}")));
+        assert!(!hsts_preload(&value(r#"{"security":{}}"#)));
+        assert!(!hsts_preload(&value(
+            r#"{"security":{"hstsPreload":false}}"#
+        )));
+        assert!(hsts_preload(&value(r#"{"security":{"hstsPreload":true}}"#)));
+    }
+
+    #[test]
+    fn a_config_rule_the_build_also_checks_is_dropped_once_the_config_said_it() {
+        let config_codes: BTreeSet<&'static str> = ["E0106"].into_iter().collect();
+        let mut mine = Diagnostics::new();
+        mine.push(Diagnostic::new(code::E0106, "two redirects claim `/a`"));
+        mine.push(Diagnostic::new(code::E0401, "`/ghost` is not a route"));
+        let kept = not_already_said(&mine, &config_codes);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].code.as_str(), "E0401");
     }
 }
