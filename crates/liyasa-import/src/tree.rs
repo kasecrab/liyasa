@@ -140,6 +140,45 @@ pub fn extensions(text: &str, from: &str) -> String {
     out
 }
 
+/// Where a partial's module specifier resolves in the source tree.
+///
+/// `/snippets/a.mdx` is from the project root, `./a.mdx` and `../a.mdx` from the
+/// importing page's directory, and a bare `a.mdx` from the root as well.
+pub fn partial_path(page: &VfsPath, specifier: &str) -> VfsPath {
+    match specifier.strip_prefix('/') {
+        Some(rest) => VfsPath::new(rest),
+        None if specifier.starts_with('.') => match page.parent() {
+            Some(dir) => dir.join(specifier),
+            None => VfsPath::new(specifier),
+        },
+        None => VfsPath::new(specifier),
+    }
+}
+
+/// Moves every partial a page included into `snippets/`, where
+/// `{% snippet "name" %}` resolves it by file stem (CM-70).
+///
+/// A partial that already lives there needs nothing; one beside the page that
+/// used it, which is how Docusaurus and plain MDX trees write them, is written
+/// under `snippets/` as well. The page it was converted from keeps its own
+/// file, which CM-03 leaves unroutable when it is `_`-prefixed.
+///
+/// Each entry is `(the page that included it, its module specifier, its snippet
+/// name)`.
+pub fn move_partials(partials: &[(VfsPath, String, String)], plan: &mut crate::Plan) {
+    for (page, specifier, name) in partials {
+        let target = format!("snippets/{name}.md");
+        if plan.get(&target).is_some() {
+            continue;
+        }
+        let source = with_md_extension(&partial_path(page, specifier));
+        let Some(text) = plan.text_at(source.as_str()).map(str::to_owned) else {
+            continue;
+        };
+        plan.text(&target, text);
+    }
+}
+
 /// Navigation entries that name a page the project does not have.
 pub fn dangling<'a>(named: impl IntoIterator<Item = &'a String>, plan: &mut crate::Plan) {
     let have: std::collections::BTreeSet<String> = plan
@@ -175,6 +214,23 @@ mod tests {
         assert_eq!(route_of("index.md"), "/");
         assert_eq!(route_of("guides/index.mdx"), "/guides");
         assert_eq!(route_of("guides/install.mdx"), "/guides/install");
+    }
+
+    #[test]
+    fn a_partial_resolves_from_the_root_or_from_the_page() {
+        let page = VfsPath::new("docs/guides/install.mdx");
+        assert_eq!(
+            partial_path(&page, "/snippets/auth.mdx").as_str(),
+            "snippets/auth.mdx"
+        );
+        assert_eq!(
+            partial_path(&page, "./_note.mdx").as_str(),
+            "docs/guides/_note.mdx"
+        );
+        assert_eq!(
+            partial_path(&page, "../_shared.mdx").as_str(),
+            "docs/_shared.mdx"
+        );
     }
 
     #[test]

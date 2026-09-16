@@ -196,6 +196,11 @@ fn a_snippet_import_becomes_a_snippet_include_and_the_file_comes_along() {
     );
     assert!(!quickstart.contains("import AuthNote"));
     assert!(paths(&plan).contains(&"snippets/auth-note.md"));
+    assert_eq!(
+        text_at(&plan, "snippets/auth-note.md"),
+        "Use a scoped key.\n",
+        "the snippet a page includes has to be the snippet that was carried"
+    );
 }
 
 #[test]

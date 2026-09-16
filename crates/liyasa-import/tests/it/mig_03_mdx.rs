@@ -219,3 +219,32 @@ fn every_importer_answers_an_unknown_component_the_same_way() {
         1
     );
 }
+
+#[test]
+fn a_partial_beside_its_page_is_moved_into_snippets() {
+    // `{% snippet "name" %}` resolves by file stem under `snippets/` (CM-70),
+    // so a partial that lived next to the page has to move there.
+    let source = liyasa_config::vfs::MemVfs::new()
+        .with(
+            "guides/install.mdx",
+            b"import Note from './_note.mdx'\n\n<Note />\n".to_vec(),
+        )
+        .with("guides/_note.mdx", b"Use a scoped key.\n".to_vec());
+    let plan = mdx::import(
+        &source,
+        &VfsPath::new(""),
+        &mdx::Options {
+            components: &Builtins::default(),
+            mapping: &Stubs,
+            directives: false,
+            name: "Acme",
+        },
+    );
+
+    assert!(
+        text_at(&plan, "guides/install.md").contains("{% snippet \"note\" %}"),
+        "{}",
+        text_at(&plan, "guides/install.md")
+    );
+    assert_eq!(text_at(&plan, "snippets/note.md"), "Use a scoped key.\n");
+}

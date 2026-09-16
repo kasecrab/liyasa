@@ -84,6 +84,7 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
     let mut files = Vec::new();
     tree::walk(vfs, root, &mut files);
     let mut versions: Vec<String> = Vec::new();
+    let mut partials: Vec<(VfsPath, String, String)> = Vec::new();
 
     for file in &files {
         let relative = strip(root, file);
@@ -106,6 +107,9 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
                     },
                 );
                 let body = page.text;
+                for (specifier, name) in &page.snippets {
+                    partials.push((relative.clone(), specifier.clone(), name.clone()));
+                }
                 let mut entry =
                     PageReport::new(relative.clone(), to.clone(), route, site_route(to.as_str()));
                 entry.attention = page.attention;
@@ -166,6 +170,7 @@ pub fn import(vfs: &dyn Vfs, root: &VfsPath, options: &Options<'_>) -> Plan {
         plan.report.redirects.push(redirect.clone());
     }
 
+    tree::move_partials(&partials, &mut plan);
     for (path, text) in convert.generated.files() {
         plan.text(&path, text);
     }
