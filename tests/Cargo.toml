@@ -28,6 +28,8 @@ comrak.workspace = true
 liyasa-config = { path = "../crates/liyasa-config", version = "0.1.0" }
 serde_json.workspace = true
 jsonschema.workspace = true
+# WP-04: the component gallery the browser suite drives (`web/e2e/components/`).
+liyasa-components = { path = "../crates/liyasa-components", version = "0.1.0" }
 # WP-06: the build engine, whose acceptance tests are about the built site.
 liyasa-build = { path = "../crates/liyasa-build", version = "0.1.0" }
 liyasa-markdown = { path = "../crates/liyasa-markdown", version = "0.1.0" }

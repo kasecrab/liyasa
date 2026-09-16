@@ -1220,6 +1220,7 @@ dependencies = [
  "image",
  "jsonschema",
  "liyasa-build",
+ "liyasa-components",
  "liyasa-config",
  "liyasa-core",
  "liyasa-markdown",

@@ -218,6 +218,11 @@ pub struct CodeOptions {
     pub copy: bool,
     pub highlight: Vec<(u32, u32)>,
     pub focus: Vec<(u32, u32)>,
+    /// The id the copy button points at, which is also the `<code>` element's.
+    /// Set by the caller, which is the only one that knows what else is on the
+    /// page. TODO(rfc-0400): without it there is no copy button, because
+    /// `copy.js` has nothing to bind to.
+    pub id: Option<String>,
 }
 
 impl CodeOptions {
@@ -242,7 +247,15 @@ impl CodeOptions {
                 && attrs.kv.get("copy").is_none_or(|v| v != "false"),
             highlight: attrs.highlight.clone(),
             focus: kv("focus").map(|v| parse_ranges(&v)).unwrap_or_default(),
+            id: None,
         }
+    }
+
+    /// The id the copy button and the `<code>` element share.
+    #[must_use]
+    pub fn with_id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
     }
 
     fn line_features(&self) -> bool {
@@ -302,7 +315,6 @@ pub fn render_html(
     body: &str,
     options: &CodeOptions,
     highlighted: Option<&str>,
-    id: Option<&str>,
 ) {
     out.open("div")
         .attr("class", "ly-code")
@@ -333,7 +345,7 @@ pub fn render_html(
     // itself, so a button it never sees must not offer a copy that cannot
     // happen. Without an id there is nothing for it to name, so no button.
     if options.copy
-        && let Some(id) = id
+        && let Some(id) = options.id.as_deref()
     {
         out.open("button")
             .attr("class", "ly-code-copy")
@@ -347,7 +359,7 @@ pub fn render_html(
 
     out.open("pre").attr("class", "ly-code-body");
     out.open("code")
-        .attr_if("id", id)
+        .attr_if("id", options.id.as_deref())
         .attr_if("class", lang.map(|l| format!("language-{l}")).as_deref());
 
     if options.line_features() {

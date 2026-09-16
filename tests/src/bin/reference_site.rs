@@ -27,6 +27,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         site::FAVICON,
     )?;
 
+    // The component gallery the browser suite drives (`web/e2e/components/`).
+    // It shares the site's stylesheet and runtime so a violation found here is
+    // one a reader would meet.
+    for component in liyasa_components::gallery::names() {
+        let html =
+            liyasa_components::gallery::page(component, site::STYLESHEET_URL, site::SCRIPT_URL);
+        write(
+            &out.join("components").join(component).join("index.html"),
+            &html,
+        )?;
+        println!("/components/{component} ({} bytes)", html.len());
+    }
+
     for page in &built.pages {
         let route = page.route.trim_matches('/');
         let directory = if route.is_empty() {

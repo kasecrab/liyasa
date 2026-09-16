@@ -126,13 +126,13 @@ impl Render for CodeGroup {
                 BlockKind::CodeBlock { highlighted, .. } => highlighted.clone(),
                 _ => None,
             };
+            let options = options.clone().with_id(format!("{group}-code-{at}"));
             fence::render_html(
                 &mut ctx.out,
                 lang_of(block),
                 &code_body(block),
-                options,
+                &options,
                 highlighted.as_deref(),
-                Some(&format!("{group}-code-{at}")),
             );
             ctx.out.close();
         }

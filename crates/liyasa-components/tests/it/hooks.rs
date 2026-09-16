@@ -127,3 +127,45 @@ fn an_assistant_button_is_what_the_lazy_loader_looks_for() {
     );
     assert!(markup.contains("data-ly-assistant-trigger"), "{markup}");
 }
+
+/// A page with two of the same `id` fails axe outright, and a copy button that
+/// names a duplicate copies whichever element the browser found first.
+#[test]
+fn every_copy_target_on_a_page_is_unique() {
+    let markup = liyasa_components::gallery::page("tabs", "/theme.css", "/base.js");
+    let mut ids: Vec<&str> = Vec::new();
+    let mut rest = markup.as_str();
+    while let Some(at) = rest.find("<code id=\"") {
+        rest = &rest[at + "<code id=\"".len()..];
+        let end = rest.find('"').expect("a closed attribute");
+        ids.push(&rest[..end]);
+    }
+    assert!(ids.len() > 1, "the fixture needs more than one fence");
+    let mut unique = ids.clone();
+    unique.sort_unstable();
+    unique.dedup();
+    assert_eq!(unique.len(), ids.len(), "duplicate ids: {ids:?}");
+}
+
+/// The shell is a document a browser can parse: `<head>` holds the metadata,
+/// `<body>` holds the content, and neither closes early.
+#[test]
+fn a_gallery_page_is_a_well_formed_document() {
+    let markup = liyasa_components::gallery::page("card", "/theme.css", "/base.js");
+    let head = markup.find("</head>").expect("a closed head");
+    let body = markup.find("<body").expect("a body");
+    assert!(head < body, "head must close before body opens: {markup}");
+    assert!(
+        markup
+            .find("<link rel=\"stylesheet\"")
+            .expect("a stylesheet")
+            < head,
+        "the stylesheet belongs in the head: {markup}"
+    );
+    assert!(
+        markup.find("<script").expect("the runtime")
+            < markup.find("</body>").expect("a closed body"),
+        "the runtime belongs in the body: {markup}"
+    );
+    assert!(markup.trim_end().ends_with("</html>"), "{markup}");
+}

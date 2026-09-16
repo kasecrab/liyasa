@@ -119,14 +119,14 @@ impl<'r> Reference<'r> {
                 if lang.as_deref() == Some("mermaid") {
                     crate::fence::render_mermaid(&mut ctx.out, &body, attrs);
                 } else {
-                    let options = crate::fence::CodeOptions::read(attrs);
+                    let options = crate::fence::CodeOptions::read(attrs)
+                        .with_id(format!("c-{}", block.id.to_hex()));
                     crate::fence::render_html(
                         &mut ctx.out,
                         lang.as_deref(),
                         &body,
                         &options,
                         highlighted.as_deref(),
-                        Some(&format!("c-{}", block.id.to_hex())),
                     );
                 }
             }

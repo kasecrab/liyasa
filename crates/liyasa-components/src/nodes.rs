@@ -8,8 +8,12 @@ use liyasa_core::document::{Block, BlockKind, FenceAttrs, Inline, Node, Origin, 
 use liyasa_core::ids::BlockId;
 
 pub fn block(kind: BlockKind, children: Vec<Node>) -> Node {
+    // Derived from what the block holds, not a constant: two fences on one
+    // page with the same id are two elements a browser cannot tell apart, and
+    // the copy button that names one copies the other.
+    let id = BlockId::implicit("block", &crate::text::of(&children), "", 0);
     Node::Block(Block {
-        id: BlockId::implicit("block", "", "", 0),
+        id,
         explicit_id: None,
         kind,
         origin: Origin::default(),
