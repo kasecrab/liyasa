@@ -65,6 +65,11 @@ pub struct Outcome {
 }
 
 impl Outcome {
+    /// Built from a `Command` a test drove itself, rather than through [`Run`].
+    pub fn of(output: Output) -> Self {
+        Self::new(output)
+    }
+
     fn new(output: Output) -> Self {
         Self {
             code: output.status.code().unwrap_or(-1),

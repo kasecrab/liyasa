@@ -185,6 +185,13 @@ pub fn digest(bytes: &[u8]) -> String {
 /// that was tampered with: changing the bytes breaks the digest, and changing
 /// the index to match breaks the signature.
 pub fn verify(bytes: &[u8], artifact: &Artifact) -> Result<(), Failure> {
+    verify_with(bytes, artifact, &public_key()?)
+}
+
+/// The same check against a key the caller names, which is what lets a test
+/// sign with a key of its own without reaching for the environment: this crate
+/// forbids `unsafe`, and `std::env::set_var` is unsafe.
+pub fn verify_with(bytes: &[u8], artifact: &Artifact, key: &VerifyingKey) -> Result<(), Failure> {
     let found = digest(bytes);
     let expected = artifact.sha256.trim().to_ascii_lowercase();
     if found != expected {
@@ -200,8 +207,7 @@ pub fn verify(bytes: &[u8], artifact: &Artifact) -> Result<(), Failure> {
         .map_err(|_| Failure::Signature("the signature is not 64 bytes".to_owned()))?;
     let signature = Signature::from_bytes(&signature_bytes);
 
-    public_key()?
-        .verify(&raw, &signature)
+    key.verify(&raw, &signature)
         .map_err(|error| Failure::Signature(error.to_string()))
 }
 
@@ -282,16 +288,11 @@ mod tests {
         SigningKey::from_bytes(&SEED)
     }
 
-    fn trust_the_test_key() {
-        let public = encode_hex(signing_key().verifying_key().as_bytes());
-        // SAFETY-adjacent: these tests are serialised by `serial_test`-style
-        // discipline of using one key for all of them, so the variable's value
-        // never differs between two running tests.
-        unsafe { std::env::set_var("LIYASA_RELEASE_PUBKEY", public) };
+    fn test_key() -> VerifyingKey {
+        signing_key().verifying_key()
     }
 
     fn signed(bytes: &[u8]) -> Artifact {
-        trust_the_test_key();
         let sha = digest(bytes);
         let raw = decode_hex(&sha).expect("hex");
         let signature = signing_key().sign(&raw);
@@ -307,7 +308,7 @@ mod tests {
     fn a_correctly_signed_artifact_verifies() {
         let bytes = b"a new liyasa binary";
         let artifact = signed(bytes);
-        assert_eq!(verify(bytes, &artifact), Ok(()));
+        assert_eq!(verify_with(bytes, &artifact, &test_key()), Ok(()));
     }
 
     /// The acceptance criterion: a tampered binary is rejected. The index is
@@ -315,7 +316,11 @@ mod tests {
     #[test]
     fn a_tampered_artifact_fails_the_digest() {
         let artifact = signed(b"a new liyasa binary");
-        let result = verify(b"a new liyasa binary with a backdoor", &artifact);
+        let result = verify_with(
+            b"a new liyasa binary with a backdoor",
+            &artifact,
+            &test_key(),
+        );
         assert!(matches!(result, Err(Failure::Digest { .. })), "{result:?}");
     }
 
@@ -326,7 +331,7 @@ mod tests {
         let tampered = b"a new liyasa binary with a backdoor";
         let mut artifact = signed(b"a new liyasa binary");
         artifact.sha256 = digest(tampered);
-        let result = verify(tampered, &artifact);
+        let result = verify_with(tampered, &artifact, &test_key());
         assert!(matches!(result, Err(Failure::Signature(_))), "{result:?}");
     }
 
@@ -338,7 +343,7 @@ mod tests {
         let raw = decode_hex(&artifact.sha256).expect("hex");
         artifact.signature = encode_hex(&other.sign(&raw).to_bytes());
         assert!(matches!(
-            verify(bytes, &artifact),
+            verify_with(bytes, &artifact, &test_key()),
             Err(Failure::Signature(_))
         ));
     }
@@ -349,7 +354,7 @@ mod tests {
         let mut artifact = signed(bytes);
         artifact.signature = "not hex".to_owned();
         assert!(matches!(
-            verify(bytes, &artifact),
+            verify_with(bytes, &artifact, &test_key()),
             Err(Failure::Signature(_))
         ));
     }

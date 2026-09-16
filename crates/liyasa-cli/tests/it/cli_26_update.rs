@@ -282,7 +282,12 @@ fn telemetry_can_be_turned_on_and_back_off() {
 fn completions_are_generated_for_every_shell() {
     for shell in ["bash", "zsh", "fish", "powershell", "elvish"] {
         let outcome = Run::new(["completions", shell]).output();
-        assert_eq!(outcome.code, Exit::Success.code(), "{shell}: {}", outcome.all());
+        assert_eq!(
+            outcome.code,
+            Exit::Success.code(),
+            "{shell}: {}",
+            outcome.all()
+        );
         assert!(
             outcome.stdout.len() > 200,
             "{shell} produced {} bytes",

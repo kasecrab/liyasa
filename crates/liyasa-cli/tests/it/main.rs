@@ -5,6 +5,7 @@ mod support;
 
 mod cli_01_new;
 mod cli_04_validate;
+mod cli_26_update;
 mod cli_30_diagnostics;
 mod cli_31_exit;
 mod cli_34;
