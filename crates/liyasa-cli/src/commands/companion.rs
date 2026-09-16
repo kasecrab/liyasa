@@ -21,6 +21,35 @@ pub fn run(global: &Global, which: &Which) -> Exit {
 
 fn status(global: &Global) -> Exit {
     let directory = home::companion_dir();
+
+    // What would actually be used, which may be a browser this command did not
+    // install.
+    if home::companion_version().is_none()
+        && let Some(browser) = crate::browser::find()
+    {
+        if global.json {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "installed": false,
+                    "usable": true,
+                    "version": browser.version,
+                    "source": browser.source.name(),
+                    "path": browser.path.display().to_string(),
+                })
+            );
+        } else {
+            println!(
+                "no companion runtime installed, but the {} can be used: {} ({})",
+                browser.source.name(),
+                browser.version,
+                browser.path.display()
+            );
+            println!("`liyasa.lock` cannot pin it, so a render is not reproducible elsewhere.");
+        }
+        return Exit::Success;
+    }
+
     match home::companion_version() {
         Some(version) => {
             if global.json {

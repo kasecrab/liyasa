@@ -59,6 +59,7 @@ pub fn run(global: &Global, args: &Validate) -> Exit {
         profile: false,
         eager_images: false,
         environment: None,
+        nonce: None,
     };
 
     if global.dry_run {

@@ -145,17 +145,34 @@ pub fn collect(project: Option<&ctx::Project>) -> Vec<Check> {
         ),
     });
 
-    checks.push(match home::companion_version() {
-        Some(version) => Check::ready(
+    checks.push(match crate::browser::find() {
+        Some(browser) => Check::ready(
             "companion runtime",
-            format!("{version} in {}", home::companion_dir().display()),
+            format!(
+                "{} via the {} ({})",
+                browser.version,
+                browser.source.name(),
+                browser.path.display()
+            ),
         ),
         None => Check::missing(
             "companion runtime",
-            "not installed (`liyasa companion install`)",
+            "no browser on this machine (`liyasa companion install`)",
             "PDF export, Lighthouse budgets, axe checks, screenshot sources, and pre-rendered Mermaid are unavailable (E0003)",
         ),
     });
+
+    // A browser that `liyasa.lock` does not pin still works, but two machines
+    // can render the same site differently, so the report says which it is.
+    if let Some(browser) = crate::browser::find()
+        && !browser.source.is_pinned()
+    {
+        checks.push(Check::missing(
+            "pinned runtime",
+            format!("using the {}", browser.source.name()),
+            "a render is not reproducible from `liyasa.lock` alone",
+        ));
+    }
 
     checks.push(Check::missing(
         "network",
