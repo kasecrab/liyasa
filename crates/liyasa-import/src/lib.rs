@@ -12,6 +12,7 @@
 //! names Liyasa knows and translates syntax only.
 
 pub mod docusaurus;
+pub mod mdx;
 pub mod mintlify;
 pub mod page;
 pub mod plan;

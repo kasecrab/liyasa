@@ -4,4 +4,5 @@
 
 mod mig_01_mintlify;
 mod mig_02_docusaurus;
+mod mig_03_mdx;
 mod support;
