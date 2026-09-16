@@ -1326,22 +1326,139 @@
       "type": "object",
       "properties": {
         "cookieConsent": {
+          "description": "Consent provider, or `true` for Liyasa's built-in banner (CFG-81).",
           "oneOf": [
             {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "osano",
+                "transcend",
+                "onetrust",
+                "cookiebot",
+                "builtin"
+              ]
             },
-            {}
+            {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "osano",
+                    "transcend",
+                    "onetrust",
+                    "cookiebot",
+                    "builtin"
+                  ]
+                }
+              },
+              "required": [
+                "provider"
+              ],
+              "additionalProperties": true
+            },
+            {
+              "type": "boolean"
+            }
           ]
         },
         "telemetry": {
           "type": "boolean",
           "description": "Liyasa's own anonymous CLI telemetry; off by default in OSS.",
           "default": false
+        },
+        "adobeAnalytics": {
+          "$ref": "#/$defs/integration",
+          "description": "Adobe Analytics (ANA-62)."
+        },
+        "amplitude": {
+          "$ref": "#/$defs/integration",
+          "description": "Amplitude (ANA-62)."
+        },
+        "clarity": {
+          "$ref": "#/$defs/integration",
+          "description": "Microsoft Clarity (ANA-62)."
+        },
+        "clearbit": {
+          "$ref": "#/$defs/integration",
+          "description": "Clearbit (ANA-62)."
+        },
+        "fathom": {
+          "$ref": "#/$defs/integration",
+          "description": "Fathom (ANA-62)."
+        },
+        "ga4": {
+          "$ref": "#/$defs/integration",
+          "description": "Google Analytics 4 (ANA-62)."
+        },
+        "gtm": {
+          "$ref": "#/$defs/integration",
+          "description": "Google Tag Manager (ANA-62)."
+        },
+        "heap": {
+          "$ref": "#/$defs/integration",
+          "description": "Heap (ANA-62)."
+        },
+        "hightouch": {
+          "$ref": "#/$defs/integration",
+          "description": "Hightouch (ANA-62)."
+        },
+        "hotjar": {
+          "$ref": "#/$defs/integration",
+          "description": "Hotjar (ANA-62)."
+        },
+        "koala": {
+          "$ref": "#/$defs/integration",
+          "description": "Koala (ANA-62)."
+        },
+        "logrocket": {
+          "$ref": "#/$defs/integration",
+          "description": "LogRocket (ANA-62)."
+        },
+        "mixpanel": {
+          "$ref": "#/$defs/integration",
+          "description": "Mixpanel (ANA-62)."
+        },
+        "pirsch": {
+          "$ref": "#/$defs/integration",
+          "description": "Pirsch (ANA-62)."
+        },
+        "plausible": {
+          "$ref": "#/$defs/integration",
+          "description": "Plausible (ANA-62)."
+        },
+        "posthog": {
+          "$ref": "#/$defs/integration",
+          "description": "PostHog (ANA-62)."
+        },
+        "segment": {
+          "$ref": "#/$defs/integration",
+          "description": "Segment (ANA-62)."
+        },
+        "intercom": {
+          "$ref": "#/$defs/integration",
+          "description": "Intercom (ANA-62)."
+        },
+        "front": {
+          "$ref": "#/$defs/integration",
+          "description": "Front (ANA-62)."
+        },
+        "crisp": {
+          "$ref": "#/$defs/integration",
+          "description": "Crisp (ANA-62)."
+        },
+        "zendesk": {
+          "$ref": "#/$defs/integration",
+          "description": "Zendesk (ANA-62)."
+        },
+        "plain": {
+          "$ref": "#/$defs/integration",
+          "description": "Plain (ANA-62)."
         }
       },
       "additionalProperties": true,
       "x-liyasa-requirement": "CFG-81",
-      "description": "Third-party scripts and consent (\u00a726.8)."
+      "description": "Third-party scripts and consent (\u00a726.8). A vendor key is enabled when present and not `false` or `null`; Liyasa maintains its CSP sources (ANA-62)."
     },
     "agents": {
       "type": "object",
@@ -2197,6 +2314,11 @@
           },
           "additionalProperties": false
         },
+        "hstsPreload": {
+          "type": "boolean",
+          "default": false,
+          "description": "Add `preload` to `Strict-Transport-Security` (RX-112). Off by default: preload is a one-way submission to browser lists."
+        },
         "txt": {
           "description": "RFC 9116 `security.txt` fields, emitted at `/.well-known/security.txt`.",
           "oneOf": [
@@ -2433,6 +2555,33 @@
     }
   },
   "$defs": {
+    "integration": {
+      "description": "A third-party integration: CFG-81's `{ id, consent }`. Enabled when present and not `false` or `null`.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "consent": {
+              "type": "string",
+              "enum": [
+                "required",
+                "none"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "navigationNode": {
       "description": "One node of the navigation tree (\u00a78.4). Every object form is discriminated by its own key.",
       "oneOf": [

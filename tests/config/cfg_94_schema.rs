@@ -451,3 +451,107 @@ fn every_enum_value_the_schema_offers_is_one_the_type_accepts() {
         }
     }
 }
+
+/// Validates and deserializes, the way `liyasa validate` and the generated
+/// type both have to accept a config before an operator can use it.
+fn accepts(config: Value) -> Result<(), String> {
+    let text = serde_json::to_string(&config).map_err(|e| e.to_string())?;
+    let report = schema::check(&config, &SpanIndex::scan(SourceId(0), &text));
+    if !report.diagnostics.is_empty() || !report.unknown.is_empty() {
+        return Err(format!("{:?} {:?}", report.diagnostics, report.unknown));
+    }
+    serde_json::from_value::<SiteConfig>(config)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// RFC 1201: RX-112's preload is an opt-in, and `security` is
+/// `additionalProperties: false`, so without a row an operator cannot say it.
+#[test]
+fn hsts_preload_is_sayable_and_off_by_default() {
+    let schema = Schema::parse();
+    assert!(schema.has("security.hstsPreload"));
+    assert_eq!(
+        schema
+            .root
+            .pointer("/properties/security/properties/hstsPreload/default")
+            .and_then(Value::as_bool),
+        Some(false),
+        "preload is a one-way submission to browser lists"
+    );
+    for value in [true, false] {
+        accepts(serde_json::json!({ "name": "Acme", "security": { "hstsPreload": value } }))
+            .unwrap_or_else(|e| panic!("hstsPreload: {value}: {e}"));
+    }
+}
+
+/// RFC 1201: one spelling per ANA-60/61 vendor, so the CSP registry in
+/// `liyasa-build` and the config agree on the name.
+#[test]
+fn every_vendor_the_csp_registry_knows_has_a_spelling() {
+    let schema = Schema::parse();
+    // ANA-60 analytics, then ANA-61 support.
+    for vendor in [
+        "adobeAnalytics",
+        "amplitude",
+        "clarity",
+        "clearbit",
+        "fathom",
+        "ga4",
+        "gtm",
+        "heap",
+        "hightouch",
+        "hotjar",
+        "koala",
+        "logrocket",
+        "mixpanel",
+        "pirsch",
+        "plausible",
+        "posthog",
+        "segment",
+        "intercom",
+        "front",
+        "crisp",
+        "zendesk",
+        "plain",
+    ] {
+        assert!(
+            schema.has(&format!("integrations.{vendor}")),
+            "`{vendor}` has no row"
+        );
+    }
+}
+
+/// RFC 1201: a vendor key is enabled when present and not `false` or `null`,
+/// and its value is CFG-81's `{ id, consent }`.
+#[test]
+fn a_vendor_key_takes_its_settings_or_switches_itself_off() {
+    for value in [
+        serde_json::json!({ "id": "abc123", "consent": "required" }),
+        serde_json::json!({ "id": "abc123", "consent": "none" }),
+        serde_json::json!(true),
+        serde_json::json!(false),
+        serde_json::json!(null),
+    ] {
+        accepts(serde_json::json!({ "name": "Acme", "integrations": { "plausible": value } }))
+            .unwrap_or_else(|e| panic!("integrations.plausible = {value}: {e}"));
+    }
+}
+
+/// RFC 1201: a provider name, `{ "provider": … }`, or `true` for the built-in
+/// banner.
+#[test]
+fn cookie_consent_names_a_provider_or_asks_for_the_built_in_banner() {
+    for value in [
+        serde_json::json!("osano"),
+        serde_json::json!("transcend"),
+        serde_json::json!("onetrust"),
+        serde_json::json!("cookiebot"),
+        serde_json::json!("builtin"),
+        serde_json::json!({ "provider": "osano" }),
+        serde_json::json!(true),
+    ] {
+        accepts(serde_json::json!({ "name": "Acme", "integrations": { "cookieConsent": value } }))
+            .unwrap_or_else(|e| panic!("cookieConsent = {value}: {e}"));
+    }
+}
