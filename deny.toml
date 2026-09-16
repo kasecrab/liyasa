@@ -28,6 +28,15 @@ allow = [
   "Unicode-DFS-2016",
   "Zlib",
   "CC0-1.0",
+  # reqwest's rustls stack reaches rustls-platform-verifier, which ships the
+  # Mozilla root store as webpki-root-certs under CDLA-Permissive-2.0. A data
+  # licence, not a software one, which is why cargo deny reports no OSI or FSF
+  # status for it: OSI does not review data licences. Its only condition is
+  # making the agreement's text available with the data (§2.1), and §3.1 states
+  # outright that it imposes nothing on Results, so it reaches no Liyasa source.
+  # The same shape as Unicode-DFS-2016 above. Shipping the store in a binary
+  # carries §2.1's notice into the third-party licence inventory.
+  "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.9
 
