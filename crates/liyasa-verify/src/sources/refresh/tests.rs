@@ -430,3 +430,47 @@ fn a_warning_does_not_stop_a_source_from_refreshing() {
     assert!(!report.has_errors());
     assert!(report.facts.get(&FactId::new("sla.uptime")).is_some());
 }
+
+#[test]
+fn a_source_that_breaks_its_own_schema_is_e0605_not_a_generic_refresh_failure() {
+    let log = SnapshotLog::new();
+    let http = Canned::new(json!({}));
+    let vfs = Arc::new(
+        MemoryVfs::new()
+            .with("typed.json", r#"{"seats": "five"}"#)
+            .with("missing.json", r#"{"other": 1}"#),
+    );
+    let sources = [
+        source(
+            "typed",
+            json!({
+                "kind": "file", "path": "typed.json",
+                "schema": { "type": "object", "properties": { "seats": { "type": "number" } } }
+            }),
+        )
+        .with_vfs(vfs.clone()),
+        source(
+            "pointer",
+            json!({
+                "kind": "file", "path": "missing.json",
+                "facts": { "seats": "/seats" }
+            }),
+        )
+        .with_vfs(vfs.clone()),
+        source("gone", json!({ "kind": "file", "path": "nowhere.json" })).with_vfs(vfs),
+    ];
+    let report = block_on(Refresher::new(&log, BuildTrust::Trusted, "main").refresh(
+        &sources,
+        &http,
+        None,
+        at(0),
+    ));
+
+    let codes: Vec<&str> = report.diagnostics.iter().map(|d| d.code.as_str()).collect();
+    assert_eq!(
+        codes,
+        ["E0605", "E0605", "E0604"],
+        "a schema or pointer failure is about the value; a missing file is not: {:#?}",
+        report.diagnostics
+    );
+}

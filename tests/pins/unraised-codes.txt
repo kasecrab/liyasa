@@ -7,11 +7,7 @@
 #
 # Regenerate with: cargo run -p xtask -- pins --update
 E0110
-E0604
-E0605
-E0606
 E0608
-E0621
 E0704
 E0721
 E0810

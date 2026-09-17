@@ -21,7 +21,7 @@ use liyasa_core::ai::TrustLevel;
 use liyasa_core::diagnostics::{Diagnostic, code};
 use liyasa_core::ids::FactId;
 use liyasa_core::net::HttpClient;
-use liyasa_core::verify::{FactChange, FactValue, Sandbox, Snapshot, TruthSource};
+use liyasa_core::verify::{FactChange, FactValue, Sandbox, Snapshot, SourceError, TruthSource};
 use serde_json::Value;
 
 use super::kinds::{BuildTrust, DeclaredSource};
@@ -180,10 +180,7 @@ impl<'a> Refresher<'a> {
                         snapshot
                     }
                     Err(why) => {
-                        report.diagnostics.push(Diagnostic::new(
-                            code::E0604,
-                            format!("`{}` could not be refreshed: {why}", source.id()),
-                        ));
+                        report.diagnostics.push(refusal(source.id(), &why));
                         continue;
                     }
                 }
@@ -276,6 +273,25 @@ pub fn plain(value: &FactValue) -> Value {
         // has no plain form here until this match gives it one, and `null` is
         // what a template already gets for a fact it cannot read.
         _ => Value::Null,
+    }
+}
+
+/// The code a failed refresh reports.
+///
+/// A source that answered with something other than what the project says it
+/// returns is `E0605`, which is the code for exactly that; everything else —
+/// unreachable, refused, sandbox — is `E0604`. Both exist, and collapsing the
+/// two would leave `E0605` registered and never raised.
+fn refusal(source: &str, why: &SourceError) -> Diagnostic {
+    match why {
+        SourceError::Schema(detail) => Diagnostic::new(
+            code::E0605,
+            format!("`{source}` returned a value it does not describe: {detail}"),
+        ),
+        other => Diagnostic::new(
+            code::E0604,
+            format!("`{source}` could not be refreshed: {other}"),
+        ),
     }
 }
 
