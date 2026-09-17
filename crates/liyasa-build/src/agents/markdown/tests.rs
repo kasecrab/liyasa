@@ -251,10 +251,6 @@ fn cm_143_a_human_only_block_is_stripped_and_an_agent_only_block_stays() {
 fn cm_143_a_block_naming_neither_audience_stays() {
     let page = Fixture::new().render(vec![nodes::component(
         inst::new("visibility")
-            .prop(
-                "groups",
-                PropValue::List(vec![PropValue::Str("staff".to_owned())]),
-            )
             .child(nodes::paragraph("Internal rates."))
             .build(),
     )]);
