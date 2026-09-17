@@ -16,7 +16,9 @@
     "e2e": "playwright test",
     "e2e:gate": "playwright test --workers=1 --grep-invert lighthouse && playwright test --workers=1 --grep lighthouse",
     "build:dashboard": "node --disable-warning=ExperimentalWarning dashboard/build.mjs",
-    "test:dashboard": "node --disable-warning=ExperimentalWarning --test dashboard/test/*.test.ts"
+    "test:dashboard": "node --disable-warning=ExperimentalWarning --test dashboard/test/*.test.ts",
+    "build:editor": "node --disable-warning=ExperimentalWarning editor/build.mjs",
+    "test:editor": "node --disable-warning=ExperimentalWarning --test editor/test/*.test.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

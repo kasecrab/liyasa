@@ -138,3 +138,5 @@ mod ver_12_spec_drift;
 mod ver_26_trust;
 #[path = "../verify/ver_23_drift.rs"]
 mod ver_23_drift;
+#[path = "../web/editor.rs"]
+mod web_editor;
