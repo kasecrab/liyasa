@@ -52,8 +52,7 @@ http.workspace = true
 # parser the build uses and then queries the graph it produces.
 liyasa-verify = { path = "../crates/liyasa-verify", version = "0.1.0" }
 liyasa-cli = { path = "../crates/liyasa-cli", version = "0.1.0" }
-# WP-21: the sandboxed runners, whose acceptance tests are in tests/verify/.
-liyasa-verify = { path = "../crates/liyasa-verify", version = "0.1.0" }
+# WP-21 needs the same crate for tests/verify/; the row above already brings it.
 # The runner tests hand a `SecretSource` a value, and the trait returns one.
 zeroize.workspace = true
 clap.workspace = true
