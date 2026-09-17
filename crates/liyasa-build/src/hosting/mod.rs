@@ -4,7 +4,9 @@
 //! once from the build and written as `_headers` (Cloudflare Pages, Netlify)
 //! and `vercel.json` (Vercel), the redirects as `_redirects` and inside
 //! `vercel.json`; hosts that read none of them are listed in [`matrix`] with
-//! what they send on their own. The 404 body is `404.html`, which
+//! what they send on their own. `.nojekyll` goes out with them, because a host
+//! that reads none of the others still has an opinion about which files it
+//! publishes at all. The 404 body is `404.html`, which
 //! [`crate::agents::notfound`] writes and every listed host serves by name.
 //!
 //! The engine calls [`generate`] after the manifest exists and [`write`] with
@@ -35,6 +37,13 @@ pub use redirects::Redirect;
 use crate::manifest::Manifest;
 
 pub const HEADERS_FILE: &str = "_headers";
+/// GitHub Pages runs Jekyll over an uploaded site unless this empty file sits
+/// at its root, and Jekyll publishes nothing whose name begins with `_` or
+/// `.` — which is the theme, the image variants, and the agent surfaces. It is
+/// written on every build rather than for one host: it is inert everywhere
+/// else, and a `dist/` is uploaded by hand as often as by a configured deploy
+/// (`plan/rfcs/1202-nojekyll-is-unconditional.md`).
+pub const NOJEKYLL_FILE: &str = ".nojekyll";
 pub const REDIRECTS_FILE: &str = "_redirects";
 pub const VERCEL_FILE: &str = "vercel.json";
 
@@ -122,6 +131,10 @@ pub fn generate(inputs: &Inputs<'_>) -> Output {
     let redirects = redirects::from_manifest(&inputs.manifest.redirects, base_path);
 
     let mut files = vec![
+        File {
+            path: NOJEKYLL_FILE.to_owned(),
+            contents: String::new(),
+        },
         File {
             path: HEADERS_FILE.to_owned(),
             contents: rules.render(),
@@ -287,7 +300,11 @@ mod tests {
         let manifest = fixture::manifest("");
         let output = generate(&inputs(&config, &manifest));
         let paths: Vec<&str> = output.files.iter().map(|f| f.path.as_str()).collect();
-        assert_eq!(paths, [HEADERS_FILE, VERCEL_FILE, REDIRECTS_FILE]);
+        assert_eq!(
+            paths,
+            [NOJEKYLL_FILE, HEADERS_FILE, VERCEL_FILE, REDIRECTS_FILE]
+        );
+        assert_eq!(output.file(NOJEKYLL_FILE), Some(""));
         assert_eq!(
             output.file(REDIRECTS_FILE),
             Some("/old /guides/install 301\n")
