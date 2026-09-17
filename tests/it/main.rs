@@ -126,3 +126,7 @@ mod mount;
 mod org_28;
 #[path = "../verify/ver_20_types.rs"]
 mod ver_20_types;
+#[path = "../verify/ver_21_deps.rs"]
+mod ver_21_deps;
+#[path = "../verify/ver_22_snapshots.rs"]
+mod ver_22_snapshots;
