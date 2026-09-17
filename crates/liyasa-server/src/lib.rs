@@ -5,3 +5,7 @@
 //! `routes`.
 
 pub mod routes;
+
+// WP-15 contributes `auth`: the endpoint table of AUTH-09, the session and
+// group rules, the variant cache key of AUTH-13, and custom domains.
+pub mod auth;
