@@ -254,6 +254,9 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0813`](/errors/W0813) | Warning | Bot-protection interference observed during a sustained agent-readiness scan |
 | [`E0814`](/errors/E0814) | Error | Domain is claimed by another project |
 | [`E0815`](/errors/E0815) | Error | Domain base path is not a subpath |
+| [`E0850`](/errors/E0850) | Error | Plan quota is spent and the metered feature is paused for this period |
+| [`E0854`](/errors/E0854) | Error | A project's region is chosen when it is created and cannot be changed |
+| [`E0855`](/errors/E0855) | Error | Data may not leave the region the project was created in |
 
 ## AI, agent, automations
 

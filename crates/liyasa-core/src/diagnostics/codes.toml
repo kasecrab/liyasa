@@ -236,3 +236,6 @@ E0021 = { severity = "error", crate = "liyasa-cli", title = "A network request f
 E0637 = { severity = "error", crate = "liyasa-verify", title = "Staging credential could not be resolved; the request was not sent" }
 E1200 = { severity = "error", crate = "liyasa-wasm", title = "Editor session request is not valid (nonce or site metadata)" }
 W1201 = { severity = "warning", crate = "liyasa-wasm", title = "Page too large to preview in the browser; rendered by the preview endpoint" }
+E0850 = { severity = "error", crate = "liyasa-server", title = "Plan quota is spent and the metered feature is paused for this period" }
+E0854 = { severity = "error", crate = "liyasa-server", title = "A project's region is chosen when it is created and cannot be changed" }
+E0855 = { severity = "error", crate = "liyasa-server", title = "Data may not leave the region the project was created in" }
