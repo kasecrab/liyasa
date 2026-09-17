@@ -34,7 +34,9 @@ pub mod password;
 pub mod preview;
 pub mod random;
 pub mod roles;
+pub mod routes;
 pub mod session;
+pub mod state;
 pub mod tokens;
 pub mod variant;
 
@@ -42,5 +44,7 @@ pub use config::{AuthConfig, Mode};
 pub use domains::{Domain, Registry as DomainRegistry};
 pub use groups::{Decision, Declared, SiteDefault};
 pub use roles::{Grant, Permission, Role};
+pub use routes::router;
 pub use session::{Principal, Session, Sessions};
+pub use state::AuthState;
 pub use variant::{CacheKey, Entry, PrerenderedSet, ReaderFields, VariantCache};
