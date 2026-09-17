@@ -138,9 +138,10 @@ fn context_block(reader: &ReaderContext) -> Option<DataBlock> {
     if let Some(selection) = reader.selection.as_deref().filter(|s| !s.trim().is_empty()) {
         lines.push(format!("selected text: {selection}"));
     }
-    // The reader's groups and region are NOT sent. They are applied to
-    // retrieval; telling the model about them would let an injected page ask it
-    // to describe what a differently entitled reader would see.
+    // The reader's groups and region are NOT sent (RFC 1807). They are applied
+    // to retrieval, so an entitled chunk never comes back and there is nothing
+    // for the model to leak; telling the model about them would let an injected
+    // page ask it to describe what a differently entitled reader would see.
     if lines.is_empty() {
         return None;
     }
