@@ -1,0 +1,14 @@
+//! Truth sources: what a fact is, where its value comes from, and what a
+//! changed value reaches (§14.11, §14.12).
+//!
+//! A source is declared in `verify.sources.<id>` ([`spec`], RFC 2030),
+//! refreshed into a [`Snapshot`](liyasa_core::verify::Snapshot), and diffed
+//! against the last one. [`impact`] turns that diff into the blocks it reaches,
+//! by walking the graph [`crate::graph`] built.
+//!
+//! The graph is WP-20a's and the drift records are WP-20c's; this package is
+//! the half between them.
+
+pub mod spec;
+
+pub use spec::{FactType, SourceSet, SourceSpec};
