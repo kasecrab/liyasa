@@ -31,6 +31,7 @@ pub mod jwt;
 pub mod magic;
 pub mod oidc;
 pub mod password;
+pub mod preview;
 pub mod random;
 pub mod roles;
 pub mod session;
