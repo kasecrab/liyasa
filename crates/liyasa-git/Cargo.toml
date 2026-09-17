@@ -1,0 +1,39 @@
+[package]
+name = "liyasa-git"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Git provider integrations: inbound webhook verification, the GitHub App, GitLab, Bitbucket and generic hosts, branch and pull-request operations, and the clone policy (PRD §18, GIT-01..GIT-11)."
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+# RFC 1600: every provider call goes through the one HTTP client, with
+# `Purpose::GitProvider`. `octocrab` would carry a second client that
+# §30.2.3's connect-time policy never sees.
+liyasa-net = { path = "../liyasa-net", version = "0.1.0" }
+bytes.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+url.workspace = true
+zeroize.workspace = true
+# Inbound signatures are HMAC-SHA256 over the raw body (GIT-01). Both crates
+# are RustCrypto and already in the graph through liyasa-server and aes-gcm.
+hmac = { version = "0.13", default-features = false }
+sha2 = { version = "0.11", default-features = false }
+# Base64url for the app JWT of GIT-01; already in the graph through sqlx and
+# instant-acme.
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"

@@ -2593,6 +2593,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "liyasa-git"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "hmac",
+ "liyasa-core",
+ "liyasa-net",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "url",
+ "zeroize",
+]
+
+[[package]]
 name = "liyasa-import"
 version = "0.1.0"
 dependencies = [
