@@ -243,6 +243,8 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0811`](/errors/W0811) | Warning | Ingest queue dropped events |
 | [`E0812`](/errors/E0812) | Error | Uploaded asset rejected (type not allowed or SVG sanitization failed) |
 | [`W0813`](/errors/W0813) | Warning | Bot-protection interference observed during a sustained agent-readiness scan |
+| [`E0814`](/errors/E0814) | Error | Domain is claimed by another project |
+| [`E0815`](/errors/E0815) | Error | Domain base path is not a subpath |
 
 ## AI, agent, automations
 
