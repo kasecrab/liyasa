@@ -57,11 +57,25 @@ pub fn run(global: &Global, args: &Test) -> Exit {
     if all || args.agents {
         match built::read(&project.root, &output) {
             Ok(snapshot) => {
-                let options = spec::Options::default();
+                let chosen = match select(&snapshot, &args.urls) {
+                    Ok(chosen) => chosen,
+                    Err(diagnostic) => {
+                        ctx::report(global, format, *diagnostic);
+                        return Exit::Errors;
+                    }
+                };
+                let options = spec::Options {
+                    // §25: explicitly selected pages are scored as given
+                    // regardless of count, where a sample of under five is
+                    // not. Setting this is what tells the checks which of the
+                    // two this run is.
+                    urls: chosen.urls,
+                    ..spec::Options::default()
+                };
                 let built = spec::Built {
                     site: &snapshot.site,
                     surfaces: &snapshot.surfaces,
-                    pages: &snapshot.pages,
+                    pages: &chosen.pages,
                     headers: headers(&output),
                 };
                 let report = spec::run(&built, &options);
@@ -120,6 +134,88 @@ pub fn run(global: &Global, args: &Test) -> Exit {
     } else {
         Exit::Success
     }
+}
+
+/// The pages a run scores, and the URL form the report records them under.
+struct Selection {
+    pages: Vec<spec::BuiltPage>,
+    urls: Vec<String>,
+}
+
+/// Resolves `--urls` against the built site.
+///
+/// A value may be a route or an absolute URL on the site's own origin. This
+/// build scores what it built, so a URL somewhere else is refused rather than
+/// quietly scoring nothing: `--urls` naming a page that is not in the output
+/// would otherwise report a clean run over an empty selection.
+fn select(snapshot: &built::Snapshot, wanted: &[String]) -> Result<Selection, ctx::Failed> {
+    if wanted.is_empty() {
+        return Ok(Selection {
+            pages: snapshot.pages.clone(),
+            urls: Vec::new(),
+        });
+    }
+
+    let origin = snapshot.site.origin.url().to_string();
+    let origin = origin.trim_end_matches('/').to_owned();
+
+    let mut pages = Vec::new();
+    let mut urls = Vec::new();
+    let mut seen: Vec<String> = Vec::new();
+    for value in wanted {
+        let value = value.trim();
+        let route = if let Some(rest) = value.strip_prefix(&origin) {
+            let rest = rest.trim_end_matches('/');
+            if rest.is_empty() {
+                "/".to_owned()
+            } else {
+                rest.to_owned()
+            }
+        } else if value.contains("://") {
+            return Err(Box::new(
+                Diagnostic::new(
+                    code::E0006,
+                    format!(
+                        "`{value}` is not on `{origin}`, and this build scores the site it built"
+                    ),
+                )
+                .help("Pass a route, or a URL on this site's `seo.canonicalOrigin`."),
+            ));
+        } else if value.starts_with('/') {
+            value.trim_end_matches('/').to_owned()
+        } else {
+            format!("/{}", value.trim_end_matches('/'))
+        };
+        let route = if route.is_empty() {
+            "/".to_owned()
+        } else {
+            route
+        };
+
+        let Some(page) = snapshot
+            .pages
+            .iter()
+            .find(|page| page.route.as_str() == route)
+        else {
+            return Err(Box::new(
+                Diagnostic::new(
+                    code::E0011,
+                    format!("`{value}` is not a page in the built site"),
+                )
+                .help("Run `liyasa build` first, or check the route against the output directory."),
+            ));
+        };
+        // Naming the same page twice is a typo, not a request to score it
+        // twice; comparing routes rather than URL suffixes so `/install` does
+        // not swallow `/guides/install`.
+        if !seen.contains(&route) {
+            urls.push(format!("{origin}{route}"));
+            pages.push(page.clone());
+            seen.push(route);
+        }
+    }
+
+    Ok(Selection { pages, urls })
 }
 
 /// RX-91's four static checks. Alt text and heading order come from a build,

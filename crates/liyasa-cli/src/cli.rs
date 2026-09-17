@@ -266,6 +266,18 @@ pub struct Build {
     /// Print how long each phase took.
     #[arg(long)]
     pub profile: bool,
+    /// Date this build from a fixed instant, so two builds of the same inputs
+    /// agree (§6.6.2). A Unix timestamp or an RFC 3339 date.
+    ///
+    /// `SOURCE_DATE_EPOCH` wins over it, and a git commit is used when neither
+    /// is given.
+    #[arg(
+        long,
+        value_name = "WHEN",
+        value_parser = crate::clock::parse,
+        env = "LIYASA_BUILD_TIME"
+    )]
+    pub build_time: Option<i64>,
     /// Build twice and report any file that differed (E0706).
     #[arg(long)]
     pub check_determinism: bool,
@@ -293,6 +305,10 @@ pub struct Validate {
     /// Treat warnings as errors.
     #[arg(long, env = "LIYASA_STRICT")]
     pub strict: bool,
+    /// Also list the pages that are rendered on demand rather than written as
+    /// files (§6.6.4), so they can be kept few.
+    #[arg(long)]
+    pub personalization: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -383,6 +399,14 @@ pub struct Test {
     /// The built site to test. Defaults to the configured output directory.
     #[arg(long, value_name = "DIR", env = "LIYASA_OUTPUT")]
     pub output: Option<PathBuf>,
+    /// Score exactly these pages instead of sampling the site (§25). A route
+    /// (`/guide/install`) or an absolute URL on this site's origin. Repeat the
+    /// flag or separate with commas.
+    ///
+    /// Explicitly selected pages are scored as given regardless of how few
+    /// there are, where a sample of under five is not.
+    #[arg(long, value_name = "URL", value_delimiter = ',')]
+    pub urls: Vec<String>,
     #[arg(long, value_name = "FORMAT", value_enum, default_value_t = Format::Text)]
     pub format: Format,
 }
