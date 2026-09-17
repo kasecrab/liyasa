@@ -10,6 +10,13 @@ description = "WebAssembly bindings for the editor and the browser search worker
 [lints]
 workspace = true
 
+# `cdylib` is the module itself: without it a `wasm32-unknown-unknown` build
+# produces an rlib and no `.wasm` at all, so ED-06 has nothing to weigh and the
+# editor has nothing to load. `rlib` stays so the host can link the crate and
+# run its tests, which is where every one of them runs.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
 # `default-features = false` turns CM-38's grammars off: ED-06 budgets the core
