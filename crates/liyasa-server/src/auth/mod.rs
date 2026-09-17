@@ -34,6 +34,7 @@ pub mod password;
 pub mod random;
 pub mod roles;
 pub mod session;
+pub mod tokens;
 pub mod variant;
 
 pub use config::{AuthConfig, Mode};
