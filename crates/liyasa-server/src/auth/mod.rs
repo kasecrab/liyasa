@@ -26,7 +26,9 @@ pub mod csrf;
 pub mod random;
 pub mod roles;
 pub mod session;
+pub mod variant;
 
 pub use config::{AuthConfig, Mode};
 pub use roles::{Grant, Permission, Role};
 pub use session::{Principal, Session, Sessions};
+pub use variant::{CacheKey, Entry, PrerenderedSet, ReaderFields, VariantCache};
