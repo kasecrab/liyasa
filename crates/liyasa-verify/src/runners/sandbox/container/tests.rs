@@ -241,18 +241,40 @@ fn staged_files_are_written_and_removed_with_the_job() {
 }
 
 #[test]
-fn a_job_file_that_climbs_out_of_its_directory_is_refused() {
+fn a_path_that_would_climb_out_of_the_job_directory_is_contained() {
+    // `VfsPath::new` resolves `..` lexically, so a path that would escape has
+    // already normalized into the root by the time a job carries it: there is
+    // nothing left for `stage` to refuse, and the file lands inside the job
+    // directory rather than beside /etc.
     let root = std::env::temp_dir().join("liyasa-verify-test-escape");
-    let error = stage(
+    let dir = stage(
         &root,
         &[(
             VfsPath::new("../../etc/profile"),
             Bytes::from(b"x".to_vec()),
         )],
     )
-    .expect_err("the path escapes");
-    assert!(matches!(error, SandboxError::Io(_)), "{error:?}");
+    .expect("there is no climb left to refuse");
+    assert!(dir.starts_with(&root));
+    assert_eq!(
+        std::fs::read_to_string(dir.join("etc/profile")).expect("written inside the job"),
+        "x"
+    );
     let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn safe_join_refuses_a_climb_that_reaches_it_anyway() {
+    // Unreachable through `VfsPath`, and here on purpose: whether a job can
+    // write outside its own directory should not rest on a constructor in
+    // another crate keeping its current behaviour.
+    let error = safe_join(Path::new("/stage"), "../etc/profile").expect_err("refused");
+    assert!(matches!(error, SandboxError::Io(_)), "{error:?}");
+    assert!(safe_join(Path::new("/stage"), "a/b.txt").is_ok());
+    assert!(
+        safe_join(Path::new("/stage"), "").is_err(),
+        "a job file with no name is not a file"
+    );
 }
 
 #[test]

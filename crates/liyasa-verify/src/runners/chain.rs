@@ -19,7 +19,7 @@ use std::time::Instant;
 use liyasa_core::diagnostics::{Diagnostic, code};
 use liyasa_core::ids::CheckId;
 use liyasa_core::verify::{
-    CheckInput, CheckOutcome, CheckResult, CheckSpec, Sandbox, SecretSource,
+    CheckInput, CheckOutcome, CheckResult, CheckSpec, Runner, Sandbox, SecretSource,
 };
 
 use super::code::{Binding, Bindings, SandboxRunner};

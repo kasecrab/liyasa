@@ -25,6 +25,7 @@ pub const FILE: &str = "{file}";
 /// The placeholder for the block's language.
 pub const LANG: &str = "{lang}";
 
+#[derive(Debug)]
 pub struct Custom {
     id: &'static str,
     languages: &'static [&'static str],
