@@ -1,0 +1,31 @@
+[package]
+name = "liyasa-analytics"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The event schema, caller classification, aggregation and insight queries, retention, and the weekly digest (PRD §26, ANA-01..71)."
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+liyasa-store = { path = "../liyasa-store", version = "0.1.0" }
+blake3.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+url.workspace = true
+thiserror.workspace = true
+# Queries only. This crate never opens a database: every entry point takes a
+# pool `liyasa-store` already opened (RFC 1700).
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
+
+[dev-dependencies]
+jsonschema.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"
