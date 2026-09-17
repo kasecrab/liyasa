@@ -141,7 +141,10 @@ pub fn collect(project: Option<&ctx::Project>) -> Vec<Check> {
         None => Check::missing(
             "sandbox",
             "neither docker nor podman on PATH",
-            "code verification runners that need a container cannot run (E0004)",
+            // TODO(rfc-0908): when a sandboxed runner exists this goes back to
+            // naming E0004, which is the code for exactly this and which
+            // nothing raises yet because nothing can reach it.
+            "nothing in this build needs a container yet; code verification will, and will report E0004 when it does",
         ),
     });
 

@@ -147,7 +147,12 @@ fn external_note(offline: bool) -> Option<Diagnostic> {
 fn unavailable(class: CheckClass) -> Option<Diagnostic> {
     let reason = match class {
         CheckClass::Links => return None,
-        CheckClass::Code => "code runners need the verification orchestrator and a sandbox",
+        // The orchestrator is the binding constraint: no sandboxed runner
+        // exists, so installing a container changes nothing here yet.
+        // TODO(rfc-0908).
+        CheckClass::Code => {
+            "code runners need the verification orchestrator, which this build does not have; a container sandbox is needed too, but only once it does"
+        }
         CheckClass::Facts => "fact sources need the verification orchestrator",
         CheckClass::Screenshots => "screenshot sources need the companion runtime",
         CheckClass::Prose => "prose rules need the page syntax tree the orchestrator supplies",
