@@ -3,9 +3,16 @@
 //
 // The text lives here rather than in `codes.toml` — RFC 2432 records why: the
 // registry has no plain-language field, no fix marker, and is append-only for
-// every package. `src/code-list.ts` is generated from the registry by
-// `tests/editor/ed_73_messages.rs`, and `test/messages.test.ts` asserts in
-// both directions that this table and that list agree.
+// every package. `test/messages.test.ts` reads `codes.toml` itself and asserts,
+// in both directions, that this table covers every code an editor-reachable
+// crate raises and names no code the registry does not have.
+//
+// **Nothing here is generated.** An earlier version imported a `code-list.ts`
+// generated from the registry and pinned by a Rust test; RFC 2433 records why
+// that was wrong. The short version: the only thing the editor wanted the
+// registry for at run time was a title to show when a code has no entry below,
+// and a `Diagnostic` already carries its own `message`, which is more specific
+// than the registry title for exactly the codes that reach this fallback.
 //
 // Three rules the wording follows:
 //
@@ -16,9 +23,6 @@
 //     word they wrote is a message they cannot act on.
 //   * Offer a fix only where the editor can really perform one. A button that
 //     opens a dialog and says "now do it yourself" is worse than no button.
-
-import { CODES, EDITOR_CRATES } from "./code-list.ts";
-import type { CodeEntry } from "./code-list.ts";
 
 /** What pressing the fix button does. Every one is something the editor can do. */
 export type FixAction =
@@ -127,29 +131,40 @@ export const MESSAGES: Record<string, PlainMessage> = {
   W1201: { plain: "This page is too big to preview here, so the preview is being built on the server instead.", fix: { label: "Preview on the server", action: "preview-on-server" } },
 };
 
-/** Every code an editor-reachable crate raises. */
-export function editorCodes(): CodeEntry[] {
-  return CODES.filter((entry) => EDITOR_CRATES.includes(entry.crate));
+/**
+ * The plain-language message for a code, or `null`.
+ *
+ * `null` rather than a guess. A caller that has a `Diagnostic` in hand has its
+ * `message` too, and showing that is better than the editor inventing a
+ * friendly sentence for a code nobody wrote one for.
+ */
+export function messageFor(code: string): PlainMessage | null {
+  return MESSAGES[code] ?? null;
 }
 
 /**
- * What to show for a code.
+ * What the problems pane shows for one diagnostic.
  *
- * A code with no plain-language text falls back to its registry title and says
- * nothing else. Inventing a friendly sentence for a code nobody wrote one for
- * would be the editor making something up.
+ * The headline is ED-73's plain language when there is any, and the
+ * diagnostic's own message otherwise. `detail` is the diagnostic's message
+ * when a plain headline is showing and it adds something the headline cannot —
+ * which field, which prop, which file.
  */
-export function messageFor(code: string): PlainMessage & { title: string; hasPlain: boolean } {
-  const entry = CODES.find((candidate) => candidate.code === code);
-  const title = entry?.title ?? code;
-  const plain = MESSAGES[code];
-  if (!plain) return { title, plain: title, hasPlain: false };
-  return { ...plain, title, hasPlain: true };
-}
-
-/** Codes the editor can meet and has no plain-language text for. */
-export function uncovered(): string[] {
-  return editorCodes()
-    .map((entry) => entry.code)
-    .filter((code) => MESSAGES[code] === undefined);
+export function shownFor(diagnostic: { code: string; message: string }): {
+  headline: string;
+  detail: string | null;
+  fix: PlainMessage["fix"] | null;
+  hasPlain: boolean;
+} {
+  const plain = messageFor(diagnostic.code);
+  const message = diagnostic.message.trim();
+  if (!plain) {
+    return { headline: message === "" ? diagnostic.code : message, detail: null, fix: null, hasPlain: false };
+  }
+  return {
+    headline: plain.plain,
+    detail: message === "" || message === plain.plain ? null : message,
+    fix: plain.fix ?? null,
+    hasPlain: true,
+  };
 }

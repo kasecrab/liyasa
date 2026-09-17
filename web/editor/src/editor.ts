@@ -32,7 +32,7 @@ import { ACTIVITY_KINDS, KIND_LABEL, byDay, counts, feed } from "./activity.ts";
 import { TASKS, addAFaqEntry, quickFixProposal, recordAChangelogEntry, renameEverywhere, replaceAScreenshot, suggestEditUrl, updateANumber } from "./tasks.ts";
 import { HELP, TEMPLATES, TOUR, VOCABULARY, pageFromTemplate, say } from "./help.ts";
 import { LANDMARKS, SHORTCUTS, chartTable, motionDuration, reviewAnnouncement, saveAnnouncement, validationAnnouncement } from "./a11y.ts";
-import { messageFor } from "./messages.ts";
+import { messageFor, shownFor } from "./messages.ts";
 import { EditorSession, PreviewHold, sessionNonce } from "./session.ts";
 
 /** What the shell holds while a draft is open. */
@@ -107,20 +107,24 @@ function helpLink(url: string): string | null {
  * own message underneath when it says something the headline cannot — which
  * field, which prop, which file. The headline alone would tell an author that
  * "a setting has the wrong kind of value" without saying which setting.
+ *
+ * A code with no plain-language entry — a build-side one reaching this pane
+ * through a preview or a verification result — shows its own message as the
+ * headline. That is more specific than the registry title the editor used to
+ * look up, and it needs nothing derived from `codes.toml` (RFC 2433).
  */
 export function renderProblems(source: string, diagnostics: Parameters<typeof placeDiagnostics>[1]): Fragment {
   const placed = placeDiagnostics(source, diagnostics);
   if (placed.length === 0) return html`<p class="empty">No problems found.</p>`;
   return html`<ul class="problems">
     ${placed.map((entry) => {
-      const shown = messageFor(entry.diagnostic.code);
-      const detail = entry.diagnostic.message.trim();
+      const shown = shownFor(entry.diagnostic);
       const link = helpLink(entry.diagnostic.url);
       return html`<li class="problem problem-${entry.diagnostic.severity}">
         <span class="where">Line ${entry.from.line}</span>
         <span class="what">
-          ${shown.plain}
-          ${detail === "" || detail === shown.title ? null : html`<span class="detail">${detail}</span>`}
+          ${shown.headline}
+          ${shown.detail === null ? null : html`<span class="detail">${shown.detail}</span>`}
         </span>
         ${shown.fix ? html`<button type="button" data-fix="${shown.fix.action}">${shown.fix.label}</button>` : null}
         ${link

@@ -60,16 +60,12 @@ fn generated() -> String {
 #[test]
 fn the_checked_in_role_table_is_the_servers() {
     let path = fixture();
-    let fresh = generated();
-    let committed = std::fs::read_to_string(&path).unwrap_or_default();
-    if committed != fresh {
-        let _ = std::fs::write(&path, &fresh);
-        panic!(
-            "{} did not match `liyasa_server::auth::roles`; it has been rewritten, \
-             commit it with the change that moved it",
-            path.display()
-        );
-    }
+    blessed(
+        &path,
+        &generated(),
+        "`liyasa_server::auth::roles`",
+        "ed_75_roles::the_checked_in_role_table_is_the_servers",
+    );
 }
 
 #[test]
@@ -130,4 +126,30 @@ fn every_role_below_owner_lacks_at_least_one_permission_owner_has() {
         );
     }
     assert_eq!(Role::Owner.permissions().len(), Permission::ALL.len());
+}
+
+/// Rewrites a generated file, but only when asked.
+///
+/// A test that repairs the tree it is checking leaves a modified tracked file
+/// behind every gate that finds drift — which produced a false "main is RED"
+/// on 2026-09-17 and is why `gate_commit` carries a reset.
+/// `plan/rfcs/2433-a-pin-on-a-shared-append-only-file.md` records the rule: a
+/// gate never sets `LIYASA_BLESS`, so a gate never writes.
+fn blessed(path: &std::path::Path, fresh: &str, source: &str, test: &str) {
+    let committed = std::fs::read_to_string(path).unwrap_or_default();
+    if committed == fresh {
+        return;
+    }
+    if std::env::var_os("LIYASA_BLESS").is_some() {
+        std::fs::write(path, fresh).expect("the generated file is writable");
+        panic!("{} was rewritten from {source}; commit it", path.display());
+    }
+    // The command is the test's own name, not the file's: a filter that names
+    // the file matches nothing and sends the reader round again.
+    panic!(
+        "{} no longer matches {source}. It is generated; do not edit it by hand. Run:\n\n    \
+         LIYASA_BLESS=1 cargo test -p liyasa-tests --test it -- {test}\n\n\
+         and commit what it writes.",
+        path.display(),
+    );
 }

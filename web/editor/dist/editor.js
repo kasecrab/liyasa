@@ -4534,235 +4534,21 @@ function chartTable(
   return { columns, rows };
 }
 
-// Generated from `crates/liyasa-core/src/diagnostics/codes.toml` by
-// `tests/editor/ed_73_messages.rs`. Do not edit: that test rewrites it and
-// fails when this file and the registry disagree.
-
-                            
-               
-                   
-                
-                
- 
-
-/** The crates whose codes the editor's own validator can raise. */
-const EDITOR_CRATES           = [
-  "liyasa-config",
-  "liyasa-markdown",
-  "liyasa-components",
-  "liyasa-search",
-  "liyasa-wasm",
-];
-
-const CODES              = [
-  { code: "E0001", severity: "error", crate: "liyasa-cli", title: "Project root not found (no `liyasa.json` in this or any parent directory)" },
-  { code: "E0002", severity: "error", crate: "liyasa-cli", title: "Cannot read file (permission or encoding)" },
-  { code: "E0003", severity: "error", crate: "liyasa-cli", title: "Companion runtime required for this feature and not installed" },
-  { code: "E0004", severity: "error", crate: "liyasa-cli", title: "Sandbox (Docker or Podman) required and not available" },
-  { code: "E0005", severity: "error", crate: "liyasa-cli", title: "`liyasa.lock` is not valid TOML or its format version is newer than this CLI" },
-  { code: "E0006", severity: "error", crate: "liyasa-cli", title: "Feature not available in this build" },
-  { code: "E0007", severity: "error", crate: "liyasa-cli", title: "Release signature verification failed" },
-  { code: "E0008", severity: "error", crate: "liyasa-cli", title: "Downloaded artifact digest does not match the release index" },
-  { code: "E0009", severity: "error", crate: "liyasa-cli", title: "Release index could not be read" },
-  { code: "E0010", severity: "error", crate: "liyasa-cli", title: "`--locked` refused a change to `liyasa.lock`" },
-  { code: "E0011", severity: "error", crate: "liyasa-cli", title: "Command needs a built site and the output directory was not found" },
-  { code: "E0012", severity: "error", crate: "liyasa-cli", title: "Scaffold target directory already has files in it" },
-  { code: "E0013", severity: "error", crate: "liyasa-cli", title: "Starter template not found" },
-  { code: "E0014", severity: "error", crate: "liyasa-cli", title: "`--config` names a file that does not exist" },
-  { code: "E0016", severity: "error", crate: "liyasa-cli", title: "Search index not found in the built site" },
-  { code: "E0021", severity: "error", crate: "liyasa-cli", title: "A network request failed (policy, DNS, TLS, timeout, or the host)" },
-  { code: "E0101", severity: "error", crate: "liyasa-config", title: "`liyasa.json` is not valid JSON" },
-  { code: "E0102", severity: "error", crate: "liyasa-config", title: "Config does not match schema (path, expected, found)" },
-  { code: "E0103", severity: "error", crate: "liyasa-config", title: "Unknown config key" },
-  { code: "E0104", severity: "error", crate: "liyasa-config", title: "Navigation references a page that does not exist" },
-  { code: "E0105", severity: "error", crate: "liyasa-config", title: "Duplicate route" },
-  { code: "E0106", severity: "error", crate: "liyasa-config", title: "Conflicting redirects" },
-  { code: "E0107", severity: "error", crate: "liyasa-config", title: "Colour fails the contrast check" },
-  { code: "E0108", severity: "error", crate: "liyasa-config", title: "No default version or locale declared" },
-  { code: "E0109", severity: "error", crate: "liyasa-config", title: "Redirect destination is absolute and not in `redirects.externalAllow`, or a parameter appears in its host" },
-  { code: "E0110", severity: "error", crate: "liyasa-config", title: "Config key not in the schema (`schemas/liyasa.schema.json` is the source of truth)" },
-  { code: "E0120", severity: "error", crate: "liyasa-config", title: "`public: false` requires `liyasa serve` (available from 0.5)" },
-  { code: "E0121", severity: "error", crate: "liyasa-config", title: "Config schema version newer than this CLI" },
-  { code: "E0132", severity: "error", crate: "liyasa-config", title: "Colour value is not one Liyasa can read" },
-  { code: "E0133", severity: "error", crate: "liyasa-config", title: "Navigation binds a subtree to a version, locale, product, or spec that is not declared" },
-  { code: "E0135", severity: "error", crate: "liyasa-config", title: "Remote spec source is not one the deploy branch's config names" },
-  { code: "E0201", severity: "error", crate: "liyasa-markdown", title: "Undefined template variable" },
-  { code: "E0202", severity: "error", crate: "liyasa-markdown", title: "Template syntax error" },
-  { code: "E0203", severity: "error", crate: "liyasa-markdown", title: "Unknown filter or function" },
-  { code: "E0204", severity: "error", crate: "liyasa-markdown", title: "Template budget exceeded (time, iterations, output size, depth)" },
-  { code: "E0205", severity: "error", crate: "liyasa-markdown", title: "Include or snippet not found" },
-  { code: "E0206", severity: "error", crate: "liyasa-markdown", title: "Snippet cycle" },
-  { code: "E0207", severity: "error", crate: "liyasa-markdown", title: "Required snippet prop missing or wrong type" },
-  { code: "E0208", severity: "error", crate: "liyasa-markdown", title: "`reader.*` used on a page without `personalized: true`" },
-  { code: "E0209", severity: "error", crate: "liyasa-markdown", title: "Fact referenced in template does not exist" },
-  { code: "E0210", severity: "error", crate: "liyasa-markdown", title: "Template block statement is not well-formed with respect to Markdown structure" },
-  { code: "E0211", severity: "error", crate: "liyasa-markdown", title: "`env()` used with a variable not allow-listed in `build.env`" },
-  { code: "E0212", severity: "error", crate: "liyasa-markdown", title: "Private-use Unicode character in content (reserved for expansion sentinels)" },
-  { code: "E0213", severity: "error", crate: "liyasa-markdown", title: "`link()` or `page()` names a page that does not exist" },
-  { code: "E0214", severity: "error", crate: "liyasa-markdown", title: "`asset()` names a file the build did not produce" },
-  { code: "E0215", severity: "error", crate: "liyasa-markdown", title: "`openapi()` names a spec or an operation that does not exist" },
-  { code: "E0216", severity: "error", crate: "liyasa-markdown", title: "Template asked for a build value this build did not supply (`now()`, `region_available()`)" },
-  { code: "E0301", severity: "error", crate: "liyasa-markdown", title: "Unclosed code fence" },
-  { code: "E0303", severity: "error", crate: "liyasa-markdown", title: "Raw HTML disabled by config" },
-  { code: "E0304", severity: "error", crate: "liyasa-markdown", title: "HTML element or attribute not allowed by the sanitizer" },
-  { code: "E0305", severity: "error", crate: "liyasa-markdown", title: "Image without alt text" },
-  { code: "E0307", severity: "error", crate: "liyasa-markdown", title: "Page Markdown exceeds 100,000 characters" },
-  { code: "E0310", severity: "error", crate: "liyasa-markdown", title: "Container directive not closed" },
-  { code: "E0311", severity: "error", crate: "liyasa-markdown", title: "Directive close without matching open" },
-  { code: "E0312", severity: "error", crate: "liyasa-markdown", title: "Directive prop syntax error" },
-  { code: "E0313", severity: "error", crate: "liyasa-markdown", title: "Unknown component (with suggestion)" },
-  { code: "E0314", severity: "error", crate: "liyasa-markdown", title: "Missing required prop" },
-  { code: "E0315", severity: "error", crate: "liyasa-markdown", title: "Prop type mismatch" },
-  { code: "E0317", severity: "error", crate: "liyasa-markdown", title: "Directive inside an inline context" },
-  { code: "E0318", severity: "error", crate: "liyasa-markdown", title: "Explicit block ID duplicated on the page" },
-  { code: "E0320", severity: "error", crate: "liyasa-markdown", title: "Untrusted (below `operator`) value contains a line break and was rejected from interpolation" },
-  { code: "E0322", severity: "error", crate: "liyasa-markdown", title: "Page nests blocks or inlines deeper than the parser will walk" },
-  { code: "E0350", severity: "error", crate: "liyasa-components", title: "Component slot not recognized" },
-  { code: "E0351", severity: "error", crate: "liyasa-components", title: "User component template error" },
-  { code: "E0352", severity: "error", crate: "liyasa-components", title: "User component prop schema invalid" },
-  { code: "E0353", severity: "error", crate: "liyasa-components", title: "Component prop URL uses a scheme the sanitizer does not permit" },
-  { code: "E0354", severity: "error", crate: "liyasa-components", title: "Component child not allowed by the parent component" },
-  { code: "E0356", severity: "error", crate: "liyasa-components", title: "User component file is not a valid component definition" },
-  { code: "E0357", severity: "error", crate: "liyasa-components", title: "Embed provider is not in the allow list" },
-  { code: "E0401", severity: "error", crate: "liyasa-build", title: "Broken internal link" },
-  { code: "E0402", severity: "error", crate: "liyasa-build", title: "Broken heading anchor" },
-  { code: "E0403", severity: "error", crate: "liyasa-build", title: "Missing image or asset" },
-  { code: "E0407", severity: "error", crate: "liyasa-build", title: "Generated agent resource declares its continuation as a trailing note instead of an opening header" },
-  { code: "E0501", severity: "error", crate: "liyasa-openapi", title: "OpenAPI document invalid (JSON pointer)" },
-  { code: "E0502", severity: "error", crate: "liyasa-openapi", title: "Unresolvable `$ref`" },
-  { code: "E0503", severity: "error", crate: "liyasa-openapi", title: "Spec source unreachable (with DNS, TLS, or policy detail)" },
-  { code: "E0504", severity: "error", crate: "liyasa-openapi", title: "Unsupported OpenAPI version" },
-  { code: "E0505", severity: "error", crate: "liyasa-openapi", title: "Duplicate operation ID" },
-  { code: "E0506", severity: "error", crate: "liyasa-openapi", title: "Operation referenced in navigation not found in spec" },
-  { code: "E0507", severity: "error", crate: "liyasa-openapi", title: "Overlay failed to apply" },
-  { code: "E0508", severity: "error", crate: "liyasa-openapi", title: "`allOf` members conflict (type, enum, or bounds)" },
-  { code: "E0601", severity: "error", crate: "liyasa-verify", title: "Verification check failed" },
-  { code: "E0602", severity: "error", crate: "liyasa-verify", title: "Runner not available for language" },
-  { code: "E0603", severity: "error", crate: "liyasa-verify", title: "Runner timed out" },
-  { code: "E0604", severity: "error", crate: "liyasa-verify", title: "Fact source refresh failed" },
-  { code: "E0605", severity: "error", crate: "liyasa-verify", title: "Fact schema validation failed" },
-  { code: "E0606", severity: "error", crate: "liyasa-verify", title: "Manual attestation expired" },
-  { code: "E0607", severity: "error", crate: "liyasa-verify", title: "Drift detected (severity in payload)" },
-  { code: "E0608", severity: "error", crate: "liyasa-verify", title: "Screenshot mismatch beyond tolerance" },
-  { code: "E0609", severity: "error", crate: "liyasa-verify", title: "`verify` fence attribute is not a value Liyasa can read" },
-  { code: "E0610", severity: "error", crate: "liyasa-verify", title: "Runner image is not pinned to a digest" },
-  { code: "E0611", severity: "error", crate: "liyasa-verify", title: "`remote` sandbox has no runner service configured" },
-  { code: "E0612", severity: "error", crate: "liyasa-verify", title: "The sandbox could not run the check" },
-  { code: "E0613", severity: "error", crate: "liyasa-verify", title: "`verify.runners.custom` entry cannot be used" },
-  { code: "E0614", severity: "error", crate: "liyasa-verify", title: "`verify-chain` steps cannot run as one chain" },
-  { code: "E0620", severity: "error", crate: "liyasa-verify", title: "`local` sandbox rejected by the server" },
-  { code: "E0621", severity: "error", crate: "liyasa-verify", title: "`command` source not in the server allow list or hash mismatch" },
-  { code: "E0633", severity: "error", crate: "liyasa-verify", title: "Prose rule package could not be read" },
-  { code: "E0634", severity: "error", crate: "liyasa-verify", title: "`verify.policy` names a check class Liyasa does not know" },
-  { code: "E0635", severity: "error", crate: "liyasa-verify", title: "`verify` setting is not a value Liyasa can read" },
-  { code: "E0637", severity: "error", crate: "liyasa-verify", title: "Staging credential could not be resolved; the request was not sent" },
-  { code: "E0701", severity: "error", crate: "liyasa-build", title: "Build failed (aggregate)" },
-  { code: "E0703", severity: "error", crate: "liyasa-build", title: "Asset processing failed" },
-  { code: "E0704", severity: "error", crate: "liyasa-build", title: "Font download failed at build" },
-  { code: "E0705", severity: "error", crate: "liyasa-build", title: "Template budget exceeded for the build" },
-  { code: "E0706", severity: "error", crate: "liyasa-build", title: "Non-deterministic output detected by `--check-determinism`" },
-  { code: "E0711", severity: "error", crate: "liyasa-build", title: "Site exceeds the total variant cap" },
-  { code: "E0712", severity: "error", crate: "liyasa-build", title: "Variant discovery did not converge within `build.variantDiscoveryIterations`" },
-  { code: "E0717", severity: "error", crate: "liyasa-build", title: "Dynamic include or snippet name on a page that is not rendered on demand" },
-  { code: "E0721", severity: "error", crate: "liyasa-build", title: "Served HTML response exceeds 10 MB, above documented agent fetch-buffer caps" },
-  { code: "E0722", severity: "error", crate: "liyasa-build", title: "CSP source in `security.csp` or `network.allowHosts.embeds` is not a source expression" },
-  { code: "E0801", severity: "error", crate: "liyasa-server", title: "Domain verification failed" },
-  { code: "E0802", severity: "error", crate: "liyasa-server", title: "Certificate issuance failed" },
-  { code: "E0803", severity: "error", crate: "liyasa-server", title: "Auth provider configuration invalid" },
-  { code: "E0804", severity: "error", crate: "liyasa-server", title: "Deployment failed" },
-  { code: "E0805", severity: "error", crate: "liyasa-server", title: "Rollback target not retained" },
-  { code: "E0806", severity: "error", crate: "liyasa-server", title: "Outbound request blocked by network policy (host, address class, or redirect)" },
-  { code: "E0807", severity: "error", crate: "liyasa-server", title: "Rate limit exceeded (returned as 429)" },
-  { code: "E0808", severity: "error", crate: "liyasa-server", title: "Webhook signature, timestamp, or delivery ID rejected" },
-  { code: "E0809", severity: "error", crate: "liyasa-server", title: "Build queue full; job rejected or deferred" },
-  { code: "E0810", severity: "error", crate: "liyasa-server", title: "Dynamic page render exceeded the request-path budget; default variant served" },
-  { code: "E0812", severity: "error", crate: "liyasa-server", title: "Uploaded asset rejected (type not allowed or SVG sanitization failed)" },
-  { code: "E0814", severity: "error", crate: "liyasa-server", title: "Domain is claimed by another project" },
-  { code: "E0815", severity: "error", crate: "liyasa-server", title: "Domain base path is not a subpath" },
-  { code: "E0901", severity: "error", crate: "liyasa-ai", title: "Model provider error" },
-  { code: "E0902", severity: "error", crate: "liyasa-ai", title: "Model budget exceeded for the run" },
-  { code: "E0903", severity: "error", crate: "liyasa-ai", title: "Agent tool rejected by policy (trust level)" },
-  { code: "E0904", severity: "error", crate: "liyasa-ai", title: "Proposal rejected by output gate (reason)" },
-  { code: "E0905", severity: "error", crate: "liyasa-ai", title: "Automation trigger payload failed validation" },
-  { code: "E1002", severity: "error", crate: "liyasa-search", title: "Search index format is newer than this reader understands" },
-  { code: "E1003", severity: "error", crate: "liyasa-search", title: "Search index is truncated or corrupt" },
-  { code: "E1004", severity: "error", crate: "liyasa-search", title: "Search query is not well-formed (unbalanced quote or unknown field filter)" },
-  { code: "E1006", severity: "error", crate: "liyasa-search", title: "CJK dictionary not installed for this locale (`liyasa add dictionary <lang>`)" },
-  { code: "E1101", severity: "error", crate: "liyasa-import", title: "Source directory is not a documentation project this importer recognizes" },
-  { code: "E1102", severity: "error", crate: "liyasa-import", title: "Cannot read a file from the source project" },
-  { code: "E1103", severity: "error", crate: "liyasa-import", title: "Cannot write into the destination directory, or the file already exists" },
-  { code: "E1104", severity: "error", crate: "liyasa-import", title: "Source configuration file is not valid JSON or YAML" },
-  { code: "E1105", severity: "error", crate: "liyasa-import", title: "JavaScript configuration is not a literal object; run the generated Node script and import its JSON" },
-  { code: "E1200", severity: "error", crate: "liyasa-wasm", title: "Editor session request is not valid (nonce or site metadata)" },
-  { code: "W0015", severity: "warning", crate: "liyasa-cli", title: "Companion runtime version differs from the one `liyasa.lock` records" },
-  { code: "W0017", severity: "warning", crate: "liyasa-cli", title: "Remote OpenAPI source was not checked; this build has no network client" },
-  { code: "W0018", severity: "warning", crate: "liyasa-cli", title: "External links were not checked; this build has no network client" },
-  { code: "W0019", severity: "warning", crate: "liyasa-cli", title: "A verification check class could not run in this build" },
-  { code: "W0020", severity: "warning", crate: "liyasa-cli", title: "Form control has no accessible name" },
-  { code: "W0130", severity: "warning", crate: "liyasa-config", title: "Page not reachable from navigation" },
-  { code: "W0131", severity: "warning", crate: "liyasa-config", title: "No `seo.canonicalOrigin`; absolute URLs cannot be generated" },
-  { code: "W0134", severity: "warning", crate: "liyasa-config", title: "Trust-plane section read from the deploy branch, not from the branch being built" },
-  { code: "W0136", severity: "warning", crate: "liyasa-config", title: "`seo.canonicalOrigin` already carries `build.basePath`, so every absolute URL doubles it" },
-  { code: "W0302", severity: "warning", crate: "liyasa-markdown", title: "Unknown code fence attribute" },
-  { code: "W0306", severity: "warning", crate: "liyasa-markdown", title: "Heading level skipped" },
-  { code: "W0308", severity: "warning", crate: "liyasa-markdown", title: "Page Markdown exceeds 50,000 characters" },
-  { code: "W0316", severity: "warning", crate: "liyasa-markdown", title: "Unknown prop" },
-  { code: "W0319", severity: "warning", crate: "liyasa-markdown", title: "Literal directive marker prefix (`<!--ly:`) found in source; escaped" },
-  { code: "W0321", severity: "warning", crate: "liyasa-markdown", title: "Machine-generated bulk elements dominate an oversized page (spec check `embedded-data-serialization`)" },
-  { code: "W0355", severity: "warning", crate: "liyasa-components", title: "Component prop ignored because another prop takes precedence" },
-  { code: "W0358", severity: "warning", crate: "liyasa-components", title: "Component prop value is outside the range the schema documents" },
-  { code: "W0404", severity: "warning", crate: "liyasa-build", title: "External link unreachable at build time (scheduled checks escalate to drift)" },
-  { code: "W0405", severity: "warning", crate: "liyasa-build", title: "Link text is non-descriptive" },
-  { code: "W0406", severity: "warning", crate: "liyasa-build", title: "Link in Markdown output is not absolute; agent pipelines lose the base URL" },
-  { code: "W0408", severity: "warning", crate: "liyasa-build", title: "Custom `llms.txt` links to a route the build cannot resolve" },
-  { code: "W0409", severity: "warning", crate: "liyasa-build", title: "`llms.txt` does not cover every indexable page" },
-  { code: "W0410", severity: "warning", crate: "liyasa-build", title: "Implemented spec check set differs from the tracked `agents.specVersion`" },
-  { code: "W0411", severity: "warning", crate: "liyasa-build", title: "Agent-readiness run reports an interaction effect rather than the underlying check failures" },
-  { code: "W0412", severity: "warning", crate: "liyasa-build", title: "Agent-readiness run computed from a partial sample; more than 20% of page fetches failed" },
-  { code: "W0509", severity: "warning", crate: "liyasa-openapi", title: "Swagger 2.0 document converted to OpenAPI 3.1" },
-  { code: "W0510", severity: "warning", crate: "liyasa-openapi", title: "Operation has no example for its request or response body" },
-  { code: "W0511", severity: "warning", crate: "liyasa-openapi", title: "Spec feature not rendered by this release" },
-  { code: "W0512", severity: "warning", crate: "liyasa-openapi", title: "Overlay action matched nothing in the spec" },
-  { code: "W0513", severity: "warning", crate: "liyasa-openapi", title: "Manual API page differs from the spec that describes the same path" },
-  { code: "W0622", severity: "warning", crate: "liyasa-verify", title: "Verification deploy budget exceeded; remaining checks queued" },
-  { code: "W0630", severity: "warning", crate: "liyasa-verify", title: "Page has no `description`" },
-  { code: "W0631", severity: "warning", crate: "liyasa-verify", title: "Prose lint rule matched" },
-  { code: "W0632", severity: "warning", crate: "liyasa-verify", title: "Word is not in the project dictionary" },
-  { code: "W0636", severity: "warning", crate: "liyasa-verify", title: "Prose rules Liyasa does not implement did not run" },
-  { code: "W0702", severity: "warning", crate: "liyasa-build", title: "Cache corrupted; rebuilt" },
-  { code: "W0707", severity: "warning", crate: "liyasa-build", title: "Build clock fell back to the wall clock; build is not reproducible" },
-  { code: "W0710", severity: "warning", crate: "liyasa-build", title: "Page exceeds the per-page variant cap and is marked dynamic" },
-  { code: "W0713", severity: "warning", crate: "liyasa-build", title: "Page has no `id`; block references will be keyed by route until one is added" },
-  { code: "W0714", severity: "warning", crate: "liyasa-build", title: "Image dimensions unknown; layout shift possible" },
-  { code: "W0715", severity: "warning", crate: "liyasa-build", title: "Page is rendered on demand because it reads free-form `reader.*` fields" },
-  { code: "W0716", severity: "warning", crate: "liyasa-build", title: "`theme.fonts.subset` requested but subsetting is not available in this release" },
-  { code: "W0718", severity: "warning", crate: "liyasa-build", title: "Build cache invalidated because an allow-listed environment variable's value changed" },
-  { code: "W0719", severity: "warning", crate: "liyasa-build", title: "New remote image or media host added to the CSP from content" },
-  { code: "W0720", severity: "warning", crate: "liyasa-build", title: "Served HTML response exceeds 1 MB (spec check `page-size-transfer` warn band)" },
-  { code: "W0723", severity: "warning", crate: "liyasa-build", title: "Pages in a reserved directory are not routed" },
-  { code: "W0811", severity: "warning", crate: "liyasa-server", title: "Ingest queue dropped events" },
-  { code: "W0813", severity: "warning", crate: "liyasa-server", title: "Bot-protection interference observed during a sustained agent-readiness scan" },
-  { code: "W0906", severity: "warning", crate: "liyasa-ai", title: "Embedding model changed; full re-index scheduled" },
-  { code: "W1001", severity: "warning", crate: "liyasa-search", title: "Locale has no Snowball algorithm; indexed without stemming" },
-  { code: "W1005", severity: "warning", crate: "liyasa-search", title: "`search.boost` or `search.exclude` pattern matched no route" },
-  { code: "W1110", severity: "warning", crate: "liyasa-import", title: "Component has no Liyasa equivalent and needs manual attention" },
-  { code: "W1111", severity: "warning", crate: "liyasa-import", title: "JavaScript expression left in the page for manual attention" },
-  { code: "W1112", severity: "warning", crate: "liyasa-import", title: "`import` or `export` statement dropped; move shared content into `snippets/`" },
-  { code: "W1113", severity: "warning", crate: "liyasa-import", title: "Source configuration key has no Liyasa equivalent and was not carried" },
-  { code: "W1114", severity: "warning", crate: "liyasa-import", title: "Navigation entry names a page that is not in the source project" },
-  { code: "W1115", severity: "warning", crate: "liyasa-import", title: "Page route changed; a redirect from the old URL was generated" },
-  { code: "W1116", severity: "warning", crate: "liyasa-import", title: "Converted page does not scan as Liyasa Markdown and needs manual attention" },
-  { code: "W1201", severity: "warning", crate: "liyasa-wasm", title: "Page too large to preview in the browser; rendered by the preview endpoint" },
-];
-
 // ED-73: what a validation failure says to somebody who does not write code,
 // and what the editor can do about it.
 //
 // The text lives here rather than in `codes.toml` — RFC 2432 records why: the
 // registry has no plain-language field, no fix marker, and is append-only for
-// every package. `src/code-list.ts` is generated from the registry by
-// `tests/editor/ed_73_messages.rs`, and `test/messages.test.ts` asserts in
-// both directions that this table and that list agree.
+// every package. `test/messages.test.ts` reads `codes.toml` itself and asserts,
+// in both directions, that this table covers every code an editor-reachable
+// crate raises and names no code the registry does not have.
+//
+// **Nothing here is generated.** An earlier version imported a `code-list.ts`
+// generated from the registry and pinned by a Rust test; RFC 2433 records why
+// that was wrong. The short version: the only thing the editor wanted the
+// registry for at run time was a title to show when a code has no entry below,
+// and a `Diagnostic` already carries its own `message`, which is more specific
+// than the registry title for exactly the codes that reach this fallback.
 //
 // Three rules the wording follows:
 //
@@ -4881,31 +4667,42 @@ const MESSAGES                               = {
   W1201: { plain: "This page is too big to preview here, so the preview is being built on the server instead.", fix: { label: "Preview on the server", action: "preview-on-server" } },
 };
 
-/** Every code an editor-reachable crate raises. */
-function editorCodes()              {
-  return CODES.filter((entry) => EDITOR_CRATES.includes(entry.crate));
+/**
+ * The plain-language message for a code, or `null`.
+ *
+ * `null` rather than a guess. A caller that has a `Diagnostic` in hand has its
+ * `message` too, and showing that is better than the editor inventing a
+ * friendly sentence for a code nobody wrote one for.
+ */
+function messageFor(code        )                      {
+  return MESSAGES[code] ?? null;
 }
 
 /**
- * What to show for a code.
+ * What the problems pane shows for one diagnostic.
  *
- * A code with no plain-language text falls back to its registry title and says
- * nothing else. Inventing a friendly sentence for a code nobody wrote one for
- * would be the editor making something up.
+ * The headline is ED-73's plain language when there is any, and the
+ * diagnostic's own message otherwise. `detail` is the diagnostic's message
+ * when a plain headline is showing and it adds something the headline cannot —
+ * which field, which prop, which file.
  */
-function messageFor(code        )                                                      {
-  const entry = CODES.find((candidate) => candidate.code === code);
-  const title = entry?.title ?? code;
-  const plain = MESSAGES[code];
-  if (!plain) return { title, plain: title, hasPlain: false };
-  return { ...plain, title, hasPlain: true };
-}
-
-/** Codes the editor can meet and has no plain-language text for. */
-function uncovered()           {
-  return editorCodes()
-    .map((entry) => entry.code)
-    .filter((code) => MESSAGES[code] === undefined);
+function shownFor(diagnostic                                   )   
+                   
+                        
+                                  
+                    
+  {
+  const plain = messageFor(diagnostic.code);
+  const message = diagnostic.message.trim();
+  if (!plain) {
+    return { headline: message === "" ? diagnostic.code : message, detail: null, fix: null, hasPlain: false };
+  }
+  return {
+    headline: plain.plain,
+    detail: message === "" || message === plain.plain ? null : message,
+    fix: plain.fix ?? null,
+    hasPlain: true,
+  };
 }
 
 // The WebAssembly session, and ED-07's resolve loop.
@@ -5197,20 +4994,24 @@ function helpLink(url        )                {
  * own message underneath when it says something the headline cannot — which
  * field, which prop, which file. The headline alone would tell an author that
  * "a setting has the wrong kind of value" without saying which setting.
+ *
+ * A code with no plain-language entry — a build-side one reaching this pane
+ * through a preview or a verification result — shows its own message as the
+ * headline. That is more specific than the registry title the editor used to
+ * look up, and it needs nothing derived from `codes.toml` (RFC 2433).
  */
 function renderProblems(source        , diagnostics                                        )           {
   const placed = placeDiagnostics(source, diagnostics);
   if (placed.length === 0) return html`<p class="empty">No problems found.</p>`;
   return html`<ul class="problems">
     ${placed.map((entry) => {
-      const shown = messageFor(entry.diagnostic.code);
-      const detail = entry.diagnostic.message.trim();
+      const shown = shownFor(entry.diagnostic);
       const link = helpLink(entry.diagnostic.url);
       return html`<li class="problem problem-${entry.diagnostic.severity}">
         <span class="where">Line ${entry.from.line}</span>
         <span class="what">
-          ${shown.plain}
-          ${detail === "" || detail === shown.title ? null : html`<span class="detail">${detail}</span>`}
+          ${shown.headline}
+          ${shown.detail === null ? null : html`<span class="detail">${shown.detail}</span>`}
         </span>
         ${shown.fix ? html`<button type="button" data-fix="${shown.fix.action}">${shown.fix.label}</button>` : null}
         ${link

@@ -52,23 +52,59 @@ test("the surface renders one element per block and per unmodelled node", () => 
 });
 
 test("a problem shows the plain-language message, and the detail beneath it", () => {
+  // The message is the one the raiser actually writes:
+  // `liyasa_build::media::accept` says which file, and every crate that raises
+  // a diagnostic adds specifics like this. The plain-language headline cannot
+  // know them, which is why both lines are shown.
   const diagnostics: Diagnostic[] = [
     {
       code: "E0305",
       severity: "error",
-      message: "Image without alt text",
+      message: "`dashboard.png` was uploaded without alt text",
       span: { source: 0, start: 6, end: 10 },
       url: "https://kasecrab.github.io/liyasa/docs/errors/E0305",
     },
   ];
   const markup = String(renderProblems("first\nsecond\n", diagnostics));
   assert.match(markup, /This image is missing a description for screen readers/);
-  // The diagnostic's message here *is* the registry title, so it adds nothing
-  // and is not repeated underneath.
-  assert.ok(!markup.includes('class="detail"'), "a message that repeats the title is not shown twice");
+  assert.match(markup, /<span class="detail">`dashboard.png` was uploaded without alt text<\/span>/);
   assert.match(markup, /Line 2/);
   assert.match(markup, /data-fix="add-alt-text"/);
   assert.match(markup, /class="problem problem-error"/);
+});
+
+test("a message that only repeats the headline is not shown twice", () => {
+  const markup = String(
+    renderProblems("body\n", [
+      {
+        code: "E0305",
+        severity: "error",
+        message:
+          "This image is missing a description for screen readers. Say what the image shows, not that it is a screenshot.",
+        url: "https://kasecrab.github.io/liyasa/docs/errors/E0305",
+      },
+    ]),
+  );
+  assert.ok(!markup.includes('class="detail"'));
+});
+
+test("a code with no plain-language entry shows its own message as the headline", () => {
+  // A build-side diagnostic reaching this pane through a preview or a
+  // verification result. RFC 2433: this is what replaced the generated
+  // registry copy, and it says more than the registry title did.
+  const markup = String(
+    renderProblems("body\n", [
+      {
+        code: "E0701",
+        severity: "error",
+        message: "the build wrote two files to `out/index.html`",
+        url: "https://kasecrab.github.io/liyasa/docs/errors/E0701",
+      },
+    ]),
+  );
+  assert.match(markup, /the build wrote two files to `out\/index.html`/);
+  assert.ok(!markup.includes('class="detail"'), "the message is the headline, not repeated beneath it");
+  assert.ok(!markup.includes("<button"), "and there is no fix the editor could perform");
 });
 
 test("a problem with no fix shows no button rather than a dead one", () => {
