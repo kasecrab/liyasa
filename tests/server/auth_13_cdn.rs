@@ -14,7 +14,13 @@ use liyasa_core::ids::{BuildId, Fingerprint, Locale, PageId, Version};
 use liyasa_server::auth::variant::{CacheKey, Entry, ReaderFields, VariantCache};
 use liyasa_tests::cdn::{Cdn, Hit, Request, Response};
 
-const URL: &str = "https://docs.example.com/guides/install";
+/// A page whose variants are enumerable and shared between readers of the
+/// same variant, and a page that is rendered for one reader. They are
+/// different pages, as they are in a real site: a shared cache keys on the
+/// URL, so putting both at one URL would be testing the fixture rather than
+/// the key.
+const SHARED_URL: &str = "https://docs.example.com/guides/install";
+const PERSONAL_URL: &str = "https://docs.example.com/account/overview";
 
 fn build(seed: &str) -> BuildId {
     BuildId(Fingerprint::of(seed))
@@ -59,8 +65,8 @@ impl Reader {
         }
     }
 
-    fn request(&self) -> Request {
-        Request::new(URL)
+    fn request(&self, url: &str) -> Request {
+        Request::new(url)
             .header("x-liyasa-version", self.version)
             .header("x-liyasa-locale", self.locale)
             .header("x-liyasa-product", self.product)
@@ -110,6 +116,7 @@ struct Origin {
     page: PageId,
     cache: VariantCache,
     on_demand: bool,
+    url: &'static str,
 }
 
 impl Origin {
@@ -117,6 +124,10 @@ impl Origin {
         Self {
             page: PageId(liyasa_store::new_ulid()),
             cache: VariantCache::new(NonZeroUsize::new(256).expect("a capacity")),
+            url: match on_demand {
+                true => PERSONAL_URL,
+                false => SHARED_URL,
+            },
             on_demand,
         }
     }
@@ -177,14 +188,14 @@ fn a_variant_page_through_the_cdn_never_serves_one_reader_another_reader_s_varia
     for (component, other) in readers_differing_in_one_component() {
         // A fresh CDN per component, so a hit can only come from this pair.
         let cdn = Cdn::new();
-        let first = cdn.fetch(&base.request(), |r| {
+        let first = cdn.fetch(&base.request(origin.url), |r| {
             let _ = r;
             origin.serve(&base)
         });
         assert_eq!(cdn.last(), Hit::Miss);
         assert_eq!(first.body, origin.expected_body(&base));
 
-        let second = cdn.fetch(&other.request(), |r| {
+        let second = cdn.fetch(&other.request(origin.url), |r| {
             let _ = r;
             origin.serve(&other)
         });
@@ -211,7 +222,7 @@ fn an_on_demand_page_is_never_stored_in_the_shared_cache_at_all() {
     let base = Reader::base();
     let cdn = Cdn::new();
 
-    let first = cdn.fetch(&base.request(), |_| origin.serve(&base));
+    let first = cdn.fetch(&base.request(origin.url), |_| origin.serve(&base));
     assert_eq!(
         cdn.last(),
         Hit::Uncacheable,
@@ -222,7 +233,7 @@ fn an_on_demand_page_is_never_stored_in_the_shared_cache_at_all() {
 
     // Every other reader goes to the origin and gets their own rendering.
     for (component, other) in readers_differing_in_one_component() {
-        let response = cdn.fetch(&other.request(), |_| origin.serve(&other));
+        let response = cdn.fetch(&other.request(origin.url), |_| origin.serve(&other));
         assert_eq!(cdn.last(), Hit::Uncacheable, "{component}");
         assert_eq!(response.body, origin.expected_body(&other), "{component}");
         assert_ne!(response.body, first.body, "{component}");
@@ -241,12 +252,14 @@ fn a_deploy_purge_never_causes_a_private_response_to_be_served_from_the_shared_c
     };
     let cdn = Cdn::new();
 
-    let public_body = cdn.fetch(&reader.request(), |_| shared.serve(&reader)).body;
+    let public_body = cdn
+        .fetch(&reader.request(shared.url), |_| shared.serve(&reader))
+        .body;
     assert_eq!(cdn.last(), Hit::Miss);
     assert_eq!(cdn.len(), 1);
 
     let personal_body = cdn
-        .fetch(&reader.request(), |_| personal.serve(&reader))
+        .fetch(&reader.request(personal.url), |_| personal.serve(&reader))
         .body;
     assert_eq!(
         cdn.last(),
@@ -267,7 +280,7 @@ fn a_deploy_purge_never_causes_a_private_response_to_be_served_from_the_shared_c
 
     // After the purge, the next reader is served from the origin — and the
     // body they get is theirs, not the private one that was in flight.
-    let after = cdn.fetch(&other.request(), |_| personal.serve(&other));
+    let after = cdn.fetch(&other.request(personal.url), |_| personal.serve(&other));
     assert_eq!(cdn.last(), Hit::Uncacheable);
     assert_eq!(after.body, personal.expected_body(&other));
     assert_ne!(
@@ -285,12 +298,12 @@ fn a_purge_of_another_builds_tag_leaves_this_builds_entries_alone() {
     let origin = Origin::new(false);
     let reader = Reader::base();
     let cdn = Cdn::new();
-    cdn.fetch(&reader.request(), |_| origin.serve(&reader));
+    cdn.fetch(&reader.request(origin.url), |_| origin.serve(&reader));
     assert_eq!(cdn.len(), 1);
 
     assert_eq!(cdn.purge_tag("build-somebody-elses"), 0);
     assert_eq!(cdn.len(), 1);
-    cdn.fetch(&reader.request(), |_| origin.serve(&reader));
+    cdn.fetch(&reader.request(origin.url), |_| origin.serve(&reader));
     assert_eq!(cdn.last(), Hit::Hit);
 }
 
