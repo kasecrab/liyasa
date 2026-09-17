@@ -9,12 +9,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use liyasa_core::diagnostics::Diagnostics;
+use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use liyasa_core::frontmatter::{AiSetting, FrontmatterFields, SearchSetting};
 use liyasa_core::ids::{Fingerprint, Route, Version};
 use liyasa_core::source_map::SourceMap;
 use liyasa_core::vfs::{Vfs, VfsKind, VfsPath};
-use liyasa_markdown::source::route::{Ignore, PAGE_EXTENSIONS, is_routable, route_of};
+use liyasa_markdown::source::route::{
+    Ignore, PAGE_EXTENSIONS, RESERVED_DIRECTORIES, is_routable, route_of,
+};
 
 /// `.liyasaignore` (CM-83): excluded from the build, search, AI indexing, and
 /// `llms.txt`.
@@ -156,6 +158,8 @@ pub fn discover(vfs: &dyn Vfs, map: &mut SourceMap, options: &Options) -> Tree {
     files.sort();
 
     let mut tree = Tree::default();
+    // Directory that reserved it, to the pages it swallowed (W0723).
+    let mut swallowed: BTreeMap<String, Vec<VfsPath>> = BTreeMap::new();
     for path in files {
         if ignore.matches(&path) {
             tree.ignored.push(path);
@@ -169,6 +173,15 @@ pub fn discover(vfs: &dyn Vfs, map: &mut SourceMap, options: &Options) -> Tree {
                 map.intern(path.clone(), text);
                 tree.snippets.insert(path.as_str().to_owned(), fingerprint);
             }
+            if path
+                .extension()
+                .is_some_and(|extension| PAGE_EXTENSIONS.contains(&extension))
+            {
+                swallowed
+                    .entry(SNIPPET_DIR.to_owned())
+                    .or_default()
+                    .push(path);
+            }
             continue;
         }
         if is_asset(&path) {
@@ -178,6 +191,13 @@ pub fn discover(vfs: &dyn Vfs, map: &mut SourceMap, options: &Options) -> Tree {
             continue;
         }
         if !is_routable(&path, &Ignore::default()) {
+            if path
+                .extension()
+                .is_some_and(|extension| PAGE_EXTENSIONS.contains(&extension))
+                && let Some(segment) = reserved_segment(&path)
+            {
+                swallowed.entry(segment).or_default().push(path);
+            }
             continue;
         }
         let Ok(bytes) = vfs.read(&path) else { continue };
@@ -213,7 +233,50 @@ pub fn discover(vfs: &dyn Vfs, map: &mut SourceMap, options: &Options) -> Tree {
             draft,
         });
     }
+    for (segment, paths) in swallowed {
+        tree.diagnostics.push(reserved_warning(&segment, &paths));
+    }
     tree
+}
+
+/// One warning per reserved directory, naming how many pages it holds rather
+/// than repeating itself per file.
+fn reserved_warning(segment: &str, paths: &[VfsPath]) -> Diagnostic {
+    let listed: Vec<&str> = paths.iter().take(3).map(|path| path.as_str()).collect();
+    let rest = paths.len().saturating_sub(listed.len());
+    let examples = match rest {
+        0 => listed.join(", "),
+        more => format!("{}, and {more} more", listed.join(", ")),
+    };
+    Diagnostic::new(
+        code::W0723,
+        format!(
+            "`{segment}/` holds {} page(s) that are not routed: {examples}",
+            paths.len()
+        ),
+    )
+    .help("move the file under a content directory, or leave it if it is meant to be included rather than served")
+}
+
+/// The segment that makes a path non-routable, if one does (CM-03).
+///
+/// A file under one of these is consumed by the build rather than served, so a
+/// `.md` there is content the site never shows — which is worth saying, because
+/// nothing else in the output hints that the file existed.
+fn reserved_segment(path: &VfsPath) -> Option<String> {
+    let segments: Vec<&str> = path.as_str().split('/').collect();
+    // The last segment is the file; only the directories it sits in reserve it,
+    // except for the `_` convention, which applies to the file name too.
+    for (at, segment) in segments.iter().enumerate() {
+        let is_directory = at + 1 < segments.len();
+        if segment.starts_with('_') {
+            return Some((*segment).to_owned());
+        }
+        if is_directory && RESERVED_DIRECTORIES.contains(segment) {
+            return Some((*segment).to_owned());
+        }
+    }
+    None
 }
 
 /// Whether a file is an includable fragment rather than content of its own

@@ -168,3 +168,87 @@ fn ai_true_puts_a_hidden_page_back_in_the_agent_surfaces() {
     let sitemap = project.read_dist("sitemap.xml");
     assert!(!sitemap.contains("/internal/for-agents"), "{sitemap}");
 }
+
+// ---- W0723: a reserved directory swallows a page ----
+
+/// CM-03 reserves several directory names, and a `.md` in one of them is not a
+/// page: no route, no navigation, no sitemap, nothing in `dist/`. The
+/// reservation is right; saying nothing about it is not.
+#[test]
+fn a_page_in_a_reserved_directory_is_reported_once() {
+    let project = Project::new("reserved");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","seo":{"canonicalOrigin":"https://docs.acme.com"}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n")
+        .write("snippets/pricing.md", "A shared fragment.\n")
+        .write("snippets/legal.md", "Another one.\n")
+        .write("components/card.md", "---\ntitle: Card\n---\n# Card\n")
+        .write("facts/pricing.md", "---\ntitle: Facts\n---\n# Facts\n")
+        .write("theme/notes.md", "---\ntitle: Theme\n---\n# Theme\n")
+        .write("assets/manual.md", "---\ntitle: Manual\n---\n# Manual\n")
+        .write("_drafts/next.md", "---\ntitle: Next\n---\n# Next\n");
+
+    let report = build(&project);
+    let warnings: Vec<&str> = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code.as_str() == "W0723")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect();
+
+    // One per directory, not one per file: `snippets/` holds two.
+    assert_eq!(warnings.len(), 6, "{warnings:#?}");
+    for name in [
+        "snippets",
+        "components",
+        "facts",
+        "theme",
+        "assets",
+        "_drafts",
+    ] {
+        assert!(
+            warnings.iter().any(|message| message.contains(name)),
+            "{name} is not named in {warnings:#?}"
+        );
+    }
+    assert!(
+        warnings
+            .iter()
+            .any(|message| message.contains("snippets") && message.contains('2')),
+        "the count says how many were swallowed: {warnings:#?}"
+    );
+
+    // The reservation itself is unchanged: none of them is routed.
+    assert_eq!(report.pages, 1);
+}
+
+/// `public/` is an asset directory whose Markdown *is* routed today — the walk
+/// treats a page extension there as content. That is visible rather than
+/// silent, so it raises nothing; this pins the difference so a later change to
+/// either half is deliberate.
+#[test]
+fn a_page_under_public_is_routed_and_raises_nothing() {
+    let project = Project::new("public");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","seo":{"canonicalOrigin":"https://docs.acme.com"}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n")
+        .write("public/guide.md", "---\ntitle: Guide\n---\n# Guide\n");
+
+    let report = build(&project);
+    assert_eq!(report.pages, 2);
+    assert!(
+        !report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code.as_str() == "W0723"),
+        "{:?}",
+        report.diagnostics
+    );
+    assert!(project.dist("public/guide/index.html").exists());
+}

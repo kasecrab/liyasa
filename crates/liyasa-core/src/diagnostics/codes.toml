@@ -220,3 +220,4 @@ W1113 = { severity = "warning", crate = "liyasa-import", title = "Source configu
 W1114 = { severity = "warning", crate = "liyasa-import", title = "Navigation entry names a page that is not in the source project" }
 W1115 = { severity = "warning", crate = "liyasa-import", title = "Page route changed; a redirect from the old URL was generated" }
 W1116 = { severity = "warning", crate = "liyasa-import", title = "Converted page does not scan as Liyasa Markdown and needs manual attention" }
+W0723 = { severity = "warning", crate = "liyasa-build", title = "Pages in a reserved directory are not routed" }
