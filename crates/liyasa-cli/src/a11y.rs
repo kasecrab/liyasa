@@ -67,8 +67,11 @@ pub fn unlabelled_controls(route: &str, html: &str) -> Diagnostics {
         }
 
         out.push(
+            // W0019 is "a check class could not run"; this is a finding the
+            // check made. Sharing a code would send a reader following the
+            // link to a page about the other condition entirely.
             Diagnostic::new(
-                code::W0019,
+                code::W0020,
                 format!("`<{tag}>` on `{route}` has no accessible name"),
             )
             .help("Add `aria-label`, or a `<label for>` naming its `id`."),
@@ -175,6 +178,16 @@ mod tests {
     #[test]
     fn a_longer_tag_name_is_not_a_control() {
         assert!(unlabelled_controls("/x", "<inputs></inputs>").is_empty());
+    }
+
+    /// W0019 says a check class could not run. This is a finding the check
+    /// made, which is the opposite claim, and a reader who follows the help
+    /// link has to arrive at the right page.
+    #[test]
+    fn a_finding_does_not_share_the_could_not_run_code() {
+        let found = unlabelled_controls("/x", "<input type=\"text\">");
+        let first = found.iter().next().expect("a finding");
+        assert_eq!(first.code.as_str(), "W0020");
     }
 
     #[test]
