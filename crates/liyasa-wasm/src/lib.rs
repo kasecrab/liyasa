@@ -7,8 +7,10 @@
 //! The crate does no I/O.
 
 pub mod api;
+pub mod vfs;
 
 pub use api::{
     ParseRequest, ParseResponse, PreviewRequest, PreviewResponse, SearchRequest, SearchResponse,
     SerializeRequest, SerializeResponse, ValidateRequest, ValidateResponse,
 };
+pub use vfs::EditorVfs;
