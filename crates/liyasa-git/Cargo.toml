@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 description = "Git provider integrations: inbound webhook verification, the GitHub App, GitLab, Bitbucket and generic hosts, branch and pull-request operations, and the clone policy (PRD §18, GIT-01..GIT-11)."
 
+[features]
+# The recorded HTTP client the provider tests drive. On for the workspace's
+# `tests/` crate, which owns the GIT-01 acceptance test.
+testing = []
+
 [lints]
 workspace = true
 

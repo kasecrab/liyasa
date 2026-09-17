@@ -10,5 +10,9 @@
 //! (`plan/rfcs/1601-clone-policy-without-gix.md`).
 
 pub mod event;
+pub mod github;
+pub mod provider;
+#[cfg(any(test, feature = "testing"))]
+pub mod recorder;
 pub mod repo;
 pub mod webhook;
