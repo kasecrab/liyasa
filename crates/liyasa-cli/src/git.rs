@@ -1,10 +1,11 @@
 //! The `GitMeta` implementation RFC 0600 says the CLI injects.
 //!
-//! It runs the system `git` rather than linking `gix`, because §6.2 puts `gix`
-//! in `liyasa-git` and that crate does not exist; adding it here instead would
-//! be the unilateral dependency move §31.6 forbids. TODO(rfc-0900): when
-//! `liyasa-git` lands this module becomes an adapter over it and the subprocess
-//! path goes away.
+//! It runs the system `git` rather than linking `gix`. `liyasa-git` is on main
+//! now, but it is the provider half — GitHub, GitLab, Bitbucket, webhooks,
+//! clone policy — and reads no local repository; `gix` is still in no crate's
+//! manifest, and adding it here would be the unilateral dependency move §31.6
+//! forbids. TODO(rfc-0900): when something reads a local repository with `gix`,
+//! this module becomes an adapter over it and the subprocess path goes away.
 //!
 //! Without git on PATH, or outside a repository, every answer is `None` and the
 //! build clock falls back to its own last rule, exactly as

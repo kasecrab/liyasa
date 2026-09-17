@@ -1,11 +1,11 @@
 //! A static file server for `liyasa dev`.
 //!
 //! HTTP/1.1 over `std::net::TcpListener`, by hand. The alternative was axum,
-//! which §6.2 puts in `liyasa-server` and which does not exist; a dev server
-//! that serves a directory and answers one polling endpoint is a few hundred
-//! lines, and adding a web framework to the CLI for it would be the unilateral
-//! dependency move §31.6 forbids. `liyasa serve` (CLI-11) is a different
-//! program with authentication, TLS, and a database, and is WP-14's.
+//! which §6.2 puts in `liyasa-server`. That crate is on main, and taking it as
+//! a dependency would bring a database, TLS, an ACME client and an async
+//! runtime into every `liyasa dev`: a dev server that serves a directory and
+//! answers one polling endpoint is a few hundred lines. `liyasa serve`
+//! (CLI-11) is the program that wants all of that, and is a different command.
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};

@@ -1,9 +1,11 @@
 //! §6.12: `liyasa companion install|status|remove`.
 //!
-//! The runtime is a pinned headless browser. Fetching it needs an HTTP client,
-//! which lives in `liyasa-net` and does not exist, so `install` takes a local
-//! archive or directory — which is also what HOST-08's air-gapped installation
-//! needs. TODO(rfc-0900).
+//! The runtime is a pinned headless browser. The client to fetch one exists
+//! now (`crate::net`); what is missing is unpacking it — every published build
+//! is a zip, and the PRD's dependency table has no compression crate, the same
+//! gap that makes a release artifact a bare binary rather than an archive. So
+//! `install` still takes a local unpacked directory, which is what HOST-08's
+//! air-gapped installation needs anyway. TODO(rfc-0900).
 
 use liyasa_core::diagnostics::{Diagnostic, code};
 
@@ -93,7 +95,7 @@ fn install(global: &Global, args: &CompanionInstall) -> Exit {
             format,
             Diagnostic::new(
                 code::E0006,
-                "this build cannot download the companion runtime".to_owned(),
+                "this build cannot unpack a downloaded companion runtime".to_owned(),
             )
             .help("Pass `--source <directory>` holding an unpacked runtime, or set `LIYASA_COMPANION_SOURCE`."),
         );
@@ -106,8 +108,9 @@ fn install(global: &Global, args: &CompanionInstall) -> Exit {
             format,
             Diagnostic::new(
                 code::E0006,
-                format!("`{source}` is remote and this build has no HTTP client"),
-            ),
+                format!("`{source}` is a published archive, and this build cannot unpack one"),
+            )
+            .help("Unpack it yourself and point `--source` at the directory."),
         );
         return Exit::Network;
     };
