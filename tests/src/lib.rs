@@ -4,6 +4,7 @@
 //! the e2e suite drives; [`budget`] is the measurement itself.
 
 pub mod budget;
+pub mod cdn;
 pub mod config;
 pub mod docs;
 pub mod hosting;

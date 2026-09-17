@@ -2,6 +2,10 @@
 //! add a `mod` line for a new file. One binary links the dependency tree once
 //! instead of once per file, which is most of a test build's cost and disk.
 
+#[path = "../server/auth_13_cache_key.rs"]
+mod auth_13_cache_key;
+#[path = "../server/auth_13_cdn.rs"]
+mod auth_13_cdn;
 #[path = "../server/auth_14_bot_protection.rs"]
 mod auth_14_bot_protection;
 #[path = "../config/cfg_01.rs"]
