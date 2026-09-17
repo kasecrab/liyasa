@@ -24,8 +24,9 @@ use liyasa_core::verify::{
 use serde_json::Value;
 
 use super::{fail, finish, scrubber_for, skip};
-use crate::core::config::{HttpConfig, HttpTarget};
+use crate::core::config::{HttpConfig, HttpTarget, StagingTarget};
 use crate::core::scrub::Scrubber;
+use crate::runners::staging;
 
 /// The in-process mock server VER-10 describes, generated from the OpenAPI
 /// document. `liyasa-openapi` builds it; this runner only calls it.
@@ -99,14 +100,19 @@ impl Runner for HttpRunner {
         Box::pin(async move {
             let started = Instant::now();
             let scrubber = scrubber_for(spec, secrets);
-            let outcome = self.execute(spec, &scrubber).await;
+            let outcome = self.execute(spec, &scrubber, secrets).await;
             finish(spec, Self::ID, outcome, started)
         })
     }
 }
 
 impl HttpRunner {
-    async fn execute(&self, spec: &CheckSpec, scrubber: &Scrubber) -> CheckOutcome {
+    async fn execute(
+        &self,
+        spec: &CheckSpec,
+        scrubber: &Scrubber,
+        secrets: &dyn SecretSource,
+    ) -> CheckOutcome {
         let text = match &spec.input {
             CheckInput::Http { request } => request.as_str(),
             CheckInput::Code { lang, source, .. } if lang.eq_ignore_ascii_case("http") => {
@@ -132,7 +138,10 @@ impl HttpRunner {
 
         let mut outcomes = Vec::new();
         for target in self.targets() {
-            outcomes.push(self.against(target, &request, spec, scrubber).await);
+            outcomes.push(
+                self.against(target, &request, spec, scrubber, secrets)
+                    .await,
+            );
         }
         match outcomes.len() {
             0 => skip("no verification target is configured for `http` blocks"),
@@ -154,6 +163,7 @@ impl HttpRunner {
         request: &HttpRequest,
         spec: &CheckSpec,
         scrubber: &Scrubber,
+        secrets: &dyn SecretSource,
     ) -> CheckOutcome {
         let response = match target {
             HttpTarget::Mock => match &self.mock {
@@ -163,11 +173,19 @@ impl HttpRunner {
                 }
             },
             HttpTarget::Staging | HttpTarget::Both => {
-                if self.config.staging.is_none() {
+                let Some(staging) = self.config.staging.as_ref() else {
                     return skip("`verify.http.target` is `staging` and none is configured");
-                }
+                };
+                // The credential goes on the staging arm alone, and only after
+                // the request has been cloned for it: a mock server must never
+                // be handed a real one, and a recorded fixture must never pick
+                // it up.
+                let request = match authorized(request, staging, secrets) {
+                    Ok(request) => request,
+                    Err(diagnostic) => return CheckOutcome::Error(diagnostic),
+                };
                 self.client
-                    .fetch(request.clone(), &self.policy)
+                    .fetch(request, &self.policy)
                     .await
                     .map_err(Failure::Net)
             }
@@ -177,6 +195,35 @@ impl HttpRunner {
             Err(Failure::Authoring(diagnostic)) => CheckOutcome::Error(diagnostic),
             Err(Failure::Net(error)) => fail(scrubber, format!("{target:?} target: {error}")),
         }
+    }
+}
+
+/// The staging request, with `verify.http.staging.auth` resolved onto it.
+///
+/// The injection itself is `runners::staging` (WP-21); what is decided here is
+/// what happens when it cannot be done. Nothing is sent: an unauthenticated
+/// request to a staging endpoint answers `401`, and a block asserting
+/// `status=401` would then pass having never exercised the credential, which
+/// is the defect this call site exists to close.
+///
+/// The two failures are different problems and carry different codes. A value
+/// that is not `secret:<name>` is a setting Liyasa refuses to read, which is
+/// `secret_name`'s own `E0635`. Past that point the reference is well formed
+/// and the store simply has no such secret, which is `E0637`.
+fn authorized(
+    request: &HttpRequest,
+    staging: &StagingTarget,
+    secrets: &dyn SecretSource,
+) -> Result<HttpRequest, Diagnostic> {
+    staging::secret_name(staging)?;
+    let mut request = request.clone();
+    match staging::authorize(&mut request, staging, secrets) {
+        Ok(_) => Ok(request),
+        Err(unresolved) => Err(Diagnostic::new(code::E0637, unresolved.message).help(
+            "add it to the secret store, or clear `verify.http.staging.auth`; \
+             nothing was sent, so an assertion on `401` would have passed \
+             without the credential ever being used",
+        )),
     }
 }
 

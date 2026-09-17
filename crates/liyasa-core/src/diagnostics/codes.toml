@@ -232,3 +232,4 @@ E0814 = { severity = "error", crate = "liyasa-server", title = "Domain is claime
 E0815 = { severity = "error", crate = "liyasa-server", title = "Domain base path is not a subpath" }
 W0136 = { severity = "warning", crate = "liyasa-config", title = "`seo.canonicalOrigin` already carries `build.basePath`, so every absolute URL doubles it" }
 E0021 = { severity = "error", crate = "liyasa-cli", title = "A network request failed (policy, DNS, TLS, timeout, or the host)" }
+E0637 = { severity = "error", crate = "liyasa-verify", title = "Staging credential could not be resolved; the request was not sent" }

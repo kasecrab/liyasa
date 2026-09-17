@@ -230,3 +230,29 @@ fn scrubbing_is_idempotent() {
     let once = scrubber.scrub("key swordfish-1234567890 mail a@b.io");
     assert_eq!(scrubber.scrub(&once), once);
 }
+
+/// The `MIN_SECRET_LEN` boundary, pinned because it reads like a leak and is
+/// not one.
+///
+/// A value shorter than eight bytes is never registered as a literal, so it
+/// reaches an excerpt as written. That is deliberate — a two-character
+/// "secret" would blank those two characters out of every excerpt on the site,
+/// and the redaction would be worse than the exposure — and every real
+/// credential clears eight comfortably. Without this test the next person to
+/// write `with_secrets(["abc123"])`, watch it survive, and conclude the
+/// scrubber leaks has to read the constant to find out otherwise; WP-21
+/// nearly did.
+#[test]
+fn a_value_too_short_to_be_a_secret_is_deliberately_not_redacted() {
+    let short = "abc123";
+    assert!(short.len() < 8, "the fixture must sit below the floor");
+    let out = Scrubber::with_secrets([short]).scrub(&format!("saw {short} here"));
+    assert_eq!(out, format!("saw {short} here"));
+
+    // One byte over the floor and it is a secret like any other, so the
+    // boundary is what decides and not something else about the value.
+    let long = "abc12345";
+    assert_eq!(long.len(), 8);
+    let out = Scrubber::with_secrets([long]).scrub(&format!("saw {long} here"));
+    assert_eq!(out, format!("saw {REDACTED} here"));
+}

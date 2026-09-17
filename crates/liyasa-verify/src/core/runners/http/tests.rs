@@ -457,3 +457,212 @@ fn an_unsupported_path_form_is_none_so_the_assertion_fails_loudly() {
         assert_eq!(json_path(&body, path), None, "{path}");
     }
 }
+
+// ---- the staging credential (VER-10) ----
+//
+// Every assertion here is on the OUTBOUND request. A test that drove an
+// endpoint and checked for a 200 would have passed throughout the life of the
+// defect these cover: the credential was configured, serialised and scrubbed,
+// and never sent.
+
+fn with_auth(base: &str, auth: &str) -> HttpConfig {
+    HttpConfig {
+        target: HttpTarget::Staging,
+        staging: Some(StagingTarget {
+            base_url: base.to_owned(),
+            auth: Some(auth.to_owned()),
+        }),
+    }
+}
+
+fn run_with(
+    runner: &HttpRunner,
+    request: &str,
+    expect: Vec<Expectation>,
+    secrets: &Secrets,
+) -> CheckOutcome {
+    let check = spec(
+        "/api#b#0",
+        CheckInput::Http {
+            request: request.to_owned(),
+        },
+        expect,
+    );
+    block_on(runner.run(&check, &NoSandbox, secrets)).outcome
+}
+
+fn secrets(name: &str, value: &str) -> Secrets {
+    Secrets(vec![(name.to_owned(), value.to_owned())])
+}
+
+fn header_of(client: &Canned, name: &str) -> Option<String> {
+    let seen = client.seen.lock().expect("lock");
+    let request = seen.first().expect("a request went out");
+    request
+        .headers
+        .iter()
+        .find(|(key, _)| key.eq_ignore_ascii_case(name))
+        .map(|(_, value)| value.clone())
+}
+
+#[test]
+fn a_configured_staging_credential_reaches_the_request() {
+    let client = Canned::json(200, json!({ "ok": true }));
+    let runner = HttpRunner::new(
+        client.clone(),
+        with_auth("https://staging.example.com", "secret:api-token"),
+        HttpRunner::default_policy(),
+    );
+
+    let outcome = run_with(
+        &runner,
+        "GET /v1/things",
+        vec![Expectation::Status(200)],
+        &secrets("api-token", "s3cret-value"),
+    );
+
+    assert!(matches!(outcome, CheckOutcome::Pass), "{outcome:?}");
+    assert_eq!(
+        header_of(&client, "authorization").as_deref(),
+        Some("Bearer s3cret-value"),
+        "the resolved value must be on the wire, not merely configured"
+    );
+}
+
+/// The test that encodes why the defect was invisible. It looks redundant
+/// beside the one above and is not: this is the shape that reported green.
+///
+/// An unauthenticated request to a staging endpoint answers `401`, and plenty
+/// of blocks assert exactly that, because plenty of pages document auth
+/// failures. Before the credential was wired, such a block PASSED — against an
+/// endpoint that rejected it for want of the very credential the operator had
+/// configured. Nothing about the run said so.
+#[test]
+fn a_block_asserting_401_does_not_pass_when_the_credential_was_never_attached() {
+    let client = Canned::json(401, json!({ "error": "unauthorized" }));
+    let runner = HttpRunner::new(
+        client.clone(),
+        with_auth("https://staging.example.com", "secret:api-token"),
+        HttpRunner::default_policy(),
+    );
+
+    // The store cannot satisfy the reference, so nothing goes out.
+    let outcome = run_with(
+        &runner,
+        "GET /v1/things",
+        vec![Expectation::Status(401)],
+        &Secrets::default(),
+    );
+
+    let CheckOutcome::Error(diagnostic) = &outcome else {
+        panic!("a 401 assertion must not pass on an unsent request: {outcome:?}");
+    };
+    assert_eq!(diagnostic.code, code::E0637);
+    assert!(
+        diagnostic.message.contains("api-token"),
+        "the diagnostic names the secret: {}",
+        diagnostic.message
+    );
+    assert!(
+        client.seen.lock().expect("lock").is_empty(),
+        "nothing may be sent once the credential could not be resolved"
+    );
+}
+
+#[test]
+fn a_staging_target_with_no_credential_still_sends_the_request() {
+    let client = Canned::json(200, json!({ "ok": true }));
+    let runner = HttpRunner::new(
+        client.clone(),
+        staging("https://staging.example.com"),
+        HttpRunner::default_policy(),
+    );
+
+    let outcome = run(&runner, "GET /v1/things", vec![Expectation::Status(200)]);
+
+    assert!(matches!(outcome, CheckOutcome::Pass), "{outcome:?}");
+    assert_eq!(header_of(&client, "authorization"), None);
+}
+
+#[test]
+fn a_credential_written_into_the_config_instead_of_the_store_is_refused() {
+    let client = Canned::json(200, json!({ "ok": true }));
+    let runner = HttpRunner::new(
+        client.clone(),
+        with_auth("https://staging.example.com", "Bearer hunter2-in-the-repo"),
+        HttpRunner::default_policy(),
+    );
+
+    let outcome = run_with(
+        &runner,
+        "GET /v1/things",
+        vec![Expectation::Status(200)],
+        &Secrets::default(),
+    );
+
+    let CheckOutcome::Error(diagnostic) = &outcome else {
+        panic!("a literal credential is not a secret reference: {outcome:?}");
+    };
+    // A malformed setting, not an unresolvable one: different problem, so the
+    // config code rather than E0637.
+    assert_eq!(diagnostic.code, code::E0635);
+    assert!(client.seen.lock().expect("lock").is_empty());
+}
+
+#[test]
+fn the_mock_arm_is_never_handed_the_staging_credential() {
+    let client = Canned::json(200, json!({ "ok": true }));
+    let mut config = with_auth("https://staging.example.com", "secret:api-token");
+    config.target = HttpTarget::Both;
+    let runner = HttpRunner::new(client.clone(), config, HttpRunner::default_policy())
+        .with_mock(client.clone());
+
+    let outcome = run_with(
+        &runner,
+        "GET /v1/things",
+        vec![Expectation::Status(200)],
+        &secrets("api-token", "s3cret-value"),
+    );
+
+    assert!(matches!(outcome, CheckOutcome::Pass), "{outcome:?}");
+    let seen = client.seen.lock().expect("lock");
+    assert_eq!(seen.len(), 2, "one request per target");
+    let authorized: Vec<bool> = seen
+        .iter()
+        .map(|r| {
+            r.headers
+                .iter()
+                .any(|(k, _)| k.eq_ignore_ascii_case("authorization"))
+        })
+        .collect();
+    assert_eq!(
+        authorized,
+        [false, true],
+        "the mock arm goes first and must carry no credential; \
+         a recorded fixture would otherwise pick one up"
+    );
+}
+
+#[test]
+fn a_block_that_set_its_own_authorization_keeps_it() {
+    let client = Canned::json(200, json!({ "ok": true }));
+    let runner = HttpRunner::new(
+        client.clone(),
+        with_auth("https://staging.example.com", "secret:api-token"),
+        HttpRunner::default_policy(),
+    );
+
+    let outcome = run_with(
+        &runner,
+        "GET /v1/things\nAuthorization: Bearer expired-on-purpose",
+        vec![Expectation::Status(200)],
+        &secrets("api-token", "s3cret-value"),
+    );
+
+    assert!(matches!(outcome, CheckOutcome::Pass), "{outcome:?}");
+    assert_eq!(
+        header_of(&client, "authorization").as_deref(),
+        Some("Bearer expired-on-purpose"),
+        "a sample documenting an expired token must go out with that token"
+    );
+}
