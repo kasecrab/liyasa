@@ -144,3 +144,5 @@ mod web_editor;
 mod editor_segments;
 #[path = "../editor/ed_03_roundtrip.rs"]
 mod ed_03_roundtrip;
+#[path = "../editor/ed_13_media.rs"]
+mod ed_13_media;
