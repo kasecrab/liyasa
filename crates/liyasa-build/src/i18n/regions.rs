@@ -86,7 +86,7 @@ impl Detector {
             let found = match how {
                 Detection::Auth => request.reader.and_then(|code| self.declared(code)),
                 Detection::Choice => request.chosen.and_then(|code| self.declared(code)),
-                Detection::Header => self.from_header(request),
+                Detection::Header => self.in_header(request),
             };
             if found.is_some() {
                 return found;
@@ -109,7 +109,7 @@ impl Detector {
     }
 
     /// A region header, and only from a peer we were told to believe.
-    fn from_header(&self, request: &Request<'_>) -> Option<String> {
+    fn in_header(&self, request: &Request<'_>) -> Option<String> {
         if !request.trusted_peer {
             return None;
         }

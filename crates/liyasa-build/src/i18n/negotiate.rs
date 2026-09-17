@@ -213,7 +213,7 @@ pub fn parse(header: &str) -> Vec<(&str, u16)> {
             out.push((tag, quality));
         }
     }
-    out.sort_by(|a, b| b.1.cmp(&a.1));
+    out.sort_by_key(|(_, quality)| std::cmp::Reverse(*quality));
     out
 }
 

@@ -127,8 +127,8 @@ impl Ledger {
             None => State::Unrecorded,
             Some(entry) if &entry.source == source => State::Current,
             Some(entry) => State::Stale {
-                from: entry.source.clone(),
-                to: source.clone(),
+                from: entry.source,
+                to: *source,
             },
         }
     }
@@ -272,8 +272,8 @@ fn hunks(old: &[&str], new: &[&str], offset: usize) -> Vec<Hunk> {
             added: Vec::new(),
         });
         // Follow the table: whichever side can advance without losing a match.
-        let down = (i + 1 <= old.len()).then(|| table[i + 1][j]).unwrap_or(0);
-        let right = (j + 1 <= new.len()).then(|| table[i][j + 1]).unwrap_or(0);
+        let down = if i < old.len() { table[i + 1][j] } else { 0 };
+        let right = if j < new.len() { table[i][j + 1] } else { 0 };
         if j >= new.len() || (i < old.len() && down >= right) {
             hunk.removed.push(old[i].to_owned());
             i += 1;
