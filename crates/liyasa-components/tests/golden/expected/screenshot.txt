@@ -6,7 +6,7 @@
 --- markdown
 ![The builds list](/shots/builds.png)
 --- text
-The builds list
+
 
 === case: every prop
 --- html
@@ -19,4 +19,4 @@ The builds list
 --- markdown
 ![The builds list](/shots/builds.png)
 --- text
-The builds list Three builds, one failing
+

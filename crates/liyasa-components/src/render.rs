@@ -6,6 +6,7 @@
 //! the sinks live here: a component writes into [`HtmlCtx`] or [`MarkdownCtx`],
 //! and the frozen methods are adapters.
 
+use liyasa_core::build::Variant;
 use liyasa_core::components::{ComponentInst, RenderError};
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics};
 use liyasa_core::document::Node;
@@ -44,6 +45,10 @@ pub struct Shared<'a> {
     pub(crate) children: &'a dyn Children,
     pub site: Option<&'a SiteMeta>,
     pub audience: Audience,
+    /// Which of the page's variants is being rendered (§6.6.3), and so which
+    /// gated blocks belong in it. TODO(rfc-0401): the default admits nothing
+    /// that is gated, which is what a caller with no variant has to mean.
+    pub variant: Variant,
     /// The CSP nonce for this response; empty when the output is not a page.
     pub nonce: &'a str,
     pub diagnostics: Diagnostics,
@@ -55,6 +60,7 @@ impl<'a> Shared<'a> {
             children,
             site: None,
             audience: Audience::default(),
+            variant: Variant::default(),
             nonce: "",
             diagnostics: Diagnostics::new(),
         }
@@ -67,6 +73,11 @@ impl<'a> Shared<'a> {
 
     pub fn audience(mut self, audience: Audience) -> Self {
         self.audience = audience;
+        self
+    }
+
+    pub fn variant(mut self, variant: Variant) -> Self {
+        self.variant = variant;
         self
     }
 
@@ -126,6 +137,10 @@ impl<'a> HtmlCtx<'a> {
 
     pub fn report(&mut self, diagnostic: Diagnostic) {
         self.shared.diagnostics.push(diagnostic);
+    }
+
+    pub fn variant(&self) -> &Variant {
+        &self.shared.variant
     }
 
     pub fn finish(self) -> String {
@@ -213,6 +228,10 @@ impl<'a> MarkdownCtx<'a> {
         self.shared.audience
     }
 
+    pub fn variant(&self) -> &Variant {
+        &self.shared.variant
+    }
+
     pub fn finish(self) -> String {
         self.out.finish()
     }
@@ -223,9 +242,16 @@ pub trait Render {
     fn html(&self, inst: &ComponentInst, ctx: &mut HtmlCtx<'_>) -> Result<(), RenderError>;
     fn markdown(&self, inst: &ComponentInst, ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError>;
 
-    /// Plain text for the search index. Ctx-free, as §34.9 requires.
+    /// Plain text for the search index. Ctx-free, as §34.9 requires, so it
+    /// renders under the default variant — which admits no gated block. That is
+    /// the right answer for an index built once and served to everyone (§6.6.4).
     fn text(&self, inst: &ComponentInst) -> String {
-        crate::text::of(&inst.children)
+        self.text_for(inst, &Variant::default())
+    }
+
+    /// The same text for a caller that knows which variant it is indexing.
+    fn text_for(&self, inst: &ComponentInst, variant: &Variant) -> String {
+        crate::text::of_for(&inst.children, variant)
     }
 
     /// Checks this component can make that the prop schema cannot express:

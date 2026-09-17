@@ -2,6 +2,13 @@
 
 === case: every prop
 --- html
+
+--- markdown
+--- text
+
+
+=== case: every prop, admitted
+--- html
 <div class="ly-region" data-liyasa="region" data-only="eu uk" data-except="us">
   <p>
     EU terms.
@@ -11,3 +18,22 @@
 EU terms.
 --- text
 EU terms.
+
+=== case: excluded region
+--- html
+
+--- markdown
+--- text
+
+
+=== case: ungated
+--- html
+<div class="ly-region" data-liyasa="region">
+  <p>
+    Everywhere.
+  </p>
+</div>
+--- markdown
+Everywhere.
+--- text
+Everywhere.

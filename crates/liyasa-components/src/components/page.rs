@@ -1,14 +1,16 @@
 //! Page-level and audience-gated components
 //! (CMP-71, CMP-76 to CMP-80, CMP-82 to CMP-84).
 
+use liyasa_core::build::Variant;
 use liyasa_core::components::{ComponentInst, PropType, RenderError};
 use liyasa_core::document::{Dep, DepTarget};
+use liyasa_core::ids::{Locale, Version};
 use liyasa_core::markdown::Audience;
 
 use crate::props::Reader;
 use crate::render::{HtmlCtx, MarkdownCtx, Render};
 use crate::schema::{list_of, one_of, text as default_text};
-use crate::{anchor, declare, deps, text};
+use crate::{anchor, declare, deps, gate, text};
 
 declare! {
     /// An in-page announcement the reader can dismiss (CMP-71).
@@ -348,12 +350,32 @@ impl Visibility {
             })
             .collect()
     }
+
+    /// Whether `variant` satisfies every gate the block declares.
+    ///
+    /// TODO(rfc-0401): a gate admits only what the variant positively
+    /// satisfies, so a build that does not know the reader's groups, region,
+    /// locale or version withholds the block rather than serving it. The four
+    /// props used to reach the output as `data-` attributes and nothing else,
+    /// which put `groups="admin"` content in front of anonymous readers.
+    fn admits(props: &Reader<'_>, variant: &Variant) -> bool {
+        gate::any_of(&props.list("groups"), &variant.groups)
+            && gate::is_one_of(&props.list("regions"), variant.region.as_deref())
+            && gate::is_one_of(
+                &props.list("locales"),
+                variant.locale.as_ref().map(Locale::as_str),
+            )
+            && gate::is_one_of(
+                &props.list("versions"),
+                variant.version.as_ref().map(Version::as_str),
+            )
+    }
 }
 
 impl Render for Visibility {
     fn html(&self, inst: &ComponentInst, ctx: &mut HtmlCtx<'_>) -> Result<(), RenderError> {
         let props = Reader::of(inst, Self::schema_of());
-        if !Self::shows(&props, Audience::Human) {
+        if !Self::shows(&props, Audience::Human) || !Self::admits(&props, ctx.variant()) {
             return Ok(());
         }
         let gates = Self::gates(&props);
@@ -374,16 +396,16 @@ impl Render for Visibility {
 
     fn markdown(&self, inst: &ComponentInst, ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError> {
         let props = Reader::of(inst, Self::schema_of());
-        if !Self::shows(&props, ctx.audience()) {
+        if !Self::shows(&props, ctx.audience()) || !Self::admits(&props, ctx.variant()) {
             return Ok(());
         }
         ctx.children(&inst.children)
     }
 
-    fn text(&self, inst: &ComponentInst) -> String {
+    fn text_for(&self, inst: &ComponentInst, variant: &Variant) -> String {
         let props = Reader::of(inst, Self::schema_of());
-        if Self::shows(&props, Audience::Human) {
-            text::of(&inst.children)
+        if Self::shows(&props, Audience::Human) && Self::admits(&props, variant) {
+            text::of_for(&inst.children, variant)
         } else {
             String::new()
         }
@@ -403,9 +425,24 @@ declare! {
     ];
 }
 
+impl Region {
+    /// TODO(rfc-0401): `except` withholds what it cannot check. With no region
+    /// in the variant the build cannot show the reader is outside the excluded
+    /// set, and a gate that cannot be checked is a gate that did not hold.
+    fn admits(props: &Reader<'_>, variant: &Variant) -> bool {
+        let region = variant.region.as_deref();
+        let except = props.list("except");
+        gate::is_one_of(&props.list("only"), region)
+            && (except.is_empty() || region.is_some_and(|r| !except.iter().any(|e| e == r)))
+    }
+}
+
 impl Render for Region {
     fn html(&self, inst: &ComponentInst, ctx: &mut HtmlCtx<'_>) -> Result<(), RenderError> {
         let props = Reader::of(inst, Self::schema_of());
+        if !Self::admits(&props, ctx.variant()) {
+            return Ok(());
+        }
         let only = props.list("only");
         let except = props.list("except");
         ctx.out
@@ -424,7 +461,20 @@ impl Render for Region {
     }
 
     fn markdown(&self, inst: &ComponentInst, ctx: &mut MarkdownCtx<'_>) -> Result<(), RenderError> {
+        let props = Reader::of(inst, Self::schema_of());
+        if !Self::admits(&props, ctx.variant()) {
+            return Ok(());
+        }
         ctx.children(&inst.children)
+    }
+
+    fn text_for(&self, inst: &ComponentInst, variant: &Variant) -> String {
+        let props = Reader::of(inst, Self::schema_of());
+        if Self::admits(&props, variant) {
+            text::of_for(&inst.children, variant)
+        } else {
+            String::new()
+        }
     }
 }
 

@@ -4,5 +4,6 @@
 
 mod contracts;
 mod deps;
+mod gates;
 mod hooks;
 mod user_components;

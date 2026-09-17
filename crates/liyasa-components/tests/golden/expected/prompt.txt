@@ -54,7 +54,7 @@ Summarize this page for a new reader.
 Summarize this page for a new reader.
 ```
 --- text
-Ask an assistant Summarize this page for a new reader.
+Summarize this page for a new reader.
 
 === case: invalid target
 --- html

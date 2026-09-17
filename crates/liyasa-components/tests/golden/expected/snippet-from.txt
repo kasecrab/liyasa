@@ -9,7 +9,7 @@
 // from src/lib.rs
 ```
 --- text
-src/lib.rs
+
 
 === case: every prop
 --- html
@@ -20,7 +20,7 @@ src/lib.rs
 // from src/lib.rs:10-25
 ```
 --- text
-src/lib.rs
+
 --- diagnostics
 W0355 `snippet-from.symbol` is ignored because `lines` is set
 
@@ -46,6 +46,6 @@ E0314 `snippet-from` requires the `file` prop
 // from src/lib.rs:10-25
 ```
 --- text
-src/lib.rs
+
 --- diagnostics
 W0355 `snippet-from.symbol` is ignored because `lines` is set

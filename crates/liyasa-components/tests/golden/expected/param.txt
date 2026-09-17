@@ -27,7 +27,7 @@
 | ------- | ---- | --------- | ------------------------- |
 | `limit` |      | in: query | How many items to return. |
 --- text
-limit How many items to return.
+How many items to return.
 
 === case: every prop
 --- html
@@ -95,7 +95,7 @@ limit How many items to return.
 | ------- | --------- | --------------------------------------------------------------------------------------------- | ------------------------- |
 | `limit` | `integer` | required, deprecated, in: query, default: 20, enum: 10, 20, 50, min: 1, max: 100, example: 25 | How many items to return. |
 --- text
-limit integer How many items to return.
+How many items to return.
 
 === case: missing required prop
 --- html
@@ -148,7 +148,7 @@ E0314 `param` requires the `name` prop
 | --------- | ---- | -------------- | ----------- |
 | `payload` |      | in: everywhere |             |
 --- text
-payload
+
 --- diagnostics
 E0315 `param.in` is `everywhere`, which is not one of: query, path, body, header, cookie
 
@@ -201,4 +201,4 @@ E0315 `param.in` is `everywhere`, which is not one of: query, path, body, header
 | -------- | -------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `filter` | `object` | in: query | **filter properties**  | Name     | Type     | Notes | Description                | | -------- | -------- | ----- | -------------------------- | | `status` | `string` |       | Only items in this status. | |
 --- text
-filter object filter properties status Only items in this status.
+filter properties status Only items in this status.

@@ -19,6 +19,20 @@ For humans.
 
 === case: every prop
 --- html
+
+--- markdown
+--- text
+
+
+=== case: no audience named
+--- html
+
+--- markdown
+--- text
+
+
+=== case: every prop, admitted
+--- html
 <div class="ly-visibility" data-liyasa="visibility" data-groups="staff" data-regions="eu" data-locales="de" data-versions="0.5">
   <p>
     Gated.
@@ -29,7 +43,7 @@ Gated.
 --- text
 Gated.
 
-=== case: no audience named
+=== case: no audience named, admitted
 --- html
 <div class="ly-visibility" data-liyasa="visibility" data-groups="staff">
   <p>

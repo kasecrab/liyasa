@@ -20,7 +20,7 @@
 
 Fixed the anchor generator.
 --- text
-2026-09-15 2026-09-15 Fixed the anchor generator.
+Fixed the anchor generator.
 
 === case: every prop
 --- html
@@ -52,7 +52,7 @@ Fixed the anchor generator.
 
 Fixed the anchor generator.
 --- text
-2026-09-15 0.5.0 — Anchors are stable Fixed the anchor generator.
+Fixed the anchor generator.
 
 === case: missing required prop
 --- html
@@ -68,6 +68,6 @@ Fixed the anchor generator.
 --- markdown
 ### — Update
 --- text
-Update
+
 --- diagnostics
 E0314 `update` requires the `date` prop

@@ -18,7 +18,7 @@
 - **Quickstart**
   Get running in five minutes.
 --- text
-Quickstart Get running in five minutes.
+Get running in five minutes.
 
 === case: every prop
 --- html
@@ -46,7 +46,7 @@ Quickstart Get running in five minutes.
 - [Quickstart](/start)
   Get running in five minutes.
 --- text
-Quickstart Read the guide Get running in five minutes.
+Get running in five minutes.
 
 === case: empty body
 --- html
@@ -60,7 +60,7 @@ Quickstart Read the guide Get running in five minutes.
 --- markdown
 - **Bare**
 --- text
-Bare
+
 
 === case: no title
 --- html
@@ -91,7 +91,7 @@ Just a body.
 --- markdown
 - **Nope**
 --- text
-Nope
+
 --- diagnostics
 E0353 `card.href` uses a URL scheme that is not allowed
 
@@ -143,4 +143,4 @@ W0316 `card` has no prop `titel`
   >
   > Rust only for now.
 --- text
-Quickstart Pick a language. Rust only for now.
+Pick a language. Rust only for now.

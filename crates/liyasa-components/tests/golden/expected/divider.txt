@@ -20,7 +20,7 @@
 
 **Since 0.4**
 --- text
-Since 0.4
+
 
 === case: invalid prop
 --- html

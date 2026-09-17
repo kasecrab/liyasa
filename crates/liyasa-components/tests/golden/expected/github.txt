@@ -10,7 +10,7 @@
 --- markdown
 [kasecrab/liyasa](https://github.com/kasecrab/liyasa)
 --- text
-kasecrab/liyasa
+
 
 === case: missing required prop
 --- html

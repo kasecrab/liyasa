@@ -23,7 +23,7 @@ flowchart LR
   a --> b
 ```
 --- text
-default flowchart LR a --> b
+flowchart LR a --> b
 
 === case: every attribute
 --- html
@@ -48,4 +48,4 @@ sequenceDiagram
   A->>B: hi
 ```
 --- text
-every attribute sequenceDiagram A->>B: hi
+sequenceDiagram A->>B: hi

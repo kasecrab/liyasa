@@ -7,7 +7,7 @@
 --- markdown
 [https://www.youtube.com/watch?v=dQw4w9WgXcQ](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
 --- text
-https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
 
 === case: every prop
 --- html
@@ -16,7 +16,7 @@ https://www.youtube.com/watch?v=dQw4w9WgXcQ
 --- markdown
 [The design file](https://www.figma.com/design/abc/Title)
 --- text
-The design file
+
 
 === case: unlisted provider
 --- html
@@ -24,6 +24,6 @@ The design file
 --- markdown
 [https://evil.example.com/embed/1](https://evil.example.com/embed/1)
 --- text
-https://evil.example.com/embed/1
+
 --- diagnostics
 E0357 `embed.url` is `https://evil.example.com/embed/1`, which is not an allow-listed provider

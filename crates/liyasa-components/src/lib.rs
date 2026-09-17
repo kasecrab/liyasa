@@ -11,6 +11,7 @@ pub mod components;
 pub mod deps;
 pub mod fence;
 pub mod gallery;
+pub mod gate;
 pub mod html;
 pub mod inst;
 pub mod intern;

@@ -17,7 +17,7 @@
 
 Nested fields.
 --- text
-child attributes Nested fields.
+Nested fields.
 
 === case: every prop
 --- html
@@ -31,7 +31,7 @@ child attributes Nested fields.
 --- markdown
 **child attributes**
 --- text
-child attributes
+
 
 === case: empty body
 --- html
@@ -73,7 +73,7 @@ child attributes
 
 Leaf field.
 --- text
-parent child Leaf field.
+child Leaf field.
 
 === case: invalid prop
 --- html

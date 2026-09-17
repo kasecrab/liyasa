@@ -3,6 +3,9 @@
 use liyasa_components::{inst, nodes};
 use liyasa_core::document::PropValue;
 
+use liyasa_core::build::Variant;
+use liyasa_core::ids::{Locale, Version};
+
 use crate::support::Gallery;
 
 fn str(value: &str) -> PropValue {
@@ -144,6 +147,39 @@ fn visibility() {
                 .child(nodes::paragraph("Both audiences."))
                 .build(),
         )
+        // The gated cases above render under the default variant, which admits
+        // nothing gated, so their output is empty and the golden says so. These
+        // two are the same blocks for a variant that does satisfy them.
+        .case_for(
+            "every prop, admitted",
+            Variant {
+                groups: ["staff".to_owned()].into_iter().collect(),
+                region: Some("eu".to_owned()),
+                locale: Some(Locale::new("de")),
+                version: Some(Version::new("0.5")),
+                ..Variant::default()
+            },
+            inst::new("visibility")
+                .prop("humans", PropValue::Bool(true))
+                .prop("agents", PropValue::Bool(true))
+                .prop("groups", PropValue::List(vec![str("staff")]))
+                .prop("regions", PropValue::List(vec![str("eu")]))
+                .prop("locales", PropValue::List(vec![str("de")]))
+                .prop("versions", PropValue::List(vec![str("0.5")]))
+                .child(nodes::paragraph("Gated."))
+                .build(),
+        )
+        .case_for(
+            "no audience named, admitted",
+            Variant {
+                groups: ["staff".to_owned()].into_iter().collect(),
+                ..Variant::default()
+            },
+            inst::new("visibility")
+                .prop("groups", PropValue::List(vec![str("staff")]))
+                .child(nodes::paragraph("Both audiences."))
+                .build(),
+        )
         .check();
 }
 
@@ -156,6 +192,35 @@ fn region() {
                 .prop("only", PropValue::List(vec![str("eu"), str("uk")]))
                 .prop("except", PropValue::List(vec![str("us")]))
                 .child(nodes::paragraph("EU terms."))
+                .build(),
+        )
+        .case_for(
+            "every prop, admitted",
+            Variant {
+                region: Some("uk".to_owned()),
+                ..Variant::default()
+            },
+            inst::new("region")
+                .prop("only", PropValue::List(vec![str("eu"), str("uk")]))
+                .prop("except", PropValue::List(vec![str("us")]))
+                .child(nodes::paragraph("EU terms."))
+                .build(),
+        )
+        .case_for(
+            "excluded region",
+            Variant {
+                region: Some("us".to_owned()),
+                ..Variant::default()
+            },
+            inst::new("region")
+                .prop("except", PropValue::List(vec![str("us")]))
+                .child(nodes::paragraph("Not for the US."))
+                .build(),
+        )
+        .case(
+            "ungated",
+            inst::new("region")
+                .child(nodes::paragraph("Everywhere."))
                 .build(),
         )
         .check();

@@ -13,7 +13,7 @@
 --- markdown
 `POST /v1/items/{id}`
 --- text
-POST /v1/items/{id}
+
 
 === case: every prop
 --- html
@@ -33,7 +33,7 @@ POST /v1/items/{id}
 
 Removes an item.
 --- text
-DELETE /v1/items/{id} Removes an item.
+Removes an item.
 
 === case: invalid method
 --- html
@@ -45,7 +45,7 @@ DELETE /v1/items/{id} Removes an item.
 --- markdown
 `FETCH`
 --- text
-FETCH
+
 --- diagnostics
 E0315 `endpoint.method` is `fetch`, which is not one of: get, post, put, patch, delete, head, options, trace
 
@@ -59,4 +59,4 @@ E0315 `endpoint.method` is `fetch`, which is not one of: get, post, put, patch, 
 --- markdown
 `GET`
 --- text
-GET
+

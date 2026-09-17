@@ -9,14 +9,16 @@
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
+use liyasa_components::render::Shared;
 use liyasa_components::{AnyComponent, HtmlCtx, MarkdownCtx, Reference, Registry};
+use liyasa_core::build::Variant;
 use liyasa_core::components::ComponentInst;
 use liyasa_core::diagnostics::Diagnostics;
 
 pub struct Gallery {
     component: &'static str,
     registry: Registry,
-    cases: Vec<(String, ComponentInst)>,
+    cases: Vec<(String, ComponentInst, Variant)>,
 }
 
 impl Gallery {
@@ -35,7 +37,14 @@ impl Gallery {
     }
 
     pub fn case(mut self, label: &str, inst: ComponentInst) -> Self {
-        self.cases.push((label.to_owned(), inst));
+        self.cases
+            .push((label.to_owned(), inst, Variant::default()));
+        self
+    }
+
+    /// A case rendered for one variant, for a component that gates on it.
+    pub fn case_for(mut self, label: &str, variant: Variant, inst: ComponentInst) -> Self {
+        self.cases.push((label.to_owned(), inst, variant));
         self
     }
 
@@ -43,7 +52,7 @@ impl Gallery {
     pub fn check(self) {
         let reference = Reference::with(&self.registry);
         let mut out = format!("# {} gallery\n", self.component);
-        for (label, inst) in &self.cases {
+        for (label, inst, variant) in &self.cases {
             let component = self
                 .registry
                 .resolve(&inst.name)
@@ -52,11 +61,11 @@ impl Gallery {
             let mut diagnostics = Diagnostics::new();
             liyasa_components::validate(component, inst, &mut diagnostics);
 
-            let mut html = HtmlCtx::new(&reference);
+            let mut html = HtmlCtx::with(Shared::new(&reference).variant(variant.clone()));
             component
                 .html(inst, &mut html)
                 .unwrap_or_else(|e| panic!("{label}: html: {e}"));
-            let mut markdown = MarkdownCtx::new(&reference);
+            let mut markdown = MarkdownCtx::with(Shared::new(&reference).variant(variant.clone()));
             component
                 .markdown(inst, &mut markdown)
                 .unwrap_or_else(|e| panic!("{label}: markdown: {e}"));
@@ -70,7 +79,7 @@ impl Gallery {
             let _ = write!(
                 out,
                 "--- text\n{}\n",
-                ensure_newline(&component.text(inst)).trim_end()
+                ensure_newline(&component.text_for(inst, variant)).trim_end()
             );
             if !diagnostics.is_empty() {
                 let _ = writeln!(out, "--- diagnostics");

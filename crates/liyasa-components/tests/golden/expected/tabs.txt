@@ -51,7 +51,7 @@ npm i liyasa
 cargo install liyasa
 ```
 --- text
-Install npm npm i liyasa cargo cargo install liyasa
+npm npm i liyasa cargo cargo install liyasa
 
 === case: synced
 --- html
@@ -121,7 +121,7 @@ No title.
 --- markdown
 ### Install: npm
 --- text
-Install npm
+npm
 
 === case: nesting
 --- html
@@ -153,7 +153,7 @@ Install npm
 >
 > Needs glibc 2.35.
 --- text
-Platform Linux Needs glibc 2.35.
+Linux Needs glibc 2.35.
 
 === case: invalid prop
 --- html

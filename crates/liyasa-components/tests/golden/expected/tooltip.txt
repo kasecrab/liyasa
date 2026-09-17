@@ -11,7 +11,7 @@
 --- markdown
 fact (A value with a source behind it.)
 --- text
-A value with a source behind it. fact
+fact
 
 === case: every prop
 --- html
@@ -24,7 +24,7 @@ A value with a source behind it. fact
 --- markdown
 [fact](/concepts/facts) (A value with a source behind it.)
 --- text
-A value with a source behind it. fact
+fact
 
 === case: missing required prop
 --- html

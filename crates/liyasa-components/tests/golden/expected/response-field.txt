@@ -22,7 +22,7 @@
 | ---- | -------- | ----- | ---------------------- |
 | `id` | `string` |       | The item's identifier. |
 --- text
-id string The item's identifier.
+The item's identifier.
 
 === case: every prop
 --- html
@@ -63,7 +63,7 @@ id string The item's identifier.
 | ---- | -------- | --------------------------------------------------- | ----------- |
 | `id` | `string` | required, deprecated, default: null, example: itm_1 |             |
 --- text
-id string
+
 
 === case: empty body
 --- html
@@ -81,7 +81,7 @@ id string
 | ---- | ---- | ----- | ----------- |
 | `id` |      |       |             |
 --- text
-id
+
 
 === case: nesting
 --- html
@@ -124,7 +124,7 @@ id
 | ------- | -------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `owner` | `object` |       | **owner properties**  | Name    | Type     | Notes | Description          | | ------- | -------- | ----- | -------------------- | | `email` | `string` |       | Where to reach them. | |
 --- text
-owner object owner properties email Where to reach them.
+owner properties email Where to reach them.
 
 === case: invalid prop
 --- html
@@ -145,7 +145,7 @@ owner object owner properties email Where to reach them.
 | ---- | ---- | -------- | ----------- |
 | `id` |      | required |             |
 --- text
-id
+
 --- diagnostics
 W0316 `response-field` has no prop `kind`
 E0315 `response-field.required` expects true or false, found a string
