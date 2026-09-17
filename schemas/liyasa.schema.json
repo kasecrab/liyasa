@@ -591,22 +591,27 @@
       "type": "object",
       "properties": {
         "placeholder": {
-          "type": "string"
+          "type": "string",
+          "description": "Placeholder text in the search field. Localizable."
         },
         "shortcut": {
           "type": "string",
+          "description": "Keyboard shortcut that opens search, written as a chord such as `mod+k`, where `mod` is Command on macOS and Control elsewhere.",
           "default": "mod+k"
         },
         "boost": {
           "type": "array",
+          "description": "Rules that move results up or down the ranking.",
           "items": {
             "type": "object",
             "properties": {
               "match": {
-                "type": "string"
+                "type": "string",
+                "description": "A path glob or a group name the rule applies to."
               },
               "factor": {
-                "type": "number"
+                "type": "number",
+                "description": "How much to multiply the score by. Above 1 promotes, below 1 buries."
               }
             },
             "additionalProperties": false
@@ -614,20 +619,24 @@
         },
         "exclude": {
           "type": "array",
+          "description": "Globs kept out of the index entirely. An excluded page is still routable; it is simply not findable.",
           "items": {
             "type": "string"
           }
         },
         "maxResults": {
           "type": "integer",
+          "description": "How many results one query returns.",
           "default": 20
         },
         "snippets": {
           "type": "boolean",
+          "description": "Whether a result carries a matching excerpt. Off, results are titles alone and the index is smaller.",
           "default": true
         },
         "filters": {
           "type": "array",
+          "description": "The facets a reader may filter results by.",
           "items": {
             "type": "string",
             "enum": [
@@ -640,6 +649,7 @@
         },
         "shardSize": {
           "type": "object",
+          "description": "Target size range for one index shard. Smaller shards mean more requests and less downloaded per query; larger ones the reverse.",
           "properties": {
             "min": {
               "type": "string",
@@ -656,6 +666,7 @@
         },
         "mode": {
           "type": "string",
+          "description": "`keyword` searches the index alone. `hybrid` also uses the assistant's embeddings, which needs a server.",
           "enum": [
             "keyword",
             "hybrid"
@@ -671,13 +682,17 @@
       "properties": {
         "metatags": {
           "type": "object",
+          "description": "Meta tags added to every page, keyed by name. A page's own front matter overrides one of them.",
           "additionalProperties": {
             "type": "string"
           }
         },
-        "organization": {},
+        "organization": {
+          "description": "A schema.org Organization, emitted as JSON-LD on every page. Pages also emit TechArticle and BreadcrumbList without being asked."
+        },
         "indexing": {
           "type": "string",
+          "description": "`navigable` makes only pages reachable from the navigation indexable; `all` indexes every page the build produces.",
           "enum": [
             "navigable",
             "all"
@@ -685,30 +700,41 @@
         },
         "trailingSlash": {
           "type": "boolean",
+          "description": "Whether a route ends in a slash. The server redirects the other form with a 301, so only one of the two is canonical.",
           "default": false
         },
-        "robots": {},
+        "robots": {
+          "description": "Extra rules appended to the generated `robots.txt`."
+        },
         "sitemap": {
           "oneOf": [
             {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "`false` writes no sitemap at all."
             },
-            {}
-          ]
+            {
+              "description": "Sitemap settings, including a sitemap per locale."
+            }
+          ],
+          "description": "Whether a sitemap is written, and how."
         },
         "crawlers": {
           "type": "object",
+          "description": "Per-bot directives, keyed by user agent (`GPTBot`, `ClaudeBot`, `Google-Extended`, `PerplexityBot`, `CCBot`, `Bytespider`, and the rest). They become user-agent groups in `robots.txt` and a section of `llms.txt`. The default allows everyone: agents reading the docs is the point.",
           "additionalProperties": {
             "type": "object",
             "properties": {
               "allow": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Let this crawler read the site."
               },
               "disallow": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Keep this crawler out of the site."
               },
               "paths": {
                 "type": "array",
+                "description": "Limit this crawler to these paths, rather than allowing or refusing the whole site.",
                 "items": {
                   "type": "string"
                 }
@@ -766,19 +792,24 @@
       "properties": {
         "404": {
           "type": "object",
+          "description": "The page a reader gets when nothing is at the address they asked for. It always answers with HTTP 404, whatever it renders.",
           "properties": {
             "redirect": {
               "type": "boolean",
+              "description": "Send the reader to the home page instead of showing a 404 page. Off by default, because a redirect hides the broken link that caused it.",
               "default": false
             },
             "title": {
-              "type": "string"
+              "type": "string",
+              "description": "Heading on the 404 page."
             },
             "description": {
-              "type": "string"
+              "type": "string",
+              "description": "Body of the 404 page, as Markdown."
             },
             "page": {
-              "type": "string"
+              "type": "string",
+              "description": "A page of your own to render instead, by path."
             }
           },
           "additionalProperties": false
@@ -793,6 +824,7 @@
       "properties": {
         "placement": {
           "type": "string",
+          "description": "Where the actions sit: above the page, in the sidebar, or both.",
           "enum": [
             "header",
             "sidebar",
@@ -804,19 +836,24 @@
           "items": {
             "oneOf": [
               {
-                "type": "string"
+                "type": "string",
+                "description": "A built-in action by name, such as `copy-markdown`, `view-markdown`, `copy-mcp-url`, `download-pdf`, or one of the `open-in-*` handoffs to an assistant."
               },
               {
                 "type": "object",
+                "description": "An action of your own.",
                 "properties": {
                   "label": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The action's text."
                   },
                   "href": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Where the action goes. The page's own URL can be interpolated into it."
                   },
                   "icon": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Icon shown beside the label."
                   }
                 },
                 "additionalProperties": false
@@ -826,6 +863,7 @@
         },
         "exclude": {
           "type": "array",
+          "description": "Built-in actions to drop, so the rest of the default list can stay untouched.",
           "items": {
             "type": "string"
           }
