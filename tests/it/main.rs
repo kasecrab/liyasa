@@ -8,6 +8,8 @@ mod auth_13_cache_key;
 mod auth_13_cdn;
 #[path = "../server/auth_14_bot_protection.rs"]
 mod auth_14_bot_protection;
+#[path = "../build/auth_01.rs"]
+mod auth_01;
 #[path = "../config/cfg_01.rs"]
 mod cfg_01;
 #[path = "../config/cfg_03_presets.rs"]
