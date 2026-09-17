@@ -28,6 +28,7 @@ pub mod domains;
 pub mod groups;
 pub mod jwks;
 pub mod jwt;
+pub mod magic;
 pub mod oidc;
 pub mod password;
 pub mod random;
