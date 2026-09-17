@@ -910,19 +910,23 @@
         "math": {
           "oneOf": [
             {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "On or off, using the default engine."
             },
             {
               "type": "string",
+              "description": "The engine to render with.",
               "enum": [
                 "katex",
                 "pulldown-latex"
               ]
             }
-          ]
+          ],
+          "description": "Whether `$...$` and `$$...$$` are rendered as mathematics, and by which engine."
         },
         "html": {
           "type": "string",
+          "description": "What happens to raw HTML in a page: `allow` keeps it, `sanitize` keeps what the allow list permits, `off` drops it and reports it.",
           "enum": [
             "allow",
             "sanitize",
@@ -931,19 +935,23 @@
         },
         "wikilinks": {
           "type": "boolean",
+          "description": "Whether `[[Page]]` links resolve against the content tree. Off by default, because the brackets mean nothing in CommonMark.",
           "default": false
         },
         "related": {
           "type": "object",
+          "description": "Related-page links at the foot of a page.",
           "properties": {
             "auto": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Choose related pages automatically when a page names none of its own."
             }
           },
           "additionalProperties": false
         },
         "frontmatter": {
           "type": "object",
+          "description": "How strictly front matter is read.",
           "properties": {
             "strict": {
               "type": "boolean",
@@ -955,9 +963,11 @@
         },
         "templating": {
           "type": "object",
+          "description": "The template layer that runs before Markdown is parsed.",
           "properties": {
             "undefined": {
               "type": "string",
+              "description": "What a template does with a name nothing defines: `strict` fails the build, `lenient` renders a visible marker in its place.",
               "enum": [
                 "strict",
                 "lenient",
@@ -966,12 +976,15 @@
             },
             "limits": {
               "type": "object",
+              "description": "Caps that stop one page's template from running away with the build.",
               "properties": {
                 "iterations": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "How many loop iterations one page may run."
                 },
                 "depth": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "How deep includes and blocks may nest."
                 },
                 "outputBytes": {
                   "type": "string",
@@ -986,30 +999,37 @@
         },
         "codeblocks": {
           "type": "object",
+          "description": "Defaults for every fenced code block; a block's own info string still wins.",
           "properties": {
             "lineNumbers": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Number the lines of a code block."
             },
             "wrap": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Wrap long lines instead of scrolling them sideways."
             },
             "theme": {
-              "type": "string"
+              "type": "string",
+              "description": "Override `theme.codeTheme` for code blocks in content."
             }
           },
           "additionalProperties": false
         },
         "images": {
           "type": "object",
+          "description": "How a content image is turned into the set of files a reader is served.",
           "properties": {
             "breakpoints": {
               "type": "array",
+              "description": "Widths, in pixels, that each image is resized to for the `srcset`.",
               "items": {
                 "type": "integer"
               }
             },
             "formats": {
               "type": "array",
+              "description": "Formats each image is encoded in, most preferred first; a browser takes the first it understands.",
               "items": {
                 "type": "string",
                 "enum": [
@@ -1030,6 +1050,7 @@
         },
         "customElements": {
           "type": "string",
+          "description": "What happens to an unknown HTML element: `strip` removes it and keeps its children, `keep` passes it through.",
           "enum": [
             "strip",
             "keep"
@@ -1703,22 +1724,27 @@
       "properties": {
         "output": {
           "type": "string",
+          "description": "Directory the built site is written to, relative to the project root.",
           "default": "dist"
         },
         "drafts": {
           "type": "boolean",
+          "description": "Include pages marked `draft: true`. Off, they are built by `dev` and left out of `build`.",
           "default": false
         },
         "minify": {
           "type": "boolean",
+          "description": "Minify the HTML, CSS, and JavaScript the build emits.",
           "default": true
         },
         "prefetch": {
           "type": "boolean",
+          "description": "Prefetch a page when a reader's pointer rests on a link to it.",
           "default": true
         },
         "hashing": {
           "type": "string",
+          "description": "How an asset's URL carries its content hash: in the file name, as a query parameter, or not at all. `none` makes a build's file names stable at the cost of cacheability.",
           "enum": [
             "filename",
             "query",
@@ -1728,9 +1754,11 @@
         },
         "downloads": {
           "type": "object",
+          "description": "Whether a downloadable file opens in the browser or is saved, per extension.",
           "properties": {
             "pdf": {
               "type": "string",
+              "description": "`inline` opens a PDF in the browser; `attachment` downloads it.",
               "enum": [
                 "inline",
                 "attachment"
@@ -1738,6 +1766,7 @@
             },
             "zip": {
               "type": "string",
+              "description": "`inline` opens an archive in the browser; `attachment` downloads it.",
               "enum": [
                 "inline",
                 "attachment"
@@ -1748,10 +1777,12 @@
         },
         "basePath": {
           "type": "string",
+          "description": "URL prefix the site is served under, such as `/docs`. It prefixes the links and assets in the output; it does not change where the files are written.",
           "default": ""
         },
         "env": {
           "type": "array",
+          "description": "The environment variables a template may read. Nothing outside this list is visible to `env()`, and each value is part of the build's fingerprint, so changing one rebuilds the pages that read it.",
           "items": {
             "type": "string",
             "description": "Environment variables `env()` may read; their values are fingerprinted as build inputs."
@@ -1764,6 +1795,7 @@
         },
         "budget": {
           "type": "object",
+          "description": "How long a build may take before it is reported as over budget.",
           "properties": {
             "template": {
               "type": "string",
@@ -1785,29 +1817,36 @@
         },
         "maxVariantsPerPage": {
           "type": "integer",
+          "description": "How many variants one page may expand into before the build refuses. A variant is one combination of the dimensions that page actually reads, so a page that reads none has exactly one.",
           "default": 16
         },
         "maxVariants": {
           "type": "integer",
+          "description": "How many variants the whole build may produce before it refuses.",
           "default": 10000
         },
         "variantDiscoveryIterations": {
           "type": "integer",
+          "description": "How many passes the build makes over a page to discover what it reads. A page whose variables depend on other variables needs more than one.",
           "default": 4
         },
         "strictLinks": {
           "type": "boolean",
+          "description": "Whether a link to a page or file that does not exist fails the build. Off, it is a warning and the link is left as written.",
           "default": true
         },
         "strictVerification": {
           "type": "boolean",
+          "description": "Whether a failed verification check fails the build.",
           "default": true
         },
         "images": {
           "type": "object",
+          "description": "When image derivatives are generated.",
           "properties": {
             "eager": {
               "type": "boolean",
+              "description": "Generate every image derivative during the build rather than on first request. Slower builds, no first-request cost.",
               "default": false
             }
           },
