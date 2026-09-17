@@ -8,13 +8,18 @@
 //! change to the other. Whatever a host needs beyond the upload (a bucket
 //! policy, a server block) is a recipe in the docs (HOST-04, HOST-22), and the
 //! matrix says "manual" for it.
+//!
+//! A host also decides which of the uploaded files it publishes at all. That
+//! is modelled here too: a file a host silently declines to publish answers
+//! 404 like any other missing path, which is a failure the build cannot see
+//! and the matrix could not report until the filter was written down.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
 use serde_json::Value;
 
-use super::{fallback, headers};
+use super::{NOJEKYLL_FILE, fallback, headers};
 use crate::agents::spec::HostHeaders;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -108,12 +113,88 @@ impl Host {
         }
     }
 
+    /// Files this host reads as deploy-time configuration and never serves as
+    /// content. They are excluded from the publishing model rather than
+    /// dropped by it: the host consumes them before the site exists.
+    fn config_files(self) -> &'static [&'static str] {
+        match self {
+            Host::CloudflarePages | Host::Netlify => &[super::HEADERS_FILE, super::REDIRECTS_FILE],
+            Host::Vercel => &[super::VERCEL_FILE],
+            // A bucket and a web server serve every uploaded byte, including
+            // the host files meant for someone else.
+            Host::GitHubPages | Host::S3CloudFront | Host::WebServer => &[],
+        }
+    }
+
+    /// Whether the host publishes an uploaded path as a servable file.
+    pub fn publishes(self, dist: &Dist, relative: &str) -> bool {
+        let relative = relative.trim_start_matches('/');
+        if self.config_files().contains(&relative) {
+            return false;
+        }
+        match self {
+            // GitHub Pages runs Jekyll over the upload unless `.nojekyll` sits
+            // at the site root, and Jekyll publishes no entry whose name
+            // begins with `_` or `.`. That covers `_liyasa/`, `_image/`, and
+            // `.well-known/` — the theme, the images, and the agent surfaces.
+            Host::GitHubPages => {
+                dist.contains(NOJEKYLL_FILE) || !relative.split('/').any(is_jekyll_special)
+            }
+            // Cloudflare Pages does not upload a file whose name begins with a
+            // dot; `.well-known` is excepted by name, which is what keeps the
+            // agent surfaces reachable there.
+            Host::CloudflarePages => !relative
+                .split('/')
+                .any(|segment| segment.starts_with('.') && segment != WELL_KNOWN),
+            Host::Netlify | Host::Vercel | Host::S3CloudFront | Host::WebServer => true,
+        }
+    }
+
+    /// The bytes of an uploaded file, when this host publishes it.
+    fn fetch<'a>(self, dist: &'a Dist, relative: &str) -> Option<&'a [u8]> {
+        self.publishes(dist, relative)
+            .then(|| dist.get(relative))
+            .flatten()
+    }
+
+    /// Every uploaded path this host drops, host files aside: the files the
+    /// build wrote and a reader will never receive.
+    pub fn dropped(self, dist: &Dist) -> Vec<&str> {
+        dist.paths()
+            .filter(|path| !is_host_file(path))
+            .filter(|path| !self.publishes(dist, path))
+            .collect()
+    }
+
     /// Whether an unknown route gets `404.html` as its body.
     fn serves_not_found_page(self) -> bool {
         // The bucket's error document and nginx's `error_page` are
         // configuration, not the upload.
         !matches!(self, Host::S3CloudFront | Host::WebServer)
     }
+}
+
+/// The one dot-directory a static host is expected to publish (RFC 8615); the
+/// agent card and the skills live under it.
+pub const WELL_KNOWN: &str = ".well-known";
+
+/// Jekyll's own entry rule. It applies to the entries of every directory it
+/// walks, not only the site root, so the test is per path segment.
+///
+/// Markdown is the other thing Jekyll would touch, and it does not touch this
+/// build's: a page's `.md` surface carries no YAML front matter, so Jekyll
+/// copies it verbatim as a static file rather than converting it.
+fn is_jekyll_special(segment: &str) -> bool {
+    segment.starts_with('_') || segment.starts_with('.')
+}
+
+/// Whether a path is one host's configuration rather than site content. Such
+/// a file being unserved is the host working correctly, on every host.
+fn is_host_file(path: &str) -> bool {
+    matches!(
+        path.trim_start_matches('/'),
+        super::HEADERS_FILE | super::REDIRECTS_FILE | super::VERCEL_FILE | NOJEKYLL_FILE
+    )
 }
 
 /// The uploaded directory.
@@ -154,6 +235,12 @@ impl Dist {
         self.files
             .get(path.trim_start_matches('/'))
             .map(Vec::as_slice)
+    }
+
+    /// Drops a file, for modelling an upload that a build did not produce —
+    /// a hand-assembled `dist/`, or one from before a file was emitted.
+    pub fn remove(&mut self, path: &str) {
+        self.files.remove(path.trim_start_matches('/'));
     }
 
     pub fn contains(&self, path: &str) -> bool {
@@ -294,10 +381,13 @@ impl Host {
     fn file_for(self, dist: &Dist, path: &str) -> Response {
         let relative = path.trim_start_matches('/');
         if !relative.is_empty() && !relative.ends_with('/') {
-            if let Some(bytes) = dist.get(relative) {
+            if let Some(bytes) = self.fetch(dist, relative) {
                 return self.ok(relative, bytes);
             }
-            if dist.contains(&format!("{relative}/index.html")) {
+            if self
+                .fetch(dist, &format!("{relative}/index.html"))
+                .is_some()
+            {
                 return Response {
                     status: self.trailing_slash_status(),
                     headers: vec![("Location".to_owned(), format!("{path}/"))],
@@ -306,11 +396,14 @@ impl Host {
             }
         }
         let index = format!("{relative}index.html");
-        if let Some(bytes) = dist.get(&index) {
+        if let Some(bytes) = self.fetch(dist, &index) {
             return self.ok(&index, bytes);
         }
         let body = match self.serves_not_found_page() {
-            true => dist.get("404.html").map(<[u8]>::to_vec).unwrap_or_default(),
+            true => self
+                .fetch(dist, "404.html")
+                .map(<[u8]>::to_vec)
+                .unwrap_or_default(),
             false => b"<h1>404 Not Found</h1>".to_vec(),
         };
         Response {
@@ -580,6 +673,8 @@ mod tests {
         dist.insert("embed/widget/index.html", "<!doctype html><p>widget</p>");
         dist.insert("404.html", "<!doctype html><p>not found</p>");
         dist.insert("_liyasa/theme.0123456789abcdef.css", "body{}");
+        dist.insert("_image/0123456789abcdef/640.webp", "RIFF");
+        dist.insert(".well-known/agent-card.json", "{}");
         dist
     }
 
@@ -732,14 +827,105 @@ mod tests {
     }
 
     #[test]
+    fn github_pages_drops_underscore_and_dot_paths_until_nojekyll_is_there() {
+        const EXCLUDED: [&str; 3] = [
+            "/_liyasa/theme.0123456789abcdef.css",
+            "/_image/0123456789abcdef/640.webp",
+            "/.well-known/agent-card.json",
+        ];
+        let host = Host::GitHubPages;
+
+        // An upload without the marker: the theme, the images, and the agent
+        // surfaces are all gone, and the pages that reference them are not, so
+        // the build looks successful and the site renders unstyled.
+        let mut bare = upload();
+        bare.remove(NOJEKYLL_FILE);
+        for path in EXCLUDED {
+            assert_eq!(host.serve(&bare, path).status, 404, "{path}");
+        }
+        assert_eq!(host.serve(&bare, "/guides/install/").status, 200);
+        assert_eq!(host.serve(&bare, "/guides/install.md").status, 200);
+        assert_eq!(host.serve(&bare, "/404.html").status, 200);
+        assert_eq!(host.dropped(&bare).len(), EXCLUDED.len());
+
+        // What `hosting::generate` actually writes, which is the fix.
+        let built = upload();
+        assert!(
+            built.contains(NOJEKYLL_FILE),
+            "every build emits the marker (RFC 1202)"
+        );
+        for path in EXCLUDED {
+            assert_eq!(host.serve(&built, path).status, 200, "{path}");
+        }
+        assert!(host.dropped(&built).is_empty());
+    }
+
+    #[test]
+    fn the_other_hosts_publish_what_they_are_given() {
+        let dist = upload();
+        for host in Host::ALL {
+            if host == Host::GitHubPages {
+                continue;
+            }
+            for path in [
+                "/_liyasa/theme.0123456789abcdef.css",
+                "/_image/0123456789abcdef/640.webp",
+                "/.well-known/agent-card.json",
+            ] {
+                assert_eq!(
+                    host.serve(&dist, path).status,
+                    200,
+                    "{}: {path}",
+                    host.name()
+                );
+            }
+            assert!(host.dropped(&dist).is_empty(), "{}", host.name());
+        }
+    }
+
+    #[test]
+    fn a_host_never_serves_the_configuration_it_reads() {
+        let dist = upload();
+        // Cloudflare Pages and Netlify consume `_headers` and `_redirects`;
+        // Vercel consumes `vercel.json`. A bucket has no such notion and
+        // serves them as the files they are.
+        assert_eq!(Host::Netlify.serve(&dist, "/_headers").status, 404);
+        assert_eq!(
+            Host::CloudflarePages.serve(&dist, "/_redirects").status,
+            404
+        );
+        assert_eq!(Host::Vercel.serve(&dist, "/vercel.json").status, 404);
+        assert_eq!(Host::Netlify.serve(&dist, "/vercel.json").status, 200);
+        assert_eq!(Host::S3CloudFront.serve(&dist, "/_headers").status, 200);
+        // None of that counts as dropping the site's content.
+        assert!(Host::Netlify.dropped(&dist).is_empty());
+    }
+
+    #[test]
+    fn cloudflare_pages_drops_dotfiles_but_not_well_known() {
+        let mut dist = upload();
+        dist.insert(NOJEKYLL_FILE, "");
+        let host = Host::CloudflarePages;
+        assert_eq!(
+            host.serve(&dist, "/.well-known/agent-card.json").status,
+            200
+        );
+        // The marker is not uploaded there, and nothing asks for it.
+        assert!(!host.publishes(&dist, NOJEKYLL_FILE));
+        assert!(host.dropped(&dist).is_empty());
+    }
+
+    #[test]
     fn the_probe_finds_its_requests_in_the_upload() {
         let probe = Probe::from(&upload());
         assert_eq!(probe.page, "/embed/widget/");
         assert_eq!(probe.markdown.as_deref(), Some("/guides/install.md"));
         assert_eq!(probe.redirect_source.as_deref(), Some("/old"));
+        // Either immutable directory will do; the upload holds one of each and
+        // the probe takes whichever it meets first.
         assert_eq!(
             probe.hashed_asset.as_deref(),
-            Some("/_liyasa/theme.0123456789abcdef.css")
+            Some("/_image/0123456789abcdef/640.webp")
         );
     }
 }

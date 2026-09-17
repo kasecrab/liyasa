@@ -49,7 +49,11 @@ pub struct Check {
 
 /// Spec checks that depend on the host, plus the header requirements the
 /// spec does not grade (RX-13, RX-110, RX-112).
-pub const CHECKS: [Check; 9] = [
+pub const CHECKS: [Check; 10] = [
+    Check {
+        id: "upload-delivery",
+        what: "every file the build wrote is served",
+    },
     Check {
         id: "markdown-url-support",
         what: "`.md` routes served as `text/markdown`",
@@ -113,6 +117,17 @@ fn evaluate(id: &str, host: Host, dist: &Dist, probe: &Probe) -> Cell {
     let view = host.host_headers(dist);
     let page = host.serve(dist, &probe.page);
     match id {
+        "upload-delivery" => {
+            let dropped = host.dropped(dist);
+            match dropped.is_empty() {
+                true => pass(),
+                false => fail(format!(
+                    "{} of the build's files are never published, {} among them",
+                    dropped.len(),
+                    roots(&dropped).join(", ")
+                )),
+            }
+        }
         "markdown-url-support" => match view.markdown_content_type.as_deref() {
             Some(headers::MARKDOWN_TYPE) => pass(),
             Some(other) => manual(format!(
@@ -222,6 +237,23 @@ fn evaluate(id: &str, host: Host, dist: &Dist, probe: &Probe) -> Cell {
     }
 }
 
+/// The distinct top-level names of a set of paths, for a note that says what
+/// is missing rather than listing a hundred image variants.
+fn roots(paths: &[&str]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for path in paths {
+        let trimmed = path.trim_start_matches('/');
+        let root = match trimmed.split_once('/') {
+            Some((first, _)) => format!("`{first}/`"),
+            None => format!("`{trimmed}`"),
+        };
+        if !out.contains(&root) {
+            out.push(root);
+        }
+    }
+    out
+}
+
 fn pass() -> Cell {
     Cell {
         outcome: Outcome::Pass,
@@ -303,6 +335,7 @@ mod tests {
         dist.insert("guides/install/index.html", "<p>install</p>");
         dist.insert("guides/install.md", "# Install");
         dist.insert("404.html", "<p>404</p>");
+        dist.insert("_liyasa/theme.0123456789abcdef.css", "body{}");
         let matrix = generate(&dist);
         assert_eq!(matrix.rows.len(), CHECKS.len());
         let text = matrix.markdown();
