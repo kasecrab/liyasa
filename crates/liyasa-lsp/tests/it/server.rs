@@ -417,3 +417,210 @@ fn the_id_of_every_answer_is_the_id_of_its_request() {
         other => panic!("expected a response, got {other:?}"),
     }
 }
+
+#[test]
+fn a_request_after_shutdown_is_invalid_not_served() {
+    let mut server = open("# Title\n");
+    server.handle(&request(2, "shutdown", json!(null)));
+    let error = error(server.handle(&request(
+        3,
+        "textDocument/hover",
+        json!({ "textDocument": { "uri": URI }, "position": { "line": 0, "character": 3 } }),
+    )));
+    assert_eq!(error.code, jsonrpc::Error::INVALID_REQUEST);
+}
+
+#[test]
+fn a_notification_after_shutdown_is_dropped_but_exit_still_works() {
+    let mut server = open("# Title\n");
+    server.handle(&request(2, "shutdown", json!(null)));
+    assert!(
+        server
+            .handle(&notify(
+                "textDocument/didChange",
+                json!({ "textDocument": { "uri": URI, "version": 2 },
+                        "contentChanges": [{ "text": ":::note\n" }] }),
+            ))
+            .is_empty()
+    );
+    server.handle(&notify("exit", json!(null)));
+    assert!(server.is_exiting());
+    assert_eq!(server.exit_code(), 0);
+}
+
+// ---- a project on disk ----
+
+/// A throwaway project directory. Every test gets its own, named after the
+/// test, so the suite needs no lock and leaves nothing behind.
+struct Project(std::path::PathBuf);
+
+impl Project {
+    fn new(name: &str) -> Self {
+        let dir = std::env::temp_dir().join(format!("liyasa-lsp-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("a temporary directory");
+        Self(dir)
+    }
+
+    fn write(&self, path: &str, text: &str) -> &Self {
+        let file = self.0.join(path);
+        if let Some(parent) = file.parent() {
+            std::fs::create_dir_all(parent).expect("a directory in the project");
+        }
+        std::fs::write(file, text).expect("a file in the project");
+        self
+    }
+
+    fn uri(&self, path: &str) -> String {
+        liyasa_lsp::uri::from_path(&self.0.join(path))
+    }
+
+    fn root_uri(&self) -> String {
+        liyasa_lsp::uri::from_path(&self.0)
+    }
+}
+
+impl Drop for Project {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn completion_labels(server: &mut Server, uri: &str, line: u32, character: u32) -> Vec<String> {
+    let result = result(server.handle(&request(
+        50,
+        "textDocument/completion",
+        json!({ "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character } }),
+    )));
+    result["items"]
+        .as_array()
+        .expect("a list of items")
+        .iter()
+        .filter_map(|item| item["label"].as_str().map(str::to_owned))
+        .collect()
+}
+
+#[test]
+fn initialize_reads_the_project_off_disk() {
+    let project = Project::new("read");
+    project
+        .write("liyasa.json", r#"{ "variables": { "product": "Acme" } }"#)
+        .write("guides/install.md", "# Install\n")
+        .write("snippets/legal/terms.md", "Terms.\n");
+
+    let uri = project.uri("guides/install.md");
+    let mut server = Server::new();
+    server.handle(&request(
+        1,
+        "initialize",
+        json!({ "rootUri": project.root_uri() }),
+    ));
+    server.handle(&notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "liyasa", "version": 1,
+                                  "text": "# Install\n\nBuy {{ \n" } }),
+    ));
+
+    let labels = completion_labels(&mut server, &uri, 2, 7);
+    assert!(labels.contains(&"product".to_owned()), "{labels:?}");
+}
+
+#[test]
+fn a_watched_file_change_reloads_the_index() {
+    let project = Project::new("reload");
+    project
+        .write("liyasa.json", r#"{ "variables": { "product": "Acme" } }"#)
+        .write("guides/install.md", "# Install\n");
+
+    let uri = project.uri("guides/install.md");
+    let mut server = Server::new();
+    server.handle(&request(
+        1,
+        "initialize",
+        json!({ "rootUri": project.root_uri() }),
+    ));
+    server.handle(&notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "liyasa", "version": 1,
+                                  "text": "# Install\n\nBuy {{ \n" } }),
+    ));
+    assert!(completion_labels(&mut server, &uri, 2, 7).contains(&"product".to_owned()));
+
+    project.write("liyasa.json", r#"{ "variables": { "edition": "Pro" } }"#);
+    // Without this the index keeps answering from the config the session
+    // started with, and nothing tells the author why.
+    server.handle(&notify(
+        "workspace/didChangeWatchedFiles",
+        json!({ "changes": [{ "uri": project.uri("liyasa.json"), "type": 2 }] }),
+    ));
+
+    let labels = completion_labels(&mut server, &uri, 2, 7);
+    assert!(labels.contains(&"edition".to_owned()), "{labels:?}");
+    assert!(!labels.contains(&"product".to_owned()), "{labels:?}");
+}
+
+#[test]
+fn a_reload_republishes_every_open_buffer() {
+    let project = Project::new("republish");
+    project
+        .write("liyasa.json", r#"{ "variables": {} }"#)
+        .write("guides/install.md", "# Install\n");
+
+    let uri = project.uri("guides/install.md");
+    let mut server = Server::new();
+    server.handle(&request(
+        1,
+        "initialize",
+        json!({ "rootUri": project.root_uri() }),
+    ));
+    server.handle(&notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "liyasa", "version": 3,
+                                  "text": "# Install\n" } }),
+    ));
+
+    let params = published(server.handle(&notify(
+        "workspace/didChangeWatchedFiles",
+        json!({ "changes": [] }),
+    )));
+    assert_eq!(params["uri"], json!(uri));
+    assert_eq!(
+        params["version"],
+        json!(3),
+        "the buffer's own version, not a new one"
+    );
+}
+
+#[test]
+fn a_definition_off_disk_points_at_the_line_that_declares_the_fact() {
+    let project = Project::new("definition");
+    project
+        .write("liyasa.json", "{}")
+        .write(
+            "facts/pricing.json",
+            "{\n  \"pro\": {\n    \"monthly_usd\": 49\n  }\n}\n",
+        )
+        .write("guides/install.md", "# Install\n");
+
+    let uri = project.uri("guides/install.md");
+    let mut server = Server::new();
+    server.handle(&request(
+        1,
+        "initialize",
+        json!({ "rootUri": project.root_uri() }),
+    ));
+    server.handle(&notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "liyasa", "version": 1,
+                                  "text": "Cost {{ facts.pricing.pro.monthly_usd }}.\n" } }),
+    ));
+
+    let result = result(server.handle(&request(
+        60,
+        "textDocument/definition",
+        json!({ "textDocument": { "uri": uri }, "position": { "line": 0, "character": 20 } }),
+    )));
+    assert_eq!(result["uri"], json!(project.uri("facts/pricing.json")));
+    assert_eq!(result["range"]["start"]["line"], json!(2));
+}

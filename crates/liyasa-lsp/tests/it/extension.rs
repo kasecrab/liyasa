@@ -185,3 +185,22 @@ fn the_preview_webview_runs_no_script_and_fetches_nothing() {
         "the webview's content security policy denies by default"
     );
 }
+
+#[test]
+fn every_notification_the_extension_subscribes_to_is_one_the_server_acts_on() {
+    // The client watches liyasa.json, facts/ and snippets/ and sends
+    // `workspace/didChangeWatchedFiles` when one changes. A server that ignored
+    // it would keep answering from an index the project has moved past, and
+    // nothing would say so.
+    let source = extension_source();
+    assert!(
+        source.contains("createFileSystemWatcher"),
+        "the client watches the files the index is built from"
+    );
+    for path in ["liyasa.json", "facts/**", "snippets/**"] {
+        assert!(
+            source.contains(path),
+            "`{path}` feeds the index and is watched"
+        );
+    }
+}

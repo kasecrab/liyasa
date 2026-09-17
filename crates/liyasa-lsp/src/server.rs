@@ -77,19 +77,6 @@ impl Server {
         Self::default()
     }
 
-    /// A server whose project is already loaded, for a caller that has one — a
-    /// test, or an editor host that reads the tree itself.
-    pub fn with_workspace(root: Option<PathBuf>, vfs: Arc<dyn Vfs>) -> Self {
-        let workspace = Workspace::load(vfs.as_ref());
-        Self {
-            initialized: true,
-            root,
-            vfs,
-            workspace,
-            ..Self::default()
-        }
-    }
-
     pub fn is_exiting(&self) -> bool {
         self.exiting
     }
@@ -103,6 +90,18 @@ impl Server {
     pub fn handle(&mut self, message: &Incoming) -> Vec<Outgoing> {
         let method = message.method.as_str();
         match (message.id.clone(), method) {
+            // The specification: once `shutdown` has been answered the session
+            // is over bar `exit`, and a client that asks for more is told its
+            // request is invalid rather than served from a half-closed server.
+            (_, "exit") => {
+                self.exiting = true;
+                Vec::new()
+            }
+            (Some(id), _) if self.shutdown => vec![Outgoing::Response(Response::err(
+                id,
+                Error::new(Error::INVALID_REQUEST, "the server is shutting down"),
+            ))],
+            (None, _) if self.shutdown => Vec::new(),
             (Some(id), "initialize") => vec![self.initialize(id, message)],
             (Some(id), _) if !self.initialized => {
                 vec![Outgoing::Response(Response::err(
@@ -122,14 +121,11 @@ impl Server {
                 id,
                 Error::method_not_found(method),
             ))],
-            (None, "exit") => {
-                self.exiting = true;
-                Vec::new()
-            }
             (None, _) if !self.initialized => Vec::new(),
             (None, "textDocument/didOpen") => self.did_open(message),
             (None, "textDocument/didChange") => self.did_change(message),
             (None, "textDocument/didClose") => self.did_close(message),
+            (None, "workspace/didChangeWatchedFiles") => self.reload(),
             // `initialized`, `$/cancelRequest`, `$/setTrace` and every other
             // notification: the protocol requires that an unknown notification
             // be ignored rather than answered.
@@ -234,6 +230,33 @@ impl Server {
             "textDocument/publishDiagnostics",
             json!({ "uri": uri, "version": 0, "diagnostics": [] }),
         ))]
+    }
+
+    /// A file the index is built from changed. Everything is re-read and every
+    /// open buffer re-analysed against it: a fact's new value changes what
+    /// hover shows, and a new page changes what a link may name.
+    fn reload(&mut self) -> Vec<Outgoing> {
+        if self.root.is_none() {
+            return Vec::new();
+        }
+        self.workspace = Workspace::load(self.vfs.as_ref());
+        let open: Vec<(String, i32, String)> = self
+            .documents
+            .iter()
+            .map(|(uri, open)| {
+                (
+                    uri.clone(),
+                    open.version,
+                    open.analysis.text.as_str().to_owned(),
+                )
+            })
+            .collect();
+        let mut out = Vec::new();
+        for (uri, version, text) in open {
+            self.analyse(uri.clone(), version, &text);
+            out.extend(self.publish(&uri));
+        }
+        out
     }
 
     fn analyse(&mut self, uri: String, version: i32, text: &str) {

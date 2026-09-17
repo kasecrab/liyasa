@@ -1,9 +1,11 @@
 //! One buffer, run through the build's own page pipeline.
 //!
-//! This is the whole of what the server knows about a file, and every feature
-//! reads it rather than re-deriving anything: diagnostics are the ones the
-//! pipeline raised, completion and hover index into the Source Document, and
-//! the preview is the HTML the pipeline already produced.
+//! This is the whole of what the server knows about a file: the diagnostics are
+//! the ones the pipeline raised and the preview is the HTML it produced.
+//! Completion and hover read the buffer's text rather than these segments,
+//! because half a directive is not a directive and the states an author asks
+//! from are exactly the half-written ones; [`Analysis::segment_at`] is here for
+//! a caller that wants the scanner's own classification instead.
 //!
 //! It runs `liyasa_build::render::page` rather than expanding and parsing here,
 //! deliberately. An editor that disagrees with the build about whether a page

@@ -33,6 +33,10 @@ const NOT_PAGES: &[&str] = &[
     "skills",
     "dist",
     ".liyasa",
+    // Not CM-03's list: a docs tree can sit at the root of a repository, and
+    // walking either of these is minutes of I/O for no pages at all.
+    "node_modules",
+    "target",
 ];
 
 /// One value under `facts.*`, and the file it is written in.

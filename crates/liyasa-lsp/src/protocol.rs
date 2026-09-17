@@ -8,7 +8,6 @@
 //! TODO(rfc-3000): replaced wholesale by `lsp-types` if §6.2.1 gains a row.
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// The protocol numbers its enumerations, and serde's derive would write the
 /// variant's name. Every `#[repr(u8)]` enum on this wire goes out as its
@@ -423,9 +422,4 @@ pub enum MessageType {
     Warning = 2,
     Info = 3,
     Log = 4,
-}
-
-/// The `result` of a request the specification lets answer with nothing.
-pub fn null() -> Value {
-    Value::Null
 }

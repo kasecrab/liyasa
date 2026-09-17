@@ -80,11 +80,13 @@ pub fn at(
 
 /// Reads the line up to the cursor and decides what is being written.
 pub fn context_at(text: &Text, offset: u32) -> Option<Context> {
-    let line_no = text.line_at(offset);
-    let line = text.line(line_no);
-    let line_start = offset - u32::try_from(prefix_len(text, line_no, offset)).unwrap_or(0);
-    let column = (offset - line_start) as usize;
-    let before = line.get(..column.min(line.len()))?;
+    let source = text.as_str();
+    let start = source
+        .get(..offset as usize)?
+        .rfind('\n')
+        .map_or(0, |at| at + 1);
+    let line_start = u32::try_from(start).ok()?;
+    let before = source[start..offset as usize].trim_end_matches(['\r', '\n']);
 
     // A template expression wins over everything else on the line: `{{ … }}`
     // and `{% … %}` are opaque to the directive and link syntax inside them.
@@ -118,16 +120,6 @@ pub fn context_at(text: &Text, offset: u32) -> Option<Context> {
     }
 
     None
-}
-
-/// The byte offset of the line's start, derived the same way the position
-/// mapping does, so the two cannot disagree.
-fn prefix_len(text: &Text, line: u32, offset: u32) -> usize {
-    let start = text.as_str()[..offset as usize]
-        .rfind('\n')
-        .map_or(0, |at| at + 1);
-    let _ = line;
-    offset as usize - start
 }
 
 struct Open {
