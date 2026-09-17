@@ -111,6 +111,12 @@ E0605 = { severity = "error", crate = "liyasa-verify", title = "Fact schema vali
 E0606 = { severity = "error", crate = "liyasa-verify", title = "Manual attestation expired" }
 E0607 = { severity = "error", crate = "liyasa-verify", title = "Drift detected (severity in payload)" }
 E0608 = { severity = "error", crate = "liyasa-verify", title = "Screenshot mismatch beyond tolerance" }
+E0609 = { severity = "error", crate = "liyasa-verify", title = "`verify` fence attribute is not a value Liyasa can read" }
+E0610 = { severity = "error", crate = "liyasa-verify", title = "Runner image is not pinned to a digest" }
+E0611 = { severity = "error", crate = "liyasa-verify", title = "`remote` sandbox has no runner service configured" }
+E0612 = { severity = "error", crate = "liyasa-verify", title = "The sandbox could not run the check" }
+E0613 = { severity = "error", crate = "liyasa-verify", title = "`verify.runners.custom` entry cannot be used" }
+E0614 = { severity = "error", crate = "liyasa-verify", title = "`verify-chain` steps cannot run as one chain" }
 E0620 = { severity = "error", crate = "liyasa-verify", title = "`local` sandbox rejected by the server" }
 E0621 = { severity = "error", crate = "liyasa-verify", title = "`command` source not in the server allow list or hash mismatch" }
 W0622 = { severity = "warning", crate = "liyasa-verify", title = "Verification deploy budget exceeded; remaining checks queued" }
