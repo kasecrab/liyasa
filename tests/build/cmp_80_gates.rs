@@ -1,15 +1,30 @@
-//! CMP-80 and CMP-82 through a whole build: what a gated block actually ships.
+//! CMP-80 and CMP-82 through a whole build: what a gated block ships to a site
+//! that declares no variants.
 //!
-//! `crates/liyasa-components/tests/it/gates.rs` pins the component's own
-//! behaviour given a variant. This file is the other half — whether the build
-//! hands it one — because the component cannot tell the difference between "no
-//! variant was passed" and "the variant admits nothing", and the fix is safe in
-//! both cases but finished in only one.
+//! Three files cover this between them and each one is load-bearing:
 //!
-//! Until `liyasa-build` passes the render job's variant, every gated block is
-//! withheld from every reader, which is a silent failure: a site that used
-//! visibility gates loses content and nothing says why. These tests pin that
-//! state so the fix flips them rather than passing unnoticed.
+//! - `crates/liyasa-components/tests/it/gates.rs` — what a component does with
+//!   a variant it is handed.
+//! - `tests/build/cmp_82_variants.rs` (WP-06's) — that the engine hands the
+//!   right variant to the right page, which needs a site declaring more than
+//!   one variant to be visible at all.
+//! - this file — the single-variant site: that the default variant admits
+//!   nothing gated, and that a gate written as a directive prop alone declares
+//!   no variant and so gates nothing into existence.
+//!
+//! The division matters because of how this file was wrong before. It used to
+//! carry a test claiming to pin the half-fixed state — the build not passing
+//! the render job's variant — on a fixture with a `groups` directive prop and
+//! no `groups` front matter. Variants come from front matter (`variants::syntactic`
+//! scans template segments; a directive prop creates none), so that site builds
+//! exactly one variant, the default, which correctly admits nothing both before
+//! and after the fix. The test passed for a reason unrelated to its name and
+//! would never have gone red. A check that passes for the wrong reason reads
+//! exactly like a check that passes, which is the whole shape of this defect.
+//!
+//! So nothing here claims to observe the variant wiring. The single-variant
+//! facts below are what this fixture can actually see; `cmp_82_variants.rs`
+//! owns the rest and is where a missing variant shows up.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -56,7 +71,8 @@ impl Drop for Project {
     }
 }
 
-/// A one-page site whose page carries `body` after a heading.
+/// A one-page site whose page carries `body` after a heading, and which
+/// declares nothing in front matter — so the build has one variant to render.
 fn site(name: &str, body: &str) -> Project {
     let project = Project::new(name);
     project
@@ -89,9 +105,27 @@ fn markdown(project: &Project) -> String {
     fs::read_to_string(project.out("index.md")).expect("the markdown twin")
 }
 
+/// Every variant of the home page the build wrote, by file name.
+fn home_variants(project: &Project) -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(project.out(""))
+        .expect("dist")
+        .map(|entry| {
+            entry
+                .expect("a directory entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .filter(|name| name == "index.html" || name.starts_with("index."))
+        .filter(|name| name.ends_with(".html"))
+        .collect();
+    names.sort();
+    names
+}
+
 /// The defect this packet fixed: before it, the gated paragraph was in the
 /// HTML, in the twin and in the index for everyone. It must never come back,
-/// whatever the build does with variants, so this test has no "yet" about it.
+/// whatever the build does with variants.
 #[test]
 fn a_group_gated_block_is_not_served_to_an_anonymous_reader() {
     let project = site(
@@ -128,32 +162,34 @@ fn a_region_gated_block_is_not_served_to_a_reader_with_no_region() {
     assert!(!markdown(&project).contains(SECRET));
 }
 
-/// The half that does not work yet. `liyasa-build` builds every component's
-/// `Shared` with `Shared::new(&reference).site(..).nonce(..)` and never calls
-/// `.variant(..)`, so the render job's variant never reaches the component and
-/// every gated block is withheld from every reader — including the one the gate
-/// names. `RenderJob` already carries the variant; the five `Shared::new` sites
-/// are in `liyasa-build`'s `render/blocks.rs`, `agents/size.rs` and
-/// `agents/markdown/mod.rs`, which is WP-06's crate. Pinned here so the fix
-/// flips this test.
+/// A gate written as a directive prop alone declares no variant.
 ///
-/// Only the sites whose output is keyed by the variant may take a real one. The
-/// markdown twin and the search index are written once and served to everyone
-/// (§6.6.4), so they keep the default and keep withholding.
+/// This is the fact that made the earlier version of this file useless, so it
+/// is pinned rather than left to be rediscovered. A page that gates on
+/// `groups` but does not declare `groups` in its front matter is not a page
+/// with an admin variant whose content is missing — it is a page with one
+/// variant, and the gate names a group that page never offers.
+///
+/// The assertion is on the COUNT, not on absence. Absence alone is what the
+/// removed test checked, and absence is true here for two different reasons at
+/// once; only the count says which.
 #[test]
-fn a_gated_block_reaches_nobody_yet_because_the_build_passes_no_variant() {
+fn a_directive_prop_alone_declares_no_variant() {
     let project = site(
-        "admitted",
+        "inert",
         &format!(":::visibility{{groups=[\"admin\"]}}\n{SECRET}\n:::"),
     );
     build(&project);
-    let page = html(&project);
-    assert!(
-        !page.contains(SECRET),
-        "WP-06 passed the render job's variant through to the component: this \
-         site should now build an admin variant that DOES carry the block, so \
-         assert its presence in that variant's output instead. {page}"
+
+    let names = home_variants(&project);
+    assert_eq!(
+        names,
+        vec!["index.html".to_owned()],
+        "a `groups` directive prop must not create a variant; front matter is \
+         what declares one, and `tests/build/cmp_82_variants.rs` is where a \
+         page that declares one is checked"
     );
+    assert!(!html(&project).contains(SECRET));
 }
 
 /// An ungated block is not affected by any of this, which is what says the
@@ -167,4 +203,5 @@ fn an_ungated_block_still_reaches_everyone() {
         page.contains(SECRET),
         "a visibility block with no gate is not gated: {page}"
     );
+    assert_eq!(home_variants(&project), vec!["index.html".to_owned()]);
 }
