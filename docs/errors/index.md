@@ -234,6 +234,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0723`](/errors/W0723) | Warning | Pages in a reserved directory are not routed |
 | [`W0724`](/errors/W0724) | Warning | `regions.detection` reads a header and `server.trustedProxies` trusts no peer, so no region header is honoured |
 | [`W0725`](/errors/W0725) | Warning | A page, navigation node, block or availability matrix names a region `regions.list` does not declare |
+| [`W0726`](/errors/W0726) | Warning | A `:::variation` directive names a variation or option `variations` does not declare |
 
 ## Server, auth, deployments, network
 

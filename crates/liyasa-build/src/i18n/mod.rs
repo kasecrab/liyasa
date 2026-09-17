@@ -10,6 +10,7 @@ pub mod fallback;
 pub mod locales;
 pub mod negotiate;
 pub mod regions;
+pub mod variations;
 pub mod strings;
 
 pub use config::{Detection, Fallback, LocaleDecl, Localization, Regions, VariationDecl};
@@ -17,3 +18,4 @@ pub use fallback::{Serve, Translations};
 pub use locales::{Alternate, Locales, SwitcherEntry};
 pub use negotiate::{Decision, Routing};
 pub use regions::{Detector, Rendering, Scope};
+pub use variations::Variations;
