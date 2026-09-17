@@ -31,18 +31,18 @@ Pointing `$schema` at the published URL is what gives you completion and inline 
 | [`build`](/reference/config/build) | Build outputs, budgets, caps, and determinism inputs (§6.6). |
 | [`content`](/reference/config/content) | Markdown, templating, and image behaviour (§8.9). |
 | [`contextRepos`](/reference/config/contextRepos) | CFG-99, GIT-11 |
-| [`description`](/reference/config/description) | The `description` setting. |
+| [`description`](/reference/config/description) | One-line description of the site, used as the default meta description and as the site summary in the agent surfaces when a page carries none of its own. |
 | [`dimensions`](/reference/config/dimensions) | Custom content dimensions such as product (§7.12). |
 | [`editor`](/reference/config/editor) | Editor settings (§15). |
 | [`errors`](/reference/config/errors) | Error page behaviour (§8.8). |
-| [`favicon`](/reference/config/favicon) | The `favicon` setting. |
+| [`favicon`](/reference/config/favicon) | The site favicon, per colour scheme. Absent, one is generated from the logo. |
 | [`feeds`](/reference/config/feeds) | Changelog and update feeds. |
 | [`footer`](/reference/config/footer) | Footer socials, link columns, branding, and legal line (§8.5). |
 | [`graphql`](/reference/config/graphql) | GraphQL schemas bound to this site. |
 | [`integrations`](/reference/config/integrations) | Third-party scripts and consent (§26.8). A vendor key is enabled when present and not `false` or `null`; Liyasa maintains its CSP sources (ANA-62). |
 | [`locales`](/reference/config/locales) | Languages this site is published in (§7.11). |
 | [`localization`](/reference/config/localization) | Locale fallback and visitor routing (§7.11). |
-| [`logo`](/reference/config/logo) | The `logo` setting. |
+| [`logo`](/reference/config/logo) | The site logo, per colour scheme. Leave it out and a text logo is generated from `name`. |
 | [`name`](/reference/config/name) | Site name. The only required key. |
 | [`navbar`](/reference/config/navbar) | Top navigation bar (§8.3). |
 | [`navigation`](/reference/config/navigation) | The navigation tree, a file that holds it, or an object carrying tree options (§8.4). |

@@ -64,6 +64,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`E0133`](/errors/E0133) | Error | Navigation binds a subtree to a version, locale, product, or spec that is not declared |
 | [`W0134`](/errors/W0134) | Warning | Trust-plane section read from the deploy branch, not from the branch being built |
 | [`E0135`](/errors/E0135) | Error | Remote spec source is not one the deploy branch's config names |
+| [`W0136`](/errors/W0136) | Warning | `seo.canonicalOrigin` already carries `build.basePath`, so every absolute URL doubles it |
 
 ## Templating and Source Document
 

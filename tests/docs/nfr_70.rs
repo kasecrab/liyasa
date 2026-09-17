@@ -57,7 +57,7 @@ fn every_error_code_has_a_page() {
 /// new code, so this can only go down; if it goes up, someone added a code
 /// without writing what it means, and a page of generated scaffolding that says
 /// "not written yet" is honest but is not documentation.
-const UNWRITTEN_CAP: usize = 106;
+const UNWRITTEN_CAP: usize = 105;
 
 #[test]
 fn the_unwritten_pages_are_counted_and_shrinking() {
