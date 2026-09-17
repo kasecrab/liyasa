@@ -25,6 +25,9 @@ static COUNTER: AtomicU64 = AtomicU64::new(0);
 pub struct Harness {
     pub state: Arc<AppState>,
     pub router: Router,
+    /// What `routes::application` mounted, so a test can assert on why a
+    /// subtree is absent as well as that it is (RFC 1403).
+    pub mounted: Vec<liyasa_server::routes::MountRecord>,
     pub dist: PathBuf,
     root: PathBuf,
 }
@@ -44,6 +47,9 @@ pub struct Setup {
     pub limiter: Option<Arc<Limiter>>,
     pub config: ServerConfig,
     pub with_store: bool,
+    /// `liyasa.json` as the subtrees read it. `None` is a site with no
+    /// sections beyond the defaults, which is a public site with no auth.
+    pub site_config: Option<serde_json::Value>,
 }
 
 impl Setup {
@@ -54,6 +60,7 @@ impl Setup {
             limiter: Some(Arc::new(Limiter::unlimited())),
             config: ServerConfig::default(),
             with_store: true,
+            site_config: None,
         }
     }
 }
@@ -90,7 +97,14 @@ impl Harness {
         };
 
         let ingest = IngestQueue::new(1024, 64);
-        let mut state = AppState::new(setup.config).with_ingest(ingest.clone());
+        let config = match setup.site_config {
+            Some(value) => ServerConfig {
+                site_config: Arc::new(value),
+                ..setup.config
+            },
+            None => setup.config,
+        };
+        let mut state = AppState::new(config).with_ingest(ingest.clone());
         if let Some(limiter) = setup.limiter {
             state = state.with_limiter(limiter);
         }
@@ -112,11 +126,15 @@ impl Harness {
             state = state.with_store(Arc::new(store));
         }
         let state = Arc::new(state);
-        let router = liyasa_server::routes::router(state.clone());
+        // RFC 1403: the same composition the binary performs. A harness that
+        // builds its own router tests an application the product never runs,
+        // which is exactly how two packages' HTTP surfaces went unrouted.
+        let application = liyasa_server::routes::application(state.clone());
         (
             Self {
                 state,
-                router,
+                router: application.router,
+                mounted: application.mounted,
                 dist,
                 root,
             },
@@ -136,6 +154,16 @@ impl Harness {
             .oneshot(request)
             .await
             .expect("the router answers")
+    }
+
+    /// Any method, for a route whose existence is the thing under test.
+    pub async fn request(&self, method: &str, path: &str) -> Response<Body> {
+        self.send(
+            builder(method, path)
+                .body(Body::empty())
+                .expect("a request"),
+        )
+        .await
     }
 
     pub async fn get(&self, path: &str) -> Response<Body> {

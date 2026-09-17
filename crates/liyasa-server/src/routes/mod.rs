@@ -18,6 +18,7 @@ pub mod httpdate;
 pub mod jobs;
 pub mod limiter;
 pub mod metrics;
+pub mod mount;
 pub mod problem;
 pub mod serve;
 pub mod session;
@@ -63,15 +64,18 @@ pub struct ServerConfig {
     pub collector_only: bool,
     /// Origins a collector accepts events for. Empty means same-origin only.
     pub collector_origins: Vec<String>,
-    pub analytics_enabled: bool,
     /// Sites a collector accepts events for (ANA-09). A collector with none
     /// configured accepts only its own `site`, because an open collector lets
     /// any client write into any site's aggregates.
     pub collector_sites: Vec<String>,
+    pub analytics_enabled: bool,
     /// The header an operator's edge sets for region (§33.1 item 10). Read
     /// only from a trusted proxy.
     pub region_header: Option<String>,
     pub jobs_lease: Duration,
+    /// `liyasa.json` after overlays. Each subtree reads its own section out of
+    /// this rather than `ServerConfig` growing a field per package (RFC 1403).
+    pub site_config: Arc<serde_json::Value>,
 }
 
 impl Default for ServerConfig {
@@ -83,11 +87,12 @@ impl Default for ServerConfig {
             drain_timeout: Duration::from_secs(30),
             collector_only: false,
             collector_origins: Vec::new(),
+            collector_sites: Vec::new(),
             analytics_enabled: true,
             region_header: None,
             jobs_lease: Duration::from_secs(60),
+            site_config: Arc::new(serde_json::Value::Null),
         }
-            collector_sites: Vec::new(),
     }
 }
 
@@ -107,6 +112,9 @@ pub struct AppState {
     pub challenges: Arc<acme::Challenges>,
     pub started: Instant,
     draining: AtomicBool,
+    /// What `application` mounted, so readiness can report it (RFC 1403).
+    /// Written once, by `application`, before the server accepts a request.
+    mounted: std::sync::OnceLock<Vec<MountRecord>>,
 }
 
 impl std::fmt::Debug for AppState {
@@ -133,6 +141,7 @@ impl AppState {
             scrubber: Scrubber::new(),
             challenges: Arc::new(acme::Challenges::default()),
             started: Instant::now(),
+            mounted: std::sync::OnceLock::new(),
             draining: AtomicBool::new(false),
             config,
         }
@@ -173,6 +182,12 @@ impl AppState {
     pub fn with_scrubber(mut self, scrubber: Scrubber) -> Self {
         self.scrubber = scrubber;
         self
+    }
+
+    /// What the application mounted. Empty before `application` has run,
+    /// which is the case in a test that builds a router by hand.
+    pub fn mounted(&self) -> &[MountRecord] {
+        self.mounted.get().map(Vec::as_slice).unwrap_or_default()
     }
 
     pub fn draining(&self) -> bool {
@@ -234,21 +249,6 @@ impl AppState {
         }
     }
 
-    /// ANA-09: a collector accepts only the origins it was configured with.
-    /// A server that also serves the site accepts its own requests, which
-    /// carry no `Origin` or its own.
-    pub fn origin_allowed(&self, origin: Option<&str>) -> bool {
-        if !self.config.collector_only {
-            return true;
-        }
-        match origin {
-            None => true,
-            Some(origin) => self
-                .config
-                .collector_origins
-                .iter()
-                .any(|allowed| allowed == origin || allowed == "*"),
-        }
     /// Whether an event body may attribute itself to `site` (ANA-09).
     ///
     /// A served instance reads no site from a body at all, so anything is
@@ -268,6 +268,21 @@ impl AppState {
             || site == self.config.site
     }
 
+    /// ANA-09: a collector accepts only the origins it was configured with.
+    /// A server that also serves the site accepts its own requests, which
+    /// carry no `Origin` or its own.
+    pub fn origin_allowed(&self, origin: Option<&str>) -> bool {
+        if !self.config.collector_only {
+            return true;
+        }
+        match origin {
+            None => true,
+            Some(origin) => self
+                .config
+                .collector_origins
+                .iter()
+                .any(|allowed| allowed == origin || allowed == "*"),
+        }
     }
 
     /// Queues a webhook delivery for every interested subscription (REST-10).
@@ -465,6 +480,83 @@ pub async fn page(State(state): State<Arc<AppState>>, request: axum::extract::Re
     site::serve(&bundle, &path, request.headers()).into_response()
 }
 
+/// What one subtree contributed, for the startup log and for readiness.
+#[derive(Debug, Clone)]
+pub struct MountRecord {
+    pub name: &'static str,
+    pub mounted: bool,
+    /// Why this instance mounts nothing for it. Present exactly when
+    /// `mounted` is false.
+    pub skipped: Option<String>,
+}
+
+/// The whole application: every package's routes, and what each one did.
+pub struct Application {
+    pub router: Router,
+    pub mounted: Vec<MountRecord>,
+    /// Everything the subtrees raised while being built, to be reported once
+    /// at startup rather than once per request.
+    pub diagnostics: liyasa_core::diagnostics::Diagnostics,
+}
+
+/// Everything `liyasa serve` mounts (RFC 1403).
+///
+/// The binary calls exactly this and so does every test harness, so the
+/// application the product runs and the application a test asserts against
+/// cannot drift apart. Two packages' complete HTTP surfaces were dead code in
+/// the shipped binary for days because each composed its own router in its own
+/// harness; this function exists so that cannot happen again.
+pub fn application(state: Arc<AppState>) -> Application {
+    let mut router = router(state.clone());
+    let mut mounted = Vec::new();
+    let mut diagnostics = liyasa_core::diagnostics::Diagnostics::new();
+
+    for subtree in mount::subtrees() {
+        // A collector serves no site and no subtree: it accepts events and
+        // nothing else (ANA-09).
+        if state.config.collector_only {
+            mounted.push(MountRecord {
+                name: subtree.name,
+                mounted: false,
+                skipped: Some("this instance is a collector and serves no routes".to_owned()),
+            });
+            continue;
+        }
+        let contribution = (subtree.mount)(&state);
+        diagnostics.extend(contribution.diagnostics.into_vec());
+        match contribution.router {
+            Some(subtree_router) => {
+                router = router.merge(subtree_router);
+                mounted.push(MountRecord {
+                    name: subtree.name,
+                    mounted: true,
+                    skipped: None,
+                });
+            }
+            None => mounted.push(MountRecord {
+                name: subtree.name,
+                mounted: false,
+                skipped: Some(
+                    contribution
+                        .skipped
+                        .unwrap_or_else(|| "not configured on this instance".to_owned()),
+                ),
+            }),
+        }
+    }
+    // Readiness answers from the state, not from the router, so record it
+    // before the first request can ask.
+    let _ = state.mounted.set(mounted.clone());
+    Application {
+        router,
+        mounted,
+        diagnostics,
+    }
+}
+
+/// Only this package's own routes. `application` starts from it; a test aimed
+/// at one package's handlers may use it, but nothing that claims to be about
+/// the product should.
 pub fn router(state: Arc<AppState>) -> Router {
     let collector_only = state.config.collector_only;
     let mut router = Router::new()

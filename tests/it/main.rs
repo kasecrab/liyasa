@@ -116,3 +116,5 @@ mod ver_02_06_rust;
 mod ver_02_1_shell;
 #[path = "../verify/ver_03_isolation.rs"]
 mod ver_03_isolation;
+#[path = "../server/mount.rs"]
+mod mount;

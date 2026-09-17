@@ -30,6 +30,17 @@ pub async fn health(State(state): State<Arc<AppState>>) -> Response {
 }
 
 pub async fn ready(State(state): State<Arc<AppState>>) -> Response {
+    let subtrees: Vec<serde_json::Value> = state
+        .mounted()
+        .iter()
+        .map(|record| {
+            json!({
+                "name": record.name,
+                "mounted": record.mounted,
+                "skipped": record.skipped,
+            })
+        })
+        .collect();
     let mut checks = Vec::new();
     let mut ready = true;
 
@@ -77,6 +88,8 @@ pub async fn ready(State(state): State<Arc<AppState>>) -> Response {
             "status": if ready { "ready" } else { "unready" },
             "version": VERSION,
             "checks": checks,
+            // RFC 1403: which subtrees this instance mounted, and why not.
+            "subtrees": subtrees,
         }),
     )
     .into_response()

@@ -288,6 +288,8 @@ fn server_config(
                 .and_then(serde_json::Value::as_u64)
                 .unwrap_or(60),
         ),
+        // RFC 1403: every subtree reads its own section out of this.
+        site_config: Arc::new(value.clone()),
     };
     (
         config,
@@ -395,7 +397,29 @@ async fn run_serve(options: Options) -> Result<(), String> {
         .local_addr()
         .map(|a| a.to_string())
         .unwrap_or(listen);
-    let router = routes::router(state.clone());
+    // Every package's routes, not just this one's (RFC 1403).
+    let application = routes::application(state.clone());
+    for record in &application.mounted {
+        match &record.skipped {
+            None => tracing::info!(target: "liyasa_server", subtree = record.name, "mounted"),
+            Some(reason) => tracing::info!(
+                target: "liyasa_server",
+                subtree = record.name,
+                reason = %reason,
+                "not mounted"
+            ),
+        }
+    }
+    // A bad `auth` section is said once, at startup, not once per request.
+    for diagnostic in application.diagnostics.iter() {
+        tracing::warn!(
+            target: "liyasa_server",
+            code = diagnostic.code.as_str(),
+            "{}",
+            diagnostic.message
+        );
+    }
+    let router = application.router;
 
     let stop = runtime.shutdown_signal();
 
