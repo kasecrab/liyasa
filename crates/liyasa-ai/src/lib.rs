@@ -12,6 +12,7 @@
 //! address policy of §30.2.3 applies to a model provider exactly as it applies
 //! to a spec fetch, and a test injects a client instead of a server.
 
+pub mod assistant;
 pub mod chunk;
 pub mod config;
 pub mod error;
@@ -21,6 +22,7 @@ pub mod openapi_doc;
 pub mod prompt;
 pub mod providers;
 
+pub use assistant::{Answer, Outcome, Plan, ReaderContext, Thread, Tools, ask};
 pub use chunk::{Chunk, ChunkOptions, chunk};
 pub use config::{AiConfig, AssistantConfig, ModelRef, Role};
 pub use error::AiFailure;
