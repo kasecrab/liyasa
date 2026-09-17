@@ -15,6 +15,9 @@ pub mod variations;
 pub mod strings;
 pub mod sync;
 
+#[cfg(test)]
+mod tests;
+
 pub use config::{Detection, Fallback, LocaleDecl, Localization, Regions, VariationDecl};
 pub use fallback::{Serve, Translations};
 pub use locales::{Alternate, Locales, SwitcherEntry};
