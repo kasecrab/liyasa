@@ -17,11 +17,12 @@ use liyasa_core::source_map::SourceMap;
 
 /// One config with something wrong for each rule that can coexist: a page named
 /// twice, a primary no label clears, two versions and no default, a subtree on
-/// a version nobody declared, a colour that is not a colour, and a page no
-/// navigation reaches.
+/// a version nobody declared, a colour that is not a colour, a page no
+/// navigation reaches, and an origin that carries the base path twice.
 const BROKEN: &str = r##"{
   "name": "Acme docs",
-  "seo": { "canonicalOrigin": "https://docs.acme.com" },
+  "seo": { "canonicalOrigin": "https://docs.acme.com/docs" },
+  "build": { "basePath": "/docs" },
   "theme": { "colors": { "primary": "#818CF8", "accent": "#ggg" } },
   "versions": [{ "name": "v2" }, { "name": "v1" }],
   "navigation": [
@@ -113,7 +114,9 @@ fn validated() -> Vec<String> {
 #[test]
 fn validate_reports_every_rule_the_config_is_breaking() {
     let codes = validated();
-    for code in ["E0105", "E0107", "E0108", "E0132", "E0133", "W0130"] {
+    for code in [
+        "E0105", "E0107", "E0108", "E0132", "E0133", "W0130", "W0136",
+    ] {
         assert!(
             codes.contains(&code.to_owned()),
             "{code} is not among {codes:?}"
@@ -124,10 +127,12 @@ fn validate_reports_every_rule_the_config_is_breaking() {
 #[test]
 fn a_build_reports_them_too() {
     let codes = built();
-    let missing: Vec<&str> = ["E0105", "E0107", "E0108", "E0132", "E0133", "W0130"]
-        .into_iter()
-        .filter(|code| !codes.contains(&(*code).to_owned()))
-        .collect();
+    let missing: Vec<&str> = [
+        "E0105", "E0107", "E0108", "E0132", "E0133", "W0130", "W0136",
+    ]
+    .into_iter()
+    .filter(|code| !codes.contains(&(*code).to_owned()))
+    .collect();
     assert_eq!(
         missing,
         Vec::<&str>::new(),
