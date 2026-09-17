@@ -38,3 +38,5 @@ pub use liyasa_core::ids::Fingerprint;
 pub use pool::RenderPool;
 
 pub mod hosting;
+
+pub mod i18n;
