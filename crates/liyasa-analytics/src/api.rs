@@ -197,6 +197,22 @@ pub const ENDPOINTS: &[Endpoint] = &[
         auth: Auth::DashboardRead,
     },
     Endpoint {
+        id: "feedback.ratings",
+        method: "GET",
+        path: "/_liyasa/api/v1/analytics/feedback/ratings",
+        requirement: "ANA-30",
+        served_by: ServedBy::Wp17,
+        auth: Auth::DashboardRead,
+    },
+    Endpoint {
+        id: "feedback.pages",
+        method: "GET",
+        path: "/_liyasa/api/v1/analytics/feedback/pages",
+        requirement: "ANA-30",
+        served_by: ServedBy::Wp17,
+        auth: Auth::DashboardRead,
+    },
+    Endpoint {
         id: "content.tree",
         method: "GET",
         path: "/_liyasa/api/v1/content",

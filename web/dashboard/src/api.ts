@@ -51,6 +51,8 @@ export const ENDPOINTS: Endpoint[] = [
   { id: "insights.cards", method: "GET", path: `${API_BASE}/analytics/insights`, requirement: "ANA-40", servedBy: "wp-17", auth: "dashboard-read" },
   { id: "insights.act", method: "POST", path: `${API_BASE}/analytics/insights/act`, requirement: "ANA-40", servedBy: "wp-17", auth: "dashboard-read" },
   { id: "settings.integrations", method: "GET", path: `${API_BASE}/analytics/integrations`, requirement: "ANA-60", servedBy: "wp-17", auth: "dashboard-read" },
+  { id: "feedback.ratings", method: "GET", path: `${API_BASE}/analytics/feedback/ratings`, requirement: "ANA-30", servedBy: "wp-17", auth: "dashboard-read" },
+  { id: "feedback.pages", method: "GET", path: `${API_BASE}/analytics/feedback/pages`, requirement: "ANA-30", servedBy: "wp-17", auth: "dashboard-read" },
   { id: "content.tree", method: "GET", path: `${API_BASE}/content`, requirement: "REST-02", servedBy: "wp-14", auth: "dashboard-read" },
   { id: "feedback.list", method: "GET", path: "/_liyasa/feedback", requirement: "ANA-30", servedBy: "wp-14", auth: "dashboard-read" },
   { id: "feedback.summary", method: "GET", path: "/_liyasa/feedback/summary", requirement: "ANA-30", servedBy: "wp-14", auth: "dashboard-read" },

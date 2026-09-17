@@ -123,7 +123,7 @@ fn the_two_endpoints_this_package_cannot_serve_are_the_ones_that_read_elsewhere(
         .filter(|e| e.served_by == ServedBy::Wp17)
         .map(|e| e.id)
         .collect();
-    assert_eq!(ours.len(), 16);
+    assert_eq!(ours.len(), 18);
     for id in [
         "schema.event",
         "traffic.series",

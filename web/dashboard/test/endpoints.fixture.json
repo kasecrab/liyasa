@@ -131,6 +131,22 @@
       "auth": "dashboard-read"
     },
     {
+      "id": "feedback.ratings",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/feedback/ratings",
+      "requirement": "ANA-30",
+      "servedBy": "wp-17",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "feedback.pages",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/feedback/pages",
+      "requirement": "ANA-30",
+      "servedBy": "wp-17",
+      "auth": "dashboard-read"
+    },
+    {
       "id": "content.tree",
       "method": "GET",
       "path": "/_liyasa/api/v1/content",

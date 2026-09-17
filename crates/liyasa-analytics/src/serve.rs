@@ -196,6 +196,8 @@ pub fn mount(state: Arc<Analytics>) -> Router {
         .route("/_liyasa/api/v1/analytics/insights", get(cards))
         .route("/_liyasa/api/v1/analytics/insights/act", post(act))
         .route("/_liyasa/api/v1/analytics/integrations", get(vendors))
+        .route("/_liyasa/api/v1/analytics/feedback/ratings", get(ratings))
+        .route("/_liyasa/api/v1/analytics/feedback/pages", get(rated_pages))
         .with_state(state)
 }
 
@@ -517,6 +519,31 @@ async fn vendors(State(state): State<Arc<Analytics>>) -> Response {
     }))
 }
 
+// ---- feedback (ANA-30) ----
+//
+// `liyasa-server` already serves the list and the site-wide summary. These two
+// are the reports it does not have: the per-page rating series ANA-30 names,
+// and the per-page standing that ranks the pages worth looking at. Both read
+// the application database rather than the analytics one, because feedback is
+// an editable record with a status workflow rather than an append-only event.
+
+async fn ratings(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) -> Response {
+    let window = Window::parse(raw.as_deref(), now_ms());
+    let route = url::form_urlencoded::parse(raw.unwrap_or_default().as_bytes())
+        .find(|(name, _)| name == "route")
+        .map(|(_, value)| value.into_owned());
+    let points = unwrap_or_fail!(
+        feedback::ratings_over_time(&state.app, window.range, window.grain, route.as_deref()).await
+    );
+    ok(json!({ "grain": window.grain, "route": route, "points": points }))
+}
+
+async fn rated_pages(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) -> Response {
+    let window = Window::parse(raw.as_deref(), now_ms());
+    let pages = unwrap_or_fail!(feedback::by_page(&state.app, window.range, window.limit).await);
+    ok(json!({ "pages": pages }))
+}
+
 /// The weekly digest, rendered rather than sent (ANA-42). Delivery is
 /// `liyasa-server`'s: the only crate that may open a socket is `liyasa-net`.
 pub async fn weekly_digest(
@@ -533,13 +560,4 @@ pub async fn sweep(
     totals: Option<&dyn retention::TotalsSink>,
 ) -> Result<retention::SweepReport, StoreError> {
     retention::sweep(&state.analytics, state.retention, now_ms(), totals).await
-}
-
-/// The feedback reports of ANA-30, which read the application database.
-pub async fn feedback_by_page(
-    state: &Analytics,
-    range: Range,
-    limit: i64,
-) -> Result<Vec<feedback::PageRating>, StoreError> {
-    feedback::by_page(&state.app, range, limit).await
 }

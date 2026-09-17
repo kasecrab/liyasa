@@ -611,7 +611,7 @@ export const PAGE_ENDPOINTS: Record<string, string[]> = {
   ],
   search: ["search.queries", "search.pages", "search.trending"],
   assistant: ["assistant.summary"],
-  feedback: ["feedback.list", "feedback.summary"],
+  feedback: ["feedback.list", "feedback.summary", "feedback.ratings", "feedback.pages"],
   truth: ["drift.open"],
   proposals: ["proposals.list"],
   deployments: ["builds.queue", "deployments.history"],
