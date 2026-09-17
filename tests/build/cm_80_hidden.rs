@@ -200,20 +200,21 @@ fn a_page_in_a_reserved_directory_is_reported_once() {
         .collect();
 
     // One per directory, not one per file: `snippets/` holds two.
-    assert_eq!(warnings.len(), 6, "{warnings:#?}");
-    for name in [
-        "snippets",
-        "components",
-        "facts",
-        "theme",
-        "assets",
-        "_drafts",
-    ] {
+    assert_eq!(warnings.len(), 5, "{warnings:#?}");
+    for name in ["snippets", "components", "facts", "theme", "assets"] {
         assert!(
             warnings.iter().any(|message| message.contains(name)),
             "{name} is not named in {warnings:#?}"
         );
     }
+    // `_drafts/` is withheld by the same walk and is not reported: the author
+    // typed the underscore, so the file is where they meant to put it. The
+    // repository's own `docs/errors/_notes/` is the case that proves it — every
+    // note in it would be a warning on every build.
+    assert!(
+        !warnings.iter().any(|message| message.contains("_drafts")),
+        "the `_` convention is deliberate, not a defect: {warnings:#?}"
+    );
     assert!(
         warnings
             .iter()

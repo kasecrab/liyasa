@@ -263,20 +263,20 @@ fn reserved_warning(segment: &str, paths: &[VfsPath]) -> Diagnostic {
 /// A file under one of these is consumed by the build rather than served, so a
 /// `.md` there is content the site never shows — which is worth saying, because
 /// nothing else in the output hints that the file existed.
+///
+/// `is_routable` also withholds any path with a `_` segment, and that one is
+/// deliberately not reported: the author typed the underscore. A reserved name
+/// is an ordinary word — `components`, `facts` — that a writer can choose
+/// without knowing it is taken.
 fn reserved_segment(path: &VfsPath) -> Option<String> {
     let segments: Vec<&str> = path.as_str().split('/').collect();
-    // The last segment is the file; only the directories it sits in reserve it,
-    // except for the `_` convention, which applies to the file name too.
-    for (at, segment) in segments.iter().enumerate() {
-        let is_directory = at + 1 < segments.len();
-        if segment.starts_with('_') {
-            return Some((*segment).to_owned());
-        }
-        if is_directory && RESERVED_DIRECTORIES.contains(segment) {
-            return Some((*segment).to_owned());
-        }
-    }
-    None
+    // The last segment is the file; only the directories it sits in reserve it.
+    // Outermost first, because the top directory is the one that swallowed it.
+    let directories = segments.len().saturating_sub(1);
+    segments[..directories]
+        .iter()
+        .find(|segment| RESERVED_DIRECTORIES.contains(segment))
+        .map(|segment| (*segment).to_owned())
 }
 
 /// Whether a file is an includable fragment rather than content of its own
