@@ -270,7 +270,7 @@ async fn a_route_prefix_filter_means_the_prefix() {
 
 #[tokio::test]
 async fn a_row_outside_the_range_is_outside_the_range() {
-    let (_dir, repo, pool) = seeded(
+    let (_dir, _repo, pool) = seeded(
         "feedback-range",
         vec![row("f1", "/a", FeedbackKind::Page, Some(1), T0 - HOUR)],
     )

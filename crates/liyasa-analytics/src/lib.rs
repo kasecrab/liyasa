@@ -15,8 +15,11 @@
 pub mod actions;
 pub mod agents;
 pub mod feedback;
+pub mod integrations;
+pub mod privacy;
 pub mod props;
 pub mod query;
+pub mod retention;
 pub mod schema;
 pub mod search;
 pub(crate) mod sql;
