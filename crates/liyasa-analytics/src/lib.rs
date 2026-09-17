@@ -14,6 +14,9 @@
 
 pub mod agents;
 pub mod props;
+pub mod query;
 pub mod schema;
+pub mod traffic;
 
 pub use agents::{Caller, CallerKind, Headless, Signals, Structural};
+pub use query::{Comparison, Filters, Grain, Range, RangeSpec, SavedView};
