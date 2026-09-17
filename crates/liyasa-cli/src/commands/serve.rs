@@ -2,8 +2,13 @@
 //!
 //! The server of §18 is `liyasa-server`: routing by `Host`, reader
 //! authentication, TLS with automatic certificates, a database, deployments,
-//! and the analytics collector. That crate does not exist yet, and a command
-//! that quietly served static files instead would be claiming to be it.
+//! and the analytics collector.
+//!
+//! That crate now exists, but it exposes only `routes`: the pieces are there —
+//! the request path, TLS, telemetry — and nothing assembles them into a process
+//! a command can start, and `--init` has no store to create an admin token in.
+//! So the command still cannot run, for a narrower reason than before, and a
+//! command that quietly served static files instead would be claiming to be it.
 //!
 //! `liyasa dev` is the one that serves a directory, and it says so.
 
@@ -31,7 +36,7 @@ pub fn run(global: &Global, args: &Serve) -> Exit {
             code::E0006,
             format!("{what} is not in this build"),
         )
-        .help("`liyasa dev` serves a built site locally. `liyasa serve` arrives with the server crate."),
+        .help("`liyasa dev` serves a built site locally. `liyasa serve` needs an assembled entry point in `liyasa-server`, which is not written yet."),
     );
     Exit::Errors
 }
