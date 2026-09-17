@@ -9,6 +9,7 @@
 pub mod api;
 pub mod blocks;
 pub mod budget;
+pub mod search;
 pub mod session;
 pub mod ts;
 pub mod vfs;
@@ -17,5 +18,6 @@ pub use api::{
     ParseRequest, ParseResponse, PreviewRequest, PreviewResponse, SearchRequest, SearchResponse,
     SerializeRequest, SerializeResponse, ValidateRequest, ValidateResponse,
 };
+pub use search::Searcher;
 pub use session::Session;
 pub use vfs::EditorVfs;
