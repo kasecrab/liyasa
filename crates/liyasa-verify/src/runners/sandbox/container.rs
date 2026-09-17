@@ -194,8 +194,8 @@ pub fn argv(engine: Engine, job: &SandboxJob, limits: &Limits, stage: &Path) -> 
     out
 }
 
-/// `--cpus` takes a fraction, and `0.5` reads better in a diagnostic than
-/// `0.500`.
+/// The engine's cpu ceiling is written as a fraction of one core, and `0.5`
+/// reads better in a diagnostic than `0.500`.
 fn cpus(millis: u32) -> String {
     let text = format!("{}.{:03}", millis / 1000, millis % 1000);
     let trimmed = text.trim_end_matches('0').trim_end_matches('.');

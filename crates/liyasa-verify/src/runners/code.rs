@@ -204,7 +204,7 @@ impl SandboxRunner {
             .unwrap_or(spec.timeout);
         let network = spec.needs_network || self.language.needs_network();
         let output = sandbox
-            .exec(sandbox_job(&pin, job, binding, spec, timeout, network))
+            .exec(sandbox_job(&pin, job, binding, timeout, network))
             .await;
         match output {
             Ok(output) => assert_all(spec, binding, &output, scrubber),
@@ -239,7 +239,6 @@ fn sandbox_job(
     pin: &super::image::ImagePin,
     job: Job,
     binding: &Binding,
-    spec: &CheckSpec,
     timeout: std::time::Duration,
     network: bool,
 ) -> SandboxJob {

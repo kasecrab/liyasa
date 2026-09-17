@@ -175,7 +175,7 @@ fn intern(text: &str) -> &'static str {
     let mut guard = POOL.lock().unwrap_or_else(|e| e.into_inner());
     let pool = guard.get_or_insert_with(BTreeMap::new);
     if let Some(found) = pool.get(text) {
-        return *found;
+        return found;
     }
     let leaked: &'static str = Box::leak(text.to_owned().into_boxed_str());
     pool.insert(text.to_owned(), leaked);
@@ -187,7 +187,7 @@ fn intern_all(items: &[String]) -> &'static [&'static str] {
     let mut guard = POOL.lock().unwrap_or_else(|e| e.into_inner());
     let pool = guard.get_or_insert_with(BTreeMap::new);
     if let Some(found) = pool.get(items) {
-        return *found;
+        return found;
     }
     let leaked: &'static [&'static str] = Box::leak(
         items
