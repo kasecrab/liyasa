@@ -3,8 +3,11 @@
 
 mod analysis;
 mod completion;
+mod definition;
 mod diagnostics;
+mod hover;
 mod jsonrpc;
+mod locate;
 mod text;
 mod uri;
 mod workspace;

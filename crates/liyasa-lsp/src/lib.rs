@@ -14,8 +14,11 @@
 
 pub mod analysis;
 pub mod completion;
+pub mod definition;
 pub mod diagnostics;
+pub mod hover;
 pub mod jsonrpc;
+pub mod locate;
 pub mod protocol;
 pub mod text;
 pub mod uri;
