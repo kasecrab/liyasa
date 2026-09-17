@@ -167,11 +167,7 @@ fn fields(properties: &Map<String, Value>, required: Vec<&str>, indent: &str) ->
         } else {
             "?"
         };
-        let _ = writeln!(
-            out,
-            "{indent}{name}{optional}: {};",
-            render(schema, indent)
-        );
+        let _ = writeln!(out, "{indent}{name}{optional}: {};", render(schema, indent));
     }
     out
 }
@@ -188,11 +184,7 @@ fn render(schema: &Value, indent: &str) -> String {
     }
 
     if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
-        return reference
-            .rsplit('/')
-            .next()
-            .unwrap_or("unknown")
-            .to_owned();
+        return reference.rsplit('/').next().unwrap_or("unknown").to_owned();
     }
     if let Some(constant) = schema.get("const") {
         return literal(constant);

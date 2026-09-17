@@ -48,8 +48,8 @@ impl Searcher {
         let json = files
             .get(MANIFEST)
             .ok_or_else(|| refused(SearchError::corrupt(MANIFEST)))?;
-        let manifest: Manifest = serde_json::from_slice(json)
-            .map_err(|_| refused(SearchError::corrupt(MANIFEST)))?;
+        let manifest: Manifest =
+            serde_json::from_slice(json).map_err(|_| refused(SearchError::corrupt(MANIFEST)))?;
         ShardReader::check_version(manifest.version).map_err(refused)?;
         Ok(Self { manifest, files })
     }

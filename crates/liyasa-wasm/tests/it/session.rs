@@ -20,9 +20,7 @@ impl Draft {
         Box::new(Self(
             files
                 .iter()
-                .map(|(path, text)| {
-                    (VfsPath::new(path), Bytes::from(text.as_bytes().to_vec()))
-                })
+                .map(|(path, text)| (VfsPath::new(path), Bytes::from(text.as_bytes().to_vec())))
                 .collect(),
         ))
     }
@@ -91,14 +89,22 @@ fn a_page_becomes_html_markdown_and_text() {
     assert!(response.html.contains("Run the installer."));
     assert!(response.markdown.contains("Run the installer."));
     assert!(response.text.contains("Run the installer."));
-    assert!(response.diagnostics.is_empty(), "{:?}", response.diagnostics);
+    assert!(
+        response.diagnostics.is_empty(),
+        "{:?}",
+        response.diagnostics
+    );
     assert!(!response.server_render);
 }
 
 #[test]
 fn a_template_expression_is_expanded_before_the_markdown_is_parsed() {
     let response = preview(&session(), "Welcome to {{ site.name }}.\n");
-    assert!(response.html.contains("Welcome to Acme."), "{}", response.html);
+    assert!(
+        response.html.contains("Welcome to Acme."),
+        "{}",
+        response.html
+    );
     assert!(!response.html.contains("{{"));
 }
 
@@ -113,7 +119,10 @@ fn a_directive_renders_through_the_component_registry() {
 fn an_undefined_name_is_reported_rather_than_rendered_as_nothing() {
     let response = preview(&session(), "Hello {{ nobody.at.all }}.\n");
     assert!(
-        response.diagnostics.iter().any(|d| d.code.as_str() == "E0201"),
+        response
+            .diagnostics
+            .iter()
+            .any(|d| d.code.as_str() == "E0201"),
         "{:?}",
         response.diagnostics
     );
@@ -156,7 +165,11 @@ fn parse_returns_both_representations_of_the_draft() {
     assert!(!response.source.segments.is_empty());
     let document = response.document.expect("the visual mode's");
     assert!(!document.root.children.is_empty());
-    assert!(response.diagnostics.is_empty(), "{:?}", response.diagnostics);
+    assert!(
+        response.diagnostics.is_empty(),
+        "{:?}",
+        response.diagnostics
+    );
 }
 
 #[test]
@@ -179,7 +192,11 @@ fn serialize_formats_only_when_it_is_asked_to() {
         format: true,
         ..SerializeRequest::default()
     });
-    assert!(response.diagnostics.is_empty(), "{:?}", response.diagnostics);
+    assert!(
+        response.diagnostics.is_empty(),
+        "{:?}",
+        response.diagnostics
+    );
     let again = session().serialize(&SerializeRequest {
         path: "install.md".to_owned(),
         source: response.text.clone(),
@@ -226,7 +243,10 @@ fn a_page_over_the_preload_cap_previews_on_the_server() {
     assert!(response.server_render);
     assert!(response.html.is_empty(), "it rendered anyway");
     assert!(
-        response.diagnostics.iter().any(|d| d.code.as_str() == "W1201"),
+        response
+            .diagnostics
+            .iter()
+            .any(|d| d.code.as_str() == "W1201"),
         "{:?}",
         response.diagnostics
     );
@@ -239,7 +259,10 @@ fn validate_reports_a_config_that_is_not_json() {
         ..ValidateRequest::default()
     });
     assert!(
-        response.diagnostics.iter().any(|d| d.code.as_str() == "E0101"),
+        response
+            .diagnostics
+            .iter()
+            .any(|d| d.code.as_str() == "E0101"),
         "{:?}",
         response.diagnostics
     );

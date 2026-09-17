@@ -1,10 +1,10 @@
 //! ED-07: the editor's file system is seeded, then server-backed.
 
-use std::collections::BTreeMap;
 use liyasa_core::conformance::vfs::{Fixture, check};
 use liyasa_core::ids::Fingerprint;
 use liyasa_core::vfs::{Bytes, Vfs, VfsError, VfsPath};
 use liyasa_wasm::vfs::{EditorVfs, Fetch, PRELOAD_LIMIT};
+use std::collections::BTreeMap;
 
 /// `/_liyasa/editor/fs/<path>`, standing in for the draft's server.
 struct Draft {

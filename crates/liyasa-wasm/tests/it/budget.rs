@@ -117,8 +117,8 @@ fn the_core_module_is_under_the_compressed_budget() {
         .join("target")
         .join(TARGET)
         .join("release/liyasa_wasm.wasm");
-    let bytes = std::fs::read(&module)
-        .unwrap_or_else(|error| panic!("{}: {error}", module.display()));
+    let bytes =
+        std::fs::read(&module).unwrap_or_else(|error| panic!("{}: {error}", module.display()));
     let compressed = gzip(&bytes);
     assert!(
         compressed <= CORE_MODULE_LIMIT,

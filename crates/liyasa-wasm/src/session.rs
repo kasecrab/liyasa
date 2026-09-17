@@ -119,7 +119,11 @@ impl Session {
             }
         };
         let record = expanded.record.clone();
-        let document = liyasa_markdown::parse(&expanded, &self.registry, &self.parse_options(&request.options));
+        let document = liyasa_markdown::parse(
+            &expanded,
+            &self.registry,
+            &self.parse_options(&request.options),
+        );
         diagnostics.extend(document.diagnostics.as_slice().to_vec());
         ParseResponse {
             source: prepared.document,
@@ -155,7 +159,11 @@ impl Session {
             }
         };
         let record = expanded.record.clone();
-        let document = liyasa_markdown::parse(&expanded, &self.registry, &self.parse_options(&request.options));
+        let document = liyasa_markdown::parse(
+            &expanded,
+            &self.registry,
+            &self.parse_options(&request.options),
+        );
         let mut blocks = Blocks::new(&self.registry, &self.site);
         let html = liyasa_markdown::render::html::render(&document.root, &mut blocks);
         diagnostics.extend(document.diagnostics.as_slice().to_vec());
@@ -174,10 +182,12 @@ impl Session {
     /// Writes segment edits back, byte-preserving everywhere else.
     pub fn serialize(&self, request: &SerializeRequest) -> SerializeResponse {
         let mut map = SourceMap::new();
-        let id = map.intern(VfsPath::new(&request.path), Arc::from(request.source.as_str()));
+        let id = map.intern(
+            VfsPath::new(&request.path),
+            Arc::from(request.source.as_str()),
+        );
         let (document, mut diagnostics) = liyasa_markdown::scan(&request.source, id);
-        let text =
-            liyasa_markdown::serialize_source(&request.source, &document, &request.edits);
+        let text = liyasa_markdown::serialize_source(&request.source, &document, &request.edits);
         if !request.format {
             return SerializeResponse {
                 text,
@@ -211,7 +221,8 @@ impl Session {
                 Bytes::from(text.clone().into_bytes()),
             )]);
             let mut sources = SourceMap::new();
-            let load = liyasa_config::load(&vfs, &mut sources, &liyasa_config::load::Options::default());
+            let load =
+                liyasa_config::load(&vfs, &mut sources, &liyasa_config::load::Options::default());
             diagnostics.extend(load.diagnostics.as_slice().to_vec());
             let pages: liyasa_config::Pages = request.routes.iter().collect();
             let context = liyasa_config::validate::Context {

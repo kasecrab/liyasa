@@ -144,7 +144,11 @@ fn a_shard_whose_files_have_not_arrived_is_skipped_rather_than_reported() {
         ..SearchRequest::default()
     });
     assert!(response.hits.is_empty());
-    assert!(response.diagnostics.is_empty(), "{:?}", response.diagnostics);
+    assert!(
+        response.diagnostics.is_empty(),
+        "{:?}",
+        response.diagnostics
+    );
 
     for (name, bytes) in &all {
         searcher.add_file(name.clone(), bytes.clone());

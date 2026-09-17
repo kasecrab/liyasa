@@ -55,6 +55,9 @@ pub const EXCLUDED: &[(&str, &str)] = &[
     ("sqlx", "liyasa-store, which the module must not depend on"),
     ("tokio", "any async runtime; the module is synchronous"),
     ("notify", "the dev server's file watching"),
-    ("lightningcss", "the theme's stylesheet, which the build emits"),
+    (
+        "lightningcss",
+        "the theme's stylesheet, which the build emits",
+    ),
     ("boa_engine", "the Docusaurus importer"),
 ];
