@@ -88,6 +88,8 @@ rustls = { version = "0.23", default-features = false }   # TLS termination with
 instant-acme = { version = "0.8", default-features = false }   # automatic certificates (HOST-02)
 aes-gcm = { version = "0.11", default-features = false }   # the secret store's cipher (PRD §6.2.1)
 boa_engine = { version = "0.22", default-features = false }   # literal-only JavaScript evaluation for the Docusaurus importer (PRD §6.2.1, MIG-02)
+argon2 = { version = "0.6", default-features = false, features = ["alloc", "password-hash"] }   # Argon2id password hashing for AUTH-02 and NFR-12 (PRD §6.2.1)
+ring = { version = "0.17", default-features = false, features = ["alloc"] }   # JWT signature verification (AUTH-03, AUTH-09). The PRD names jsonwebtoken 11, whose only two crypto backends each break a workspace rule; ring is the provider rustls and instant-acme already use (RFC 1500)
 
 
 # Host-only crates build unoptimised (RFC 0006). Proc macros, build scripts and

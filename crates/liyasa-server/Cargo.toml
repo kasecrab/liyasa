@@ -54,6 +54,10 @@ sha2 = { version = "0.11", default-features = false }
 getrandom = { version = "0.3", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std", "attributes"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "env-filter", "std"] }
+# WP-15: Argon2id for the shared site password (AUTH-02, NFR-12) and strict
+# JWT verification with an `alg` allow list and a cached JWKS (AUTH-03, AUTH-09).
+argon2.workspace = true
+ring.workspace = true
 
 [dev-dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0", features = ["conformance"] }
