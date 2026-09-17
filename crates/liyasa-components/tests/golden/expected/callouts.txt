@@ -19,7 +19,7 @@
 >
 > Body text.
 --- text
-Body text.
+Note Body text.
 
 === case: tip
 --- html
@@ -40,7 +40,7 @@ Body text.
 >
 > Body text.
 --- text
-Body text.
+Tip Body text.
 
 === case: warning
 --- html
@@ -61,7 +61,7 @@ Body text.
 >
 > Body text.
 --- text
-Body text.
+Warning Body text.
 
 === case: info
 --- html
@@ -82,7 +82,7 @@ Body text.
 >
 > Body text.
 --- text
-Body text.
+Info Body text.
 
 === case: check
 --- html
@@ -103,7 +103,7 @@ Body text.
 >
 > Body text.
 --- text
-Body text.
+Check Body text.
 
 === case: danger
 --- html
@@ -124,4 +124,4 @@ Body text.
 >
 > Body text.
 --- text
-Body text.
+Danger Body text.

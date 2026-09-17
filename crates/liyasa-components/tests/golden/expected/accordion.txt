@@ -17,7 +17,7 @@
 
 A value with a source.
 --- text
-A value with a source.
+What is a fact? A value with a source.
 
 === case: every prop
 --- html
@@ -38,7 +38,7 @@ A value with a source.
 
 A value with a source.
 --- text
-A value with a source.
+What is a fact? A value with a source.
 
 === case: empty body
 --- html
@@ -115,7 +115,7 @@ First One. Second Two.
 
 Nested body.
 --- text
-Inner Nested body.
+Outer Inner Nested body.
 
 === case: invalid prop
 --- html

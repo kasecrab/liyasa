@@ -12,7 +12,7 @@
 --- markdown
 [A tour](/media/tour.mp4)
 --- text
-
+A tour
 
 === case: every prop
 --- html
@@ -26,7 +26,7 @@
 --- markdown
 [Product tour](/media/tour.mp4)
 --- text
-
+Product tour A tour
 --- diagnostics
 W0355 `video.muted=false` is ignored because `autoplay` is set
 
@@ -37,7 +37,7 @@ W0355 `video.muted=false` is ignored because `autoplay` is set
 --- markdown
 [The announcement](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
 --- text
-
+The announcement
 
 === case: missing required prop
 --- html

@@ -402,6 +402,10 @@ impl Render for Visibility {
         ctx.children(&inst.children)
     }
 
+    fn text(&self, inst: &ComponentInst) -> String {
+        self.text_for(inst, &Variant::default())
+    }
+
     fn text_for(&self, inst: &ComponentInst, variant: &Variant) -> String {
         let props = Reader::of(inst, Self::schema_of());
         if Self::shows(&props, Audience::Human) && Self::admits(&props, variant) {
@@ -466,6 +470,10 @@ impl Render for Region {
             return Ok(());
         }
         ctx.children(&inst.children)
+    }
+
+    fn text(&self, inst: &ComponentInst) -> String {
+        self.text_for(inst, &Variant::default())
     }
 
     fn text_for(&self, inst: &ComponentInst, variant: &Variant) -> String {

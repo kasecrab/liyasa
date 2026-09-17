@@ -42,4 +42,4 @@ $ liyasa build
 --- markdown
 \> liyasa dev
 --- text
-> liyasa dev
+bash > liyasa dev

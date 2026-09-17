@@ -35,7 +35,7 @@ Plain.
 >
 > Body.
 --- text
-Body.
+Heads up Body.
 
 === case: invalid variant
 --- html

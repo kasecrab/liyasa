@@ -7,7 +7,7 @@
 --- markdown
 [The live demo](https://example.com/demo)
 --- text
-
+The live demo
 
 === case: every prop
 --- html
@@ -16,7 +16,7 @@
 --- markdown
 [The live demo](https://example.com/demo)
 --- text
-
+The live demo
 
 === case: missing required props
 --- html

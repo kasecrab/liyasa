@@ -13,7 +13,7 @@
 --- markdown
 - [report.pdf](/dl/report.pdf)
 --- text
-
+report.pdf
 
 === case: every prop
 --- html
@@ -31,7 +31,7 @@
 --- markdown
 - [Annual report (2.4 MB)](/dl/report.pdf)
 --- text
-
+Annual report
 
 === case: group
 --- html

@@ -6,7 +6,7 @@
 --- markdown
 ![The dashboard, showing three builds](/img/dashboard.png)
 --- text
-
+The dashboard, showing three builds
 
 === case: every prop
 --- html
@@ -24,7 +24,7 @@
 
 *The build dashboard*
 --- text
-
+The dashboard The build dashboard
 
 === case: missing required props
 --- html
@@ -53,7 +53,7 @@ E0305 `image.alt` is empty
 --- markdown
 ![A](/img/a.png)
 --- text
-
+A
 --- diagnostics
 W0714 `image` has one of `width` and `height`, so its aspect ratio is unknown
 
@@ -63,6 +63,6 @@ W0714 `image` has one of `width` and `height`, so its aspect ratio is unknown
 --- markdown
 ![Nope](javascript:alert(1%29)
 --- text
-
+Nope
 --- diagnostics
 E0353 `image.src` uses a URL scheme that is not allowed

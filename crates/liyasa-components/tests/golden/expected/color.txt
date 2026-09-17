@@ -12,7 +12,7 @@
 --- markdown
 `#ff8800`
 --- text
-
+#ff8800
 
 === case: every prop
 --- html
@@ -26,7 +26,7 @@
 --- markdown
 Ember (`rgb(255, 136, 0)`)
 --- text
-
+Ember rgb(255, 136, 0)
 
 === case: unsafe value
 --- html
@@ -40,7 +40,7 @@ Ember (`rgb(255, 136, 0)`)
 --- markdown
 `red; background: url(//evil.example.com)`
 --- text
-
+red; background: url(//evil.example.com)
 
 === case: missing required prop
 --- html

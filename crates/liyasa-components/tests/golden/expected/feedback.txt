@@ -42,7 +42,7 @@
 --- markdown
 How do I verify a code sample?
 --- text
-
+Ask about verification How do I verify a code sample?
 
 === case: assistant with no prompt
 --- html

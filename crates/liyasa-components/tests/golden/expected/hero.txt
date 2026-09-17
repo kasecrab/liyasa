@@ -12,7 +12,7 @@
 --- markdown
 # Liyasa
 --- text
-
+Liyasa
 
 === case: every prop
 --- html
@@ -52,7 +52,7 @@ Extra body copy.
 - [GitHub](https://github.com/kasecrab/liyasa)
 - Nothing here
 --- text
-Extra body copy.
+Liyasa Documentation that verifies itself. Get started GitHub Nothing here Extra body copy.
 
 === case: empty body
 --- html

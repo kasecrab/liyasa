@@ -246,12 +246,18 @@ pub trait Render {
     /// renders under the default variant — which admits no gated block. That is
     /// the right answer for an index built once and served to everyone (§6.6.4).
     fn text(&self, inst: &ComponentInst) -> String {
-        self.text_for(inst, &Variant::default())
+        crate::text::of(&inst.children)
     }
 
     /// The same text for a caller that knows which variant it is indexing.
-    fn text_for(&self, inst: &ComponentInst, variant: &Variant) -> String {
-        crate::text::of_for(&inst.children, variant)
+    ///
+    /// The default ignores the variant and answers as `text` does, under the
+    /// default one. That is conservative rather than complete: a component with
+    /// a gated block inside it indexes as an anonymous reader would see it even
+    /// when the caller holds a wider variant. Only a component that gates on
+    /// the variant itself overrides this.
+    fn text_for(&self, inst: &ComponentInst, _variant: &Variant) -> String {
+        self.text(inst)
     }
 
     /// Checks this component can make that the prop schema cannot express:
