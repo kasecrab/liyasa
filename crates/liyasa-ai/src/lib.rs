@@ -18,6 +18,7 @@ pub mod error;
 pub mod exclude;
 pub mod index;
 pub mod openapi_doc;
+pub mod prompt;
 
 pub use chunk::{Chunk, ChunkOptions, chunk};
 pub use config::{AiConfig, AssistantConfig, ModelRef, Role};
