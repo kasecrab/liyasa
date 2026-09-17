@@ -391,3 +391,44 @@ impl<S: VectorStore> liyasa_core::store::VectorIndex for CoreFacade<S> {
         })
     }
 }
+
+impl ChunkRecord {
+    /// One chunk of one page, ready to embed.
+    pub fn from_chunk(
+        chunk: &crate::chunk::Chunk,
+        context: &crate::chunk::PageContext,
+        kind: ChunkKind,
+    ) -> Self {
+        Self {
+            id: Self::id_for(&context.route, &chunk.anchor, chunk.ordinal),
+            route: context.route.clone(),
+            anchor: chunk.anchor.clone(),
+            title: if chunk.section.is_empty() {
+                context.title.clone()
+            } else {
+                chunk.section.clone()
+            },
+            breadcrumb: context.breadcrumb.clone(),
+            version: context.version.clone(),
+            locale: context.locale.clone(),
+            groups: context.groups.clone(),
+            regions: context.regions.clone(),
+            product: context.product.clone(),
+            last_verified: context.last_verified,
+            kind,
+            ordinal: chunk.ordinal,
+            tokens: chunk.tokens,
+            content_hash: chunk.content_hash.clone(),
+            text: chunk.text.clone(),
+        }
+    }
+
+    /// `route#anchor`, the deep link a citation carries (AST-12).
+    pub fn citation(&self) -> String {
+        if self.anchor.is_empty() {
+            self.route.as_str().to_owned()
+        } else {
+            format!("{}#{}", self.route.as_str(), self.anchor)
+        }
+    }
+}

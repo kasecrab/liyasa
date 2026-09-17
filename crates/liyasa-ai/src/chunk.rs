@@ -9,7 +9,7 @@
 //! anchor a citation deep-links to is a section the search index also knows.
 
 use liyasa_core::document::{Block, BlockKind, Document, Inline, Node};
-use liyasa_core::ids::Fingerprint;
+use liyasa_core::ids::{Fingerprint, Locale, Route, Version};
 
 /// The window AST-01 names.
 pub const MIN_TOKENS: usize = 200;
@@ -47,6 +47,47 @@ pub struct Chunk {
     pub tokens: u32,
     /// `blake3:…` of `text`. Only a chunk whose hash changed is re-embedded.
     pub content_hash: String,
+}
+
+/// Everything a chunk inherits from the page it came from (AST-01).
+///
+/// The fields are the metadata AST-01 lists, and the first seven are exactly
+/// what `liyasa_search::doc::PageMeta` already carries, so the assistant and
+/// the search index describe a page the same way.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageContext {
+    pub route: Route,
+    pub title: String,
+    pub breadcrumb: Vec<String>,
+    pub version: Option<Version>,
+    pub locale: Locale,
+    pub groups: Vec<String>,
+    pub regions: Vec<String>,
+    pub product: Option<String>,
+    /// Milliseconds since the epoch, from the page's last successful
+    /// verification.
+    pub last_verified: Option<u64>,
+}
+
+impl PageContext {
+    /// The two fields the search index does not carry come from front matter.
+    pub fn from_page_meta(
+        meta: &liyasa_search::doc::PageMeta,
+        product: Option<String>,
+        last_verified: Option<u64>,
+    ) -> Self {
+        Self {
+            route: meta.route.clone(),
+            title: meta.title.clone(),
+            breadcrumb: meta.breadcrumb.clone(),
+            version: meta.version.clone(),
+            locale: meta.locale.clone(),
+            groups: meta.groups.clone(),
+            regions: meta.regions.clone(),
+            product,
+            last_verified,
+        }
+    }
 }
 
 /// A vendor-neutral token estimate (RFC 1800).
@@ -92,6 +133,70 @@ fn is_cjk(c: char) -> bool {
         | 0xAC00..=0xD7AF    // Hangul syllables
         | 0xF900..=0xFAFF    // compatibility ideographs
         | 0x20000..=0x2FA1F) // extensions B and up
+}
+
+/// Splits already-rendered Markdown at its own H2 headings, keeping a preamble
+/// with every piece.
+///
+/// Used for an OpenAPI operation (AST-03), whose document is generated rather
+/// than authored and already carries `Parameters`, `Request body` and
+/// `Responses` as second-level headings.
+pub fn split_markdown(
+    preamble: &str,
+    body: &str,
+    anchor: &str,
+    section: &str,
+    options: &ChunkOptions,
+) -> Vec<Chunk> {
+    let budget = options.max_tokens.saturating_sub(estimate_tokens(preamble));
+    let mut pieces: Vec<String> = Vec::new();
+    let mut current = String::new();
+    for part in split_at_h2(body) {
+        let cost = estimate_tokens(&part);
+        if !current.is_empty() && estimate_tokens(&current) + cost > budget {
+            pieces.push(std::mem::take(&mut current));
+        }
+        if !current.is_empty() {
+            current.push('\n');
+        }
+        current.push_str(&part);
+    }
+    if !current.trim().is_empty() {
+        pieces.push(current);
+    }
+
+    pieces
+        .into_iter()
+        .enumerate()
+        .map(|(ordinal, body)| {
+            let text = format!("{}\n\n{}", preamble.trim_end(), body.trim_end());
+            let tokens = estimate_tokens(&text) as u32;
+            Chunk {
+                anchor: anchor.to_owned(),
+                section: section.to_owned(),
+                ordinal: ordinal as u32,
+                content_hash: format!("{}{}", Fingerprint::PREFIX, Fingerprint::of(&text).to_hex()),
+                text,
+                tokens,
+            }
+        })
+        .collect()
+}
+
+fn split_at_h2(body: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut current = String::new();
+    for line in body.lines() {
+        if line.starts_with("## ") && !current.trim().is_empty() {
+            out.push(std::mem::take(&mut current));
+        }
+        current.push_str(line);
+        current.push('\n');
+    }
+    if !current.trim().is_empty() {
+        out.push(current);
+    }
+    out
 }
 
 /// Chunks a page's Rendered AST.
