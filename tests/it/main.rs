@@ -56,6 +56,10 @@ mod cm_82_redirects;
 mod cm_84_files;
 #[path = "../server/git_24_queue.rs"]
 mod git_24_queue;
+#[path = "../server/git_40_rollback.rs"]
+mod git_40_rollback;
+#[path = "../server/git_41.rs"]
+mod git_41;
 #[path = "../hosting/host_01_matrix.rs"]
 mod host_01_matrix;
 #[path = "../hosting/host_02.rs"]
