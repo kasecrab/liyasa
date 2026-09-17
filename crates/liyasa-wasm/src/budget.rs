@@ -18,9 +18,27 @@
 //! ```sh
 //! LIYASA_WASM_SIZE=1 cargo test -p liyasa-wasm budget
 //! ```
+//!
+//! That test clears `RUSTFLAGS` for the build it runs. `bin/buildenv` puts
+//! `-C link-arg=-fuse-ld=mold` there and this target links with `rust-lld`,
+//! which refuses the flag. Building the module by hand needs the same:
+//!
+//! ```sh
+//! RUSTFLAGS= cargo build -p liyasa-wasm --target wasm32-unknown-unknown --release
+//! ```
 
 /// The compressed size the core module must stay under.
 pub const CORE_MODULE_LIMIT: u64 = 3 * 1024 * 1024;
+
+/// What it actually weighed when the budget test was last run by hand:
+/// 9,966,676 bytes of `.wasm`, 2,639,962 gzipped, on 2026-09-17. That is 84% of
+/// the budget, so the headroom is real but not large — one more crate of
+/// comrak's size would spend it.
+///
+/// Measured on rustc's own output. `wasm-bindgen` and `wasm-opt` both run after
+/// this and both shrink it, so the served module is smaller than the number
+/// above, and the number above is the conservative one to hold the line at.
+pub const LAST_MEASURED_COMPRESSED: u64 = 2_639_962;
 
 /// Crates that must not reach the core module, each with what would pull it in.
 ///

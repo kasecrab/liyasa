@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use liyasa_wasm::budget::{CORE_MODULE_LIMIT, EXCLUDED};
+use liyasa_wasm::budget::{CORE_MODULE_LIMIT, EXCLUDED, LAST_MEASURED_COMPRESSED};
 
 const TARGET: &str = "wasm32-unknown-unknown";
 const SIZE_ENV: &str = "LIYASA_WASM_SIZE";
@@ -92,6 +92,13 @@ fn the_core_module_is_under_the_compressed_budget() {
 
     let build = Command::new(env!("CARGO"))
         .current_dir(root())
+        // `bin/buildenv` puts `-C link-arg=-fuse-ld=mold` in `RUSTFLAGS`, and
+        // the linker for this target is `rust-lld`, which refuses the flag:
+        // "unknown argument: -fuse-ld=mold". It only bites here because an
+        // rlib needs no linker and the `cdylib` does. `RUSTFLAGS` outranks
+        // `target.<triple>.rustflags`, so clearing it is the only way to say
+        // "not for this target" from outside the config.
+        .env("RUSTFLAGS", "")
         .args([
             "build",
             "--package",
@@ -115,7 +122,9 @@ fn the_core_module_is_under_the_compressed_budget() {
     let compressed = gzip(&bytes);
     assert!(
         compressed <= CORE_MODULE_LIMIT,
-        "the core module is {compressed} bytes compressed, over ED-06's {CORE_MODULE_LIMIT}"
+        "the core module is {compressed} bytes compressed, over ED-06's {CORE_MODULE_LIMIT}; \
+         it was {LAST_MEASURED_COMPRESSED} when `budget.rs` last recorded a measurement, so \
+         whatever grew it is between that commit and this one"
     );
 }
 
