@@ -39,7 +39,7 @@ fn admin_gated_site() -> Project {
     .expect("config");
     fs::write(
         root.join("index.md"),
-        &format!(
+        format!(
             "---\ntitle: Home\ngroups: [admin]\n---\n# Home\n\n{PUBLIC}\n\n\
              :::visibility{{groups=[\"admin\"]}}\n{SECRET}\n:::\n"
         ),
