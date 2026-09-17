@@ -164,7 +164,17 @@ fn select(snapshot: &built::Snapshot, wanted: &[String]) -> Result<Selection, ct
     let mut seen: Vec<String> = Vec::new();
     for value in wanted {
         let value = value.trim();
-        let route = if let Some(rest) = value.strip_prefix(&origin) {
+        // The prefix has to end at a path boundary, or
+        // `https://docs.acme.com.example.org/x` would read as this site and
+        // then fail with the wrong reason.
+        let on_this_site = value.strip_prefix(&origin).filter(|rest| {
+            rest.is_empty()
+                || rest.starts_with('/')
+                || rest.starts_with('?')
+                || rest.starts_with('#')
+        });
+        let route = if let Some(rest) = on_this_site {
+            let rest = rest.split(['?', '#']).next().unwrap_or(rest);
             let rest = rest.trim_end_matches('/');
             if rest.is_empty() {
                 "/".to_owned()

@@ -157,6 +157,39 @@ fn no_flag_still_samples_the_whole_site() {
     assert!(text.contains("Agent readiness"), "{text}");
 }
 
+/// A host that merely starts with this site's origin is a different site, and
+/// saying "not a page in the built site" about it would name the wrong reason.
+#[test]
+fn a_look_alike_host_is_refused_as_off_site() {
+    let project = site("urls-lookalike");
+    let outcome = Run::new([
+        "test",
+        "--agents",
+        "--urls",
+        "https://docs.acme.com.example.org/guides/install",
+    ])
+    .cwd(project.path())
+    .output();
+
+    assert_eq!(outcome.code, Exit::Errors.code(), "{}", outcome.all());
+    assert!(outcome.all().contains("E0006"), "{}", outcome.all());
+}
+
+/// A query or a fragment names the same page.
+#[test]
+fn a_query_or_fragment_does_not_change_the_page() {
+    let project = site("urls-query");
+    let plain = report(&project, &["--urls", "/guides/install"]);
+    let fragment = report(
+        &project,
+        &["--urls", &format!("{ORIGIN}/guides/install#requirements")],
+    );
+    assert_eq!(
+        plain.contains("Agent readiness"),
+        fragment.contains("Agent readiness")
+    );
+}
+
 #[test]
 fn the_flag_is_in_the_help() {
     let outcome = Run::new(["test", "--help"]).output();
