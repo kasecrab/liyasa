@@ -9,6 +9,7 @@ pub mod config;
 pub mod fallback;
 pub mod locales;
 pub mod negotiate;
+pub mod openapi;
 pub mod regions;
 pub mod variations;
 pub mod strings;
