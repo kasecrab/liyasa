@@ -165,6 +165,9 @@ fn scheme_of(value: &str) -> Option<&str> {
     .then_some(scheme)
 }
 
+/// The build resolves internal links before this runs (CM-35, CM-36) and
+/// reports the ones that go nowhere, so the unresolved branch is a best effort
+/// on a link the build has already diagnosed rather than a silent guess.
 fn link_target(href: &str, resolved: Option<&Route>) -> Option<DepTarget> {
     if let Some(route) = resolved {
         return Some(DepTarget::Page(route.clone()));
