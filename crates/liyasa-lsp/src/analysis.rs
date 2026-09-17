@@ -1,28 +1,31 @@
-//! One buffer, scanned, expanded, and parsed.
+//! One buffer, run through the build's own page pipeline.
 //!
 //! This is the whole of what the server knows about a file, and every feature
-//! reads it rather than re-deriving anything: diagnostics are the ones these
-//! passes raised, completion decides what it is completing from the segment the
-//! cursor is in, hover reads the same segment, and the preview renders the
-//! `Document` that is already here.
+//! reads it rather than re-deriving anything: diagnostics are the ones the
+//! pipeline raised, completion and hover index into the Source Document, and
+//! the preview is the HTML the pipeline already produced.
 //!
-//! **Undefined names are lenient.** `Undefined::Strict` is what a build uses;
-//! it raises `E0201` for every name the context does not hold. An editor's
-//! context is not a build's — `site.*`, `nav.*` and `env.*` are filled by the
-//! build engine and this server has no access to them — so strict mode here
-//! would report undefined-variable errors the build would never raise. Lenient
-//! is `dev` mode's setting (CM-17), and a live buffer is dev.
+//! It runs `liyasa_build::render::page` rather than expanding and parsing here,
+//! deliberately. An editor that disagrees with the build about whether a page
+//! is valid is worse than one that says nothing, and two pipelines drift.
+//!
+//! **Undefined names are lenient.** `Options::new` is strict, which raises
+//! `E0201` for every name the context does not hold. An editor's context is not
+//! a build's — `site.*`, `nav.*` and `env.*` are filled by the build engine and
+//! this server cannot reach them — so strict mode here would report
+//! undefined-variable errors the build never raises. `anonymous()` is the
+//! lenient render §6.6.4 already defines, and a live buffer is exactly that.
 
 use std::sync::Arc;
 
+use liyasa_build::render::{self, Options};
 use liyasa_core::diagnostics::Diagnostic;
 use liyasa_core::document::{Document, SourceDocument};
-use liyasa_core::markdown::ParseOptions;
+use liyasa_core::markdown::HtmlMode;
 use liyasa_core::source_map::SourceMap;
 use liyasa_core::span::SourceId;
 use liyasa_core::vfs::VfsPath;
 use liyasa_markdown::source::context::Layers;
-use liyasa_markdown::source::expand::{ExpandOptions, Undefined, environment, expand_with};
 use liyasa_markdown::source::{normalize, scan};
 
 use crate::text::Text;
@@ -36,6 +39,8 @@ pub struct Analysis {
     /// The Rendered AST, absent when expansion failed outright — a template
     /// syntax error leaves nothing to parse, and the diagnostics say why.
     pub parsed: Option<Document>,
+    /// The page as the build would serve it. Empty when there is no AST.
+    pub html: String,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -50,34 +55,21 @@ impl Analysis {
         let (document, scanned) = scan(&normalized, source);
         let mut diagnostics = scanned.into_vec();
 
-        let options = ExpandOptions {
-            undefined: Undefined::Lenient,
-            ..ExpandOptions::default()
-        };
-        let environment = environment(&options);
+        // No link resolution: the AST is rendered as written, which is what a
+        // preview of one page wants and what the pipeline documents `None` as.
+        let options = Options::new(&workspace.registry, &workspace.site)
+            .anonymous()
+            .html_mode(HtmlMode::Sanitize);
         let context = layers(workspace, &document).build();
-
-        let parsed = match expand_with(&sources, &document, &context, &environment, &options) {
-            Ok(expanded) => {
-                let parsed = liyasa_markdown::parse(
-                    &expanded,
-                    &workspace.registry,
-                    &ParseOptions::default(),
-                );
-                diagnostics.extend(parsed.diagnostics.iter().cloned());
-                Some(parsed)
-            }
-            Err(failed) => {
-                diagnostics.extend(failed.into_vec());
-                None
-            }
-        };
+        let page = render::page(&sources, &document, &context, &options);
+        diagnostics.extend(page.diagnostics.into_vec());
 
         Self {
             text: Text::new(normalized.to_string()),
             source,
             document,
-            parsed,
+            parsed: page.document,
+            html: page.html,
             diagnostics,
         }
     }

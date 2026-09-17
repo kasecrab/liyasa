@@ -13,11 +13,18 @@ workspace = true
 [dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
 liyasa-markdown = { path = "../liyasa-markdown", version = "0.1.0" }
+# The page pipeline. A preview must be the render the build would produce, and
+# the diagnostics an author sees must be the ones the build would raise, so the
+# server runs the build's own `render::page` rather than a second pipeline
+# beside it.
+liyasa-build = { path = "../liyasa-build", version = "0.1.0" }
 liyasa-components = { path = "../liyasa-components", version = "0.1.0" }
 # The workspace reader (`OsVfs`), the in-memory one the tests drive, and
 # `SiteConfig` for the variables completion offers.
 liyasa-config = { path = "../liyasa-config", version = "0.1.0" }
 serde.workspace = true
+# `SiteMeta::canonical_origin` is a `Url`, and a preview needs one.
+url.workspace = true
 serde_json.workspace = true
 # `facts/sources.toml` (§14.4) names the file each fact source reads. The row is
 # RFC 0900's, added for `liyasa.lock`; this is the second reader of a TOML file

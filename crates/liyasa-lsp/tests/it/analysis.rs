@@ -140,3 +140,36 @@ fn the_segment_under_a_position_is_the_one_the_cursor_is_in() {
         "{segment:?}"
     );
 }
+
+#[test]
+fn the_preview_is_the_html_the_build_would_serve() {
+    let workspace = Workspace::new();
+    let analysis = Analysis::of("a.md", "# Title\n\nA *paragraph*.\n", &workspace);
+    assert!(analysis.html.contains("<h1"), "{}", analysis.html);
+    assert!(
+        analysis.html.contains("<em>paragraph</em>"),
+        "{}",
+        analysis.html
+    );
+}
+
+#[test]
+fn a_page_with_an_error_still_previews_what_is_around_it() {
+    // An author fixing one directive should not lose the rest of the page.
+    let workspace = Workspace::new();
+    let analysis = Analysis::of("a.md", "# Title\n\n:::nosuch\nBody.\n:::\n", &workspace);
+    assert!(
+        codes(&analysis).contains(&"E0313"),
+        "{:?}",
+        codes(&analysis)
+    );
+    assert!(analysis.html.contains("Title"), "{}", analysis.html);
+}
+
+#[test]
+fn a_component_renders_into_the_preview() {
+    let workspace = Workspace::new();
+    let analysis = Analysis::of("a.md", ":::note\nMind this.\n:::\n", &workspace);
+    assert_eq!(codes(&analysis), Vec::<&str>::new());
+    assert!(analysis.html.contains("Mind this."), "{}", analysis.html);
+}

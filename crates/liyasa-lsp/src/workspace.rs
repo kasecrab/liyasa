@@ -14,6 +14,8 @@
 use std::collections::BTreeMap;
 
 use liyasa_components::Registry;
+use liyasa_core::ids::Locale;
+use liyasa_core::markdown::SiteMeta;
 use liyasa_core::vfs::{Vfs, VfsPath};
 
 use liyasa_markdown::source::route::{Ignore, is_routable, route_of};
@@ -58,6 +60,8 @@ pub struct Snippet {
 
 pub struct Workspace {
     pub registry: Registry,
+    /// What the render pipeline needs to know about the site as a whole.
+    pub site: SiteMeta,
     /// `variables` from `liyasa.json` merged with `snippets/vars.*`, flattened
     /// to the dotted paths a template writes.
     pub variables: BTreeMap<String, serde_json::Value>,
@@ -70,6 +74,7 @@ impl Default for Workspace {
     fn default() -> Self {
         Self {
             registry: Registry::builtins(),
+            site: site_meta("", ""),
             variables: BTreeMap::new(),
             facts: BTreeMap::new(),
             snippets: BTreeMap::new(),
@@ -109,10 +114,21 @@ impl Workspace {
     }
 
     fn load_variables(&mut self, vfs: &dyn Vfs) {
-        if let Some(config) = read_json(vfs, &VfsPath::new("liyasa.json"))
-            && let Some(variables) = config.get("variables")
-        {
-            flatten("", variables, &mut self.variables);
+        if let Some(config) = read_json(vfs, &VfsPath::new("liyasa.json")) {
+            self.site = site_meta(
+                config
+                    .get("name")
+                    .and_then(|name| name.as_str())
+                    .unwrap_or(""),
+                config
+                    .get("seo")
+                    .and_then(|seo| seo.get("canonicalOrigin"))
+                    .and_then(|origin| origin.as_str())
+                    .unwrap_or(""),
+            );
+            if let Some(variables) = config.get("variables") {
+                flatten("", variables, &mut self.variables);
+            }
         }
         for name in ["vars.json", "vars.yaml", "vars.yml"] {
             if let Some(vars) = read_data(vfs, &VfsPath::new("snippets").join(name)) {
@@ -208,6 +224,25 @@ impl Workspace {
             self.pages
                 .insert(route.clone(), Page { route, file, title });
         }
+    }
+}
+
+/// A preview is not a deploy, so an unset `seo.canonicalOrigin` is not an
+/// error: absolute URLs in the preview point at a host that resolves nowhere,
+/// which is the honest rendering of a site that has not chosen one.
+fn site_meta(name: &str, origin: &str) -> SiteMeta {
+    let canonical_origin = url::Url::parse(origin)
+        .or_else(|_| url::Url::parse("https://example.invalid"))
+        .unwrap_or_else(|error| unreachable!("a literal origin parses: {error}"));
+    let llms_txt = canonical_origin
+        .join("llms.txt")
+        .unwrap_or_else(|_| canonical_origin.clone());
+    SiteMeta {
+        name: name.to_owned(),
+        canonical_origin,
+        llms_txt,
+        version: None,
+        locale: Locale::new("en"),
     }
 }
 
