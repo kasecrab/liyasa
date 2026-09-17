@@ -8,6 +8,10 @@
 
 pub mod environment;
 pub mod queue;
+pub mod retention;
+pub mod rollback;
 
 pub use environment::{Environment, EnvironmentKind, Protection};
 pub use queue::{Accepted, BuildRequest, Class, DeployQueue, Limits, QueueError, Trigger};
+pub use retention::Retention;
+pub use rollback::{Actor, Rollback, RollbackError};
