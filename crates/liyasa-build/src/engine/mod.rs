@@ -1021,7 +1021,22 @@ fn render_pages(
                         None => {
                             misses += 1;
                             let started = Instant::now();
-                            let page_render = render::page(sources, &source, &context, &options);
+                            // This render's output is keyed by the variant, so
+                            // the variant reaches the components and the blocks
+                            // they gate are this reader's (§6.6.3). Every other
+                            // render in this function is written once per page
+                            // and stays on the default.
+                            let variant_options = render::Options::new(registry, site)
+                                .anonymous()
+                                .variant(variant.clone())
+                                .resolving(render::Resolve {
+                                    table: link_table,
+                                    route: &page.route,
+                                    source_path: &page.path,
+                                    strictness,
+                                });
+                            let page_render =
+                                render::page(sources, &source, &context, &variant_options);
                             spent += started.elapsed();
                             pass.extend(page_render.diagnostics.as_slice().to_vec());
                             grew |= reads.absorb(&page_render.record);
@@ -1322,8 +1337,7 @@ fn write_surfaces(
     let Some(origin) = crate::agents::site::CanonicalOrigin::parse_with_base_path(
         &settings.canonical_origin,
         &settings.base_path,
-    )
-    else {
+    ) else {
         // Without an origin every absolute URL in a surface would be wrong, so
         // the surfaces are skipped rather than written with a placeholder. The
         // config's own rule says the key is missing; this says what it cost.

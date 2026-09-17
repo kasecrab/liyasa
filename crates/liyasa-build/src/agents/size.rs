@@ -283,6 +283,10 @@ fn collect(
 /// How many characters one block contributes to the converted page.
 fn rendered_chars(block: &Block, registry: &Registry, site: &SiteMeta) -> usize {
     let reference = liyasa_components::Reference::with(registry);
+    // No `.variant`: §6.6.4 calls this surface anonymous — it is written once
+    // per page and served to every reader, so it renders under the default
+    // variant, which admits no gated block. A populated variant here would put
+    // one reader's gated content into a file everyone gets.
     let shared = Shared::new(&reference).site(site).audience(Audience::Agent);
     let mut ctx = MarkdownCtx::with(shared);
     if ctx.children(&[Node::Block(block.clone())]).is_err() {
@@ -401,6 +405,7 @@ mod tests {
     /// size an agent receives.
     fn render(root: &Block, registry: &Registry, site: &SiteMeta) -> String {
         let reference = liyasa_components::Reference::with(registry);
+        // Measures the anonymous render, like the surface it measures.
         let shared = Shared::new(&reference).site(site).audience(Audience::Agent);
         let mut ctx = MarkdownCtx::with(shared);
         ctx.children(&root.children).expect("serializes");

@@ -11,6 +11,7 @@
 pub mod blocks;
 
 use liyasa_components::registry::Registry;
+use liyasa_core::build::Variant;
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use liyasa_core::document::{Deps, Document, SourceDocument};
 use liyasa_core::markdown::{
@@ -29,6 +30,9 @@ pub struct Options<'a> {
     pub expand: ExpandOptions,
     /// The CSP nonce of this response (RX-110); empty for a static build.
     pub nonce: &'a str,
+    /// Which of the page's variants this render is for (§6.6.3). The default
+    /// admits no gated block.
+    pub variant: Variant,
     /// Link and image resolution (CM-35, CM-36). `None` renders the AST as
     /// written, which is what a preview of a single page wants.
     pub resolve: Option<Resolve<'a>>,
@@ -55,8 +59,18 @@ impl<'a> Options<'a> {
                 undefined: Undefined::Strict,
             },
             nonce: "",
+            variant: Variant::default(),
             resolve: None,
         }
+    }
+
+    /// The variant whose output this render is keyed by (§6.6.3). A render
+    /// written once per page rather than once per variant must not call this:
+    /// its output reaches every reader.
+    #[must_use]
+    pub fn variant(mut self, variant: Variant) -> Self {
+        self.variant = variant;
+        self
     }
 
     /// §6.6.4: the anonymous render every shared index and agent surface reads.
@@ -165,7 +179,9 @@ pub fn from_expanded(expanded: &Expanded, options: &Options<'_>) -> Page {
 }
 
 fn serialize(document: &Document, options: &Options<'_>) -> Page {
-    let mut blocks = Blocks::new(options.registry, options.site).nonce(options.nonce);
+    let mut blocks = Blocks::new(options.registry, options.site)
+        .nonce(options.nonce)
+        .variant(options.variant.clone());
     let html = liyasa_markdown::render::html::render(&document.root, &mut blocks);
     let mut diagnostics = document.diagnostics.clone();
     diagnostics.extend(blocks.take_diagnostics().into_vec());

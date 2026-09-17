@@ -68,6 +68,8 @@ mod git_24_queue;
 mod git_40_rollback;
 #[path = "../server/git_41.rs"]
 mod git_41;
+#[path = "../build/cmp_82_variants.rs"]
+mod cmp_82_variants;
 #[path = "../hosting/host_01_matrix.rs"]
 mod host_01_matrix;
 #[path = "../hosting/host_02.rs"]

@@ -7,6 +7,7 @@
 use liyasa_components::registry::Registry;
 use liyasa_components::render::{HtmlCtx, Shared};
 use liyasa_components::{Reference, fence};
+use liyasa_core::build::Variant;
 use liyasa_core::components::{ComponentInst, RenderError};
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use liyasa_core::document::{Block, BlockKind};
@@ -17,6 +18,7 @@ pub struct Blocks<'a> {
     registry: &'a Registry,
     site: &'a SiteMeta,
     nonce: &'a str,
+    variant: Variant,
     diagnostics: Diagnostics,
 }
 
@@ -26,8 +28,17 @@ impl<'a> Blocks<'a> {
             registry,
             site,
             nonce: "",
+            variant: Variant::default(),
             diagnostics: Diagnostics::new(),
         }
+    }
+
+    /// Which variant this render is for (§6.6.3). The default admits no gated
+    /// block, which is what an artefact written once per page has to mean.
+    #[must_use]
+    pub fn variant(mut self, variant: Variant) -> Self {
+        self.variant = variant;
+        self
     }
 
     #[must_use]
@@ -50,7 +61,10 @@ impl liyasa_markdown::render::html::Blocks for Blocks<'_> {
             return Err(RenderError::Component(inst.name.clone()));
         };
         let reference = Reference::with(self.registry);
-        let shared = Shared::new(&reference).site(self.site).nonce(self.nonce);
+        let shared = Shared::new(&reference)
+            .site(self.site)
+            .nonce(self.nonce)
+            .variant(self.variant.clone());
         let mut ctx = HtmlCtx::with(shared);
         component.html(inst, &mut ctx)?;
         self.diagnostics
@@ -68,7 +82,10 @@ impl liyasa_markdown::render::html::Blocks for Blocks<'_> {
             return Err(RenderError::Component("code".to_owned()));
         };
         let reference = Reference::with(self.registry);
-        let shared = Shared::new(&reference).site(self.site).nonce(self.nonce);
+        let shared = Shared::new(&reference)
+            .site(self.site)
+            .nonce(self.nonce)
+            .variant(self.variant.clone());
         let mut ctx = HtmlCtx::with(shared);
         fence::render_html(
             &mut ctx.out,

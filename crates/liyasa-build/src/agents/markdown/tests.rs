@@ -248,6 +248,29 @@ fn cm_143_a_human_only_block_is_stripped_and_an_agent_only_block_stays() {
 }
 
 #[test]
+/// The twin at `<route>.md` is written once and served to everyone (§6.6.4), so
+/// it renders under the default variant — which admits no gated block. A
+/// group-gated block reaching it would be one reader's content in a file every
+/// reader can fetch.
+#[test]
+fn cm_143_a_group_gated_block_never_reaches_the_anonymous_twin() {
+    let page = Fixture::new().render(vec![nodes::component(
+        inst::new("visibility")
+            .prop(
+                "groups",
+                PropValue::List(vec![PropValue::Str("staff".to_owned())]),
+            )
+            .child(nodes::paragraph("Internal rates."))
+            .build(),
+    )]);
+    assert!(
+        !page.markdown.contains("Internal rates."),
+        "{}",
+        page.markdown
+    );
+}
+
+#[test]
 fn cm_143_a_block_naming_neither_audience_stays() {
     let page = Fixture::new().render(vec![nodes::component(
         inst::new("visibility")

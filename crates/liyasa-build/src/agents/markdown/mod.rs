@@ -84,6 +84,10 @@ pub fn render_page(doc: &Document, options: &Options<'_>) -> Page {
     let body = body_of(&root, title.as_deref());
 
     let reference = liyasa_components::Reference::with(options.registry);
+    // No `.variant`: §6.6.4 calls this surface anonymous — it is written once
+    // per page and served to every reader, so it renders under the default
+    // variant, which admits no gated block. A populated variant here would put
+    // one reader's gated content into a file everyone gets.
     let shared = Shared::new(&reference)
         .site(options.site)
         .audience(Audience::Agent);
