@@ -186,6 +186,12 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`E0606`](/errors/E0606) | Error | Manual attestation expired |
 | [`E0607`](/errors/E0607) | Error | Drift detected (severity in payload) |
 | [`E0608`](/errors/E0608) | Error | Screenshot mismatch beyond tolerance |
+| [`E0609`](/errors/E0609) | Error | `verify` fence attribute is not a value Liyasa can read |
+| [`E0610`](/errors/E0610) | Error | Runner image is not pinned to a digest |
+| [`E0611`](/errors/E0611) | Error | `remote` sandbox has no runner service configured |
+| [`E0612`](/errors/E0612) | Error | The sandbox could not run the check |
+| [`E0613`](/errors/E0613) | Error | `verify.runners.custom` entry cannot be used |
+| [`E0614`](/errors/E0614) | Error | `verify-chain` steps cannot run as one chain |
 | [`E0620`](/errors/E0620) | Error | `local` sandbox rejected by the server |
 | [`E0621`](/errors/E0621) | Error | `command` source not in the server allow list or hash mismatch |
 | [`W0622`](/errors/W0622) | Warning | Verification deploy budget exceeded; remaining checks queued |
