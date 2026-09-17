@@ -105,6 +105,7 @@ pub struct Point {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Series {
     pub grain: Grain,
     pub source: Source,
@@ -143,6 +144,7 @@ pub struct NameCount {
 /// (ANA-10). Not a sampling rate anyone chose: it is the measured share of
 /// readers whose browser delivered a beacon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Delivery {
     pub server_page_views: i64,
     pub client_page_loads: i64,

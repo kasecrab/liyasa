@@ -25,6 +25,11 @@ pub enum ServedBy {
     /// Written and tested on `wp/16-deployments-git`, not yet merged.
     #[serde(rename = "wp-16")]
     Wp16,
+    /// `crate::serve::mount`, in this crate, behind the `server` feature — the
+    /// handlers WP-17 owns. Reachable once `liyasa-server`'s composition point
+    /// registers the subtree (RFC 1704).
+    #[serde(rename = "wp-17")]
+    Wp17,
     /// No handler exists. The dashboard page that needs it renders its
     /// controls and says the data is not being served.
     Unbuilt,
@@ -68,7 +73,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/schema/event.json",
         requirement: "ANA-02",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::Public,
     },
     Endpoint {
@@ -76,7 +81,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/series",
         requirement: "ANA-10",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -84,7 +89,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/totals",
         requirement: "ANA-10",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -92,7 +97,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/pages",
         requirement: "ANA-10",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -100,7 +105,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/referrers",
         requirement: "ANA-10",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -108,7 +113,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/journeys",
         requirement: "ANA-10",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -116,7 +121,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/variants",
         requirement: "ANA-10",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -124,7 +129,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/delivery",
         requirement: "ANA-10",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -132,7 +137,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/horizon",
         requirement: "ANA-06",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -140,7 +145,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/search/queries",
         requirement: "ANA-20",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -148,7 +153,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/search/pages",
         requirement: "ANA-20",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -156,7 +161,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/search/trending",
         requirement: "ANA-20",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -164,7 +169,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/assistant",
         requirement: "ANA-10",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -172,7 +177,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/insights",
         requirement: "ANA-40",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -180,7 +185,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "POST",
         path: "/_liyasa/api/v1/analytics/insights/act",
         requirement: "ANA-40",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {
@@ -188,7 +193,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         method: "GET",
         path: "/_liyasa/api/v1/analytics/integrations",
         requirement: "ANA-60",
-        served_by: ServedBy::Unbuilt,
+        served_by: ServedBy::Wp17,
         auth: Auth::DashboardRead,
     },
     Endpoint {

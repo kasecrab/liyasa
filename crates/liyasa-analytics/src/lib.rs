@@ -14,6 +14,7 @@
 
 pub mod actions;
 pub mod api;
+pub mod assistant;
 pub mod agents;
 pub mod digest;
 pub mod feedback;
@@ -24,6 +25,8 @@ pub mod props;
 pub mod query;
 pub mod retention;
 pub mod schema;
+#[cfg(feature = "server")]
+pub mod serve;
 pub mod search;
 pub(crate) mod sql;
 pub mod traffic;

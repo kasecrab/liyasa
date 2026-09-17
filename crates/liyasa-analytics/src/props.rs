@@ -13,6 +13,15 @@
 
 use serde::{Deserialize, Serialize};
 
+// Nothing in this module renames its fields, and that is deliberate. These
+// shapes are STORED, in the `props` column, and the queries in `search.rs` and
+// `insights.rs` read them back with `json_extract(props, '$.status_class')`.
+// Renaming them to camelCase for the wire would silently empty those reports,
+// because `json_extract` returns null for a key that is not there rather than
+// failing. The API response types in `traffic.rs`, `search.rs` and
+// `retention.rs` are camelCase; these are not, and `key::` above is the list
+// both sides share.
+
 /// `props` keys, so a query and an emitter cannot disagree by a typo.
 pub mod key {
     pub const QUERY: &str = "q";

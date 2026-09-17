@@ -10,6 +10,13 @@ description = "The event schema, caller classification, aggregation and insight 
 [lints]
 workspace = true
 
+# `server` is off by default so the crate's dependency graph still matches the
+# row PRD §6.2.1 gives it, and only `liyasa-server` — which §34.7 already has
+# depending on this crate — turns it on (RFC 1704).
+[features]
+default = []
+server = ["dep:axum"]
+
 [dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
 liyasa-store = { path = "../liyasa-store", version = "0.1.0" }
@@ -21,9 +28,19 @@ thiserror.workspace = true
 # Queries only. This crate never opens a database: every entry point takes a
 # pool `liyasa-store` already opened (RFC 1700).
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
+# Only for `mount`, behind the `server` feature. Already a workspace dependency
+# and already in `liyasa-server`'s graph, so nothing new enters the tree.
+axum = { workspace = true, optional = true, features = ["http1", "json", "query", "tokio"] }
 
 [dev-dependencies]
+# This crate's own tests need `server` on while consumers keep it off. A
+# dev-dependency on itself is how cargo expresses that: `cargo build` leaves
+# axum out of the graph, `cargo test` and `cargo nextest` build the router and
+# its tests, and `bin/gate` therefore covers them without --all-features.
+liyasa-analytics = { path = ".", features = ["server"] }
 jsonschema.workspace = true
+tower = { workspace = true, features = ["util"] }
+http.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 [[test]]

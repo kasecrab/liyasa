@@ -61,6 +61,7 @@ impl Policy {
 /// asks this before it offers a range, so a version split over the last year
 /// says "raw events reach back 90 days" rather than drawing an empty chart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Horizon {
     pub raw_from: i64,
     pub rollup_from: i64,
@@ -86,6 +87,7 @@ pub async fn horizon(pool: &SqlitePool, policy: Policy, now: i64) -> Result<Hori
 
 /// One all-time number, folded out of rollup rows that are about to be deleted.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Total {
     pub site: String,
     pub env: String,

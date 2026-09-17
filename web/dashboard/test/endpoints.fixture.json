@@ -7,7 +7,7 @@
       "method": "GET",
       "path": "/_liyasa/schema/event.json",
       "requirement": "ANA-02",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "public"
     },
     {
@@ -15,7 +15,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/series",
       "requirement": "ANA-10",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -23,7 +23,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/totals",
       "requirement": "ANA-10",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -31,7 +31,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/pages",
       "requirement": "ANA-10",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -39,7 +39,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/referrers",
       "requirement": "ANA-10",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -47,7 +47,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/journeys",
       "requirement": "ANA-10",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -55,7 +55,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/variants",
       "requirement": "ANA-10",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -63,7 +63,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/delivery",
       "requirement": "ANA-10",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -71,7 +71,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/horizon",
       "requirement": "ANA-06",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -79,7 +79,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/search/queries",
       "requirement": "ANA-20",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -87,7 +87,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/search/pages",
       "requirement": "ANA-20",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -95,7 +95,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/search/trending",
       "requirement": "ANA-20",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -103,7 +103,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/assistant",
       "requirement": "ANA-10",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -111,7 +111,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/insights",
       "requirement": "ANA-40",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -119,7 +119,7 @@
       "method": "POST",
       "path": "/_liyasa/api/v1/analytics/insights/act",
       "requirement": "ANA-40",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
@@ -127,7 +127,7 @@
       "method": "GET",
       "path": "/_liyasa/api/v1/analytics/integrations",
       "requirement": "ANA-60",
-      "servedBy": "unbuilt",
+      "servedBy": "wp-17",
       "auth": "dashboard-read"
     },
     {
