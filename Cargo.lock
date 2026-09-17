@@ -2556,6 +2556,7 @@ dependencies = [
  "liyasa-components",
  "liyasa-config",
  "liyasa-core",
+ "liyasa-lsp",
  "liyasa-markdown",
  "liyasa-openapi",
  "liyasa-search",
