@@ -77,7 +77,7 @@ pub const WINDOWS: [Duration; 2] = [Duration::from_secs(3_600), Duration::from_s
 /// The fractions of the error budget that page.
 pub const BURN_THRESHOLDS: [u8; 2] = [50, 100];
 
-const RUNBOOK_BASE: &str = "https://kasecrab.github.io/liyasa/docs/runbooks";
+pub const RUNBOOK_BASE: &str = "https://kasecrab.github.io/liyasa/docs/runbooks";
 
 /// Every SLI HOST-10 names, in the order it names them.
 static CATALOGUE: [Sli; 6] = [

@@ -19,4 +19,27 @@ pub mod model;
 pub mod notify;
 pub mod plan;
 pub mod region;
+pub mod routes;
 pub mod slo;
+pub mod state;
+
+use std::sync::Arc;
+
+use crate::routes::AppState;
+use crate::routes::mount::Mount;
+
+/// RFC 1403's registration. One entry: the three route groups share one
+/// [`state::OrgState`], and `mount` is a bare function pointer with nowhere to
+/// keep it, so three entries would build three organizations rather than three
+/// views of one. The permissions are in [`routes::TABLE`] and applied with the
+/// seam's own `guarded`.
+///
+/// The line this package would add to `routes::mount::subtrees`, which is
+/// WP-14's file (RFC 2800):
+///
+/// ```text
+/// Subtree { name: "org", permission: None, mount: crate::org::mount },
+/// ```
+pub fn mount(app: &Arc<AppState>) -> Mount {
+    Mount::routes(routes::router(Arc::new(state::OrgState::from_app(app))))
+}
