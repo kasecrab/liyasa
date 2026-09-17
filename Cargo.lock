@@ -2615,6 +2615,7 @@ dependencies = [
  "liyasa-markdown",
  "serde",
  "serde_json",
+ "toml",
 ]
 
 [[package]]

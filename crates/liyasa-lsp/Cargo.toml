@@ -19,3 +19,7 @@ liyasa-components = { path = "../liyasa-components", version = "0.1.0" }
 liyasa-config = { path = "../liyasa-config", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true
+# `facts/sources.toml` (§14.4) names the file each fact source reads. The row is
+# RFC 0900's, added for `liyasa.lock`; this is the second reader of a TOML file
+# in the workspace and it adds nothing to the dependency tree.
+toml.workspace = true

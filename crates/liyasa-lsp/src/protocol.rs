@@ -10,6 +10,26 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// The protocol numbers its enumerations, and serde's derive would write the
+/// variant's name. Every `#[repr(u8)]` enum on this wire goes out as its
+/// number.
+macro_rules! numbered {
+    ($($name:ident),* $(,)?) => {
+        $(impl Serialize for $name {
+            fn serialize<S: serde::Serializer>(&self, out: S) -> Result<S::Ok, S::Error> {
+                out.serialize_u8(*self as u8)
+            }
+        })*
+    };
+}
+
+numbered!(
+    TextDocumentSyncKind,
+    DiagnosticSeverity,
+    CompletionItemKind,
+    MessageType,
+);
+
 // ---- positions ----
 
 /// Zero-based, and `character` is counted in the units of the negotiated
@@ -124,7 +144,7 @@ pub struct ServerCapabilities {
 /// Only `Full` is offered. Incremental sync saves bytes on a file the scanner
 /// re-reads whole anyway, and a wrong range application is a class of bug this
 /// server does not need to own.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum TextDocumentSyncKind {
     None = 0,
@@ -228,7 +248,7 @@ pub struct Diagnostic {
     pub related_information: Vec<DiagnosticRelatedInformation>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum DiagnosticSeverity {
     Error = 1,
@@ -314,7 +334,7 @@ impl CompletionItem {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum CompletionItemKind {
     Field = 5,
@@ -382,7 +402,7 @@ pub struct ShowMessageParams {
     pub message: String,
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum MessageType {
     Error = 1,

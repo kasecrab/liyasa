@@ -12,6 +12,10 @@
 //! §31.6 item 7 forbids a dependency without a row. See
 //! `plan/rfcs/3000-no-lsp-crate-is-named.md`.
 
+pub mod analysis;
+pub mod diagnostics;
 pub mod jsonrpc;
 pub mod protocol;
 pub mod text;
+pub mod uri;
+pub mod workspace;
