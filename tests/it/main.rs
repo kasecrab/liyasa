@@ -150,3 +150,5 @@ mod ed_13_media;
 mod ed_75_roles;
 #[path = "../editor/ed_73_messages.rs"]
 mod ed_73_messages;
+#[path = "../editor/ed_01_model.rs"]
+mod ed_01_model;

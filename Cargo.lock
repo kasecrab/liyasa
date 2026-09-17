@@ -2795,6 +2795,7 @@ dependencies = [
  "liyasa-store",
  "liyasa-theme",
  "liyasa-verify",
+ "liyasa-wasm",
  "serde_json",
  "tokio",
  "tower",

@@ -48,6 +48,10 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "ne
 axum = { workspace = true, features = ["http1", "json", "query", "tokio"] }
 tower = { workspace = true, features = ["util"] }
 http.workspace = true
+# WP-24b: the editor's acceptance tests compare the WebAssembly session's
+# preview with the build engine's render of the same source. The crate is a
+# cdylib for `wasm32` and an rlib everywhere else, so a native test links it.
+liyasa-wasm = { path = "../crates/liyasa-wasm", version = "0.1.0" }
 # WP-20a: the truth graph, whose acceptance test parses a page with the
 # parser the build uses and then queries the graph it produces.
 liyasa-verify = { path = "../crates/liyasa-verify", version = "0.1.0" }
