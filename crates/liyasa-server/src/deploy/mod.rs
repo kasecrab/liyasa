@@ -6,7 +6,6 @@
 //! a push turns into, the environment a branch belongs to, the preview a pull
 //! request gets, and the rules an untrusted build is held to.
 
-pub mod domains;
 pub mod environment;
 pub mod hooks;
 pub mod hosts;
@@ -18,7 +17,6 @@ pub mod rollback;
 pub mod service;
 pub mod untrusted;
 
-pub use domains::Domains;
 pub use environment::{Environment, EnvironmentKind, Protection};
 pub use hosts::{Paved, PublishPlan};
 pub use preview::Preview;
