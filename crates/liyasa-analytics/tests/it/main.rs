@@ -3,6 +3,9 @@
 
 mod support;
 
+mod actions;
 mod agents;
+mod feedback;
 mod schema;
+mod search;
 mod traffic;

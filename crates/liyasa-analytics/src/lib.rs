@@ -12,10 +12,14 @@
 //! the caller already opened, which in practice is
 //! `liyasa_store::ingest::Writer::pool()` (RFC 1700).
 
+pub mod actions;
 pub mod agents;
+pub mod feedback;
 pub mod props;
 pub mod query;
 pub mod schema;
+pub mod search;
+pub(crate) mod sql;
 pub mod traffic;
 
 pub use agents::{Caller, CallerKind, Headless, Signals, Structural};

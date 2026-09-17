@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 /// `props` keys, so a query and an emitter cannot disagree by a typo.
 pub mod key {
     pub const QUERY: &str = "q";
+    pub const SHOWN: &str = "shown";
     pub const RESULTS: &str = "results";
     pub const POSITION: &str = "position";
     pub const TARGET: &str = "target";
@@ -38,6 +39,12 @@ pub struct Search {
     pub q: String,
     /// How many results came back. Zero is the no-result case ANA-20 reports.
     pub results: u32,
+    /// The routes the result list showed, in rank order. ANA-20 asks for
+    /// per-page impressions, and a page is only impressed on a reader if it
+    /// was in the list; nothing else on the event records which pages those
+    /// were. Capped at the visible page of results.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shown: Vec<String>,
 }
 
 /// `type: "search_click"` — a result opened from the overlay (ANA-20).

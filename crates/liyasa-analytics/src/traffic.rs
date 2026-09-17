@@ -19,6 +19,7 @@ use sqlx::sqlite::SqlitePool;
 
 use crate::agents::CallerKind;
 use crate::query::{Filters, Grain, Range};
+use crate::sql::{bind_all, bind_kinds, placeholders, sql};
 
 /// Types the server emits for itself (ANA-01). These are complete: every
 /// request produces one.
@@ -155,36 +156,6 @@ impl Delivery {
     }
 }
 
-fn placeholders(n: usize) -> String {
-    let mut out = String::with_capacity(n * 2);
-    for i in 0..n {
-        if i > 0 {
-            out.push(',');
-        }
-        out.push('?');
-    }
-    out
-}
-
-/// Every statement in this module is assembled from a whitelist: the table and
-/// column names come from `match` arms over closed sets, `?` counts from
-/// `placeholders`, and the dimension name from an explicit membership test.
-/// No caller-supplied text reaches the statement; values are bound.
-type Sql = sqlx::query::Query<'static, sqlx::Sqlite, sqlx::sqlite::SqliteArguments>;
-
-fn sql(text: String) -> Sql {
-    sqlx::query(sqlx::AssertSqlSafe(text))
-}
-
-/// Binds a predicate's values in order. Every filter value is a string, which
-/// is why one helper covers all of them.
-fn bind_all(mut query: Sql, binds: &[String]) -> Sql {
-    for value in binds {
-        query = query.bind(value.clone());
-    }
-    query
-}
-
 /// A time series of one or more event types, split by caller kind.
 pub async fn series(
     pool: &SqlitePool,
@@ -220,11 +191,8 @@ pub async fn series(
         placeholders(kinds.len()),
         predicate.sql
     );
-    let mut query = sql(statement).bind(step).bind(range.from).bind(range.to);
-    for kind in kinds {
-        query = query.bind((*kind).to_owned());
-    }
-    let rows = bind_all(query, &predicate.binds)
+    let query = sql(statement).bind(step).bind(range.from).bind(range.to);
+    let rows = bind_all(bind_kinds(query, kinds), &predicate.binds)
         .fetch_all(pool)
         .await
         .map_err(sql_error)?;
@@ -279,11 +247,8 @@ pub async fn totals(
         placeholders(kinds.len()),
         predicate.sql
     );
-    let mut query = sql(statement).bind(range.from).bind(range.to);
-    for kind in kinds {
-        query = query.bind((*kind).to_owned());
-    }
-    let rows = bind_all(query, &predicate.binds)
+    let query = sql(statement).bind(range.from).bind(range.to);
+    let rows = bind_all(bind_kinds(query, kinds), &predicate.binds)
         .fetch_all(pool)
         .await
         .map_err(sql_error)?;
@@ -352,11 +317,8 @@ pub async fn top_routes(
         placeholders(kinds.len()),
         predicate.sql
     );
-    let mut query = sql(statement).bind(range.from).bind(range.to);
-    for kind in kinds {
-        query = query.bind((*kind).to_owned());
-    }
-    let rows = bind_all(query, &predicate.binds)
+    let query = sql(statement).bind(range.from).bind(range.to);
+    let rows = bind_all(bind_kinds(query, kinds), &predicate.binds)
         .fetch_all(pool)
         .await
         .map_err(sql_error)?;
@@ -489,11 +451,8 @@ pub async fn by_variant(
         placeholders(kinds.len()),
         predicate.sql
     );
-    let mut query = sql(statement).bind(range.from).bind(range.to);
-    for kind in kinds {
-        query = query.bind((*kind).to_owned());
-    }
-    let rows = bind_all(query, &predicate.binds)
+    let query = sql(statement).bind(range.from).bind(range.to);
+    let rows = bind_all(bind_kinds(query, kinds), &predicate.binds)
         .bind(limit)
         .fetch_all(pool)
         .await
