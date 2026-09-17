@@ -51,11 +51,7 @@ fn generated() -> String {
             .iter()
             .map(|permission| format!("\"{}\"", permission.as_str()))
             .collect();
-        out.push_str(&format!(
-            "  {}: [{}],\n",
-            role.as_str(),
-            granted.join(", ")
-        ));
+        out.push_str(&format!("  {}: [{}],\n", role.as_str(), granted.join(", ")));
     }
     out.push_str("};\n");
     out
@@ -111,7 +107,11 @@ fn an_editor_publishes_and_a_reviewer_approves_and_neither_does_the_others_job()
 #[test]
 fn a_reader_may_not_even_draft() {
     assert!(Role::Reader.permissions().is_empty());
-    assert!(!Role::Viewer.permissions().contains(&Permission::ContentDraft));
+    assert!(
+        !Role::Viewer
+            .permissions()
+            .contains(&Permission::ContentDraft)
+    );
 }
 
 #[test]

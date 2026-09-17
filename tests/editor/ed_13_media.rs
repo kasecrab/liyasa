@@ -65,7 +65,6 @@ fn exif_with_gps() -> Vec<u8> {
     out
 }
 
-
 #[test]
 fn a_jpeg_keeps_its_pixels_and_loses_its_gps() {
     let bytes = jpeg_with_gps();
@@ -91,8 +90,14 @@ fn a_jpeg_keeps_its_pixels_and_loses_its_gps() {
     )
     .expect("a jpeg with alt text is accepted");
 
-    assert!(!contains(&accepted.bytes, b"Exif\0\0"), "the EXIF block survived");
-    assert!(!contains(&accepted.bytes, &[0x25, 0x88]), "the GPS pointer tag survived");
+    assert!(
+        !contains(&accepted.bytes, b"Exif\0\0"),
+        "the EXIF block survived"
+    );
+    assert!(
+        !contains(&accepted.bytes, &[0x25, 0x88]),
+        "the GPS pointer tag survived"
+    );
     assert_eq!(accepted.content_type, "image/jpeg");
     assert!(accepted.nosniff, "every upload is served nosniff");
 
@@ -127,8 +132,7 @@ const HOSTILE_SVG: &[(&str, &str)] = &[
     ),
 ];
 
-const CLEAN_SVG: &str =
-    r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#0af"/></svg>"##;
+const CLEAN_SVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#0af"/></svg>"##;
 
 #[test]
 fn an_svg_carrying_a_script_never_reaches_storage() {
@@ -246,9 +250,14 @@ fn the_same_bytes_uploaded_twice_are_one_file() {
         &Settings::default(),
     )
     .expect("accepted");
-    assert_eq!(first.path, second.path, "the path is the digest, not the name");
+    assert_eq!(
+        first.path, second.path,
+        "the path is the digest, not the name"
+    );
 }
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
-    haystack.windows(needle.len()).any(|window| window == needle)
+    haystack
+        .windows(needle.len())
+        .any(|window| window == needle)
 }

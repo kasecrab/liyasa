@@ -34,7 +34,10 @@ fn pages(root: &Path) -> Vec<(String, String)> {
                 .expect("a fixture page has a name")
                 .to_string_lossy()
                 .into_owned();
-            (name, std::fs::read_to_string(&path).expect("a fixture page is readable"))
+            (
+                name,
+                std::fs::read_to_string(&path).expect("a fixture page is readable"),
+            )
         })
         .collect();
     found.sort_by(|left, right| left.0.cmp(&right.0));
@@ -80,7 +83,14 @@ fn the_fixture_covers_every_segment_kind_the_editor_models() {
     // A fixture that happens to hold only prose would let the mapping tests
     // pass while modelling nothing, and nothing would say so.
     let text = generated(&editor());
-    for kind in ["markdown", "code", "template", "directiveOpen", "directiveClose", "directiveLeaf"] {
+    for kind in [
+        "markdown",
+        "code",
+        "template",
+        "directiveOpen",
+        "directiveClose",
+        "directiveLeaf",
+    ] {
         assert!(
             text.contains(&format!("\"segment\": \"{kind}\"")),
             "no fixture page produces a `{kind}` segment"

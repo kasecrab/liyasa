@@ -145,15 +145,25 @@ fn the_editors_preview_is_the_builds_html_byte_for_byte() {
     assert!(
         preview.diagnostics.is_empty(),
         "the fixture does not preview cleanly: {:?}",
-        preview.diagnostics.iter().map(|d| d.code).collect::<Vec<_>>()
+        preview
+            .diagnostics
+            .iter()
+            .map(|d| d.code)
+            .collect::<Vec<_>>()
     );
     // The fixture is the defect if it cannot reach the state the assertion is
     // about: a page that rendered to nothing would compare equal to nothing.
-    assert!(preview.html.contains("Every project has caps"), "prose rendered");
+    assert!(
+        preview.html.contains("Every project has caps"),
+        "prose rendered"
+    );
     assert!(preview.html.contains("Heads up"), "the directive rendered");
     assert!(preview.html.contains("250,000"), "the chip resolved");
     assert!(preview.html.contains("Team"), "the loop expanded");
-    assert!(preview.html.contains("liyasa build --strict"), "the fence rendered");
+    assert!(
+        preview.html.contains("liyasa build --strict"),
+        "the fence rendered"
+    );
 
     assert_eq!(preview.html, page.html, "html");
 }
@@ -171,7 +181,10 @@ fn the_editors_markdown_and_text_are_the_builds_too() {
 
 #[test]
 fn the_preview_and_the_build_agree_on_every_fixture_page() {
-    let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../web/editor/test/fixtures/pages");
+    let root = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../web/editor/test/fixtures/pages"
+    );
     let mut seen = 0usize;
     for entry in std::fs::read_dir(root).expect("the fixture pages are readable") {
         let path = entry.expect("a directory entry").path();
@@ -182,7 +195,12 @@ fn the_preview_and_the_build_agree_on_every_fixture_page() {
         let preview = previewed(&source);
         let page = built(&source);
         assert_eq!(preview.html, page.html, "html for {}", path.display());
-        assert_eq!(preview.markdown, page.markdown, "markdown for {}", path.display());
+        assert_eq!(
+            preview.markdown,
+            page.markdown,
+            "markdown for {}",
+            path.display()
+        );
         seen += 1;
     }
     assert!(seen >= 3, "the fixture pages were not read");

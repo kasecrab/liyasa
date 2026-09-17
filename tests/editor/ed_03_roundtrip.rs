@@ -117,7 +117,10 @@ fn a_generated_document_saved_without_edits_keeps_every_byte() {
         let text = document(index);
         let (parsed, _) = scan(&text, SourceId(0));
         let written = serialize_source(&text, &parsed, &[]);
-        assert_eq!(written, text, "document {index} did not round trip:\n{text}");
+        assert_eq!(
+            written, text,
+            "document {index} did not round trip:\n{text}"
+        );
     }
 }
 
@@ -130,7 +133,10 @@ fn the_segment_spans_of_a_generated_document_tile_it_exactly() {
     for index in 0..DOCUMENTS {
         let text = document(index);
         let (parsed, _) = scan(&text, SourceId(0));
-        let body = parsed.frontmatter.as_ref().map_or(0, |front| front.span.end);
+        let body = parsed
+            .frontmatter
+            .as_ref()
+            .map_or(0, |front| front.span.end);
         let mut at = body;
         for (position, segment) in parsed.segments.iter().enumerate() {
             let span = segment.span();
@@ -145,7 +151,11 @@ fn the_segment_spans_of_a_generated_document_tile_it_exactly() {
             );
             at = span.end;
         }
-        assert_eq!(at as usize, text.len(), "document {index} ends with bytes past its last segment");
+        assert_eq!(
+            at as usize,
+            text.len(),
+            "document {index} ends with bytes past its last segment"
+        );
     }
 }
 
