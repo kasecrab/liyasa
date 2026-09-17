@@ -2,4 +2,5 @@
 //! `[[test]]` row.
 mod config;
 mod chunk;
+mod exclude;
 mod page;
