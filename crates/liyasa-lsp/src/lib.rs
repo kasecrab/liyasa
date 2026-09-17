@@ -13,6 +13,7 @@
 //! `plan/rfcs/3000-no-lsp-crate-is-named.md`.
 
 pub mod analysis;
+pub mod completion;
 pub mod diagnostics;
 pub mod jsonrpc;
 pub mod protocol;

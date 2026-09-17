@@ -62,6 +62,17 @@ impl Range {
     }
 }
 
+/// A replacement the client applies verbatim. Completion sends one rather than
+/// bare text because the word a client would otherwise replace is its own idea
+/// of a word, and `code-group`, `facts.pricing.pro` and `/guides/install` are
+/// each several of them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextEdit {
+    pub range: Range,
+    pub new_text: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Location {
     pub uri: String,
@@ -290,7 +301,7 @@ pub struct CompletionItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub documentation: Option<MarkupContent>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub insert_text: Option<String>,
+    pub text_edit: Option<TextEdit>,
     /// Sorting is the server's call, not the client's alphabet: required props
     /// come before optional ones and built-ins before user components.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -304,7 +315,7 @@ impl CompletionItem {
             kind,
             detail: None,
             documentation: None,
-            insert_text: None,
+            text_edit: None,
             sort_text: None,
         }
     }
@@ -322,8 +333,11 @@ impl CompletionItem {
     }
 
     #[must_use]
-    pub fn insert(mut self, text: impl Into<String>) -> Self {
-        self.insert_text = Some(text.into());
+    pub fn replacing(mut self, range: Range, new_text: impl Into<String>) -> Self {
+        self.text_edit = Some(TextEdit {
+            range,
+            new_text: new_text.into(),
+        });
         self
     }
 

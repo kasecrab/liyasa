@@ -2,6 +2,7 @@
 //! line for a new file rather than a `[[test]]` row (RFC 0007).
 
 mod analysis;
+mod completion;
 mod diagnostics;
 mod jsonrpc;
 mod text;
