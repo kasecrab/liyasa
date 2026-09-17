@@ -121,33 +121,48 @@ fn the_readme_does_not_claim_the_command_exists() {
 }
 
 #[test]
-fn the_language_the_extension_serves_covers_the_page_extensions() {
+fn the_contributed_language_does_not_fight_vs_code_for_dot_md() {
+    // VS Code's built-in Markdown extension owns `.md` and `.markdown`, and an
+    // extension may not share a file extension with it: contributing them here
+    // either loses — leaving every ordinary page unserved — or wins and takes
+    // Markdown's own features away. `.mdx` is unclaimed and is ours.
     let manifest = manifest();
     let language = manifest["contributes"]["languages"]
         .as_array()
         .and_then(|languages| languages.first().cloned())
         .expect("the extension contributes a language");
     assert_eq!(language["id"], "liyasa-markdown");
-    let extensions = strings(&language["extensions"]);
-    for expected in [".md", ".mdx", ".markdown"] {
+    assert_eq!(strings(&language["extensions"]), vec![".mdx".to_owned()]);
+}
+
+#[test]
+fn the_client_selects_vs_codes_markdown_as_well_as_its_own_language() {
+    // Without this an ordinary `.md` page — which is nearly every page — gets
+    // no diagnostics, no completion and no hover, and nothing says why.
+    let source = extension_source();
+    for id in ["markdown", "liyasa-markdown"] {
         assert!(
-            extensions.iter().any(|e| e == expected),
-            "`{expected}` is a page extension: {extensions:?}"
+            source.contains(&format!("language: \"{id}\"")),
+            "`{id}` is a language this extension must serve"
         );
     }
 }
 
 #[test]
-fn the_document_selector_and_the_contributed_language_are_the_same_name() {
+fn the_preview_menu_is_offered_on_every_language_the_client_selects() {
     let manifest = manifest();
-    let id = manifest["contributes"]["languages"][0]["id"]
-        .as_str()
-        .expect("the language has an id");
-    let source = extension_source();
-    assert!(
-        source.contains(&format!("language: \"{id}\"")),
-        "the client selects the language the manifest contributes"
-    );
+    for entry in manifest["contributes"]["menus"]["editor/title"]
+        .as_array()
+        .expect("a menu is a list")
+    {
+        let when = entry["when"].as_str().expect("a menu entry is conditional");
+        for id in ["markdown", "liyasa-markdown"] {
+            assert!(
+                when.contains(id),
+                "`{id}` is served, so the command belongs on its title bar: {when}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -203,4 +218,55 @@ fn every_notification_the_extension_subscribes_to_is_one_the_server_acts_on() {
             "`{path}` feeds the index and is watched"
         );
     }
+}
+
+#[test]
+fn a_server_that_will_not_start_is_reported_and_the_commands_still_work() {
+    // `liyasa lsp` does not exist yet (RFC 3001), so this is the path every
+    // user takes today. An exception out of `activate` would register no
+    // commands and print nothing an author can act on.
+    let source = extension_source();
+    let activate = source
+        .split_once("async function activate(")
+        .map(|(_, rest)| rest)
+        .expect("the extension has an activate function");
+    let commands_at = activate
+        .find("registerCommand")
+        .expect("activate registers the commands");
+    let start_at = activate
+        .find("await start(")
+        .expect("activate starts the server");
+    assert!(
+        commands_at < start_at,
+        "the commands are registered before the server is started"
+    );
+    assert!(
+        source.contains("showErrorMessage"),
+        "the failure is reported"
+    );
+    assert!(
+        source.contains("liyasa.server.path"),
+        "and it names the setting that fixes it"
+    );
+}
+
+#[test]
+fn the_handover_in_the_readme_names_types_the_cli_actually_has() {
+    // The three lines in the README are what WP-09 will paste. Prose that will
+    // not compile is the same defect as prose naming a flag nobody built.
+    let readme = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"))
+        .expect("the crate has a README");
+    assert!(
+        readme.contains("Exit::Success") && readme.contains("Exit::Errors"),
+        "`commands::dispatch` returns `Exit`, so the arm produces one"
+    );
+    assert!(
+        !readme.contains("ExitCode::Success"),
+        "there is no such variant; `std::process::ExitCode` spells it SUCCESS \
+         and `dispatch` does not return one at all"
+    );
+    assert!(
+        readme.contains("liyasa_lsp::serve_stdio()"),
+        "the arm calls the entry point this crate exposes"
+    );
 }

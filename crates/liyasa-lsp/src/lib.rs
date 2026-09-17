@@ -1,10 +1,15 @@
 //! The Liyasa Markdown language server (PRD §15.7 ED-61, §16.1 CLI-25).
 //!
-//! The server answers over the Source Document of §7.16: `scan` gives it every
-//! segment with a byte span, so a position in the editor resolves to a segment
-//! and the segment decides what the request means. A cursor in a
-//! `DirectiveOpen` completes component names and props; one in a `Template`
-//! completes variables and facts; one in a `Markdown` segment completes links.
+//! Diagnostics and the preview come from the build's own page pipeline, so the
+//! editor cannot disagree with the build about whether a page is valid.
+//!
+//! Completion and hover read the line the cursor is on rather than the segment
+//! the scanner made of it. That is deliberate: `:::no`, `{{ facts.` and `](/gui`
+//! are all states the scanner is entitled to call ordinary Markdown, and they
+//! are exactly the states an author asks for a completion from. [`completion`]
+//! reads what is behind the cursor, because that is all that has been typed;
+//! [`locate`] reads the whole token around it, because hover and go-to-
+//! definition are about a name already written.
 //!
 //! It adds no dependency the workspace did not already carry: the transport in
 //! [`jsonrpc`] and the wire types in [`protocol`] are written here rather than

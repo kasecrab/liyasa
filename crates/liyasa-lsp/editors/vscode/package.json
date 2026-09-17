@@ -4,17 +4,31 @@
   "description": "Diagnostics, completion, hover, go to definition, and preview for Liyasa Markdown.",
   "version": "0.1.0",
   "license": "MIT OR Apache-2.0",
-  "repository": { "type": "git", "url": "https://github.com/kasecrab/liyasa" },
-  "engines": { "vscode": "^1.90.0" },
-  "categories": ["Programming Languages", "Linters"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kasecrab/liyasa"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
   "main": "./extension.js",
-  "activationEvents": ["workspaceContains:**/liyasa.json"],
+  "activationEvents": [
+    "workspaceContains:**/liyasa.json"
+  ],
   "contributes": {
     "languages": [
       {
         "id": "liyasa-markdown",
-        "aliases": ["Liyasa Markdown"],
-        "extensions": [".md", ".mdx", ".markdown"],
+        "aliases": [
+          "Liyasa Markdown"
+        ],
+        "extensions": [
+          ".mdx"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -33,7 +47,7 @@
       "editor/title": [
         {
           "command": "liyasa.preview",
-          "when": "editorLangId == liyasa-markdown",
+          "when": "editorLangId == markdown || editorLangId == liyasa-markdown",
           "group": "navigation"
         }
       ]
@@ -48,13 +62,21 @@
         },
         "liyasa.server.args": {
           "type": "array",
-          "items": { "type": "string" },
-          "default": ["lsp"],
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "lsp"
+          ],
           "description": "The arguments that start the language server."
         },
         "liyasa.trace.server": {
           "type": "string",
-          "enum": ["off", "messages", "verbose"],
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
           "default": "off",
           "description": "Log the traffic between the editor and the language server."
         }

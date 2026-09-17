@@ -10,6 +10,9 @@ const { LanguageClient, TransportKind } = require("vscode-languageclient/node");
 
 /** @type {LanguageClient | undefined} */
 let client;
+/** The language identifiers this extension serves. */
+const SERVED = new Set(["markdown", "liyasa-markdown"]);
+
 /** @type {import("vscode").WebviewPanel | undefined} */
 let preview;
 
@@ -27,7 +30,12 @@ async function start(context) {
     "Liyasa Markdown",
     serverOptions(),
     {
-      documentSelector: [{ scheme: "file", language: "liyasa-markdown" }],
+      // `.md` is VS Code's own `markdown` language; only `.mdx` is ours.
+      // Selecting both is what makes an ordinary page served at all.
+      documentSelector: [
+        { scheme: "file", language: "markdown" },
+        { scheme: "file", language: "liyasa-markdown" },
+      ],
       synchronize: {
         // The server reads these to index components, variables, facts,
         // snippets and routes; a change to one changes what it can offer.
@@ -38,7 +46,20 @@ async function start(context) {
       outputChannel: window.createOutputChannel("Liyasa"),
     }
   );
-  await client.start();
+  try {
+    await client.start();
+  } catch (error) {
+    client = undefined;
+    const settings = workspace.getConfiguration("liyasa");
+    window.showErrorMessage(
+      `Liyasa: could not start the language server ` +
+        `\`${settings.get("server.path", "liyasa")} ` +
+        `${settings.get("server.args", ["lsp"]).join(" ")}\`. ` +
+        `Set liyasa.server.path and liyasa.server.args, then run ` +
+        `"Liyasa: Restart Language Server". (${error.message})`
+    );
+    return;
+  }
   context.subscriptions.push(client);
 }
 
@@ -62,7 +83,7 @@ async function openPreview() {
 }
 
 async function refresh(document) {
-  if (!preview || !client || document.languageId !== "liyasa-markdown") {
+  if (!preview || !client || !SERVED.has(document.languageId)) {
     return;
   }
   // `liyasa/preview` is this server's one method outside the standard: it
@@ -110,7 +131,8 @@ function escape(text) {
 }
 
 async function activate(context) {
-  await start(context);
+  // Commands first: a server that will not start must still leave the author a
+  // way to retry once they have pointed the setting at one that does.
   context.subscriptions.push(
     commands.registerCommand("liyasa.preview", openPreview),
     commands.registerCommand("liyasa.restart", async () => {
@@ -124,6 +146,7 @@ async function activate(context) {
       }
     })
   );
+  await start(context);
 }
 
 async function deactivate() {

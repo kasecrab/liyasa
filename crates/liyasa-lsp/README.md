@@ -35,11 +35,20 @@ package did not edit it. Three additions wire it, and they are the whole of it:
    Lsp,
    ```
 
-3. In whichever `match` dispatches a command to its module, an arm:
+3. In `crates/liyasa-cli/src/commands/mod.rs`, an arm on `dispatch`:
 
    ```rust
-   Command::Lsp => liyasa_lsp::serve_stdio().map(|()| ExitCode::Success),
+   Command::Lsp => match liyasa_lsp::serve_stdio() {
+       Ok(()) => Exit::Success,
+       // CLI-31: the editor closed the connection without `shutdown`.
+       Err(_) => Exit::Errors,
+   },
    ```
+
+`crates/liyasa-cli/src/commands/mod.rs` is where `dispatch` lives; it returns
+`Exit` by value, not a `Result`, which is why the arm matches rather than maps.
+`liyasa-build` is already an unconditional dependency of `liyasa-cli`, so the
+new row needs no feature gate.
 
 `serve_stdio` takes no arguments, reads `stdin`, writes `stdout`, and writes
 nothing to `stdout` that is not a protocol message. It returns `Err` with
@@ -53,6 +62,12 @@ code 1.
 package. It is a thin client by design — it starts the server, forwards the
 buffer, and holds a webview for `liyasa/preview`. It knows nothing about
 Liyasa Markdown itself.
+
+It does not contribute a language for `.md`. VS Code's built-in Markdown
+extension owns that extension and will not share it, so a page keeps the
+`markdown` language identifier and the client selects it alongside the
+`liyasa-markdown` identifier it contributes for `.mdx`. A page therefore keeps
+every Markdown feature the editor already had and gains Liyasa's on top.
 
 ```
 cd crates/liyasa-lsp/editors/vscode
