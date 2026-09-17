@@ -84,7 +84,7 @@ impl Detector {
         }
         for how in &self.regions.detection {
             let found = match how {
-                Detection::Auth => self.declared(request.reader?),
+                Detection::Auth => request.reader.and_then(|code| self.declared(code)),
                 Detection::Choice => request.chosen.and_then(|code| self.declared(code)),
                 Detection::Header => self.from_header(request),
             };
@@ -351,7 +351,7 @@ pub fn undeclared(regions: &Regions, named: &BTreeSet<String>, at: &str) -> Vec<
 fn nearest<'a>(code: &str, declared: &'a [String]) -> Option<&'a str> {
     declared.iter().map(String::as_str).find(|one| {
         one.eq_ignore_ascii_case(code)
-            || one.len().abs_diff(code.len()) <= 1 && shares_prefix(one, code)
+            || (one.len().abs_diff(code.len()) <= 1 && shares_prefix(one, code))
     })
 }
 
@@ -539,6 +539,31 @@ mod tests {
                 ..Request::default()
             }),
             Some("eu".to_owned())
+        );
+    }
+
+    /// `?` on the first source's value would have returned from the whole walk,
+    /// so a reader with no identity would never have reached the switcher
+    /// behind it.
+    #[test]
+    fn a_source_with_nothing_to_say_falls_through_to_the_next() {
+        assert_eq!(
+            Detector::new(&regions(&["auth", "choice"])).detect(&Request {
+                reader: None,
+                chosen: Some("eu"),
+                ..Request::default()
+            }),
+            Some("eu".to_owned())
+        );
+        let carried = headers(&[("CF-IPCountry", "CA")]);
+        assert_eq!(
+            Detector::new(&regions(&["auth", "header"])).detect(&Request {
+                headers: &carried,
+                trusted_peer: true,
+                reader: None,
+                chosen: None,
+            }),
+            Some("ca".to_owned())
         );
     }
 
