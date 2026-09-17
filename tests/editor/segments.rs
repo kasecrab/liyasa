@@ -87,3 +87,61 @@ fn the_fixture_covers_every_segment_kind_the_editor_models() {
         );
     }
 }
+
+/// The fifty pages ED-12's find-and-replace runs over.
+///
+/// Each one puts the same phrase in four places the scanner segments
+/// differently — prose, a directive prop, a fenced command, and a template
+/// expression — because the point of ED-12's scope rules is that those four
+/// are not the same thing. A fixture whose phrase appears only in prose would
+/// let a replace that rewrites fenced commands pass.
+fn bulk_pages() -> Vec<(String, String)> {
+    (0..50)
+        .map(|index| {
+            let path = format!("guides/page-{index:02}.md");
+            let source = format!(
+                "---\ntitle: Page {index}\n---\n\n\
+                 The Widget API is described here, page {index}.\n\n\
+                 :::note{{title=\"The Widget API\"}}\n\
+                 The Widget API changed in 2.0.\n\
+                 :::\n\n\
+                 ```bash\n\
+                 curl https://example.invalid/Widget/API\n\
+                 ```\n\n\
+                 {{{{ site.name }}}} documents the Widget API.\n"
+            );
+            (path, source)
+        })
+        .collect()
+}
+
+fn generated_bulk() -> String {
+    let mut entries = Vec::new();
+    for (path, source) in bulk_pages() {
+        let (document, _) = scan(&source, SourceId(0));
+        entries.push(serde_json::json!({
+            "path": path,
+            "source": source,
+            "document": document,
+        }));
+    }
+    let mut text = serde_json::to_string_pretty(&serde_json::Value::Array(entries))
+        .expect("a source document serializes");
+    text.push('\n');
+    text
+}
+
+#[test]
+fn the_checked_in_bulk_corpus_is_what_the_scanner_produces() {
+    let path = editor().join("bulk.json");
+    let fresh = generated_bulk();
+    let committed = std::fs::read_to_string(&path).unwrap_or_default();
+    if committed != fresh {
+        let _ = std::fs::write(&path, &fresh);
+        panic!(
+            "{} did not match `scan`; it has been rewritten, commit it with the \
+             change that moved it",
+            path.display()
+        );
+    }
+}

@@ -1,0 +1,7802 @@
+[
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 22,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 0",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 0"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 66,
+            "source": 0,
+            "start": 22
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 98,
+            "source": 0,
+            "start": 66
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 129,
+            "source": 0,
+            "start": 98
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 133,
+            "source": 0,
+            "start": 129
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 134,
+            "source": 0,
+            "start": 133
+          }
+        },
+        {
+          "body": {
+            "end": 182,
+            "source": 0,
+            "start": 142
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 186,
+            "source": 0,
+            "start": 134
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 187,
+            "source": 0,
+            "start": 186
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 202,
+            "source": 0,
+            "start": 187
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 229,
+            "source": 0,
+            "start": 202
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-00.md",
+    "source": "---\ntitle: Page 0\n---\n\nThe Widget API is described here, page 0.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 22,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 1",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 1"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 66,
+            "source": 0,
+            "start": 22
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 98,
+            "source": 0,
+            "start": 66
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 129,
+            "source": 0,
+            "start": 98
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 133,
+            "source": 0,
+            "start": 129
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 134,
+            "source": 0,
+            "start": 133
+          }
+        },
+        {
+          "body": {
+            "end": 182,
+            "source": 0,
+            "start": 142
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 186,
+            "source": 0,
+            "start": 134
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 187,
+            "source": 0,
+            "start": 186
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 202,
+            "source": 0,
+            "start": 187
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 229,
+            "source": 0,
+            "start": 202
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-01.md",
+    "source": "---\ntitle: Page 1\n---\n\nThe Widget API is described here, page 1.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 22,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 2",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 2"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 66,
+            "source": 0,
+            "start": 22
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 98,
+            "source": 0,
+            "start": 66
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 129,
+            "source": 0,
+            "start": 98
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 133,
+            "source": 0,
+            "start": 129
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 134,
+            "source": 0,
+            "start": 133
+          }
+        },
+        {
+          "body": {
+            "end": 182,
+            "source": 0,
+            "start": 142
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 186,
+            "source": 0,
+            "start": 134
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 187,
+            "source": 0,
+            "start": 186
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 202,
+            "source": 0,
+            "start": 187
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 229,
+            "source": 0,
+            "start": 202
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-02.md",
+    "source": "---\ntitle: Page 2\n---\n\nThe Widget API is described here, page 2.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 22,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 3",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 3"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 66,
+            "source": 0,
+            "start": 22
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 98,
+            "source": 0,
+            "start": 66
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 129,
+            "source": 0,
+            "start": 98
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 133,
+            "source": 0,
+            "start": 129
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 134,
+            "source": 0,
+            "start": 133
+          }
+        },
+        {
+          "body": {
+            "end": 182,
+            "source": 0,
+            "start": 142
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 186,
+            "source": 0,
+            "start": 134
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 187,
+            "source": 0,
+            "start": 186
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 202,
+            "source": 0,
+            "start": 187
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 229,
+            "source": 0,
+            "start": 202
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-03.md",
+    "source": "---\ntitle: Page 3\n---\n\nThe Widget API is described here, page 3.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 22,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 4",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 4"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 66,
+            "source": 0,
+            "start": 22
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 98,
+            "source": 0,
+            "start": 66
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 129,
+            "source": 0,
+            "start": 98
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 133,
+            "source": 0,
+            "start": 129
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 134,
+            "source": 0,
+            "start": 133
+          }
+        },
+        {
+          "body": {
+            "end": 182,
+            "source": 0,
+            "start": 142
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 186,
+            "source": 0,
+            "start": 134
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 187,
+            "source": 0,
+            "start": 186
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 202,
+            "source": 0,
+            "start": 187
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 229,
+            "source": 0,
+            "start": 202
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-04.md",
+    "source": "---\ntitle: Page 4\n---\n\nThe Widget API is described here, page 4.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 22,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 5",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 5"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 66,
+            "source": 0,
+            "start": 22
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 98,
+            "source": 0,
+            "start": 66
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 129,
+            "source": 0,
+            "start": 98
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 133,
+            "source": 0,
+            "start": 129
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 134,
+            "source": 0,
+            "start": 133
+          }
+        },
+        {
+          "body": {
+            "end": 182,
+            "source": 0,
+            "start": 142
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 186,
+            "source": 0,
+            "start": 134
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 187,
+            "source": 0,
+            "start": 186
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 202,
+            "source": 0,
+            "start": 187
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 229,
+            "source": 0,
+            "start": 202
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-05.md",
+    "source": "---\ntitle: Page 5\n---\n\nThe Widget API is described here, page 5.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 22,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 6",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 6"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 66,
+            "source": 0,
+            "start": 22
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 98,
+            "source": 0,
+            "start": 66
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 129,
+            "source": 0,
+            "start": 98
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 133,
+            "source": 0,
+            "start": 129
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 134,
+            "source": 0,
+            "start": 133
+          }
+        },
+        {
+          "body": {
+            "end": 182,
+            "source": 0,
+            "start": 142
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 186,
+            "source": 0,
+            "start": 134
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 187,
+            "source": 0,
+            "start": 186
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 202,
+            "source": 0,
+            "start": 187
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 229,
+            "source": 0,
+            "start": 202
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-06.md",
+    "source": "---\ntitle: Page 6\n---\n\nThe Widget API is described here, page 6.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 22,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 7",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 7"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 66,
+            "source": 0,
+            "start": 22
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 98,
+            "source": 0,
+            "start": 66
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 129,
+            "source": 0,
+            "start": 98
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 133,
+            "source": 0,
+            "start": 129
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 134,
+            "source": 0,
+            "start": 133
+          }
+        },
+        {
+          "body": {
+            "end": 182,
+            "source": 0,
+            "start": 142
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 186,
+            "source": 0,
+            "start": 134
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 187,
+            "source": 0,
+            "start": 186
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 202,
+            "source": 0,
+            "start": 187
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 229,
+            "source": 0,
+            "start": 202
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-07.md",
+    "source": "---\ntitle: Page 7\n---\n\nThe Widget API is described here, page 7.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 22,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 8",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 8"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 66,
+            "source": 0,
+            "start": 22
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 98,
+            "source": 0,
+            "start": 66
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 129,
+            "source": 0,
+            "start": 98
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 133,
+            "source": 0,
+            "start": 129
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 134,
+            "source": 0,
+            "start": 133
+          }
+        },
+        {
+          "body": {
+            "end": 182,
+            "source": 0,
+            "start": 142
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 186,
+            "source": 0,
+            "start": 134
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 187,
+            "source": 0,
+            "start": 186
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 202,
+            "source": 0,
+            "start": 187
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 229,
+            "source": 0,
+            "start": 202
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-08.md",
+    "source": "---\ntitle: Page 8\n---\n\nThe Widget API is described here, page 8.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 22,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 9",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 9"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 66,
+            "source": 0,
+            "start": 22
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 98,
+            "source": 0,
+            "start": 66
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 129,
+            "source": 0,
+            "start": 98
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 133,
+            "source": 0,
+            "start": 129
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 134,
+            "source": 0,
+            "start": 133
+          }
+        },
+        {
+          "body": {
+            "end": 182,
+            "source": 0,
+            "start": 142
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 186,
+            "source": 0,
+            "start": 134
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 187,
+            "source": 0,
+            "start": 186
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 202,
+            "source": 0,
+            "start": 187
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 229,
+            "source": 0,
+            "start": 202
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-09.md",
+    "source": "---\ntitle: Page 9\n---\n\nThe Widget API is described here, page 9.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 10",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 10"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-10.md",
+    "source": "---\ntitle: Page 10\n---\n\nThe Widget API is described here, page 10.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 11",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 11"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-11.md",
+    "source": "---\ntitle: Page 11\n---\n\nThe Widget API is described here, page 11.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 12",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 12"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-12.md",
+    "source": "---\ntitle: Page 12\n---\n\nThe Widget API is described here, page 12.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 13",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 13"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-13.md",
+    "source": "---\ntitle: Page 13\n---\n\nThe Widget API is described here, page 13.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 14",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 14"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-14.md",
+    "source": "---\ntitle: Page 14\n---\n\nThe Widget API is described here, page 14.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 15",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 15"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-15.md",
+    "source": "---\ntitle: Page 15\n---\n\nThe Widget API is described here, page 15.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 16",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 16"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-16.md",
+    "source": "---\ntitle: Page 16\n---\n\nThe Widget API is described here, page 16.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 17",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 17"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-17.md",
+    "source": "---\ntitle: Page 17\n---\n\nThe Widget API is described here, page 17.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 18",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 18"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-18.md",
+    "source": "---\ntitle: Page 18\n---\n\nThe Widget API is described here, page 18.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 19",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 19"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-19.md",
+    "source": "---\ntitle: Page 19\n---\n\nThe Widget API is described here, page 19.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 20",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 20"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-20.md",
+    "source": "---\ntitle: Page 20\n---\n\nThe Widget API is described here, page 20.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 21",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 21"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-21.md",
+    "source": "---\ntitle: Page 21\n---\n\nThe Widget API is described here, page 21.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 22",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 22"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-22.md",
+    "source": "---\ntitle: Page 22\n---\n\nThe Widget API is described here, page 22.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 23",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 23"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-23.md",
+    "source": "---\ntitle: Page 23\n---\n\nThe Widget API is described here, page 23.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 24",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 24"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-24.md",
+    "source": "---\ntitle: Page 24\n---\n\nThe Widget API is described here, page 24.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 25",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 25"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-25.md",
+    "source": "---\ntitle: Page 25\n---\n\nThe Widget API is described here, page 25.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 26",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 26"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-26.md",
+    "source": "---\ntitle: Page 26\n---\n\nThe Widget API is described here, page 26.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 27",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 27"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-27.md",
+    "source": "---\ntitle: Page 27\n---\n\nThe Widget API is described here, page 27.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 28",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 28"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-28.md",
+    "source": "---\ntitle: Page 28\n---\n\nThe Widget API is described here, page 28.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 29",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 29"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-29.md",
+    "source": "---\ntitle: Page 29\n---\n\nThe Widget API is described here, page 29.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 30",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 30"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-30.md",
+    "source": "---\ntitle: Page 30\n---\n\nThe Widget API is described here, page 30.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 31",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 31"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-31.md",
+    "source": "---\ntitle: Page 31\n---\n\nThe Widget API is described here, page 31.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 32",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 32"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-32.md",
+    "source": "---\ntitle: Page 32\n---\n\nThe Widget API is described here, page 32.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 33",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 33"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-33.md",
+    "source": "---\ntitle: Page 33\n---\n\nThe Widget API is described here, page 33.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 34",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 34"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-34.md",
+    "source": "---\ntitle: Page 34\n---\n\nThe Widget API is described here, page 34.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 35",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 35"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-35.md",
+    "source": "---\ntitle: Page 35\n---\n\nThe Widget API is described here, page 35.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 36",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 36"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-36.md",
+    "source": "---\ntitle: Page 36\n---\n\nThe Widget API is described here, page 36.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 37",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 37"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-37.md",
+    "source": "---\ntitle: Page 37\n---\n\nThe Widget API is described here, page 37.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 38",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 38"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-38.md",
+    "source": "---\ntitle: Page 38\n---\n\nThe Widget API is described here, page 38.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 39",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 39"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-39.md",
+    "source": "---\ntitle: Page 39\n---\n\nThe Widget API is described here, page 39.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 40",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 40"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-40.md",
+    "source": "---\ntitle: Page 40\n---\n\nThe Widget API is described here, page 40.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 41",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 41"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-41.md",
+    "source": "---\ntitle: Page 41\n---\n\nThe Widget API is described here, page 41.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 42",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 42"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-42.md",
+    "source": "---\ntitle: Page 42\n---\n\nThe Widget API is described here, page 42.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 43",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 43"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-43.md",
+    "source": "---\ntitle: Page 43\n---\n\nThe Widget API is described here, page 43.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 44",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 44"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-44.md",
+    "source": "---\ntitle: Page 44\n---\n\nThe Widget API is described here, page 44.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 45",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 45"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-45.md",
+    "source": "---\ntitle: Page 45\n---\n\nThe Widget API is described here, page 45.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 46",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 46"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-46.md",
+    "source": "---\ntitle: Page 46\n---\n\nThe Widget API is described here, page 46.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 47",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 47"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-47.md",
+    "source": "---\ntitle: Page 47\n---\n\nThe Widget API is described here, page 47.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 48",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 48"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-48.md",
+    "source": "---\ntitle: Page 48\n---\n\nThe Widget API is described here, page 48.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 23,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": null,
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Page 49",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "title": "Page 49"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 68,
+            "source": 0,
+            "start": 23
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "The Widget API"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 100,
+            "source": 0,
+            "start": 68
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 100
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "body": {
+            "end": 184,
+            "source": 0,
+            "start": 144
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 188,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 188
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 204,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 231,
+            "source": 0,
+            "start": 204
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "guides/page-49.md",
+    "source": "---\ntitle: Page 49\n---\n\nThe Widget API is described here, page 49.\n\n:::note{title=\"The Widget API\"}\nThe Widget API changed in 2.0.\n:::\n\n```bash\ncurl https://example.invalid/Widget/API\n```\n\n{{ site.name }} documents the Widget API.\n"
+  }
+]
