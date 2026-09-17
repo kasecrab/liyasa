@@ -5192,16 +5192,23 @@ function renderProblems(source        , diagnostics                             
   </ul>`;
 }
 
-/** The toolbar, whose main button is one this person can press (ED-75). */
-function renderToolbar(grant       , advanced         )           {
+/**
+ * The toolbar.
+ *
+ * Its main button is one this person can press (ED-75), and the words are
+ * ED-72's: `say()` adds the git term only when the advanced disclosure is on.
+ */
+function renderToolbar(grant       , mode                     , advanced         )           {
   const primary = primaryAction(grant);
   return html`<header class="toolbar" role="banner" aria-label="Editor toolbar">
-    <button type="button" data-mode-switch>${advanced ? "Source" : "Source"}</button>
+    <button type="button" data-mode-switch aria-keyshortcuts="Control+E">
+      ${mode === "visual" ? "Source" : "Visual"}
+    </button>
     <button type="button" data-action="${primary.action}" class="primary">${primary.label}</button>
     <button type="button" data-help aria-keyshortcuts="?">Help</button>
     <label class="advanced">
       <input type="checkbox" data-advanced ${advanced ? raw("checked") : null} />
-      ${say("draft", advanced)} details
+      Show ${say("draft", advanced)} details
     </label>
   </header>`;
 }
