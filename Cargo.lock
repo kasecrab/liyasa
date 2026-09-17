@@ -2504,6 +2504,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
+name = "liyasa-ai"
+version = "0.1.0"
+dependencies = [
+ "futures-core",
+ "liyasa-build",
+ "liyasa-components",
+ "liyasa-core",
+ "liyasa-markdown",
+ "liyasa-openapi",
+ "liyasa-search",
+ "liyasa-verify",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "url",
+ "zeroize",
+]
+
+[[package]]
 name = "liyasa-analytics"
 version = "0.1.0"
 dependencies = [
@@ -2521,7 +2541,6 @@ dependencies = [
  "tokio",
  "tower",
  "url",
- "zeroize",
 ]
 
 [[package]]
