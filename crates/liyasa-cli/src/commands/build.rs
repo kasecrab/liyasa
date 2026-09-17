@@ -171,6 +171,13 @@ fn plan(
         );
         row("strict", yes_no(args.strict));
         row("clean first", yes_no(args.clean));
+        row(
+            "build time",
+            &options.build_time.map_or_else(
+                || "from the environment or the commit".to_owned(),
+                |seconds| format!("{seconds} (fixed)"),
+            ),
+        );
         row("pages", &tree.pages.len().to_string());
         row("assets", &tree.assets.len().to_string());
         if output.exists() {
@@ -206,7 +213,7 @@ pub fn options(args: &Build, cwd: &Path) -> Options {
         strict: args.strict,
         base_path: args.base_path.clone(),
         env: args.env.clone(),
-        build_time: None,
+        build_time: args.build_time,
         profile: args.profile,
         eager_images: false,
         // `None` means the engine reads the real process environment for

@@ -248,3 +248,129 @@ fn a_remote_spec_is_reported_as_unchecked() {
     // A warning, so the project still validates.
     assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
 }
+
+/// §6.6.4: `--personalization` lists the pages rendered per request, so an
+/// author can keep them few. The W0715 warnings say why each one is dynamic;
+/// this is the roll-up, because a warning per page is not a list.
+#[test]
+fn personalization_lists_the_on_demand_pages() {
+    let project = Dir::new("cli04-personalization");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","seo":{"canonicalOrigin":"https://docs.acme.com"}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n\n# Home\n\nWelcome.\n")
+        .write(
+            "account.md",
+            "---\ntitle: Account\npersonalized: true\n---\n\n# Account\n\nHello {{ reader.name }}.\n",
+        );
+
+    let outcome = Run::new(["validate", "--personalization"])
+        .cwd(project.path())
+        .output();
+
+    assert!(
+        outcome.stdout.contains("/account"),
+        "the on-demand page is not listed: {}",
+        outcome.all()
+    );
+    assert!(outcome.stdout.contains("on demand"), "{}", outcome.stdout);
+}
+
+/// A site with no personalized page says so rather than printing an empty
+/// heading, because "none" is the answer an author wants to see.
+#[test]
+fn personalization_says_when_there_are_none() {
+    let project = Dir::new("cli04-personalization-none");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","seo":{"canonicalOrigin":"https://docs.acme.com"}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n\n# Home\n\nWelcome.\n");
+
+    let outcome = Run::new(["validate", "--personalization"])
+        .cwd(project.path())
+        .output();
+
+    assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
+    assert!(
+        outcome.stdout.contains("no page is rendered on demand"),
+        "{}",
+        outcome.stdout
+    );
+}
+
+/// The listing is machine-readable too, since the reason to track on-demand
+/// pages is usually a budget somewhere.
+#[test]
+fn personalization_is_readable_as_json() {
+    let project = Dir::new("cli04-personalization-json");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","seo":{"canonicalOrigin":"https://docs.acme.com"}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n\n# Home\n\nWelcome.\n");
+
+    let outcome = Run::new(["validate", "--personalization", "--format", "json"])
+        .cwd(project.path())
+        .output();
+
+    // One document, not two: the listing goes inside the envelope the
+    // diagnostics already come in.
+    let document: serde_json::Value =
+        serde_json::from_str(outcome.stdout.trim()).unwrap_or_else(|error| {
+            panic!(
+                "stdout is not one JSON document ({error}): {}",
+                outcome.stdout
+            )
+        });
+    assert!(
+        document["personalization"]["onDemand"].is_array(),
+        "{document}"
+    );
+    assert!(document["diagnostics"].is_array(), "{document}");
+}
+
+/// Without the flag nothing is listed, so the default output is unchanged.
+#[test]
+fn personalization_is_off_unless_asked_for() {
+    let project = Dir::new("cli04-personalization-off");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","seo":{"canonicalOrigin":"https://docs.acme.com"}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n\n# Home\n\nWelcome.\n");
+
+    let outcome = Run::new(["validate"]).cwd(project.path()).output();
+    assert!(!outcome.stdout.contains("on demand"), "{}", outcome.stdout);
+}
+
+/// SARIF is one document and stdout carries it whole. The listing is still
+/// shown, on stderr, where it cannot corrupt what a parser reads.
+#[test]
+fn personalization_never_corrupts_a_machine_document() {
+    let project = Dir::new("cli04-personalization-sarif");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","seo":{"canonicalOrigin":"https://docs.acme.com"}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n\n# Home\n\nWelcome.\n");
+
+    let outcome = Run::new(["validate", "--personalization", "--format", "sarif"])
+        .cwd(project.path())
+        .output();
+
+    let document: serde_json::Value = serde_json::from_str(outcome.stdout.trim())
+        .unwrap_or_else(|error| panic!("stdout is not SARIF ({error}): {}", outcome.stdout));
+    assert_eq!(document["version"].as_str(), Some("2.1.0"), "{document}");
+    assert!(
+        outcome.stderr.contains("on demand"),
+        "the listing was dropped rather than moved: {}",
+        outcome.stderr
+    );
+}

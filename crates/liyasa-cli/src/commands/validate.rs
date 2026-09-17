@@ -81,7 +81,41 @@ pub fn run(global: &Global, args: &Validate) -> Exit {
     all.extend(specs(&vfs, &project.root));
 
     let selected = filter(&all, &subsets(args));
-    printer.emit(&selected, &sources);
+
+    // §6.6.4: the list of on-demand pages, so authors keep them few. The
+    // W0715 warnings are in the report either way; what this adds is the
+    // roll-up, because a warning per page is not a list.
+    //
+    // In JSON it goes inside the one envelope rather than beside it: two
+    // documents on stdout is not something a pipeline can read.
+    match (args.personalization, format) {
+        (true, crate::cli::Format::Json) => {
+            let mut document = crate::diag::document(&selected, &sources);
+            if let Some(object) = document.as_object_mut() {
+                object.insert("personalization".to_owned(), personalization(&report));
+            }
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&document).unwrap_or_else(|_| "{}".to_owned())
+            );
+        }
+        (true, crate::cli::Format::Text) => {
+            if !global.quiet {
+                print_personalization(&report);
+            }
+            printer.emit(&selected, &sources);
+        }
+        // SARIF and JUnit are single documents and stdout carries one of them
+        // whole. The listing goes to stderr, where it is still shown and
+        // cannot corrupt what a parser reads.
+        (true, _) => {
+            if !global.quiet {
+                eprint!("{}", personalization_text(&report));
+            }
+            printer.emit(&selected, &sources);
+        }
+        (false, _) => printer.emit(&selected, &sources),
+    }
 
     if !global.quiet && format == crate::cli::Format::Text && selected.is_empty() {
         println!("no problems found in {} pages", report.pages);
@@ -139,6 +173,64 @@ fn specs(vfs: &OsVfs, root: &std::path::Path) -> Diagnostics {
             },
         }
     }
+    out
+}
+
+/// The pages §6.6.4 renders per request rather than writing as files.
+fn on_demand(report: &engine::Report) -> Vec<&liyasa_build::manifest::RouteEntry> {
+    report
+        .manifest
+        .as_ref()
+        .map(|manifest| {
+            manifest
+                .routes
+                .iter()
+                .filter(|route| route.dynamic)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn personalization(report: &engine::Report) -> serde_json::Value {
+    let dynamic = on_demand(report);
+    let rows: Vec<serde_json::Value> = dynamic
+        .iter()
+        .map(|route| {
+            serde_json::json!({
+                "route": route.route.as_str(),
+                "source": route.source,
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "onDemand": rows,
+        "static": report.pages.saturating_sub(dynamic.len()),
+    })
+}
+
+fn print_personalization(report: &engine::Report) {
+    print!("{}", personalization_text(report));
+}
+
+fn personalization_text(report: &engine::Report) -> String {
+    let dynamic = on_demand(report);
+    if dynamic.is_empty() {
+        return format!(
+            "no page is rendered on demand; every one of {} is a file\n",
+            report.pages
+        );
+    }
+    let mut out = format!(
+        "{} of {} pages are rendered on demand (§6.6.4):\n",
+        dynamic.len(),
+        report.pages
+    );
+    for route in &dynamic {
+        out.push_str(&format!("  {}  ({})\n", route.route.as_str(), route.source));
+    }
+    out.push_str(
+        "Each one costs a render per request. `W0715` above says which field made it dynamic.\n",
+    );
     out
 }
 

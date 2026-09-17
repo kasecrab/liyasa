@@ -10,6 +10,7 @@ pub mod browser;
 pub mod budget;
 pub mod built;
 pub mod cli;
+pub mod clock;
 pub mod commands;
 pub mod ctx;
 pub mod diag;
