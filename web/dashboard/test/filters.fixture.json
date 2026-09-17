@@ -1,0 +1,68 @@
+{
+  "note": "The ANA-71 filter contract, read by both sides. crates/liyasa-analytics/tests/it/query.rs holds the Rust encoder and parser to it; web/dashboard/test/filters.test.ts holds the TypeScript ones. A name that differs between the two is a filter that silently does nothing.",
+  "names": ["site", "env", "version", "locale", "region", "product", "caller", "route"],
+  "cases": [
+    { "why": "nothing set", "filters": {}, "query": "" },
+    {
+      "why": "one dimension",
+      "filters": { "version": "v2" },
+      "query": "version=v2"
+    },
+    {
+      "why": "every dimension, in the canonical order",
+      "filters": {
+        "site": "acme-docs",
+        "env": "production",
+        "version": "v2",
+        "locale": "en",
+        "region": "us",
+        "product": "payments",
+        "caller": "agent",
+        "routePrefix": "/guides"
+      },
+      "query": "site=acme-docs&env=production&version=v2&locale=en&region=us&product=payments&caller=agent&route=%2Fguides"
+    },
+    {
+      "why": "a value that needs encoding",
+      "filters": { "routePrefix": "/a b&c=d" },
+      "query": "route=%2Fa+b%26c%3Dd"
+    },
+    {
+      "why": "a locale with a region subtag",
+      "filters": { "locale": "pt-BR" },
+      "query": "locale=pt-BR"
+    },
+    {
+      "why": "each caller kind",
+      "filters": { "caller": "human" },
+      "query": "caller=human"
+    },
+    {
+      "why": "a bot filter",
+      "filters": { "caller": "bot" },
+      "query": "caller=bot"
+    },
+    {
+      "why": "an integration filter",
+      "filters": { "caller": "integration" },
+      "query": "caller=integration"
+    }
+  ],
+  "lenient": [
+    {
+      "why": "a name neither side knows is ignored rather than failing the page",
+      "query": "version=v2&nonsense=1",
+      "filters": { "version": "v2" }
+    },
+    {
+      "why": "an empty value is not a filter",
+      "query": "version=&locale=en",
+      "filters": { "locale": "en" }
+    },
+    {
+      "why": "a caller kind from a future release leaves the filter unset, so a bookmarked URL shows traffic rather than an empty chart",
+      "query": "caller=android&version=v2",
+      "filters": { "version": "v2" }
+    }
+  ]
+}

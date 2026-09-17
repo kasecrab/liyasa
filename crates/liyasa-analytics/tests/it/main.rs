@@ -9,6 +9,7 @@ mod feedback;
 mod insights;
 mod integrations;
 mod schema;
+mod query;
 mod retention;
 mod search;
 mod traffic;

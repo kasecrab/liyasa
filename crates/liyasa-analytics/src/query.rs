@@ -209,6 +209,80 @@ impl Filters {
     }
 }
 
+/// The query-string names ANA-71's filters travel under.
+///
+/// The dashboard builds the same string in TypeScript
+/// (`web/dashboard/src/filters.ts`) and `web/dashboard/test/filters.fixture.json`
+/// holds both sides to it: a name that differs between the two is a filter
+/// that silently does nothing, which is the one failure a dashboard cannot
+/// show you.
+pub const QUERY_NAMES: [&str; 8] = [
+    "site", "env", "version", "locale", "region", "product", "caller", "route",
+];
+
+impl Filters {
+    /// The query string a dashboard request carries. Names in [`QUERY_NAMES`]
+    /// order, so two equal filter sets produce equal strings.
+    pub fn to_query(&self) -> String {
+        let mut out = String::new();
+        for (name, value) in [
+            ("site", self.site.clone()),
+            ("env", self.env.clone()),
+            ("version", self.version.clone()),
+            ("locale", self.locale.clone()),
+            ("region", self.region.clone()),
+            ("product", self.product.clone()),
+            ("caller", self.caller.map(|c| c.as_str().to_owned())),
+            ("route", self.route_prefix.clone()),
+        ] {
+            let Some(value) = value else { continue };
+            if !out.is_empty() {
+                out.push('&');
+            }
+            out.push_str(
+                &url::form_urlencoded::Serializer::new(String::new())
+                    .append_pair(name, &value)
+                    .finish(),
+            );
+        }
+        out
+    }
+
+    /// Reads one back. An unknown name is ignored and an unknown caller kind
+    /// leaves the caller filter unset rather than selecting nothing: a
+    /// bookmarked URL from an older release should show traffic, not an empty
+    /// chart.
+    pub fn from_query(query: &str) -> Self {
+        let mut filters = Self::default();
+        for (name, value) in url::form_urlencoded::parse(query.trim_start_matches('?').as_bytes()) {
+            if value.is_empty() {
+                continue;
+            }
+            let value = value.into_owned();
+            match name.as_ref() {
+                "site" => filters.site = Some(value),
+                "env" => filters.env = Some(value),
+                "version" => filters.version = Some(value),
+                "locale" => filters.locale = Some(value),
+                "region" => filters.region = Some(value),
+                "product" => filters.product = Some(value),
+                "route" => filters.route_prefix = Some(value),
+                "caller" => {
+                    filters.caller = match value.as_str() {
+                        "human" => Some(CallerKind::Human),
+                        "agent" => Some(CallerKind::Agent),
+                        "bot" => Some(CallerKind::Bot),
+                        "integration" => Some(CallerKind::Integration),
+                        _ => None,
+                    }
+                }
+                _ => {}
+            }
+        }
+        filters
+    }
+}
+
 /// `%`, `_` and the escape character itself, so a prefix filter means the
 /// prefix.
 fn escape_like(text: &str) -> String {
