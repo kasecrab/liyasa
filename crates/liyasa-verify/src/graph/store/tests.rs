@@ -260,10 +260,18 @@ fn a_fact_reaches_a_page_that_only_links_to_the_page_that_reads_it() {
     let read = reads(reader.clone(), "plan.pro.price");
     let link = links(linker.clone(), "/pricing");
     graph
-        .replace_page_edges(build("b1"), &Route::new("/pricing"), &[read.clone()])
+        .replace_page_edges(
+            build("b1"),
+            &Route::new("/pricing"),
+            std::slice::from_ref(&read),
+        )
         .expect("write");
     graph
-        .replace_page_edges(build("b1"), &Route::new("/plans"), &[link.clone()])
+        .replace_page_edges(
+            build("b1"),
+            &Route::new("/plans"),
+            std::slice::from_ref(&link),
+        )
         .expect("write");
 
     let paths = graph
@@ -308,7 +316,7 @@ fn the_table_carries_the_build_and_the_page_of_every_edge() {
     let graph = MemoryGraph::new();
     let edge = reads(block(1, "x"), "a.b");
     graph
-        .replace_page_edges(build("b1"), &Route::new("/a"), &[edge.clone()])
+        .replace_page_edges(build("b1"), &Route::new("/a"), std::slice::from_ref(&edge))
         .expect("write");
 
     assert_eq!(
