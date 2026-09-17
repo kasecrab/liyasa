@@ -746,7 +746,7 @@
         },
         "canonicalOrigin": {
           "type": "string",
-          "description": "Production origin used for absolute URLs in `llms.txt`, feeds, and the Markdown directive."
+          "description": "The production origin, as scheme, host, and port: `https://docs.example.com`. Every absolute URL in `llms.txt`, the Markdown twins, the feeds, and the sitemap is built from it, and the build warns when it is missing. It does not carry the path the site is served under \u2014 that is `build.basePath`, and writing it in both doubles it on every URL (W0136)."
         }
       },
       "additionalProperties": false,
@@ -1875,7 +1875,7 @@
         },
         "basePath": {
           "type": "string",
-          "description": "URL prefix the site is served under, such as `/docs`. It prefixes the links and assets in the output; it does not change where the files are written.",
+          "description": "URL prefix the site is served under, such as `/docs`. It prefixes the links, assets, Markdown twins, and agent surfaces in the output; it does not change where the files are written. It is the only place the prefix belongs: leave it out of `seo.canonicalOrigin`.",
           "default": ""
         },
         "env": {

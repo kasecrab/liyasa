@@ -538,21 +538,50 @@ impl Run<'_> {
     /// CFG-65: without an origin, `llms.txt`, the feeds, and the Markdown
     /// directive cannot write absolute URLs.
     fn seo(&mut self) {
-        if self
+        let origin = self
             .config
             .pointer("/seo/canonicalOrigin")
             .and_then(Value::as_str)
-            .is_some_and(|origin| !origin.is_empty())
-        {
+            .filter(|origin| !origin.is_empty());
+        let Some(origin) = origin else {
+            self.report(
+                Diagnostic::new(
+                    code::W0131,
+                    "`seo.canonicalOrigin` is not set; absolute URLs cannot be generated",
+                )
+                .help("set it to the production origin, such as `https://docs.example.com`"),
+                "/seo",
+            );
+            return;
+        };
+        self.base_path_twice(origin);
+    }
+
+    /// RFC 1006: `build.basePath` is the one place the prefix is written. An
+    /// origin that already ends in it is doubled on every absolute URL.
+    fn base_path_twice(&mut self, origin: &str) {
+        let base = self
+            .config
+            .pointer("/build/basePath")
+            .and_then(Value::as_str)
+            .map(|base| base.trim_matches('/'))
+            .filter(|base| !base.is_empty());
+        let Some(base) = base else {
+            return;
+        };
+        if !origin.trim_end_matches('/').ends_with(&format!("/{base}")) {
             return;
         }
         self.report(
             Diagnostic::new(
-                code::W0131,
-                "`seo.canonicalOrigin` is not set; absolute URLs cannot be generated",
+                code::W0136,
+                format!(
+                    "`seo.canonicalOrigin` already ends in `/{base}`, and `build.basePath` \
+                     adds it again: every absolute URL carries it twice"
+                ),
             )
-            .help("set it to the production origin, such as `https://docs.example.com`"),
-            "/seo",
+            .help("`build.basePath` owns the prefix; leave `seo.canonicalOrigin` as the scheme, host, and port"),
+            "/seo/canonicalOrigin",
         );
     }
 

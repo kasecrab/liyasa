@@ -211,3 +211,20 @@ fn a_private_site_is_e0120_until_the_server_ships() {
 fn a_missing_canonical_origin_is_w0131() {
     assert_eq!(build(r##"{ "name": "Acme" }"##, &[]), ["W0131"]);
 }
+
+#[test]
+fn an_origin_that_already_carries_the_base_path_is_w0136() {
+    let doubled = r##"{ "name": "Acme", "seo": { "canonicalOrigin": "https://acme.dev/docs" },
+      "build": { "basePath": "/docs" } }"##;
+    assert_eq!(build(doubled, &[]), ["W0136"]);
+
+    let once = r##"{ "name": "Acme", "seo": { "canonicalOrigin": "https://acme.dev" },
+      "build": { "basePath": "/docs" } }"##;
+    assert_eq!(build(once, &[]), Vec::<String>::new());
+
+    // An origin with a path of its own and no `basePath` is how the reference
+    // site is published; it is not this warning.
+    let project_page =
+        r##"{ "name": "Acme", "seo": { "canonicalOrigin": "https://acme.github.io/docs" } }"##;
+    assert_eq!(build(project_page, &[]), Vec::<String>::new());
+}

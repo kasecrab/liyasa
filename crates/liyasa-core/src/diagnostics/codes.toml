@@ -224,3 +224,4 @@ W0723 = { severity = "warning", crate = "liyasa-build", title = "Pages in a rese
 W0020 = { severity = "warning", crate = "liyasa-cli", title = "Form control has no accessible name" }
 E0814 = { severity = "error", crate = "liyasa-server", title = "Domain is claimed by another project" }
 E0815 = { severity = "error", crate = "liyasa-server", title = "Domain base path is not a subpath" }
+W0136 = { severity = "warning", crate = "liyasa-config", title = "`seo.canonicalOrigin` already carries `build.basePath`, so every absolute URL doubles it" }
