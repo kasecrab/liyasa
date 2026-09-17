@@ -146,3 +146,5 @@ mod editor_segments;
 mod ed_03_roundtrip;
 #[path = "../editor/ed_13_media.rs"]
 mod ed_13_media;
+#[path = "../server/ed_75_roles.rs"]
+mod ed_75_roles;
