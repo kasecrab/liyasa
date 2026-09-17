@@ -54,6 +54,8 @@ mod cm_80_hidden;
 mod cm_82_redirects;
 #[path = "../build/cm_84_files.rs"]
 mod cm_84_files;
+#[path = "../git/git_01_github.rs"]
+mod git_01_github;
 #[path = "../server/git_21.rs"]
 mod git_21;
 #[path = "../server/git_24_queue.rs"]
