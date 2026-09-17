@@ -106,26 +106,84 @@ fn the_editor_suite_reads_the_registry_rather_than_a_copy_of_it() {
     );
 }
 
+/// The codes `web/editor/test/messages.test.ts` would find in `text`.
+///
+/// This mirrors that file's `ROW` regular expression —
+/// `^([EW]\d{4})\s*=\s*\{([^}]*)\}\s*$` — by hand, because the agreement
+/// between the two parsers is the thing being asserted and a *looser* check
+/// here would happily pass a file the TypeScript silently misses.
+///
+/// The first version of this check compared only the text before the first
+/// ` = ` on each line. That passes a row split across two lines, which the
+/// TypeScript cannot read at all — one such row would have dropped a code out
+/// of ED-73's coverage with nothing to say so. The coordinator asked whether
+/// the check had been measured or only reasoned about; it had only been
+/// reasoned about, and it was wrong.
+fn codes_a_line_parser_finds(text: &str) -> Vec<&str> {
+    text.lines().filter_map(row_code).collect()
+}
+
+fn row_code(line: &str) -> Option<&str> {
+    let code = line.get(..5)?;
+    let mut characters = code.chars();
+    if !matches!(characters.next()?, 'E' | 'W') {
+        return None;
+    }
+    if !characters.all(|character| character.is_ascii_digit()) {
+        return None;
+    }
+    let rest = line[5..].trim_start().strip_prefix('=')?.trim_start();
+    // `[^}]*` cannot span a brace, so the row ends at the first one.
+    let (_, after) = rest.strip_prefix('{')?.split_once('}')?;
+    after.trim().is_empty().then_some(code)
+}
+
 #[test]
-fn the_registry_is_one_row_per_line_which_is_what_the_editor_suite_parses() {
+fn every_registered_code_is_on_a_line_the_editor_suite_can_parse() {
     // The editor's suite parses `codes.toml` with a regular expression, which
     // is only safe because the file is one row per line — its own header says
-    // so, because `merge=union` requires it. This is the assertion that makes
-    // that safe rather than lucky: every registered code appears at the start
-    // of some line.
-    let declared: Vec<&str> = REGISTRY
-        .lines()
-        .filter_map(|line| line.split_once(" = ").map(|(code, _)| code))
-        .filter(|code| {
-            code.len() == 5
-                && code.starts_with(['E', 'W'])
-                && code[1..].chars().all(|c| c.is_ascii_digit())
-        })
-        .collect();
+    // so, because `merge=union` requires it. This is what makes that safe
+    // rather than lucky.
+    let found = codes_a_line_parser_finds(REGISTRY);
+    let registered = liyasa_core::diagnostics::registry().len();
     assert_eq!(
-        declared.len(),
-        liyasa_core::diagnostics::registry().len(),
-        "a registered code is not on a line of its own in `codes.toml`, so the editor's \
-         suite would silently miss it"
+        found.len(),
+        registered,
+        "{} of {registered} registered codes are on a line `web/editor/test/messages.test.ts` \
+         can parse; the rest would drop out of ED-73's coverage silently",
+        found.len(),
     );
+}
+
+#[test]
+fn the_line_parser_misses_exactly_the_shapes_the_typescript_misses() {
+    // The other half of the assertion above, and the half that was missing:
+    // a check over a format nobody has broken proves nothing until it is shown
+    // to fail on a format that does break it.
+    assert_eq!(
+        codes_a_line_parser_finds("E0001 = { severity = \"error\", crate = \"liyasa-cli\" }\n"),
+        vec!["E0001"],
+        "the positive control: a well-formed row is found, so a parser that found \
+         nothing at all could not pass the cases below"
+    );
+
+    for (what, text) in [
+        (
+            "a row split across lines",
+            "E0001 = {\n  severity = \"error\",\n}\n",
+        ),
+        ("an indented row", "  E0001 = { severity = \"error\" }\n"),
+        (
+            "two rows on one line",
+            "E0001 = { a = 1 } E0002 = { b = 2 }\n",
+        ),
+        ("a trailing comment", "E0001 = { a = 1 } # a note\n"),
+        ("a row with no braces", "E0001 = \"error\"\n"),
+    ] {
+        assert!(
+            codes_a_line_parser_finds(text).is_empty(),
+            "{what} was parsed as a row, so the check above would pass a `codes.toml` \
+             the editor's suite cannot read"
+        );
+    }
 }
