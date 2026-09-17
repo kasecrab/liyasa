@@ -1,0 +1,497 @@
+[
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 54,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": null,
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": "2DMN4K6F9ZJHHC5Z99MYC8YGEF",
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Install",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "id": "2DMN4K6F9ZJHHC5Z99MYC8YGEF",
+          "title": "Install"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 66,
+            "source": 0,
+            "start": 54
+          }
+        },
+        {
+          "colons": 4,
+          "matching": 11,
+          "name": "tabs",
+          "props": {},
+          "segment": "directiveOpen",
+          "span": {
+            "end": 75,
+            "source": 0,
+            "start": 66
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 76,
+            "source": 0,
+            "start": 75
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 5,
+          "name": "tab",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "Homebrew"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 101,
+            "source": 0,
+            "start": 76
+          }
+        },
+        {
+          "body": {
+            "end": 127,
+            "source": 0,
+            "start": 107
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "sh"
+          },
+          "segment": "code",
+          "span": {
+            "end": 131,
+            "source": 0,
+            "start": 101
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 135,
+            "source": 0,
+            "start": 131
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 136,
+            "source": 0,
+            "start": 135
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 9,
+          "name": "tab",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "Cargo"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 158,
+            "source": 0,
+            "start": 136
+          }
+        },
+        {
+          "body": {
+            "end": 185,
+            "source": 0,
+            "start": 164
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "sh"
+          },
+          "segment": "code",
+          "span": {
+            "end": 189,
+            "source": 0,
+            "start": 158
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 193,
+            "source": 0,
+            "start": 189
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 194,
+            "source": 0,
+            "start": 193
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 199,
+            "source": 0,
+            "start": 194
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 238,
+            "source": 0,
+            "start": 199
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "install.md",
+    "source": "---\nid: 2DMN4K6F9ZJHHC5Z99MYC8YGEF\ntitle: Install\n---\n\n# Install\n\n::::tabs\n\n:::tab{title=\"Homebrew\"}\n```sh\nbrew install liyasa\n```\n:::\n\n:::tab{title=\"Cargo\"}\n```sh\ncargo install liyasa\n```\n:::\n\n::::\n\nThen run `liyasa --version` to check.\n"
+  },
+  {
+    "document": {
+      "frontmatter": {
+        "span": {
+          "end": 96,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": "The caps a project runs under",
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": "0BDACA59J0WX71AZWKZ5GAMK4Q",
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Limits",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "description": "The caps a project runs under",
+          "id": "RBDACA59J0WX71AZWKZ5GAMK4Q",
+          "title": "Limits"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 152,
+            "source": 0,
+            "start": 96
+          }
+        },
+        {
+          "colons": 3,
+          "matching": 3,
+          "name": "note",
+          "props": {
+            "title": {
+              "type": "str",
+              "value": "Heads up"
+            }
+          },
+          "segment": "directiveOpen",
+          "span": {
+            "end": 178,
+            "source": 0,
+            "start": 152
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 233,
+            "source": 0,
+            "start": 178
+          }
+        },
+        {
+          "segment": "directiveClose",
+          "span": {
+            "end": 237,
+            "source": 0,
+            "start": 233
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 265,
+            "source": 0,
+            "start": 237
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 296,
+            "source": 0,
+            "start": 265
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 316,
+            "source": 0,
+            "start": 296
+          }
+        },
+        {
+          "kind": {
+            "kind": "statement",
+            "matching": 13,
+            "name": "for"
+          },
+          "segment": "template",
+          "span": {
+            "end": 338,
+            "source": 0,
+            "start": 316
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 341,
+            "source": 0,
+            "start": 338
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 355,
+            "source": 0,
+            "start": 341
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 358,
+            "source": 0,
+            "start": 355
+          }
+        },
+        {
+          "kind": {
+            "kind": "output"
+          },
+          "segment": "template",
+          "span": {
+            "end": 373,
+            "source": 0,
+            "start": 358
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 376,
+            "source": 0,
+            "start": 373
+          }
+        },
+        {
+          "kind": {
+            "kind": "statement",
+            "matching": null,
+            "name": "endfor"
+          },
+          "segment": "template",
+          "span": {
+            "end": 388,
+            "source": 0,
+            "start": 376
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 390,
+            "source": 0,
+            "start": 388
+          }
+        },
+        {
+          "body": {
+            "end": 420,
+            "source": 0,
+            "start": 398
+          },
+          "info": {
+            "attrs": {
+              "flags": [],
+              "highlight": [],
+              "kv": {}
+            },
+            "lang": "bash"
+          },
+          "segment": "code",
+          "span": {
+            "end": 424,
+            "source": 0,
+            "start": 390
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 497,
+            "source": 0,
+            "start": 424
+          }
+        },
+        {
+          "name": "image",
+          "props": {
+            "alt": {
+              "type": "str",
+              "value": "A chart of the default caps"
+            },
+            "src": {
+              "type": "str",
+              "value": "/assets/caps.png"
+            }
+          },
+          "segment": "directiveLeaf",
+          "span": {
+            "end": 563,
+            "source": 0,
+            "start": 497
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 580,
+            "source": 0,
+            "start": 563
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "limits.md",
+    "source": "---\nid: RBDACA59J0WX71AZWKZ5GAMK4Q\ntitle: Limits\ndescription: The caps a project runs under\n---\n\nEvery project has caps. The defaults suit most sites.\n\n:::note{title=\"Heads up\"}\nRaising a cap does not raise the budget it draws from.\n:::\n\nThe plan you are on allows {{ fact(\"plan.pro.requests\") }} requests a month.\n\n{% for row in plans %}\n| {{ row.name }} | {{ row.price }} |\n{% endfor %}\n\n```bash\nliyasa build --strict\n```\n\n<div class=\"legacy\">\nRaw HTML the visual editor does not model.\n</div>\n\n::image{src=\"/assets/caps.png\" alt=\"A chart of the default caps\"}\n\nLast paragraph.\n"
+  },
+  {
+    "document": {
+      "frontmatter": null,
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 105,
+            "source": 0,
+            "start": 0
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "plain.md",
+    "source": "Just prose, no front matter and nothing else.\n\nA second paragraph with an émoji 🎈 and a café in it.\n"
+  }
+]

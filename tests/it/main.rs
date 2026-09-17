@@ -140,3 +140,7 @@ mod ver_26_trust;
 mod ver_23_drift;
 #[path = "../web/editor.rs"]
 mod web_editor;
+#[path = "../editor/segments.rs"]
+mod editor_segments;
+#[path = "../editor/ed_03_roundtrip.rs"]
+mod ed_03_roundtrip;
