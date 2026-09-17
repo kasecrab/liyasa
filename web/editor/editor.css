@@ -195,6 +195,17 @@ button {
 .problem-warning { border-left: 3px solid var(--ly-color-warning); }
 
 .problem .where { color: var(--ly-color-text-subtle); font-size: var(--ly-text-sm); }
+
+/* The diagnostic's own message, under ED-73's headline: which field, which
+ * prop, which file. The headline alone says a setting is wrong without saying
+ * which one. */
+.problem .detail {
+  display: block;
+  margin-top: var(--ly-space-1);
+  color: var(--ly-color-text-muted);
+  font-size: var(--ly-text-sm);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
 .problem .code { color: var(--ly-color-text-subtle); font-size: var(--ly-text-xs); }
 
 .empty { color: var(--ly-color-text-muted); }

@@ -85,18 +85,47 @@ export function renderSurface(model: EditorModel): Fragment {
   return html`<div class="surface" data-editor-surface>${parts}</div>`;
 }
 
-/** The problems pane: ED-73's plain-language text, with a fix where there is one. */
+/**
+ * Where a code's help page may be linked from.
+ *
+ * A `Diagnostic`'s `url` is a string in the payload — generated from the code
+ * on the Rust side, but a *value* by the time it reaches here, and this editor
+ * renders diagnostics that came over the network. Putting it in an `href`
+ * unchecked means a crafted response can run `javascript:` in the editor's own
+ * origin, on a link the author has every reason to click.
+ */
+const HELP_ORIGIN = "https://kasecrab.github.io/";
+
+function helpLink(url: string): string | null {
+  return url.startsWith(HELP_ORIGIN) ? url : null;
+}
+
+/**
+ * The problems pane.
+ *
+ * Two lines per problem: ED-73's plain-language headline, and the diagnostic's
+ * own message underneath when it says something the headline cannot — which
+ * field, which prop, which file. The headline alone would tell an author that
+ * "a setting has the wrong kind of value" without saying which setting.
+ */
 export function renderProblems(source: string, diagnostics: Parameters<typeof placeDiagnostics>[1]): Fragment {
   const placed = placeDiagnostics(source, diagnostics);
   if (placed.length === 0) return html`<p class="empty">No problems found.</p>`;
   return html`<ul class="problems">
     ${placed.map((entry) => {
       const shown = messageFor(entry.diagnostic.code);
+      const detail = entry.diagnostic.message.trim();
+      const link = helpLink(entry.diagnostic.url);
       return html`<li class="problem problem-${entry.diagnostic.severity}">
         <span class="where">Line ${entry.from.line}</span>
-        <span class="what">${shown.plain}</span>
+        <span class="what">
+          ${shown.plain}
+          ${detail === "" || detail === shown.title ? null : html`<span class="detail">${detail}</span>`}
+        </span>
         ${shown.fix ? html`<button type="button" data-fix="${shown.fix.action}">${shown.fix.label}</button>` : null}
-        <a class="code" href="${entry.diagnostic.url}">${entry.diagnostic.code}</a>
+        ${link
+          ? html`<a class="code" href="${link}">${entry.diagnostic.code}</a>`
+          : html`<span class="code">${entry.diagnostic.code}</span>`}
       </li>`;
     })}
   </ul>`;
