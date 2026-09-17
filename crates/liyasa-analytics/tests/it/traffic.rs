@@ -393,6 +393,39 @@ async fn entry_and_exit_are_the_first_and_last_page_of_a_session() {
 }
 
 #[tokio::test]
+async fn two_views_in_the_same_millisecond_do_not_make_one_session_into_two() {
+    // A redirect, a resolved prefetch, or a client clock with millisecond
+    // resolution puts two page views on one instant. Without a tie-break the
+    // session counts as having entered on both of them.
+    let events = vec![
+        Event::new("page_view", "/landing", T0 + HOUR)
+            .session(1)
+            .build(),
+        Event::new("page_view", "/redirected", T0 + HOUR)
+            .session(1)
+            .build(),
+        Event::new("page_view", "/leaving", T0 + HOUR + 1000)
+            .session(1)
+            .build(),
+    ];
+    let (_dir, writer) = analytics("entry-exit-ties", events).await;
+    let (entry, exit) = traffic::entry_and_exit(writer.pool(), day(), &Filters::default(), 10)
+        .await
+        .expect("entry and exit");
+    assert_eq!(
+        entry.iter().map(|e| e.count).sum::<i64>(),
+        1,
+        "one session entered once"
+    );
+    assert_eq!(
+        entry[0].name, "/landing",
+        "the first row written wins the tie"
+    );
+    assert_eq!(exit.len(), 1);
+    assert_eq!(exit[0].name, "/leaving");
+}
+
+#[tokio::test]
 async fn a_variant_split_names_the_versions_that_were_read() {
     let events = vec![
         Event::new("page_view", "/a", T0 + HOUR)

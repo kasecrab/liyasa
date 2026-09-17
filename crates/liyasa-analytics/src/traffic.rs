@@ -382,6 +382,12 @@ pub async fn referrers(
 
 /// Where a session started and where it ended (ANA-10). Raw table only: the
 /// rollup has no session key to order within.
+///
+/// Two page views in one session can share a millisecond — a redirect, a
+/// prefetch that resolved, a client clock with 1 ms resolution — so the
+/// earliest `ts` is not on its own a single row. The tie is broken on the
+/// row id, which the `event` table assigns in insertion order, and one
+/// session therefore contributes to exactly one entry page and one exit page.
 pub async fn entry_and_exit(
     pool: &SqlitePool,
     range: Range,
@@ -396,11 +402,15 @@ pub async fn entry_and_exit(
                  SELECT session_key, {aggregate}(ts) AS at FROM event \
                  WHERE ts >= ? AND ts < ? AND type = 'page_view' AND session_key <> ''{} \
                  GROUP BY session_key\
+             ), picked AS (\
+                 SELECT {aggregate}(event.id) AS id \
+                 FROM bounds JOIN event \
+                   ON event.session_key = bounds.session_key AND event.ts = bounds.at \
+                 WHERE event.type = 'page_view' \
+                 GROUP BY bounds.session_key\
              ) \
              SELECT event.route AS name, COUNT(*) AS n \
-             FROM bounds JOIN event \
-               ON event.session_key = bounds.session_key AND event.ts = bounds.at \
-             WHERE event.type = 'page_view' \
+             FROM picked JOIN event ON event.id = picked.id \
              GROUP BY name ORDER BY n DESC, name ASC LIMIT ?",
             predicate.sql
         );
