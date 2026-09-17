@@ -59,31 +59,56 @@ pub enum Undefined {
 }
 
 /// The CM-16 caps. `depth` and `iterations` are enforced by minijinja and are
-/// applied by [`environment`]; `output_bytes` and `cpu` are enforced by the
+/// applied by [`environment`]; `output_bytes` and `wall` are enforced by the
 /// writer, which is the only place that sees output as it is produced.
 #[derive(Debug, Clone, Copy)]
 pub struct Budget {
     pub depth: usize,
     pub iterations: u64,
     pub output_bytes: usize,
-    pub cpu: Duration,
+    /// Elapsed **real** time, not CPU time (RFC 0206).
+    ///
+    /// `std` has no CPU clock, and the one this would want is per-thread rather
+    /// than per-process, because a build renders pages on a pool. So this reads
+    /// a wall clock and is load-sensitive by construction: on a busy machine a
+    /// page is charged for time other processes spent.
+    ///
+    /// At build time that is tolerable because of what the limit is *for*. It
+    /// is a hang detector, not a performance budget: `iterations` already bounds
+    /// an infinite loop, `depth` an infinite recursion, and `output_bytes` an
+    /// output explosion, each of them immune to load. What is left for a timer
+    /// is a template that burns time without many instructions or much output,
+    /// and for that a generous bound that always means "this has hung" is worth
+    /// more than a tight one that sometimes means "the machine was busy".
+    pub wall: Duration,
 }
 
 impl Budget {
     /// Per page at build time.
+    ///
+    /// 30s rather than the 2s this carried until RFC 0206, which a loaded
+    /// machine could exceed on a page that did nothing unusual. It stays under
+    /// `liyasa-build`'s 60s aggregate budget on purpose: a per-page guard that
+    /// cannot trip before the build-wide one is not a per-page guard, and only
+    /// the inner limit can name the page.
     pub const BUILD: Self = Self {
         depth: 32,
         iterations: 100_000,
         output_bytes: 4 << 20,
-        cpu: Duration::from_secs(2),
+        wall: Duration::from_secs(30),
     };
 
     /// Per dynamic page in the request path (§6.6.4).
+    ///
+    /// Here the wall clock is the right clock and 200ms is the right number: a
+    /// request that takes 200ms of real time is slow to the reader whatever the
+    /// machine was doing, and the caller needs it bounded in the units the
+    /// reader experiences.
     pub const REQUEST: Self = Self {
         depth: 32,
         iterations: 100_000,
         output_bytes: 1 << 20,
-        cpu: Duration::from_millis(200),
+        wall: Duration::from_millis(200),
     };
 }
 
@@ -898,7 +923,7 @@ impl std::io::Write for Sink {
             self.overflow = Some("template output exceeds the page output budget");
             return Err(std::io::Error::other("output budget"));
         }
-        if self.clock.elapsed_past(self.budget.cpu) {
+        if self.clock.elapsed_past(self.budget.wall) {
             self.overflow = Some("template render exceeds the page time budget");
             return Err(std::io::Error::other("time budget"));
         }
@@ -911,8 +936,12 @@ impl std::io::Write for Sink {
     }
 }
 
+/// The one place the budget's clock is read.
+///
 /// `Instant` has no backend on `wasm32-unknown-unknown`, where the host owns
-/// the time budget instead.
+/// the time budget instead. If the build budget ever has to be load-independent
+/// this is where a thread-CPU clock goes, and the `wasm32` arm is what a
+/// platform without one does (RFC 0206).
 struct Clock(#[cfg(not(target_arch = "wasm32"))] std::time::Instant);
 
 impl Clock {
@@ -1457,7 +1486,38 @@ mod tests {
     #[test]
     fn the_request_budget_is_tighter_than_the_build_budget() {
         const { assert!(Budget::REQUEST.output_bytes < Budget::BUILD.output_bytes) };
-        assert!(Budget::REQUEST.cpu < Budget::BUILD.cpu);
+        assert!(Budget::REQUEST.wall < Budget::BUILD.wall);
+    }
+
+    /// RFC 0206: the build timer reads a wall clock, so it is a hang detector
+    /// and not a performance budget. Both halves of that are load-bearing and
+    /// neither is visible from the type, so they are pinned here.
+    ///
+    /// The lower bound is what stops the 2s that flaked every gate on a busy
+    /// machine from coming back. The upper bound keeps it under
+    /// `liyasa-build`'s 60s aggregate budget: if the per-page limit cannot trip
+    /// first, its diagnostic — the only one that can name the page — never
+    /// fires.
+    #[test]
+    fn the_build_timer_is_a_hang_detector_not_a_performance_budget() {
+        assert!(
+            Budget::BUILD.wall >= Duration::from_secs(10),
+            "a build budget this tight measures the machine, not the template"
+        );
+        assert!(
+            Budget::BUILD.wall < Duration::from_secs(60),
+            "a per-page budget at or over the build-wide one can never report first"
+        );
+    }
+
+    /// The caps that do not move under load are the ones that actually catch a
+    /// runaway, which is why the timer is allowed to be generous.
+    #[test]
+    fn the_load_independent_caps_catch_a_runaway_on_their_own() {
+        let long =
+            "{% for a in range(100000) %}{% for b in range(100000) %}x{% endfor %}{% endfor %}\n";
+        let codes = fails(long, context! {});
+        assert!(codes.contains(&"E0204"), "{codes:?}");
     }
 
     // ---- CM-12, CM-19 ----
