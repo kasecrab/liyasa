@@ -194,6 +194,33 @@ fn the_four_types_json_cannot_express_are_declared_not_inferred() {
 }
 
 #[test]
+fn a_document_that_already_counts_in_minor_units_is_not_scaled_again() {
+    let cents = fact_type(&json!({
+        "type": "currency", "code": "USD", "minor": 2, "minorUnits": true
+    }))
+    .expect("a type");
+    assert_eq!(
+        cents.coerce(&json!(2000)),
+        Ok(FactValue::Currency {
+            amount: 2000,
+            minor: 2,
+            code: "USD".to_owned()
+        })
+    );
+    // The same document read without the flag is a hundred times the price.
+    let dollars =
+        fact_type(&json!({ "type": "currency", "code": "USD", "minor": 2 })).expect("a type");
+    assert_eq!(
+        dollars.coerce(&json!(2000)),
+        Ok(FactValue::Currency {
+            amount: 200_000,
+            minor: 2,
+            code: "USD".to_owned()
+        })
+    );
+}
+
+#[test]
 fn a_currency_amount_is_in_minor_units() {
     let usd = fact_type(&json!({ "type": "currency", "code": "USD" })).expect("a type");
     assert_eq!(
@@ -286,4 +313,49 @@ fn a_json_null_is_the_absence_of_a_value_not_a_fact() {
         facts.keys().map(ToString::to_string).collect::<Vec<_>>(),
         ["a"]
     );
+}
+
+#[test]
+fn a_credential_is_named_never_written_out() {
+    let declared = spec(json!({
+        "kind": "url", "url": "https://x.test/", "auth": "secret:PRICING_TOKEN"
+    }));
+    let auth = declared.auth.expect("a credential");
+    assert_eq!(auth.secret, "PRICING_TOKEN");
+    assert_eq!(auth.header, "Authorization");
+    assert_eq!(auth.format, "Bearer {}");
+
+    let from_env = spec(json!({
+        "kind": "url", "url": "https://x.test/", "auth": "env:PRICING_TOKEN"
+    }));
+    assert_eq!(from_env.auth.expect("a credential").secret, "PRICING_TOKEN");
+}
+
+#[test]
+fn a_credential_may_name_its_header_and_its_format() {
+    let declared = spec(json!({
+        "kind": "url", "url": "https://x.test/",
+        "auth": { "secret": "KEY", "header": "X-Api-Key", "format": "{}" }
+    }));
+    let auth = declared.auth.expect("a credential");
+    assert_eq!(auth.header, "X-Api-Key");
+    assert_eq!(auth.format, "{}");
+}
+
+#[test]
+fn a_credential_that_cannot_carry_a_value_is_refused() {
+    for declaration in [
+        json!("PRICING_TOKEN"),
+        json!({ "header": "X-Api-Key" }),
+        json!({ "secret": "KEY", "format": "Bearer" }),
+    ] {
+        let (_, problems) = SourceSpec::parse(
+            "s",
+            &json!({ "kind": "url", "url": "https://x.test/", "auth": declaration }),
+        );
+        assert!(
+            problems.iter().any(|d| d.message.contains("auth")),
+            "{declaration} was accepted: {problems:#?}"
+        );
+    }
 }

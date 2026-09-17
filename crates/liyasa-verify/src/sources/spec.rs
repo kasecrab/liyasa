@@ -21,11 +21,15 @@ use serde_json::Value;
 pub enum FactType {
     Str,
     Num,
-    /// `amount` is in minor units and `minor` is how many fractional digits
-    /// that is, so `{ "minor": 2 }` reads `2000` as `20.00`.
+    /// `FactValue::Currency` holds minor units, so a JSON number has to be
+    /// scaled to them — and whether it already is depends on the document.
+    /// `minor_units` is that answer: `false` reads `20` as `$20.00`, `true`
+    /// reads `2000` as `$20.00`. An API field called `price_cents` is the
+    /// second, and getting it wrong is a hundredfold error that renders.
     Currency {
         code: String,
         minor: u8,
+        minor_units: bool,
     },
     Percent,
     Date,
@@ -43,6 +47,7 @@ impl FactType {
             "currency" => Self::Currency {
                 code: String::new(),
                 minor: 2,
+                minor_units: false,
             },
             "percentage" | "percent" => Self::Percent,
             "date" => Self::Date,
@@ -77,8 +82,16 @@ impl FactType {
                 other => Err(mismatch("a string", other)),
             },
             Self::Num => number(value).map(FactValue::Num),
-            Self::Currency { code, minor } => {
-                let scale = 10f64.powi(i32::from(*minor));
+            Self::Currency {
+                code,
+                minor,
+                minor_units,
+            } => {
+                let scale = if *minor_units {
+                    1.0
+                } else {
+                    10f64.powi(i32::from(*minor))
+                };
                 let amount = (number(value)? * scale).round();
                 if !amount.is_finite() || amount.abs() > i64::MAX as f64 {
                     return Err(format!("{value} is too large to be a currency amount"));
@@ -168,6 +181,33 @@ fn is_iso_8601(text: &str) -> bool {
     digits(year, 4) && digits(month, 2) && digits(day, 2)
 }
 
+/// Where a source's credential comes from and how it is sent (VER-25).
+///
+/// The value itself never appears in a declaration: `secret` is the *name* the
+/// secret store or the environment knows it by, resolved through
+/// [`SecretSource`](liyasa_core::verify::SecretSource) at refresh time so a
+/// repository never carries one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceAuth {
+    pub secret: String,
+    /// The header a `url` or `openapi` source sends it in. A `command` source
+    /// has no headers and passes the value as an environment variable named
+    /// after the secret.
+    pub header: String,
+    /// `{}` is replaced by the secret's value.
+    pub format: String,
+}
+
+impl Default for SourceAuth {
+    fn default() -> Self {
+        Self {
+            secret: String::new(),
+            header: "Authorization".to_owned(),
+            format: "Bearer {}".to_owned(),
+        }
+    }
+}
+
 /// One declared truth source.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SourceSpec {
@@ -189,6 +229,7 @@ pub struct SourceSpec {
     pub schema: Option<Value>,
     /// Hex SHA-256 of the expected certificate or public key (VER-26).
     pub pin: Option<String>,
+    pub auth: Option<SourceAuth>,
 }
 
 /// A declaration that failed to say its `kind` still parses, so the rest of its
@@ -209,6 +250,7 @@ impl Default for SourceSpec {
             types: BTreeMap::new(),
             schema: None,
             pin: None,
+            auth: None,
         }
     }
 }
@@ -314,6 +356,16 @@ impl SourceSpec {
             }
             Some(other) => problems.push(bad(id, "types", "an object", other)),
             None => {}
+        }
+
+        if let Some(declared) = object.get("auth") {
+            match source_auth(declared) {
+                Ok(auth) => out.auth = Some(auth),
+                Err(why) => problems.push(Diagnostic::new(
+                    code::E0635,
+                    format!("`verify.sources.{id}.auth`: {why}"),
+                )),
+            }
         }
 
         if let Some(schema) = object.get("schema") {
@@ -437,6 +489,7 @@ fn fact_type(value: &Value) -> Result<FactType, String> {
                     FactType::Currency {
                         code: code.clone(),
                         minor,
+                        minor_units: matches!(fields.get("minorUnits"), Some(Value::Bool(true))),
                     }
                 }
                 FactType::Enum(_) => {
@@ -457,6 +510,51 @@ fn fact_type(value: &Value) -> Result<FactType, String> {
             })
         }
         other => Err(format!("{other} is not a fact type")),
+    }
+}
+
+/// `"secret:NAME"`, `"env:NAME"`, or the object form with a header and a
+/// format. Both prefixes resolve through the same `SecretSource`: which of the
+/// two a name lives in is the caller's to know, not a declaration's.
+fn source_auth(value: &Value) -> Result<SourceAuth, String> {
+    match value {
+        Value::String(text) => {
+            let name = text
+                .strip_prefix("secret:")
+                .or_else(|| text.strip_prefix("env:"))
+                .ok_or_else(|| format!("`{text}` is not `secret:<name>` or `env:<name>`"))?;
+            if name.is_empty() {
+                return Err("names no secret".to_owned());
+            }
+            Ok(SourceAuth {
+                secret: name.to_owned(),
+                ..SourceAuth::default()
+            })
+        }
+        Value::Object(fields) => {
+            let secret = match (fields.get("secret"), fields.get("env")) {
+                (Some(Value::String(name)), _) | (None, Some(Value::String(name))) => name.clone(),
+                _ => return Err("has no `secret` or `env`".to_owned()),
+            };
+            let text = |key: &str, fallback: &str| match fields.get(key) {
+                Some(Value::String(value)) => Ok(value.clone()),
+                Some(other) => Err(format!("`{key}` is {other}, not a string")),
+                None => Ok(fallback.to_owned()),
+            };
+            let default = SourceAuth::default();
+            let format = text("format", &default.format)?;
+            if !format.contains("{}") {
+                return Err(format!(
+                    "`format` is `{format}`, which has no `{{}}` to put the value in"
+                ));
+            }
+            Ok(SourceAuth {
+                secret,
+                header: text("header", &default.header)?,
+                format,
+            })
+        }
+        other => Err(format!("{other} is not a credential")),
     }
 }
 

@@ -33,6 +33,9 @@ regex.workspace = true
 # package's to add a table row to.
 fancy-regex = { version = "0.19.2", optional = true }
 serde.workspace = true
+# WP-20b: VER-25 names a `command` source by the SHA-256 of its script, and the
+# allow list is written in those digests. `blake3` cannot stand in for one.
+sha2.workspace = true
 zeroize.workspace = true
 serde_json.workspace = true
 serde_norway.workspace = true
