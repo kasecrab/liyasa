@@ -1,0 +1,74 @@
+{
+  "name": "liyasa",
+  "displayName": "Liyasa Markdown",
+  "description": "Diagnostics, completion, hover, go to definition, and preview for Liyasa Markdown.",
+  "version": "0.1.0",
+  "license": "MIT OR Apache-2.0",
+  "repository": { "type": "git", "url": "https://github.com/kasecrab/liyasa" },
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Programming Languages", "Linters"],
+  "main": "./extension.js",
+  "activationEvents": ["workspaceContains:**/liyasa.json"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "liyasa-markdown",
+        "aliases": ["Liyasa Markdown"],
+        "extensions": [".md", ".mdx", ".markdown"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "liyasa.preview",
+        "title": "Liyasa: Open Preview",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "liyasa.restart",
+        "title": "Liyasa: Restart Language Server"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "liyasa.preview",
+          "when": "editorLangId == liyasa-markdown",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Liyasa",
+      "properties": {
+        "liyasa.server.path": {
+          "type": "string",
+          "default": "liyasa",
+          "description": "The `liyasa` binary to run the language server with. An absolute path, or a name on PATH."
+        },
+        "liyasa.server.args": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["lsp"],
+          "description": "The arguments that start the language server."
+        },
+        "liyasa.trace.server": {
+          "type": "string",
+          "enum": ["off", "messages", "verbose"],
+          "default": "off",
+          "description": "Log the traffic between the editor and the language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.1"
+  }
+}

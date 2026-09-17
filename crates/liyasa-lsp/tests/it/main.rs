@@ -5,6 +5,7 @@ mod analysis;
 mod completion;
 mod definition;
 mod diagnostics;
+mod extension;
 mod hover;
 mod jsonrpc;
 mod locate;
