@@ -358,6 +358,53 @@ export function editBlock(model: EditorModel, id: string, newText: string): Segm
   return [{ segment: node.segment, new_text: replaced }];
 }
 
+/**
+ * Several block edits at once, as one `SegmentEdit` per segment touched.
+ *
+ * Applying `editBlock` repeatedly would not do: each call computes its
+ * replacement from the segment's *original* text, so two edits in one segment
+ * produce two edits that each undo the other. The offsets are applied from the
+ * end backwards, so an earlier block's offsets are still valid when it is
+ * reached.
+ */
+export function editBlocks(
+  model: EditorModel,
+  changes: { id: string; text: string }[],
+): SegmentEdit[] {
+  const bySegment = new Map<number, { node: EditorNode; blocks: { block: MarkdownBlock; text: string }[] }>();
+
+  for (const change of changes) {
+    const owner = ownerOf(model, change.id);
+    if (!owner) throw new Error(`no block \`${change.id}\` in this document`);
+    const { node, block } = owner;
+    if (!block) {
+      if (node.closes !== undefined && node.closes !== node.segment) {
+        throw new Error(`\`${change.id}\` spans segments ${node.segment}..${node.closes}`);
+      }
+      bySegment.set(node.segment, { node, blocks: [] });
+      continue;
+    }
+    const entry = bySegment.get(node.segment) ?? { node, blocks: [] };
+    entry.blocks.push({ block, text: change.text });
+    bySegment.set(node.segment, entry);
+  }
+
+  const edits: SegmentEdit[] = [];
+  for (const [segment, entry] of [...bySegment.entries()].sort((left, right) => left[0] - right[0])) {
+    if (entry.blocks.length === 0) {
+      const only = changes.find((change) => change.id === entry.node.id);
+      if (only && only.text !== entry.node.text) edits.push({ segment, new_text: only.text });
+      continue;
+    }
+    let text = entry.node.text;
+    for (const { block, text: replacement } of [...entry.blocks].sort((left, right) => right.block.start - left.block.start)) {
+      text = text.slice(0, block.start) + replacement + text.slice(block.end);
+    }
+    if (text !== entry.node.text) edits.push({ segment, new_text: text });
+  }
+  return edits;
+}
+
 function ownerOf(
   model: EditorModel,
   id: string,

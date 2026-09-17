@@ -15,6 +15,7 @@ import {
   blockAt,
   buildModel,
   editBlock,
+  editBlocks,
   flatten,
   serializeModel,
 } from "../src/model.ts";
@@ -199,3 +200,35 @@ test("every node in the model is reachable by its id", () => {
 function byteLength(text: string): number {
   return new TextEncoder().encode(text).length;
 }
+
+test("several block edits in one segment become one edit, not two that undo each other", () => {
+  const text = "first\n\nsecond\n\nthird\n";
+  const [source, document] = scanned(text, [{ segment: "markdown", span: span(0, byteLength(text)) }]);
+  const model = buildModel(document, source);
+  const edits = editBlocks(model, [
+    { id: "0.0", text: "FIRST\n\n" },
+    { id: "0.2", text: "THIRD\n" },
+  ]);
+  assert.deepEqual(edits, [{ segment: 0, new_text: "FIRST\n\nsecond\n\nTHIRD\n" }]);
+});
+
+test("block edits across two segments become one edit each", () => {
+  const text = "a\n\n{{ x }}\n\nb\n";
+  const [source, document] = scanned(text, [
+    { segment: "markdown", span: span(0, 3) },
+    { segment: "template", kind: { kind: "output" }, span: span(3, 10) },
+    { segment: "markdown", span: span(10, byteLength(text)) },
+  ]);
+  const model = buildModel(document, source);
+  assert.deepEqual(editBlocks(model, [{ id: "0.0", text: "A\n\n" }, { id: "2.0", text: "B\n" }]), [
+    { segment: 0, new_text: "A\n\n" },
+    { segment: 2, new_text: "\n\nB\n" },
+  ]);
+});
+
+test("a block edit that changes nothing contributes no edit", () => {
+  const text = "only\n\nsecond\n";
+  const [source, document] = scanned(text, [{ segment: "markdown", span: span(0, byteLength(text)) }]);
+  const model = buildModel(document, source);
+  assert.deepEqual(editBlocks(model, [{ id: "0.0", text: "only\n\n" }]), []);
+});
