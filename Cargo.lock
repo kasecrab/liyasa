@@ -2711,6 +2711,7 @@ dependencies = [
  "liyasa-build",
  "liyasa-config",
  "liyasa-core",
+ "liyasa-git",
  "liyasa-net",
  "liyasa-store",
  "liyasa-tests",

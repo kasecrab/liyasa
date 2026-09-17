@@ -23,6 +23,8 @@ liyasa-net = { path = "../liyasa-net", version = "0.1.0" }
 # through; §34.7 already has the server depending on verify.
 liyasa-verify = { path = "../liyasa-verify", version = "0.1.0" }
 liyasa-store = { path = "../liyasa-store", version = "0.1.0" }
+# WP-16: provider clients, inbound webhook verification and the clone policy.
+liyasa-git = { path = "../liyasa-git", version = "0.1.0" }
 blake3.workspace = true
 bytes.workspace = true
 http.workspace = true

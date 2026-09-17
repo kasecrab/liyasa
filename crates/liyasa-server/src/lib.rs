@@ -2,8 +2,9 @@
 //!
 //! The crate root is shared: several packages own subtrees of it. Append your
 //! `pub mod` and `pub use` lines; do not rewrite the file. WP-14 contributes
-//! `routes`.
+//! `routes`; WP-16 contributes `deploy`.
 
+pub mod deploy;
 pub mod routes;
 
 // WP-15 contributes `auth`: the endpoint table of AUTH-09, the session and
