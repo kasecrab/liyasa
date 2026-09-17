@@ -148,6 +148,10 @@ Report what would change without writing (the `--locked` predicate)
 
 Refresh `liyasa.lock` from the project as it is now
 
+### `liyasa lsp`
+
+Run the language server an editor talks to over stdin and stdout
+
 ### `liyasa migrate-config`
 
 Upgrade `liyasa.json` between schema versions
