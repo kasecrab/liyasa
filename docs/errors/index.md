@@ -280,6 +280,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`E0905`](/errors/E0905) | Error | Automation trigger payload failed validation |
 | [`W0906`](/errors/W0906) | Warning | Embedding model changed; full re-index scheduled |
 | [`E0910`](/errors/E0910) | Error | AI provider is unknown, unconfigured, or cannot serve the requested role |
+| [`W0911`](/errors/W0911) | Warning | Re-index cost needs confirmation (above the auto-approval threshold, or unpriced) |
 
 ## Search and the browser index
 

@@ -21,6 +21,7 @@ pub mod index;
 pub mod openapi_doc;
 pub mod prompt;
 pub mod providers;
+pub mod reindex;
 
 pub use assistant::{Answer, Outcome, Plan, ReaderContext, Thread, Tools, ask};
 pub use chunk::{Chunk, ChunkOptions, chunk};

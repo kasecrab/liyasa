@@ -7,4 +7,5 @@ mod exclude;
 mod index;
 mod openapi_doc;
 mod providers;
+mod reindex;
 mod page;
