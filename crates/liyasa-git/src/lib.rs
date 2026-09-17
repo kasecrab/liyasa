@@ -9,8 +9,12 @@
 //! `liyasa-server`'s deploy module — maps it to the code a user sees
 //! (`plan/rfcs/1601-clone-policy-without-gix.md`).
 
+pub mod bitbucket;
+pub mod clone;
 pub mod event;
+pub mod generic;
 pub mod github;
+pub mod gitlab;
 pub mod provider;
 #[cfg(any(test, feature = "testing"))]
 pub mod recorder;
