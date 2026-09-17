@@ -22,6 +22,7 @@
     },
     "description": {
       "type": "string",
+      "description": "One-line description of the site, used as the default meta description and as the site summary in the agent surfaces when a page carries none of its own.",
       "x-liyasa-requirement": "CFG-01"
     },
     "root": {
@@ -38,12 +39,15 @@
     },
     "logo": {
       "type": "object",
+      "description": "The site logo, per colour scheme. Leave it out and a text logo is generated from `name`.",
       "properties": {
         "light": {
-          "type": "string"
+          "type": "string",
+          "description": "Path or URL of the logo shown in the light scheme; also the fallback when `dark` is absent."
         },
         "dark": {
-          "type": "string"
+          "type": "string",
+          "description": "Path or URL of the logo shown in the dark scheme. Absent, the light logo is used in both."
         },
         "href": {
           "type": "string",
@@ -55,12 +59,15 @@
     },
     "favicon": {
       "type": "object",
+      "description": "The site favicon, per colour scheme. Absent, one is generated from the logo.",
       "properties": {
         "light": {
-          "type": "string"
+          "type": "string",
+          "description": "Path or URL of the favicon a browser in the light scheme asks for; also the fallback when `dark` is absent."
         },
         "dark": {
-          "type": "string"
+          "type": "string",
+          "description": "Path or URL of the favicon a browser in the dark scheme asks for, for the browsers that ask for one."
         },
         "href": {
           "type": "string",
@@ -75,6 +82,7 @@
       "properties": {
         "preset": {
           "type": "string",
+          "description": "Layout preset: a complete set of tokens and partial overrides the rest of `theme` adjusts. Changing it changes the whole look, not one value.",
           "enum": [
             "aurora",
             "atlas",
@@ -91,45 +99,59 @@
         },
         "colors": {
           "type": "object",
+          "description": "The colour roles the token set is built from. Every value is any CSS colour; what is not set keeps the preset's.",
           "properties": {
             "primary": {
-              "type": "string"
+              "type": "string",
+              "description": "The accent a reader acts on: buttons, links, focus rings. Adapted per scheme unless `light` and `dark` set their own, and reported with E0107 when no label colour on it clears WCAG AA."
             },
             "light": {
-              "type": "string"
+              "type": "string",
+              "description": "The primary to use in the light scheme, as written, instead of adapting `primary` to it."
             },
             "dark": {
-              "type": "string"
+              "type": "string",
+              "description": "The primary to use in the dark scheme, as written, instead of adapting `primary` to it."
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "Body text on the page background, and the label the contrast check considers for a fill."
             },
             "muted": {
-              "type": "string"
+              "type": "string",
+              "description": "Secondary text: captions, metadata, the parts of the chrome that should recede."
             },
             "border": {
-              "type": "string"
+              "type": "string",
+              "description": "Rules and outlines: table borders, card edges, the line under a heading."
             },
             "accent": {
-              "type": "string"
+              "type": "string",
+              "description": "A second accent for highlights that should not read as the primary action."
             },
             "success": {
-              "type": "string"
+              "type": "string",
+              "description": "The status colour for a successful or affirmative callout."
             },
             "warning": {
-              "type": "string"
+              "type": "string",
+              "description": "The status colour for a cautionary callout."
             },
             "danger": {
-              "type": "string"
+              "type": "string",
+              "description": "The status colour for a destructive or error callout."
             },
             "background": {
               "type": "object",
+              "description": "The page background per colour scheme, which every derived surface and tint is mixed against.",
               "properties": {
                 "light": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Page background in the light scheme."
                 },
                 "dark": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Page background in the dark scheme."
                 }
               },
               "additionalProperties": false
@@ -140,12 +162,15 @@
         },
         "codeTheme": {
           "type": "object",
+          "description": "Syntax highlighting, one theme per colour scheme, emitted as CSS variables so switching schemes needs no re-render.",
           "properties": {
             "light": {
-              "type": "string"
+              "type": "string",
+              "description": "Bundled Shiki theme for the light scheme, or `css-variables` to drive the colours yourself."
             },
             "dark": {
-              "type": "string"
+              "type": "string",
+              "description": "Bundled Shiki theme for the dark scheme, or `css-variables` to drive the colours yourself."
             }
           },
           "additionalProperties": false,
@@ -153,69 +178,82 @@
         },
         "fonts": {
           "type": "object",
+          "description": "The three type faces the site ships. A face named here is self-hosted at build time, so no third-party font request happens at runtime.",
           "properties": {
             "heading": {
               "type": "object",
+              "description": "The face headings are set in.",
               "properties": {
                 "family": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "CSS font family name, and the Google Fonts family to fetch when `source` says so."
                 },
                 "weight": {
                   "type": [
                     "string",
                     "integer"
-                  ]
+                  ],
+                  "description": "Weight or weight range to ship, as a CSS value such as `600` or `600 700`. Shipping fewer weights ships fewer bytes."
                 },
                 "source": {
                   "type": "string",
                   "description": "A Google Fonts family, downloaded and self-hosted at build time, or a local file path."
                 },
                 "format": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Font file format, such as `woff2`, when it cannot be inferred from the source."
                 }
               },
               "additionalProperties": false
             },
             "body": {
               "type": "object",
+              "description": "The face body text is set in.",
               "properties": {
                 "family": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "CSS font family name, and the Google Fonts family to fetch when `source` says so."
                 },
                 "weight": {
                   "type": [
                     "string",
                     "integer"
-                  ]
+                  ],
+                  "description": "Weight or weight range to ship, as a CSS value such as `400` or `400 700`. Shipping fewer weights ships fewer bytes."
                 },
                 "source": {
                   "type": "string",
                   "description": "A Google Fonts family, downloaded and self-hosted at build time, or a local file path."
                 },
                 "format": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Font file format, such as `woff2`, when it cannot be inferred from the source."
                 }
               },
               "additionalProperties": false
             },
             "mono": {
               "type": "object",
+              "description": "The face code blocks and inline code are set in.",
               "properties": {
                 "family": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "CSS font family name, and the Google Fonts family to fetch when `source` says so."
                 },
                 "weight": {
                   "type": [
                     "string",
                     "integer"
-                  ]
+                  ],
+                  "description": "Weight or weight range to ship, as a CSS value such as `400`. Shipping fewer weights ships fewer bytes."
                 },
                 "source": {
                   "type": "string",
                   "description": "A Google Fonts family, downloaded and self-hosted at build time, or a local file path."
                 },
                 "format": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Font file format, such as `woff2`, when it cannot be inferred from the source."
                 }
               },
               "additionalProperties": false
@@ -231,9 +269,11 @@
         },
         "icons": {
           "type": "object",
+          "description": "Where an icon name resolves from. An icon may also be written as an emoji, a URL, a path to an SVG, or inline SVG, and only the icons a build uses are bundled.",
           "properties": {
             "library": {
               "type": "string",
+              "description": "The icon set a bare icon name is looked up in. Lucide, Phosphor, and Tabler ship as they are; Font Awesome Free ships with the attribution its licence requires.",
               "enum": [
                 "lucide",
                 "phosphor",
@@ -242,7 +282,8 @@
               ]
             },
             "defaultType": {
-              "type": "string"
+              "type": "string",
+              "description": "The Font Awesome style a name with no style prefix takes, such as `solid` or `regular`."
             }
           },
           "additionalProperties": false,
@@ -250,9 +291,11 @@
         },
         "appearance": {
           "type": "object",
+          "description": "Which colour scheme a reader arrives in, and whether they may change it.",
           "properties": {
             "default": {
               "type": "string",
+              "description": "The scheme a first-time reader sees. `system` follows the operating system and is applied before first paint, so there is no flash.",
               "enum": [
                 "system",
                 "light",
@@ -266,15 +309,19 @@
             },
             "background": {
               "type": "object",
+              "description": "Decoration behind the page background, for a site whose landing pages want one.",
               "properties": {
                 "image": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Path or URL of an image drawn behind the page."
                 },
                 "color": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "A flat colour drawn behind the page, under any image."
                 },
                 "decoration": {
                   "type": "string",
+                  "description": "A generated pattern drawn behind the page: a grid, a gradient, or window chrome. `none` leaves the background flat.",
                   "enum": [
                     "none",
                     "grid",
@@ -291,28 +338,35 @@
         },
         "layout": {
           "type": "object",
+          "description": "The page's proportions and its two visual dials, density and roundness.",
           "properties": {
             "sidebarWidth": {
-              "type": "string"
+              "type": "string",
+              "description": "Width of the navigation sidebar, as a CSS length."
             },
             "contentWidth": {
-              "type": "string"
+              "type": "string",
+              "description": "Maximum width of the prose column, as a CSS length. Wider fits more code; narrower reads better."
             },
             "tocWidth": {
-              "type": "string"
+              "type": "string",
+              "description": "Width of the on-page table of contents, as a CSS length."
             },
             "density": {
               "type": "string",
+              "description": "How much air the chrome gets. `compact` tightens spacing and type scale for a dense reference site.",
               "enum": [
                 "comfortable",
                 "compact"
               ]
             },
             "radius": {
-              "type": "string"
+              "type": "string",
+              "description": "Corner radius for cards, buttons, and inputs, as a CSS length. `0` squares everything off."
             },
             "shadows": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Whether elevated surfaces cast a shadow. Off, they are separated by borders alone."
             }
           },
           "additionalProperties": false,
@@ -321,29 +375,35 @@
         "css": {
           "oneOf": [
             {
-              "type": "string"
+              "type": "string",
+              "description": "One stylesheet, relative to the project root."
             },
             {
               "type": "array",
+              "description": "Several stylesheets, loaded in the order given.",
               "items": {
                 "type": "string"
               }
             }
           ],
+          "description": "Custom stylesheet or stylesheets, loaded after the theme's own so they win on equal specificity.",
           "x-liyasa-requirement": "CFG-10"
         },
         "js": {
           "oneOf": [
             {
-              "type": "string"
+              "type": "string",
+              "description": "One script, relative to the project root."
             },
             {
               "type": "array",
+              "description": "Several scripts, loaded in the order given.",
               "items": {
                 "type": "string"
               }
             }
           ],
+          "description": "Custom script or scripts, deferred after the theme runtime.",
           "x-liyasa-requirement": "CFG-10"
         },
         "overrides": {
