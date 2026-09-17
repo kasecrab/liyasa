@@ -1076,22 +1076,28 @@
       "items": {
         "oneOf": [
           {
-            "type": "string"
+            "type": "string",
+            "description": "A version by name alone. Written this way, the first in the list is the default."
           },
           {
             "type": "object",
+            "description": "A version with its own routing and labelling.",
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "The version's name, which is what a navigation subtree binds to and what appears in the URL."
               },
               "default": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "The version served at the unprefixed route. Exactly one version carries it, or E0108 is reported."
               },
               "label": {
-                "type": "string"
+                "type": "string",
+                "description": "What the version switcher shows instead of the name."
               },
               "path": {
-                "type": "string"
+                "type": "string",
+                "description": "A route prefix of your own, instead of the version's name."
               },
               "tag": {
                 "type": "string",
@@ -1110,19 +1116,24 @@
       "items": {
         "oneOf": [
           {
-            "type": "string"
+            "type": "string",
+            "description": "A locale by code alone. Written this way, the first in the list is the default."
           },
           {
             "type": "object",
+            "description": "A locale with its own labelling.",
             "properties": {
               "code": {
-                "type": "string"
+                "type": "string",
+                "description": "BCP 47 code, such as `en` or `pt-BR`, which is what a navigation subtree binds to and what appears in the URL."
               },
               "default": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "The locale served at the unprefixed route. Exactly one locale carries it, or E0108 is reported."
               },
               "label": {
-                "type": "string"
+                "type": "string",
+                "description": "What the locale switcher shows, in that locale's own language."
               }
             },
             "additionalProperties": false
@@ -1138,19 +1149,23 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "The dimension's name, which is what a page reads and what a navigation subtree binds to."
           },
           "values": {
             "type": "array",
+            "description": "The values this dimension may take. A page that reads the dimension is built once per value.",
             "items": {
               "type": "string"
             }
           },
           "default": {
-            "type": "string"
+            "type": "string",
+            "description": "The value a reader who has chosen none is served."
           },
           "label": {
-            "type": "string"
+            "type": "string",
+            "description": "What the switcher calls this dimension."
           }
         },
         "additionalProperties": false
@@ -1164,10 +1179,12 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "The variation's name, as a page refers to it."
           },
           "label": {
-            "type": "string"
+            "type": "string",
+            "description": "What a reader sees this variation called."
           }
         },
         "additionalProperties": false
@@ -1180,17 +1197,21 @@
       "oneOf": [
         {
           "type": "array",
+          "description": "The rules alone, as shorthand for an object with `rules`.",
           "items": {
             "type": "object",
             "properties": {
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "The route to redirect from. A segment written as `:name` is a parameter and may be used in the destination."
               },
               "destination": {
-                "type": "string"
+                "type": "string",
+                "description": "Where the reader is sent. An absolute URL needs its host in `externalAllow`, and a parameter may not appear in a host."
               },
               "status": {
                 "type": "integer",
+                "description": "The HTTP status the redirect answers with: 301 for a permanent move, 302 for a temporary one.",
                 "default": 301
               }
             },
@@ -1199,20 +1220,25 @@
         },
         {
           "type": "object",
+          "description": "The redirect rules and the hosts an absolute destination may name.",
           "properties": {
             "rules": {
               "type": "array",
+              "description": "The redirects, in order. Two rules with the same source are reported as E0106.",
               "items": {
                 "type": "object",
                 "properties": {
                   "source": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The route to redirect from. A segment written as `:name` is a parameter and may be used in the destination."
                   },
                   "destination": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Where the reader is sent. An absolute URL needs its host in `externalAllow`, and a parameter may not appear in a host."
                   },
                   "status": {
-                    "type": "integer"
+                    "type": "integer",
+                    "description": "The HTTP status the redirect answers with: 301 for a permanent move, 302 for a temporary one."
                   }
                 },
                 "additionalProperties": false
@@ -1220,6 +1246,7 @@
             },
             "externalAllow": {
               "type": "array",
+              "description": "Hosts an absolute destination may point at. A redirect to any other host is refused with E0109, so a config edit cannot quietly send readers off the site.",
               "items": {
                 "type": "string",
                 "description": "Hosts an absolute redirect destination may point at (E0109)."
@@ -1695,6 +1722,7 @@
       "properties": {
         "preview": {
           "type": "object",
+          "description": "Limits on the preview the editor builds while someone is typing.",
           "properties": {
             "maxBytes": {
               "type": "string",
@@ -1702,16 +1730,19 @@
               "description": "A byte size such as `512MB`."
             },
             "maxIterations": {
-              "type": "integer"
+              "type": "integer",
+              "description": "How many template iterations a preview render may run before it is cut short."
             }
           },
           "additionalProperties": false
         },
         "enabled": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether the web editor is available for this site."
         },
         "branch": {
-          "type": "string"
+          "type": "string",
+          "description": "The branch the editor commits to."
         },
         "review": {}
       },
@@ -2650,10 +2681,12 @@
       "properties": {
         "changelog": {
           "type": "boolean",
+          "description": "Publish the changelog as RSS, Atom, and JSON feeds.",
           "default": true
         },
         "updates": {
           "type": "boolean",
+          "description": "Publish a feed of every page that changed, not only the changelog.",
           "default": false
         }
       },
@@ -2666,6 +2699,7 @@
       "properties": {
         "fallback": {
           "type": "string",
+          "description": "What a reader sees when a page has no translation in their locale: the default locale's text under a notice, or nothing at all.",
           "enum": [
             "notice",
             "hide"
@@ -2673,6 +2707,7 @@
         },
         "routeVisitors": {
           "type": "boolean",
+          "description": "Send a reader to the locale their browser asks for. Off, a reader stays where they navigated.",
           "default": false
         }
       },
@@ -2686,13 +2721,16 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "The author's display name."
           },
           "url": {
-            "type": "string"
+            "type": "string",
+            "description": "Where the author's name links to."
           },
           "avatar": {
-            "type": "string"
+            "type": "string",
+            "description": "Path or URL of the author's avatar."
           }
         },
         "additionalProperties": false
@@ -2705,12 +2743,14 @@
       "properties": {
         "files": {
           "type": "array",
+          "description": "Skill files published for an agent to read.",
           "items": {
             "type": "string"
           }
         },
         "groups": {
           "type": "array",
+          "description": "Access groups a skill file is limited to.",
           "items": {
             "type": "string"
           }
