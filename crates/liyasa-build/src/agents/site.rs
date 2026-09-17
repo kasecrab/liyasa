@@ -10,7 +10,8 @@ use liyasa_core::ids::{Locale, PageId, Route, Version};
 use liyasa_core::markdown::SiteMeta;
 use liyasa_core::net::Url;
 
-/// `seo.canonicalOrigin`, kept as the base every absolute URL is built from.
+/// `seo.canonicalOrigin` and `build.basePath`, kept as the base every absolute
+/// URL is built from.
 ///
 /// The origin may carry a path (`https://kasecrab.github.io/liyasa`), so URLs
 /// are concatenated onto it rather than joined: [`Url::join`] would discard the
@@ -22,12 +23,31 @@ pub struct CanonicalOrigin {
 }
 
 impl CanonicalOrigin {
+    // TODO(rfc-1006): `engine::mod` still builds the origin through this, so a
+    // real build drops `build.basePath` from every surface until WP-06 moves
+    // that one call site to `parse_with_base_path`.
     pub fn parse(text: &str) -> Option<Self> {
+        Self::parse_with_base_path(text, "")
+    }
+
+    /// The origin an agent surface publishes, given `seo.canonicalOrigin` and
+    /// `build.basePath`.
+    ///
+    /// The prefix belongs to `build.basePath` and to nothing else
+    /// (`plan/rfcs/1006-who-owns-the-base-path.md`): the surfaces used to build
+    /// every URL from the origin alone, so a site served under a prefix
+    /// published links that resolved nowhere.
+    pub fn parse_with_base_path(text: &str, base_path: &str) -> Option<Self> {
         let url = Url::parse(text).ok()?;
         if !matches!(url.scheme(), "http" | "https") || !url.has_host() {
             return None;
         }
-        let base = url.as_str().trim_end_matches('/').to_owned();
+        let origin = url.as_str().trim_end_matches('/');
+        let prefix = base_path.trim_matches('/');
+        let base = match prefix.is_empty() {
+            true => origin.to_owned(),
+            false => format!("{origin}/{prefix}"),
+        };
         Some(Self { url, base })
     }
 
@@ -286,6 +306,95 @@ mod tests {
 
     fn origin() -> CanonicalOrigin {
         CanonicalOrigin::parse("https://kasecrab.github.io/liyasa").expect("a valid origin")
+    }
+
+    /// The URL the in-page layer publishes for a file, which is the one an
+    /// agent surface has to agree with.
+    fn in_page_url(path: &str, base_path: &str) -> String {
+        let plan = crate::assets::plan(
+            &[(
+                liyasa_core::vfs::VfsPath::new(path),
+                liyasa_core::ids::Fingerprint::of("bytes"),
+            )],
+            &[],
+            &crate::assets::Options {
+                base_path: base_path.to_owned(),
+                ..Default::default()
+            },
+        );
+        plan.entries()
+            .first()
+            .expect("the planned asset")
+            .url
+            .clone()
+    }
+
+    #[test]
+    fn a_base_path_reaches_an_agent_surface_and_an_in_page_link_alike() {
+        let origin = CanonicalOrigin::parse_with_base_path("https://example.com", "/docs")
+            .expect("a valid origin");
+
+        // Exact strings, not `contains`: the failure mode is a doubled prefix,
+        // and `/docs/docs/guide/install.md` contains `/docs` too.
+        assert_eq!(
+            in_page_url("guide/install.md", "/docs"),
+            "/docs/guide/install.md"
+        );
+        assert_eq!(
+            origin.markdown_url(&Route::new("/guide/install")),
+            "https://example.com/docs/guide/install.md"
+        );
+        assert_eq!(
+            origin.resource_url("llms.txt"),
+            "https://example.com/docs/llms.txt"
+        );
+        assert_eq!(
+            origin.page_url(&Route::new("/guide/install")),
+            "https://example.com/docs/guide/install"
+        );
+    }
+
+    #[test]
+    fn the_base_path_appears_exactly_once_in_each_layer() {
+        let origin = CanonicalOrigin::parse_with_base_path("https://example.com", "/docs")
+            .expect("a valid origin");
+        for url in [
+            in_page_url("guide/install.md", "/docs"),
+            origin.markdown_url(&Route::new("/guide/install")),
+            origin.resource_url("llms.txt"),
+        ] {
+            assert_eq!(url.matches("/docs").count(), 1, "{url}");
+        }
+    }
+
+    #[test]
+    fn an_empty_base_path_leaves_every_url_as_it_was() {
+        assert_eq!(
+            CanonicalOrigin::parse_with_base_path("https://example.com", ""),
+            CanonicalOrigin::parse("https://example.com")
+        );
+    }
+
+    #[test]
+    fn a_base_path_is_taken_with_or_without_its_slashes() {
+        let bare = CanonicalOrigin::parse_with_base_path("https://example.com", "docs");
+        let slashed = CanonicalOrigin::parse_with_base_path("https://example.com/", "/docs/");
+        assert_eq!(
+            bare.as_ref().map(CanonicalOrigin::base),
+            Some("https://example.com/docs")
+        );
+        assert_eq!(
+            slashed.as_ref().map(CanonicalOrigin::base),
+            Some("https://example.com/docs")
+        );
+    }
+
+    #[test]
+    fn a_prefixed_url_is_still_inside_the_origin() {
+        let origin = CanonicalOrigin::parse_with_base_path("https://example.com", "/docs")
+            .expect("a valid origin");
+        assert!(origin.contains("https://example.com/docs/guide/install.md"));
+        assert!(!origin.contains("https://example.com/guide/install.md"));
     }
 
     #[test]
