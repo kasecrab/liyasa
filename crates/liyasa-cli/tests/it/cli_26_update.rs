@@ -224,8 +224,8 @@ fn an_index_at_the_current_version_does_nothing() {
     assert_eq!(installed.contents(), before);
 }
 
-/// Without an index there is nothing to read, and this build cannot fetch the
-/// published one. Exit 4 is CLI-31's network class.
+/// Without an index there is nothing to read: no release index is published
+/// yet, so there is nothing to default to. Exit 4 is CLI-31's network class.
 #[test]
 fn no_index_is_a_network_failure() {
     let outcome = Run::new(["update"]).output();
@@ -233,11 +233,23 @@ fn no_index_is_a_network_failure() {
     assert!(outcome.all().contains("E0009"), "{}", outcome.all());
 }
 
+/// A remote index is fetched. This one is on a loopback address, which
+/// `liyasa-net` refuses at connect time (§30.2.3), so the request path runs
+/// without leaving the machine and the failure is the network class.
 #[test]
-fn a_remote_index_says_it_cannot_be_reached() {
-    let outcome = Run::new(["update", "--index", "https://example.com/releases"]).output();
+fn a_remote_index_that_cannot_be_reached_is_a_network_failure() {
+    let outcome = Run::new(["update", "--index", "https://127.0.0.1:9/releases"]).output();
     assert_eq!(outcome.code, Exit::Network.code(), "{}", outcome.all());
-    assert!(outcome.all().contains("E0006"), "{}", outcome.all());
+    assert!(outcome.all().contains("E0021"), "{}", outcome.all());
+}
+
+/// HOST-08: an air-gapped run refuses a remote index rather than trying it.
+#[test]
+fn offline_refuses_a_remote_index() {
+    let outcome = Run::new(["update", "--index", "https://127.0.0.1:9/releases", "--offline"])
+        .output();
+    assert_eq!(outcome.code, Exit::Network.code(), "{}", outcome.all());
+    assert!(outcome.all().contains("offline"), "{}", outcome.all());
 }
 
 /// CLI-26's last clause: telemetry defaults to off.

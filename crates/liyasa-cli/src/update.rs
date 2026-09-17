@@ -70,6 +70,8 @@ pub struct Artifact {
 pub enum Failure {
     /// The index could not be read or parsed (E0009).
     Index(String),
+    /// A request for the index or the artifact did not come back (E0021).
+    Unreachable(String),
     /// The artifact's bytes do not hash to what the index says (E0008).
     Digest { expected: String, found: String },
     /// The signature does not verify against the release key (E0007).
@@ -83,6 +85,7 @@ impl Failure {
         use liyasa_core::diagnostics::code;
         match self {
             Self::Index(_) | Self::NoArtifact { .. } => code::E0009,
+            Self::Unreachable(_) => code::E0021,
             Self::Digest { .. } => code::E0008,
             Self::Signature(_) => code::E0007,
         }
@@ -91,6 +94,7 @@ impl Failure {
     pub fn message(&self) -> String {
         match self {
             Self::Index(detail) => format!("the release index could not be read: {detail}"),
+            Self::Unreachable(detail) => detail.clone(),
             Self::Digest { expected, found } => {
                 format!("the downloaded artifact hashes to {found}, but the index says {expected}")
             }
@@ -104,11 +108,8 @@ impl Failure {
     }
 }
 
-/// Reads the index from a local directory or a `file://` URL.
-///
-/// A remote source needs an HTTP client, which lives in `liyasa-net` and does
-/// not exist; the caller reports that rather than this function guessing.
-/// TODO(rfc-0900).
+/// Reads the index from a local directory or a `file://` URL. A remote one is
+/// [`parse_index`] over bytes the caller fetched.
 pub fn read_index(source: &Path) -> Result<Index, Failure> {
     let path = if source.is_dir() {
         source.join(INDEX_FILE)
@@ -120,6 +121,11 @@ pub fn read_index(source: &Path) -> Result<Index, Failure> {
     let index: Index = serde_json::from_slice(&bytes)
         .map_err(|error| Failure::Index(format!("{}: {error}", path.display())))?;
     Ok(index)
+}
+
+/// The index as the release job writes it, from bytes read anywhere.
+pub fn parse_index(origin: &str, bytes: &[u8]) -> Result<Index, Failure> {
+    serde_json::from_slice(bytes).map_err(|error| Failure::Index(format!("{origin}: {error}")))
 }
 
 /// A `file://` URL or a plain path, as a path.
