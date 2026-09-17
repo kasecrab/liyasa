@@ -172,8 +172,14 @@ mod tests {
             input_schema: serde_json::json!({}),
             min_trust: TrustLevel::Anonymous,
         };
-        assert_eq!(tools_for(&[tool.clone()], TrustLevel::Anonymous).len(), 1);
-        assert_eq!(tools_for(&[tool.clone()], TrustLevel::Member).len(), 1);
+        assert_eq!(
+            tools_for(std::slice::from_ref(&tool), TrustLevel::Anonymous).len(),
+            1
+        );
+        assert_eq!(
+            tools_for(std::slice::from_ref(&tool), TrustLevel::Member).len(),
+            1
+        );
         assert_eq!(tools_for(&[tool], TrustLevel::External).len(), 0);
     }
 }

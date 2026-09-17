@@ -5,4 +5,5 @@ mod chunk;
 mod exclude;
 mod index;
 mod openapi_doc;
+mod providers;
 mod page;

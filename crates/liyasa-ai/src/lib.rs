@@ -19,6 +19,7 @@ pub mod exclude;
 pub mod index;
 pub mod openapi_doc;
 pub mod prompt;
+pub mod providers;
 
 pub use chunk::{Chunk, ChunkOptions, chunk};
 pub use config::{AiConfig, AssistantConfig, ModelRef, Role};

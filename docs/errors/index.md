@@ -279,6 +279,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`E0904`](/errors/E0904) | Error | Proposal rejected by output gate (reason) |
 | [`E0905`](/errors/E0905) | Error | Automation trigger payload failed validation |
 | [`W0906`](/errors/W0906) | Warning | Embedding model changed; full re-index scheduled |
+| [`E0910`](/errors/E0910) | Error | AI provider is unknown, unconfigured, or cannot serve the requested role |
 
 ## Search and the browser index
 

@@ -159,6 +159,7 @@ E0903 = { severity = "error", crate = "liyasa-ai", title = "Agent tool rejected 
 E0904 = { severity = "error", crate = "liyasa-ai", title = "Proposal rejected by output gate (reason)" }
 E0905 = { severity = "error", crate = "liyasa-ai", title = "Automation trigger payload failed validation" }
 W0906 = { severity = "warning", crate = "liyasa-ai", title = "Embedding model changed; full re-index scheduled" }
+E0910 = { severity = "error", crate = "liyasa-ai", title = "AI provider is unknown, unconfigured, or cannot serve the requested role" }
 E0353 = { severity = "error", crate = "liyasa-components", title = "Component prop URL uses a scheme the sanitizer does not permit" }
 E0354 = { severity = "error", crate = "liyasa-components", title = "Component child not allowed by the parent component" }
 W0355 = { severity = "warning", crate = "liyasa-components", title = "Component prop ignored because another prop takes precedence" }
