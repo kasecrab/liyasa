@@ -82,6 +82,27 @@ impl Binding {
         })
     }
 
+    /// The branch patterns this project trusts (GIT-31).
+    ///
+    /// Every environment's configured branch is trusted, on top of whatever
+    /// `trusted_branches` lists. Pointing `staging` at `release` *is* the
+    /// statement that `release` is trusted; making an operator say it twice
+    /// would mean a deliberately configured environment silently built with no
+    /// secrets, which looks like a broken build rather than a policy.
+    pub fn trusted_patterns(&self) -> Vec<String> {
+        let mut out = self.trusted_branches.clone();
+        for branch in self
+            .environments
+            .iter()
+            .filter_map(|environment| environment.branch.clone())
+        {
+            if !out.contains(&branch) {
+                out.push(branch);
+            }
+        }
+        out
+    }
+
     /// Whether a push that touched only these paths changes anything this
     /// project builds (GIT-10). An empty list means the provider did not say,
     /// which is not the same as "nothing changed".
@@ -219,6 +240,23 @@ mod tests {
             .with_environment(Environment::named("staging", "release").expect("a valid name"));
         assert_eq!(binding.environment_for("release").name, "staging");
         assert_eq!(binding.environment_for("main").name, "production");
+    }
+
+    #[test]
+    fn a_named_environments_own_branch_is_trusted_without_being_listed_twice() {
+        let binding = binding()
+            .with_environment(Environment::named("staging", "release").expect("a valid name"));
+        let trusted = binding.trusted_patterns();
+        assert!(trusted.contains(&"release".to_owned()));
+        assert!(trusted.contains(&"main".to_owned()), "production's too");
+        assert!(!trusted.contains(&"feat/x".to_owned()));
+    }
+
+    #[test]
+    fn a_branch_listed_twice_appears_once() {
+        let binding = binding().with_trusted_branches(vec!["main".to_owned()]);
+        let trusted = binding.trusted_patterns();
+        assert_eq!(trusted.iter().filter(|p| p.as_str() == "main").count(), 1);
     }
 
     #[test]

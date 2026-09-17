@@ -15,6 +15,7 @@ pub mod event;
 pub mod generic;
 pub mod github;
 pub mod gitlab;
+pub mod mounts;
 pub mod provider;
 #[cfg(any(test, feature = "testing"))]
 pub mod recorder;

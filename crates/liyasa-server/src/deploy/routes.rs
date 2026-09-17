@@ -129,7 +129,7 @@ pub async fn trigger(
         && !super::untrusted::trusted_branch(
             &input.branch,
             &binding.deploy_branch,
-            &binding.trusted_branches,
+            &binding.trusted_patterns(),
         )
     {
         request = request.untrusted();

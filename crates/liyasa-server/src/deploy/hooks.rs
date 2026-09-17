@@ -121,7 +121,7 @@ async fn on_push(state: &DeployState, event: &Event, push: &Push) -> Response {
         return ignored(&format!("nothing under `{}` changed", binding.root));
     }
     let environment = binding.environment_for(&push.branch);
-    let reason = classify(event, &binding.deploy_branch, &binding.trusted_branches);
+    let reason = classify(event, &binding.deploy_branch, &binding.trusted_patterns());
     // GIT-20: the previous build of this environment warms the artifact cache,
     // and the commit this push moved from is what `verify --changed` diffs
     // against. Both are best-effort: a first deploy has neither.
@@ -172,7 +172,7 @@ async fn on_pull_request(state: &DeployState, event: &Event, pull: &PullRequestE
     if !pull.action.builds() {
         return ignored("the pull request action changes nothing to build");
     }
-    let reason = classify(event, &binding.deploy_branch, &binding.trusted_branches);
+    let reason = classify(event, &binding.deploy_branch, &binding.trusted_patterns());
     let mut request = BuildRequest::new(
         binding.project,
         super::environment::PREVIEW,
