@@ -36,6 +36,7 @@ OPTIONS:
     --tls-key <file>      PEM private key
     --collector-only      accept analytics events and serve no site (ANA-09)
     --origin <origin>     an origin the collector accepts events for; repeatable
+    --collect-site <name> a site the collector accepts events for; repeatable
     --offline             make no outbound request of any kind (HOST-08)
     --json-logs           write logs as JSON lines (the default under systemd)
     -h, --help            print this
@@ -53,6 +54,7 @@ struct Options {
     tls_key: Option<PathBuf>,
     collector_only: bool,
     origins: Vec<String>,
+    collect_sites: Vec<String>,
     offline: bool,
     json_logs: bool,
 }
@@ -96,6 +98,7 @@ fn parse(args: &[String]) -> Result<Command, String> {
             "--tls-cert" => options.tls_cert = Some(value(&mut index)?.into()),
             "--tls-key" => options.tls_key = Some(value(&mut index)?.into()),
             "--origin" => options.origins.push(value(&mut index)?),
+            "--collect-site" => options.collect_sites.push(value(&mut index)?),
             "--name" => name = Some(value(&mut index)?),
             "--state" => state = Some(value(&mut index)?),
             "--collector-only" => options.collector_only = true,
@@ -272,6 +275,7 @@ fn server_config(
             .unwrap_or(Duration::from_secs(30)),
         collector_only: options.collector_only,
         collector_origins: options.origins.clone(),
+        collector_sites: options.collect_sites.clone(),
         analytics_enabled: analytics
             .and_then(|a| a.get("enabled"))
             .and_then(serde_json::Value::as_bool)

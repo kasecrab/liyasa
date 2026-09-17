@@ -28,6 +28,11 @@ pub const MAX_BODY: usize = 64 * 1024;
 /// What the reader runtime posts. Everything the server can determine for
 /// itself is ignored when the client sends it: the client does not get to
 /// choose its own session key, its caller kind, or the time.
+///
+/// `site` is the one field a client may supply, and only a collector reads it
+/// (ANA-09). On a served instance the site is the one being served, whatever
+/// the body says — `site` reaches the daily session key, so honouring it there
+/// would hand the client the key this comment says it cannot choose.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EventInput {
@@ -38,7 +43,9 @@ pub struct EventInput {
     pub props: Value,
     #[serde(default)]
     pub duration_ms: Option<u32>,
-    /// Static sites say which site they are; a served site knows.
+    /// A static site posting to a collector says which site it is. Ignored on
+    /// a served instance, and on a collector it must name a site that
+    /// collector was configured for.
     #[serde(default)]
     pub site: Option<String>,
     #[serde(default)]
@@ -93,10 +100,16 @@ pub fn record(
     country: Option<String>,
 ) -> EventRecord {
     let (kind, agent_name) = session::classify(user_agent, false);
-    let site = input
-        .site
-        .clone()
-        .unwrap_or_else(|| state.config.site.clone());
+    // ANA-09 is the only reason this field exists, so it is read only where
+    // that requirement applies. A served instance knows its own site, and a
+    // body that claims another one is writing into a site it is not.
+    let site = match state.config.collector_only {
+        true => input
+            .site
+            .clone()
+            .unwrap_or_else(|| state.config.site.clone()),
+        false => state.config.site.clone(),
+    };
     let route = match input.route.split_once('?') {
         Some((path, query)) => match session::allowed_query(query) {
             Some(kept) => format!("{path}?{kept}"),
@@ -175,6 +188,15 @@ pub async fn ingest(
     let mut refused = 0usize;
     for input in parsed.into_vec() {
         if !is_client_type(&input.kind) {
+            refused += 1;
+            continue;
+        }
+        if let Some(claimed) = input.site.as_deref()
+            && !state.site_allowed(claimed)
+        {
+            // Attribution is not a volume problem, so the limiter does not
+            // help here: one accepted row writes into another site's
+            // thirteen-month rollup.
             refused += 1;
             continue;
         }

@@ -64,6 +64,10 @@ pub struct ServerConfig {
     /// Origins a collector accepts events for. Empty means same-origin only.
     pub collector_origins: Vec<String>,
     pub analytics_enabled: bool,
+    /// Sites a collector accepts events for (ANA-09). A collector with none
+    /// configured accepts only its own `site`, because an open collector lets
+    /// any client write into any site's aggregates.
+    pub collector_sites: Vec<String>,
     /// The header an operator's edge sets for region (§33.1 item 10). Read
     /// only from a trusted proxy.
     pub region_header: Option<String>,
@@ -83,6 +87,7 @@ impl Default for ServerConfig {
             region_header: None,
             jobs_lease: Duration::from_secs(60),
         }
+            collector_sites: Vec::new(),
     }
 }
 
@@ -244,6 +249,25 @@ impl AppState {
                 .iter()
                 .any(|allowed| allowed == origin || allowed == "*"),
         }
+    /// Whether an event body may attribute itself to `site` (ANA-09).
+    ///
+    /// A served instance reads no site from a body at all, so anything is
+    /// "allowed" in the sense that it is discarded and replaced. A collector
+    /// accepts only the sites it was configured for, and a collector that was
+    /// configured with none accepts nothing: an open collector lets any client
+    /// write into any site's aggregates, and those are the thirteen-month
+    /// record rather than the ninety-day one.
+    pub fn site_allowed(&self, site: &str) -> bool {
+        if !self.config.collector_only {
+            return true;
+        }
+        self.config
+            .collector_sites
+            .iter()
+            .any(|allowed| allowed == site)
+            || site == self.config.site
+    }
+
     }
 
     /// Queues a webhook delivery for every interested subscription (REST-10).

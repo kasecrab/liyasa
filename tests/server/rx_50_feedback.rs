@@ -405,3 +405,118 @@ async fn the_agent_channel_is_documented_where_an_agent_will_read_it() {
         "the route the fragment advertises must exist"
     );
 }
+
+#[tokio::test]
+async fn a_served_instance_ignores_the_site_a_body_claims() {
+    // The body's `site` reaches the daily session key, so a client that could
+    // choose it would choose its own session key — which is the one thing the
+    // beacon's contract says it cannot do. It also writes into `agg_hour`,
+    // which is the thirteen-month record rather than the ninety-day one, so a
+    // wrong row here cannot be undone by waiting.
+    let (harness, _site) = Harness::serving("ana09-attribution").await;
+    let response = harness
+        .send(
+            http::Request::builder()
+                .method("POST")
+                .uri("/_liyasa/e")
+                .header("content-type", "application/json")
+                .header("origin", "https://unrelated.example")
+                .body(axum::body::Body::from(
+                    json!({
+                        "type": "page_load",
+                        "route": "/pricing",
+                        "site": "some-other-site"
+                    })
+                    .to_string(),
+                ))
+                .expect("a request"),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+
+    let events = harness.state.ingest.drain(10);
+    assert_eq!(events.len(), 1, "the event is still recorded");
+    assert_eq!(
+        events[0].site, harness.state.config.site,
+        "a served instance attributes to the site it serves, whatever the body says"
+    );
+    assert_ne!(events[0].site, "some-other-site");
+}
+
+#[tokio::test]
+async fn a_collector_refuses_a_site_it_was_not_configured_for() {
+    let (harness, _) = Harness::new(Setup {
+        config: ServerConfig {
+            collector_only: true,
+            collector_origins: vec!["https://docs.example.com".to_owned()],
+            collector_sites: vec!["acme-docs".to_owned()],
+            ..ServerConfig::default()
+        },
+        ..Setup::new("ana09-collector-sites")
+    })
+    .await;
+
+    let post = |site: &str| {
+        let body = json!({ "type": "page_load", "route": "/", "site": site }).to_string();
+        harness.send(
+            http::Request::builder()
+                .method("POST")
+                .uri("/_liyasa/e")
+                .header("content-type", "application/json")
+                .header("origin", "https://docs.example.com")
+                .body(axum::body::Body::from(body))
+                .expect("a request"),
+        )
+    };
+
+    assert_eq!(post("acme-docs").await.status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        harness.state.ingest.depth(),
+        1,
+        "a configured site is accepted"
+    );
+    assert_eq!(harness.state.ingest.drain(1)[0].site, "acme-docs");
+
+    // A beacon is fire and forget, so the refusal is silent to the client by
+    // design; what matters is that nothing is stored.
+    assert_eq!(
+        post("someone-elses-docs").await.status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        harness.state.ingest.depth(),
+        0,
+        "a site the collector was not configured for must not reach the queue"
+    );
+}
+
+#[tokio::test]
+async fn a_collector_with_no_sites_configured_accepts_only_its_own() {
+    // An open collector lets any client write into any site's aggregates, so
+    // an unconfigured one is closed rather than permissive.
+    let (harness, _) = Harness::new(Setup {
+        config: ServerConfig {
+            collector_only: true,
+            site: "the-only-site".to_owned(),
+            ..ServerConfig::default()
+        },
+        ..Setup::new("ana09-collector-closed")
+    })
+    .await;
+
+    let post = |site: &str| {
+        let body = json!({ "type": "page_load", "route": "/", "site": site }).to_string();
+        harness.send(
+            http::Request::builder()
+                .method("POST")
+                .uri("/_liyasa/e")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(body))
+                .expect("a request"),
+        )
+    };
+    post("anything-at-all").await;
+    assert_eq!(harness.state.ingest.depth(), 0);
+    post("the-only-site").await;
+    assert_eq!(harness.state.ingest.depth(), 1);
+}
