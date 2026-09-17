@@ -6,7 +6,10 @@
 //! is `locale = de` and `region = us`, and each is resolved on its own.
 
 pub mod config;
+pub mod fallback;
 pub mod locales;
+pub mod strings;
 
 pub use config::{Detection, Fallback, LocaleDecl, Localization, Regions, VariationDecl};
+pub use fallback::{Serve, Translations};
 pub use locales::{Alternate, Locales, SwitcherEntry};
