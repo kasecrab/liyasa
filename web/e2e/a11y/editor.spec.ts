@@ -3,27 +3,44 @@
 // > Given the editor and dashboard; when axe and the keyboard-only script run;
 // > then zero violations and every action is reachable.
 //
-// The page is loaded from the filesystem rather than from a server. The editor
-// is a static shell plus one classic script, and nothing it needs at load time
-// comes over HTTP — `/_liyasa/editor/` is WP-14's surface and does not exist
-// in any build yet (`web/editor/src/api.ts` says so per route). Pointing at a
-// server would test the server's absence, which is not what ED-80 is about.
+// The editor is served by this suite's own static server rather than by the
+// workspace's shared `webServer`, which builds the reference site. Nothing the
+// editor needs at load time comes over the network anyway —
+// `/_liyasa/editor/` is WP-14's surface and does not exist in any build yet,
+// and `web/editor/src/api.ts` says so per route — so what is under test here
+// is the shell, which is what ED-80 is about.
 
 import { readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+import { startEditorServer } from "../editor/editor-server.ts";
+import type { EditorServer } from "../editor/editor-server.ts";
+
 const HERE = dirname(fileURLToPath(import.meta.url));
-const EDITOR = pathToFileURL(resolve(HERE, "../../editor/index.html")).href;
+
+let server: EditorServer;
+
+test.beforeAll(async () => {
+  server = await startEditorServer();
+});
+
+test.afterAll(async () => {
+  await server.close();
+});
 
 test.beforeEach(async ({ page }) => {
-  await page.goto(EDITOR);
+  await page.goto(server.url);
 });
 
 test("axe finds no violation in the editor shell", async ({ page }) => {
+  // axe injects and walks the whole tree; on a machine running several builds
+  // at once that outlasts the default timeout, and a timeout here would read
+  // as a violation when it is a busy machine.
+  test.slow();
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
     .analyze();
@@ -64,27 +81,26 @@ test("the editor announces that it is ready", async ({ page }) => {
 });
 
 test("every control in the shell is reachable with Tab alone", async ({ page }) => {
-  const controls = await page.locator("button, a[href], input, select, textarea").count();
+  // Each control is tagged with its own index first. Identifying the focused
+  // element by its text or by an attribute it shares with another control
+  // undercounts, and the test then passes with a control nobody can tab to.
+  const controls = await page.evaluate(() => {
+    const found = [...document.querySelectorAll("button, a[href], input, select, textarea")];
+    found.forEach((node, at) => node.setAttribute("data-tab-probe", String(at)));
+    return found.length;
+  });
   expect(controls).toBeGreaterThan(0);
 
   const reached = new Set<string>();
-  for (let step = 0; step < controls * 3; step += 1) {
+  for (let step = 0; step < controls * 4; step += 1) {
     await page.keyboard.press("Tab");
-    const marker = await page.evaluate(() => {
-      const active = document.activeElement;
-      if (!active || active === document.body) return null;
-      return (
-        active.getAttribute("data-action") ??
-        active.getAttribute("data-mode-switch") ??
-        active.getAttribute("data-help") ??
-        active.textContent?.trim() ??
-        active.tagName
-      );
-    });
-    if (marker) reached.add(marker);
+    const marker = await page.evaluate(() => document.activeElement?.getAttribute("data-tab-probe"));
+    if (marker !== null && marker !== undefined) reached.add(marker);
     if (reached.size >= controls) break;
   }
-  expect(reached.size).toBeGreaterThanOrEqual(controls);
+  expect([...reached].sort()).toEqual(
+    Array.from({ length: controls }, (_, at) => String(at)).sort(),
+  );
 });
 
 test("every focused control draws a focus ring", async ({ page }) => {
@@ -108,7 +124,7 @@ test("every focused control draws a focus ring", async ({ page }) => {
 test("reduced motion removes transitions rather than shortening them", async ({ browser }) => {
   const context = await browser.newContext({ reducedMotion: "reduce" });
   const page = await context.newPage();
-  await page.goto(EDITOR);
+  await page.goto(server.url);
   const duration = await page.evaluate(() => {
     const probe = document.createElement("div");
     probe.className = "transition";
@@ -117,7 +133,12 @@ test("reduced motion removes transitions rather than shortening them", async ({ 
     probe.remove();
     return value;
   });
-  expect(duration.startsWith("0s") || duration.startsWith("0.00")).toBe(true);
+  // Chromium formats 0.01ms as `1e-05s`, so the check is numeric rather than
+  // a prefix — the first version of this assertion failed on a stylesheet that
+  // was doing exactly the right thing.
+  const durations = duration.split(",").map((value) => Number.parseFloat(value));
+  expect(durations.length).toBeGreaterThan(0);
+  for (const seconds of durations) expect(seconds).toBeLessThan(0.001);
   await context.close();
 });
 
