@@ -14,6 +14,7 @@
 use std::collections::BTreeMap;
 
 use liyasa_core::document::{DepTarget, Edge, EdgeOrigin};
+use liyasa_core::ids::{PageId, Route};
 use liyasa_core::verify::{FactChange, GraphStore, Impact, ImpactQuery, StoreError};
 
 use crate::graph::MemoryGraph;
@@ -116,6 +117,33 @@ impl<'g> PathImpact<'g> {
         }
         Ok(found.into_iter().collect())
     }
+}
+
+/// The routes an impact reaches, which is the set a build has to render again
+/// (VER-23's "template users rebuild automatically").
+///
+/// An `EdgeOrigin` names a `PageId` and a build renders a `Route`, and the
+/// pairing lives in the store (RFC 2001). `MemoryGraph::rows` is where it is
+/// visible from outside, so this reads it rather than guessing.
+pub fn routes_of(
+    graph: &MemoryGraph,
+    blocks: &[(EdgeOrigin, Vec<Edge>)],
+) -> Result<Vec<Route>, StoreError> {
+    let mut routes: BTreeMap<PageId, Route> = BTreeMap::new();
+    for row in graph.rows()? {
+        let (EdgeOrigin::Block(page, _) | EdgeOrigin::Page(page)) = &row.edge.from;
+        routes.entry(*page).or_insert(row.page);
+    }
+    let mut out: Vec<Route> = blocks
+        .iter()
+        .filter_map(|(origin, _)| {
+            let (EdgeOrigin::Block(page, _) | EdgeOrigin::Page(page)) = origin;
+            routes.get(page).cloned()
+        })
+        .collect();
+    out.sort();
+    out.dedup();
+    Ok(out)
 }
 
 impl ImpactQuery for PathImpact<'_> {

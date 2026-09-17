@@ -215,3 +215,24 @@ fn the_trait_call_refuses_a_graph_it_does_not_read() {
         "a different store would answer about a different site"
     );
 }
+
+#[test]
+fn the_routes_an_impact_reaches_are_the_pages_a_build_renders_again() {
+    let graph = site();
+    let impacts = PathImpact::new(&graph)
+        .impact_of(&[changed("plan.pro.price")])
+        .expect("the graph answers");
+    assert_eq!(
+        routes_of(&graph, &impacts[0].blocks).expect("the graph answers"),
+        [Route::new("/index"), Route::new("/pricing")]
+    );
+
+    let untouched = PathImpact::new(&graph)
+        .impact_of(&[changed("plan.enterprise.price")])
+        .expect("the graph answers");
+    assert!(
+        routes_of(&graph, &untouched[0].blocks)
+            .expect("the graph answers")
+            .is_empty()
+    );
+}

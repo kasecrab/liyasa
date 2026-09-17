@@ -17,7 +17,7 @@ pub mod snapshot;
 pub mod spec;
 pub mod trust;
 
-pub use impact::{OperationChange, OperationImpact, PathImpact};
+pub use impact::{OperationChange, OperationImpact, PathImpact, routes_of};
 pub use kinds::{Attestation, BuildTrust, DeclaredSource, SandboxLimits};
 pub use openapi::operation_changes;
 pub use refresh::{Fact, Facts, RefreshReport, Refresher, plain};

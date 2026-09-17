@@ -136,3 +136,5 @@ mod ver_25_commands;
 mod ver_12_spec_drift;
 #[path = "../verify/ver_26_trust.rs"]
 mod ver_26_trust;
+#[path = "../verify/ver_23_drift.rs"]
+mod ver_23_drift;
