@@ -7,6 +7,7 @@
 //! than a `Runner` impl: the parts that must not vary between runners cannot.
 
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 use liyasa_core::diagnostics::{Diagnostic, code};
 use liyasa_core::vfs::{Bytes, VfsPath};
@@ -62,6 +63,27 @@ pub trait Language: Send + Sync {
     fn id(&self) -> &'static str;
     fn languages(&self) -> &'static [&'static str];
     fn job(&self, source: &Source<'_>) -> Result<Job, Diagnostic>;
+
+    /// VER-02: a runner declares its own image. A built-in declares none —
+    /// a digest baked into the binary is stale the day after it ships — and
+    /// takes its pin from `verify.runners.images` or the lock instead. A
+    /// runner declared in config may name one, and it must still be pinned.
+    fn declared_image(&self) -> Option<&str> {
+        None
+    }
+
+    /// VER-02: a runner declares a default timeout, used when the fence names
+    /// none. `None` leaves the block's own default in place.
+    fn default_timeout(&self) -> Option<Duration> {
+        None
+    }
+
+    /// VER-02: whether the runner needs the network even when the block has
+    /// not asked for it. VER-03 gives a job no network by default, so this is
+    /// the only way a runner that must reach a registry gets one.
+    fn needs_network(&self) -> bool {
+        false
+    }
 }
 
 fn file(path: &str, body: &str) -> (VfsPath, Bytes) {

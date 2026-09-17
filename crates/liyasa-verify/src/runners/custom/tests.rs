@@ -137,3 +137,52 @@ fn the_same_name_is_interned_once() {
     );
     assert!(std::ptr::eq(first.languages(), second.languages()));
 }
+
+#[test]
+fn a_declared_image_is_read_and_must_carry_a_digest() {
+    let mut declaration = declared("lua", &["lua"], &["lua"]);
+    declaration.image = Some("docker.io/library/lua@sha256:abc".to_owned());
+    let custom = Custom::new(&declaration).expect("a runner");
+    assert_eq!(
+        custom.declared_image(),
+        Some("docker.io/library/lua@sha256:abc")
+    );
+    // A built-in declares none and takes its pin from config or the lock.
+    assert_eq!(super::super::lang::Shell.declared_image(), None);
+}
+
+#[test]
+fn a_declared_timeout_is_read() {
+    let mut declaration = declared("lua", &["lua"], &["lua"]);
+    declaration.timeout = Some(crate::core::duration::DurationSetting::seconds(90));
+    let custom = Custom::new(&declaration).expect("a runner");
+    assert_eq!(
+        custom.default_timeout(),
+        Some(std::time::Duration::from_secs(90))
+    );
+    assert_eq!(
+        Custom::new(&declared("lua", &["lua"], &["lua"]))
+            .expect("a runner")
+            .default_timeout(),
+        None
+    );
+}
+
+#[test]
+fn a_declared_network_need_is_read() {
+    let mut declaration = declared("lua", &["lua"], &["lua"]);
+    declaration.network = true;
+    assert!(Custom::new(&declaration).expect("a runner").needs_network());
+    assert!(
+        !Custom::new(&declared("lua", &["lua"], &["lua"]))
+            .expect("a runner")
+            .needs_network()
+    );
+}
+
+#[test]
+fn a_built_in_declares_no_timeout_and_no_network() {
+    // VER-03 gives a job no network by default; a built-in never overrides it.
+    assert_eq!(super::super::lang::Python.default_timeout(), None);
+    assert!(!super::super::lang::Python.needs_network());
+}

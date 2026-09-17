@@ -43,6 +43,10 @@ pub struct Binding {
     pub fixtures: Vec<(VfsPath, Bytes)>,
     /// `expect-file="path"`, resolved to bytes.
     pub expected: BTreeMap<VfsPath, Bytes>,
+    /// What `timeout=` on the fence named, if it named one. `None` lets the
+    /// runner's own declared default apply (VER-02); `CheckSpec::timeout` is
+    /// always set, so it cannot answer "did the author choose this".
+    pub timeout: Option<std::time::Duration>,
 }
 
 impl Binding {
@@ -56,6 +60,7 @@ impl Binding {
             attrs,
             fixtures: Vec::new(),
             expected: BTreeMap::new(),
+            timeout: block.declared_timeout,
         }
     }
 }
@@ -125,6 +130,27 @@ impl SandboxRunner {
         &self.hide_prefix
     }
 
+    /// A runner that declares its own image is pinned by that; everything else
+    /// takes its pin from `verify.runners.images` or the lock. A declared
+    /// image that is not digest-pinned is `E0610` like any other (VER-03).
+    fn pin(&self, lang: &str) -> Result<super::image::ImagePin, Diagnostic> {
+        match self.language.declared_image() {
+            Some(reference) => super::image::ImagePin::parse(reference).ok_or_else(|| {
+                Diagnostic::new(
+                    code::E0610,
+                    format!(
+                        "the `{}` runner declares the image `{reference}`, which names no digest",
+                        self.language.id()
+                    ),
+                )
+                .help(
+                    "write `name@sha256:…`; a tag moves and two machines would run different code",
+                )
+            }),
+            None => self.images.pin_any(&[lang, self.language.id()]),
+        }
+    }
+
     fn claims(&self, lang: &str) -> bool {
         let lang = lang.trim().to_ascii_lowercase();
         self.language.languages().contains(&lang.as_str())
@@ -157,7 +183,7 @@ impl SandboxRunner {
             return skip("the block carries no source to run");
         };
 
-        let pin = match self.images.pin_any(&[lang, self.language.id()]) {
+        let pin = match self.pin(lang) {
             Ok(pin) => pin,
             Err(problem) => return CheckOutcome::Error(problem),
         };
@@ -172,10 +198,17 @@ impl SandboxRunner {
             Err(problem) => return CheckOutcome::Error(problem),
         };
 
-        let output = sandbox.exec(sandbox_job(&pin, job, binding, spec)).await;
+        let timeout = binding
+            .timeout
+            .or_else(|| self.language.default_timeout())
+            .unwrap_or(spec.timeout);
+        let network = spec.needs_network || self.language.needs_network();
+        let output = sandbox
+            .exec(sandbox_job(&pin, job, binding, spec, timeout, network))
+            .await;
         match output {
             Ok(output) => assert_all(spec, binding, &output, scrubber),
-            Err(SandboxError::Timeout) => timed_out(spec.timeout),
+            Err(SandboxError::Timeout) => timed_out(timeout),
             Err(SandboxError::Unavailable) => CheckOutcome::Error(
                 Diagnostic::new(
                     code::E0004,
@@ -207,6 +240,8 @@ fn sandbox_job(
     job: Job,
     binding: &Binding,
     spec: &CheckSpec,
+    timeout: std::time::Duration,
+    network: bool,
 ) -> SandboxJob {
     let mut files = job.files;
     // The fixtures last, so a fixture named like a generated file is the one
@@ -218,8 +253,8 @@ fn sandbox_job(
         cmd: job.cmd,
         files,
         env: binding.env.clone(),
-        timeout: spec.timeout,
-        network: spec.needs_network,
+        timeout,
+        network,
         cpu_millis: 0,
         mem_bytes: 0,
     }

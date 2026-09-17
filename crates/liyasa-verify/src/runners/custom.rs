@@ -12,6 +12,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use liyasa_core::diagnostics::{Diagnostic, code};
 use liyasa_core::vfs::{Bytes, VfsPath};
@@ -19,6 +20,7 @@ use liyasa_core::vfs::{Bytes, VfsPath};
 use super::attrs::Mode;
 use super::lang::{Job, Language, Source};
 use crate::core::config::CustomRunner;
+use crate::core::duration::DurationSetting;
 
 /// The placeholder a command template uses for the staged source file.
 pub const FILE: &str = "{file}";
@@ -31,6 +33,9 @@ pub struct Custom {
     languages: &'static [&'static str],
     command: Vec<String>,
     file: String,
+    image: Option<String>,
+    timeout: Option<Duration>,
+    network: bool,
 }
 
 impl Custom {
@@ -66,6 +71,14 @@ impl Custom {
             languages: intern_all(&languages),
             command,
             file,
+            image: declared
+                .image
+                .as_deref()
+                .map(str::trim)
+                .filter(|i| !i.is_empty())
+                .map(str::to_owned),
+            timeout: declared.timeout.map(DurationSetting::as_duration),
+            network: declared.network,
         })
     }
 
@@ -91,6 +104,18 @@ impl Language for Custom {
 
     fn languages(&self) -> &'static [&'static str] {
         self.languages
+    }
+
+    fn declared_image(&self) -> Option<&str> {
+        self.image.as_deref()
+    }
+
+    fn default_timeout(&self) -> Option<Duration> {
+        self.timeout
+    }
+
+    fn needs_network(&self) -> bool {
+        self.network
     }
 
     fn job(&self, source: &Source<'_>) -> Result<Job, Diagnostic> {

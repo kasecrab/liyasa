@@ -448,3 +448,112 @@ fn every_built_in_runner_satisfies_the_runner_contract() {
         );
     }
 }
+
+/// A `Language` that declares the three things VER-02 says a runner declares.
+struct Declaring;
+
+impl crate::runners::lang::Language for Declaring {
+    fn id(&self) -> &'static str {
+        "declaring"
+    }
+
+    fn languages(&self) -> &'static [&'static str] {
+        &["bash"]
+    }
+
+    fn job(
+        &self,
+        source: &crate::runners::lang::Source<'_>,
+    ) -> Result<crate::runners::lang::Job, Diagnostic> {
+        Shell.job(source)
+    }
+
+    fn declared_image(&self) -> Option<&str> {
+        Some(
+            "declared/image@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        )
+    }
+
+    fn default_timeout(&self) -> Option<Duration> {
+        Some(Duration::from_secs(90))
+    }
+
+    fn needs_network(&self) -> bool {
+        true
+    }
+}
+
+fn declaring_job(binding: Option<Binding>) -> SandboxJob {
+    let spec = spec("echo hello\n", Vec::new());
+    let mut runner = SandboxRunner::new(Arc::new(Declaring), Images::default());
+    if let Some(binding) = binding {
+        runner = runner.with_bindings(Bindings::new().with(spec.id.clone(), binding));
+    }
+    let sandbox = TinyShell::default();
+    run(&runner, &spec, &sandbox);
+    let jobs = sandbox.jobs.lock().expect("not poisoned");
+    jobs.first().cloned().expect("the job reached the sandbox")
+}
+
+#[test]
+fn a_runners_declared_image_is_used_when_config_pins_nothing() {
+    // `Images::default()` has no pins at all, so this can only come from the
+    // runner's own declaration.
+    let job = declaring_job(None);
+    assert_eq!(job.image, "declared/image");
+    assert_eq!(
+        job.digest,
+        format!("sha256:{}", "0123456789abcdef".repeat(4))
+    );
+}
+
+#[test]
+fn a_runners_declared_timeout_applies_when_the_fence_named_none() {
+    assert_eq!(declaring_job(None).timeout, Duration::from_secs(90));
+}
+
+#[test]
+fn a_fence_timeout_beats_the_runners_declared_default() {
+    let job = declaring_job(Some(Binding {
+        timeout: Some(Duration::from_secs(5)),
+        ..Binding::default()
+    }));
+    assert_eq!(job.timeout, Duration::from_secs(5));
+}
+
+#[test]
+fn a_runner_that_declares_it_needs_the_network_gets_one() {
+    // VER-03 gives a job no network by default and the spec here asks for
+    // none, so this is the declaration and nothing else.
+    assert!(declaring_job(None).network);
+}
+
+#[test]
+fn a_declared_image_without_a_digest_is_e0610() {
+    struct Untagged;
+    impl crate::runners::lang::Language for Untagged {
+        fn id(&self) -> &'static str {
+            "untagged"
+        }
+        fn languages(&self) -> &'static [&'static str] {
+            &["bash"]
+        }
+        fn job(
+            &self,
+            source: &crate::runners::lang::Source<'_>,
+        ) -> Result<crate::runners::lang::Job, Diagnostic> {
+            Shell.job(source)
+        }
+        fn declared_image(&self) -> Option<&str> {
+            Some("declared/image:latest")
+        }
+    }
+    let runner = SandboxRunner::new(Arc::new(Untagged), Images::default());
+    let sandbox = TinyShell::default();
+    let outcome = run(&runner, &spec("echo hello\n", Vec::new()), &sandbox);
+    assert!(
+        matches!(&outcome, CheckOutcome::Error(p) if p.code == code::E0610),
+        "{outcome:?}"
+    );
+    assert!(sandbox.jobs.lock().expect("not poisoned").is_empty());
+}

@@ -44,6 +44,10 @@ pub struct BlockVerify {
     pub mode: Mode,
     pub expect: Vec<Expectation>,
     pub timeout: Duration,
+    /// The same value, or `None` when the fence named no `timeout=` and this
+    /// is the site default. A runner's own declared default (VER-02) applies
+    /// only in that case.
+    pub declared_timeout: Option<Duration>,
     pub env: Vec<(String, String)>,
     /// `setup="snippet-name"`: a hidden block run in the same sandbox first.
     pub setup: Option<String>,
@@ -58,6 +62,7 @@ impl BlockVerify {
             mode,
             expect: Vec::new(),
             timeout,
+            declared_timeout: None,
             env: Vec::new(),
             setup: None,
             fixtures: Vec::new(),
@@ -144,7 +149,10 @@ pub fn read(
     }
     if let Some(text) = value(attrs, "timeout") {
         match DurationSetting::parse(text) {
-            Ok(setting) => out.timeout = setting.as_duration(),
+            Ok(setting) => {
+                out.timeout = setting.as_duration();
+                out.declared_timeout = Some(out.timeout);
+            }
             Err(error) => problems.push(bad("timeout", text, &error.to_string())),
         }
     }
