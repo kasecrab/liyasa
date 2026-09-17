@@ -2606,6 +2606,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "liyasa-lsp"
+version = "0.1.0"
+dependencies = [
+ "liyasa-components",
+ "liyasa-config",
+ "liyasa-core",
+ "liyasa-markdown",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "liyasa-markdown"
 version = "0.1.0"
 dependencies = [
