@@ -91,7 +91,12 @@ fn the_container_sandbox_cuts_the_network_and_pins_the_digest() {
         cpu_millis: 0,
         mem_bytes: 0,
     };
-    let argv = container::argv(Engine::Docker, &job, &Limits::default(), Path::new("/stage"));
+    let argv = container::argv(
+        Engine::Docker,
+        &job,
+        &Limits::default(),
+        Path::new("/stage"),
+    );
     let line = argv.join(" ");
 
     assert!(line.contains("--network=none"), "{line}");

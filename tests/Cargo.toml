@@ -58,6 +58,12 @@ liyasa-verify = { path = "../crates/liyasa-verify", version = "0.1.0" }
 zeroize.workspace = true
 clap.workspace = true
 
+# WP-21: the runner conformance kit is behind a feature, and a dev-dependency
+# turns it on for the test targets only — the same line `liyasa-verify` already
+# carries, and resolver 3 keeps it out of the normal build.
+[dev-dependencies]
+liyasa-core = { path = "../crates/liyasa-core", version = "0.1.0", features = ["conformance"] }
+
 [[bin]]
 name = "reference-site"
 path = "src/bin/reference_site.rs"

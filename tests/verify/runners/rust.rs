@@ -107,18 +107,20 @@ fn a_block_that_is_a_body_becomes_a_program() {
 #[test]
 fn edition_and_deps_reach_the_generated_crate() {
     let spec = spec("fn main() {}\n");
-    let runner = runner().with_bindings(Bindings::new().with(
-        spec.id.clone(),
-        Binding {
-            attrs: [
-                ("edition".to_owned(), "2021".to_owned()),
-                ("deps".to_owned(), "serde=1".to_owned()),
-            ]
-            .into_iter()
-            .collect(),
-            ..Binding::default()
-        },
-    ));
+    let runner = runner().with_bindings(
+        Bindings::new().with(
+            spec.id.clone(),
+            Binding {
+                attrs: [
+                    ("edition".to_owned(), "2021".to_owned()),
+                    ("deps".to_owned(), "serde=1".to_owned()),
+                ]
+                .into_iter()
+                .collect(),
+                ..Binding::default()
+            },
+        ),
+    );
     let manifest = staged(&runner, &spec, "Cargo.toml");
     assert!(manifest.contains("edition = \"2021\""), "{manifest}");
     assert!(manifest.contains("serde = \"1\""), "{manifest}");

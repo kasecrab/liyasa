@@ -47,7 +47,7 @@ impl Sandbox for Tiny {
         Box::pin(std::future::ready(Ok(SandboxOutput {
             exit,
             stdout: Bytes::from(stdout.into_bytes()),
-            stderr: Bytes::from(b"the secret is s3cret".to_vec()),
+            stderr: Bytes::from(b"connecting with token s3cret-t0ken-value".to_vec()),
             duration: Duration::from_millis(2),
         })))
     }
@@ -57,7 +57,10 @@ struct Store;
 
 impl SecretSource for Store {
     fn get(&self, name: &str) -> Option<zeroize::Zeroizing<String>> {
-        (name == "token").then(|| zeroize::Zeroizing::new("s3cret".to_owned()))
+        // At least `MIN_SECRET_LEN` characters, or the scrubber ignores it on
+        // purpose: a short value would redact ordinary prose out of every
+        // excerpt on the site.
+        (name == "token").then(|| zeroize::Zeroizing::new("s3cret-t0ken-value".to_owned()))
     }
 }
 
@@ -117,8 +120,12 @@ fn a_shell_block_that_does_not_fails_with_a_scrubbed_excerpt() {
     };
     assert!(excerpt.len() <= 512, "{} bytes", excerpt.len());
     assert!(
-        !excerpt.contains("s3cret"),
+        !excerpt.contains("s3cret-t0ken-value"),
         "a declared secret reached the excerpt: {excerpt}"
+    );
+    assert!(
+        excerpt.contains(liyasa_verify::core::REDACTED),
+        "the secret was in the stderr and should have been replaced: {excerpt}"
     );
 }
 
