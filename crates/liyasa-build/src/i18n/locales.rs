@@ -211,6 +211,37 @@ impl Locales {
             .collect()
     }
 
+    /// The language switcher in the shape the theme renders it.
+    ///
+    /// `liyasa_theme::nav::Navigation` has a `locales` field beside its
+    /// `versions` one and nothing fills it yet (`nav.rs` writes
+    /// `locales: Vec::new()`), so this is the value that goes there — the
+    /// version switcher's `version_choices` with the other axis in it.
+    ///
+    /// A locale with no `label` is labelled from the shipped catalogue, so a
+    /// site that declares bare codes still gets "Deutsch" rather than "de".
+    pub fn choices(
+        &self,
+        base: &Route,
+        current: Option<&Locale>,
+        routes: &BTreeMap<Locale, BTreeSet<Route>>,
+    ) -> Vec<liyasa_theme::nav::Choice> {
+        self.switcher(base, current, routes)
+            .into_iter()
+            .map(|entry| liyasa_theme::nav::Choice {
+                label: match entry.label == entry.locale.as_str() {
+                    true => super::strings::endonym(entry.locale.as_str())
+                        .unwrap_or(&entry.label)
+                        .to_owned(),
+                    false => entry.label,
+                },
+                value: entry.locale.as_str().to_owned(),
+                href: entry.href,
+                current: entry.current,
+            })
+            .collect()
+    }
+
     /// The `hreflang` alternates of one page (CM-101).
     ///
     /// Only a locale that actually serves the page is listed: an alternate
@@ -457,6 +488,48 @@ mod tests {
             entries[2].href, "/pt-BR/guides/install",
             "the offer still points at where the locale serves the route"
         );
+    }
+
+    #[test]
+    fn the_switcher_reaches_the_theme_in_the_shape_it_renders() {
+        let locales = locales();
+        let known = routes(&[("en", &["/guides/install"]), ("de", &["/guides/install"])]);
+        let choices = locales.choices(
+            &Route::new("/guides/install"),
+            Some(&Locale::new("de")),
+            &known,
+        );
+        assert_eq!(choices.len(), 3);
+        assert_eq!(choices[1].value, "de");
+        assert_eq!(choices[1].href, "/de/guides/install");
+        assert!(choices[1].current);
+        assert!(!choices[0].current);
+    }
+
+    #[test]
+    fn a_bare_code_is_labelled_from_the_shipped_catalogue() {
+        let locales = Locales::from_value(&value(r#"{"locales":["en","ja"]}"#));
+        let known = routes(&[("en", &["/"]), ("ja", &["/"])]);
+        let choices = locales.choices(&Route::new("/"), None, &known);
+        assert_eq!(choices[1].label, "日本語", "not `ja`");
+    }
+
+    #[test]
+    fn a_language_liyasa_does_not_ship_keeps_its_code_as_its_label() {
+        let locales = Locales::from_value(&value(r#"{"locales":["en","cy"]}"#));
+        let known = routes(&[("en", &["/"]), ("cy", &["/"])]);
+        let choices = locales.choices(&Route::new("/"), None, &known);
+        assert_eq!(choices[1].label, "cy");
+    }
+
+    #[test]
+    fn a_declared_label_is_never_overwritten_by_the_catalogue() {
+        let locales = Locales::from_value(&value(
+            r#"{"locales":["en",{"code":"ja","label":"Japanese"}]}"#,
+        ));
+        let known = routes(&[("en", &["/"]), ("ja", &["/"])]);
+        let choices = locales.choices(&Route::new("/"), None, &known);
+        assert_eq!(choices[1].label, "Japanese");
     }
 
     #[test]
