@@ -592,7 +592,7 @@ impl DeployQueue {
                 out.push((job, outcome));
             }
         }
-        out.sort_by(|a, b| b.0.updated_at.cmp(&a.0.updated_at));
+        out.sort_by_key(|(job, _)| std::cmp::Reverse(job.updated_at));
         Ok(out)
     }
 }
