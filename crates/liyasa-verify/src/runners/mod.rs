@@ -7,5 +7,6 @@
 //! runtime still gets every in-process check.
 
 pub mod hidden;
+pub mod staging;
 
 pub use hidden::{DEFAULT_PREFIX, Split};
