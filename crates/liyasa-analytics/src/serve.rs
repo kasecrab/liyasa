@@ -33,7 +33,9 @@ use sqlx::sqlite::SqlitePool;
 
 use crate::insights::{self, Inputs, PageFacts};
 use crate::query::{DAY_MS, Filters, Grain, Range, RangeSpec};
-use crate::{actions, assistant, digest, feedback, integrations, privacy, retention, schema, search, traffic};
+use crate::{
+    actions, assistant, digest, feedback, integrations, privacy, retention, schema, search, traffic,
+};
 
 /// What the handlers read. Both pools are opened by `liyasa-store` and handed
 /// in; this crate never opens a database (RFC 1700).
@@ -187,7 +189,10 @@ pub fn mount(state: Arc<Analytics>) -> Router {
         .route("/_liyasa/api/v1/analytics/search/queries", get(queries))
         .route("/_liyasa/api/v1/analytics/search/pages", get(search_pages))
         .route("/_liyasa/api/v1/analytics/search/trending", get(trending))
-        .route("/_liyasa/api/v1/analytics/assistant", get(assistant_summary))
+        .route(
+            "/_liyasa/api/v1/analytics/assistant",
+            get(assistant_summary),
+        )
         .route("/_liyasa/api/v1/analytics/insights", get(cards))
         .route("/_liyasa/api/v1/analytics/insights/act", post(act))
         .route("/_liyasa/api/v1/analytics/integrations", get(vendors))
@@ -276,8 +281,9 @@ async fn totals(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) ->
             json!({ "current": current.total(), "previous": before }),
         );
     }
-    let sessions =
-        unwrap_or_fail!(traffic::unique_sessions(&state.analytics, window.range, &window.filters).await);
+    let sessions = unwrap_or_fail!(
+        traffic::unique_sessions(&state.analytics, window.range, &window.filters).await
+    );
     let sessions_before = if window.compare {
         unwrap_or_fail!(traffic::unique_sessions(&state.analytics, previous, &window.filters).await)
             .total()
@@ -310,7 +316,13 @@ async fn pages(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) -> 
 async fn referrers(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) -> Response {
     let window = Window::parse(raw.as_deref(), now_ms());
     let hosts = unwrap_or_fail!(
-        traffic::referrers(&state.analytics, window.range, &window.filters, window.limit).await
+        traffic::referrers(
+            &state.analytics,
+            window.range,
+            &window.filters,
+            window.limit
+        )
+        .await
     );
     ok(json!({ "referrers": hosts }))
 }
@@ -318,7 +330,13 @@ async fn referrers(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery)
 async fn journeys(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) -> Response {
     let window = Window::parse(raw.as_deref(), now_ms());
     let (entry, exit) = unwrap_or_fail!(
-        traffic::entry_and_exit(&state.analytics, window.range, &window.filters, window.limit).await
+        traffic::entry_and_exit(
+            &state.analytics,
+            window.range,
+            &window.filters,
+            window.limit
+        )
+        .await
     );
     ok(json!({ "entry": entry, "exit": exit }))
 }
@@ -369,7 +387,13 @@ async fn horizon(State(state): State<Arc<Analytics>>) -> Response {
 async fn queries(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) -> Response {
     let window = Window::parse(raw.as_deref(), now_ms());
     let found = unwrap_or_fail!(
-        search::queries(&state.analytics, window.range, &window.filters, window.limit).await
+        search::queries(
+            &state.analytics,
+            window.range,
+            &window.filters,
+            window.limit
+        )
+        .await
     );
     ok(json!({ "queries": found }))
 }
@@ -377,7 +401,13 @@ async fn queries(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) -
 async fn search_pages(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) -> Response {
     let window = Window::parse(raw.as_deref(), now_ms());
     let found = unwrap_or_fail!(
-        search::per_page(&state.analytics, window.range, &window.filters, window.limit).await
+        search::per_page(
+            &state.analytics,
+            window.range,
+            &window.filters,
+            window.limit
+        )
+        .await
     );
     ok(json!({ "pages": found }))
 }
@@ -385,7 +415,13 @@ async fn search_pages(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQue
 async fn trending(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) -> Response {
     let window = Window::parse(raw.as_deref(), now_ms());
     let found = unwrap_or_fail!(
-        search::trending(&state.analytics, window.range, &window.filters, window.limit).await
+        search::trending(
+            &state.analytics,
+            window.range,
+            &window.filters,
+            window.limit
+        )
+        .await
     );
     ok(json!({ "trending": found }))
 }
@@ -398,7 +434,13 @@ async fn assistant_summary(
 ) -> Response {
     let window = Window::parse(raw.as_deref(), now_ms());
     let found = unwrap_or_fail!(
-        assistant::summary(&state.analytics, window.range, &window.filters, window.limit).await
+        assistant::summary(
+            &state.analytics,
+            window.range,
+            &window.filters,
+            window.limit
+        )
+        .await
     );
     ok(serde_json::to_value(found).unwrap_or_else(|_| json!({})))
 }
@@ -442,7 +484,11 @@ async fn act(
                 .into_response();
         }
     };
-    let queued = unwrap_or_fail!(liyasa_store::jobs::Jobs::new(state.app.clone()).enqueue(&job).await);
+    let queued = unwrap_or_fail!(
+        liyasa_store::jobs::Jobs::new(state.app.clone())
+            .enqueue(&job)
+            .await
+    );
     ok(json!({ "jobId": queued.id().to_string(), "name": job.name }))
 }
 

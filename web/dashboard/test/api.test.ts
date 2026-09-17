@@ -46,16 +46,20 @@ test("a read with nothing to say carries no query string", () => {
 });
 
 test("an endpoint nobody serves fails without a request", async () => {
+  // `drift.open` reads the verification store, which no package serves yet.
+  // `traffic.series` used to be the example here and is now handled by
+  // `liyasa_analytics::serve::mount`, which is the point of the marker.
   let called = false;
   const fetcher = (async () => {
     called = true;
     return new Response("{}");
   }) as unknown as typeof fetch;
-  const result = await read("traffic.series", {}, {}, fetcher);
+  const result = await read("drift.open", {}, {}, fetcher);
   assert.equal(result.ok, false);
   if (!result.ok) {
     assert.equal(result.problem.status, 501);
     assert.match(result.problem.detail ?? "", /no handler answers/);
+    assert.match(result.problem.detail ?? "", /REST-05/);
   }
   assert.equal(called, false, "a 404 from a path nobody wired reads like an outage");
 });

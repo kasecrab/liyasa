@@ -78,10 +78,20 @@ test("an endpoint nobody serves is named rather than drawn as empty", () => {
 });
 
 test("the pages that need unbuilt endpoints name them", () => {
-  const unserved = unservedFor("traffic");
-  assert.ok(unserved.length > 0);
-  for (const id of unserved) assert.equal(findEndpoint(id)?.servedBy, "unbuilt");
+  // Two endpoints are left: drift belongs to the verification store and
+  // proposals to the editor's, so neither can come from the analytics crate
+  // however the router is wired.
+  assert.deepEqual(unservedFor("truth"), ["drift.open"]);
+  assert.deepEqual(unservedFor("proposals"), ["proposals.list"]);
+  for (const id of [...unservedFor("truth"), ...unservedFor("proposals")]) {
+    assert.equal(findEndpoint(id)?.servedBy, "unbuilt");
+  }
   assert.deepEqual(unservedFor("automations"), [], "jobs are served by WP-14 today");
+  assert.deepEqual(
+    unservedFor("traffic"),
+    [],
+    "every traffic endpoint is served by liyasa_analytics::serve::mount now",
+  );
 });
 
 test("a series draws with the caller split ANA-10 asks for", () => {

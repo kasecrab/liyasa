@@ -108,21 +108,37 @@ fn the_paths_already_on_main_are_spelled_the_way_wp_14_spells_them() {
 }
 
 #[test]
-fn the_analytics_reads_have_no_handler_and_the_list_says_so() {
-    // The honest half of this package's state on 2026-09-17: every query in
-    // this crate works and nothing serves it over HTTP yet, because the router
-    // belongs to `liyasa-server`. A page whose endpoint is unbuilt renders its
-    // controls and says so rather than drawing an empty chart.
+fn the_two_endpoints_this_package_cannot_serve_are_the_ones_that_read_elsewhere() {
+    // This assertion used to read "the analytics reads have no handler", and
+    // it was true until `serve::mount` existed. What is left is the honest
+    // remainder: two endpoints the dashboard calls whose data is in a store
+    // this package does not own — drift is the verification engine's and
+    // proposals are the editor's — so neither can be served from here however
+    // the router is wired.
     let unbuilt: Vec<&str> = api::unbuilt().map(|e| e.id).collect();
-    assert!(unbuilt.contains(&"traffic.series"));
-    assert!(unbuilt.contains(&"search.queries"));
-    assert!(unbuilt.contains(&"insights.cards"));
-    assert!(unbuilt.contains(&"settings.integrations"));
+    assert_eq!(unbuilt, ["drift.open", "proposals.list"]);
+
+    let ours: Vec<&str> = api::ENDPOINTS
+        .iter()
+        .filter(|e| e.served_by == ServedBy::Wp17)
+        .map(|e| e.id)
+        .collect();
+    assert_eq!(ours.len(), 16);
+    for id in [
+        "schema.event",
+        "traffic.series",
+        "search.queries",
+        "assistant.summary",
+        "insights.cards",
+        "insights.act",
+        "settings.integrations",
+    ] {
+        assert!(ours.contains(&id), "{id} should be served from this crate");
+    }
     assert!(
-        !unbuilt.contains(&"jobs.list"),
-        "the job endpoints are merged and must not be reported as missing"
+        !ours.contains(&"jobs.list"),
+        "the job endpoints are liyasa-server's and must not be claimed here"
     );
-    assert_eq!(unbuilt.len(), 18);
 }
 
 #[test]

@@ -13,4 +13,5 @@ mod schema;
 mod query;
 mod retention;
 mod search;
+mod serve;
 mod traffic;
