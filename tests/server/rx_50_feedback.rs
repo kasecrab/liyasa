@@ -328,6 +328,9 @@ async fn a_collector_serves_no_site_and_answers_only_its_own_origins() {
         config: ServerConfig {
             collector_only: true,
             collector_origins: vec!["https://docs.example.com".to_owned()],
+            // A collector accepts only the sites it was configured for; an
+            // open one lets any client write into any site's aggregates.
+            collector_sites: vec!["static-site".to_owned()],
             ..ServerConfig::default()
         },
         ..Setup::new("ana09-collector")

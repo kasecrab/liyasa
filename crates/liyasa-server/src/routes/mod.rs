@@ -526,6 +526,13 @@ pub fn application(state: Arc<AppState>) -> Application {
         diagnostics.extend(contribution.diagnostics.into_vec());
         match contribution.router {
             Some(subtree_router) => {
+                // The subtree declares what a caller must hold; the seam
+                // applies it, because a subtree outside this crate cannot
+                // name a `Permission` without a dependency cycle (RFC 1403).
+                let subtree_router = match subtree.permission {
+                    Some(permission) => mount::guarded(subtree_router, permission),
+                    None => subtree_router,
+                };
                 router = router.merge(subtree_router);
                 mounted.push(MountRecord {
                     name: subtree.name,

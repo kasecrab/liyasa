@@ -12,13 +12,28 @@
 use std::sync::Arc;
 
 use axum::Router;
+use axum::response::IntoResponse;
+use http::StatusCode;
 use liyasa_core::diagnostics::Diagnostics;
 
 use super::AppState;
+use super::problem::Problem;
+use crate::auth::roles::Permission;
+use crate::auth::session::Principal;
 
 /// One subtree of the server.
 pub struct Subtree {
     pub name: &'static str,
+    /// What a caller must hold for every route this entry mounts. `None` is a
+    /// surface that is public, or that authorizes inside its own handlers.
+    ///
+    /// It is declared here rather than applied by the subtree because
+    /// `Permission` lives in this crate and `liyasa-server` depends on the
+    /// crates most subtrees live in (§34.7) — so a subtree outside this crate
+    /// cannot name a permission without a dependency cycle. A subtree that
+    /// needs two different permissions, or one gated surface and one public
+    /// route, registers two entries.
+    pub permission: Option<Permission>,
     /// Builds the subtree's router from the shared state, or explains why this
     /// instance has none.
     pub mount: fn(&Arc<AppState>) -> Mount,
@@ -26,8 +41,38 @@ pub struct Subtree {
 
 impl std::fmt::Debug for Subtree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Subtree").field("name", &self.name).finish()
+        f.debug_struct("Subtree")
+            .field("name", &self.name)
+            .field("permission", &self.permission)
+            .finish()
     }
+}
+
+/// Wraps a subtree's router so every route in it requires `permission`.
+///
+/// A caller with no session at all is told to sign in; a caller whose role
+/// does not carry the permission is refused. The two are different answers
+/// because they need different actions from whoever reads them.
+pub fn guarded(router: Router, permission: Permission) -> Router {
+    router.layer(axum::middleware::from_fn(
+        move |request: axum::extract::Request, next: axum::middleware::Next| async move {
+            match request.extensions().get::<Principal>() {
+                None => Problem::new(StatusCode::UNAUTHORIZED, "Not signed in")
+                    .detail("this endpoint needs a session")
+                    .into_response(),
+                // `allows` belongs to a membership, which carries custom roles as
+                // well; a `Principal` carries one role, so this asks that role.
+                Some(principal) if !principal.role.permissions().contains(&permission) => {
+                    Problem::new(StatusCode::FORBIDDEN, "Not permitted")
+                        .detail(format!(
+                            "this endpoint needs `{permission:?}`, and this role does not carry it"
+                        ))
+                        .into_response()
+                }
+                Some(_) => next.run(request).await,
+            }
+        },
+    ))
 }
 
 /// What a subtree contributed. Not configured is not the same as broken: a
@@ -73,10 +118,15 @@ pub fn subtrees() -> &'static [Subtree] {
     &[
         Subtree {
             name: "auth",
+            // Signing in cannot require being signed in.
+            permission: None,
             mount: auth,
         },
         Subtree {
+            // Authorizes per handler against the request's `Actor`, which is
+            // finer than one permission for the whole subtree.
             name: "deploy",
+            permission: None,
             mount: deploy,
         },
     ]

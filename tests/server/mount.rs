@@ -16,15 +16,15 @@ use liyasa_tests::server::{Harness, Setup, body_json, expect_status};
 use serde_json::json;
 
 /// A configuration with auth turned on, so the auth subtree has something to
-/// mount. `password` is the mode with the fewest moving parts.
+/// mount. `password` is the mode with the fewest moving parts, and its
+/// section takes its defaults: `PasswordConfig` carries only `argon2` and
+/// denies unknown fields, so inventing a key here is a skipped mount rather
+/// than a test failure that names itself.
 fn with_password_auth() -> serde_json::Value {
     json!({
         "name": "Acme docs",
         "seo": { "canonicalOrigin": "https://docs.acme.com" },
-        "auth": {
-            "mode": "password",
-            "password": { "hash": "$argon2id$v=19$m=65536,t=3,p=1$c2FsdHNhbHRzYWx0$0000000000000000000000000000000000000000000" }
-        }
+        "auth": { "mode": "password" }
     })
 }
 
@@ -54,6 +54,15 @@ async fn the_router_the_binary_builds_serves_the_auth_routes() {
         ..Setup::new("mount-auth")
     })
     .await;
+
+    // Assert the mount first: a 404 below could mean the subtree declined, and
+    // "auth is not routed" would be the wrong thing to go and investigate.
+    let auth = harness
+        .mounted
+        .iter()
+        .find(|m| m.name == "auth")
+        .expect("auth is a known subtree");
+    assert!(auth.mounted, "auth declined to mount: {:?}", auth.skipped);
 
     for (method, path) in [
         ("GET", "/_liyasa/auth/session"),
@@ -192,4 +201,58 @@ fn a_mount_carries_a_reason_exactly_when_it_has_no_router() {
     let mounted = Mount::routes(axum::Router::new());
     assert!(mounted.router.is_some());
     assert!(mounted.skipped.is_none());
+}
+
+#[tokio::test]
+async fn a_guarded_subtree_tells_an_anonymous_caller_to_sign_in() {
+    // The guard is what lets a subtree outside this crate carry a permission
+    // at all: `Permission` lives here, and `liyasa-server` depends on the
+    // crates the subtrees live in, so they cannot name one (RFC 1403).
+    use axum::routing::get;
+    use liyasa_server::auth::roles::Permission;
+    use liyasa_server::routes::mount::guarded;
+
+    let router = guarded(
+        axum::Router::new().route("/_liyasa/api/v1/insights", get(|| async { "secret" })),
+        Permission::DashboardRead,
+    );
+    let response = tower::ServiceExt::oneshot(
+        router,
+        http::Request::builder()
+            .uri("/_liyasa/api/v1/insights")
+            .body(axum::body::Body::empty())
+            .expect("a request"),
+    )
+    .await
+    .expect("a response");
+
+    // Not 403: nobody is signed in, and telling an anonymous caller they lack
+    // a permission sends them looking for the wrong thing.
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let problem = body_json(response).await;
+    assert_eq!(problem["status"], 401);
+    assert!(
+        problem["detail"]
+            .as_str()
+            .is_some_and(|d| d.contains("session")),
+        "{problem}"
+    );
+}
+
+#[test]
+fn a_subtree_that_declares_no_permission_is_saying_something_deliberate() {
+    // Both of today's subtrees are ungated on purpose: signing in cannot
+    // require being signed in, and deploy authorizes per handler against the
+    // request's actor. A future entry that leaves this `None` by accident is
+    // the failure this test exists to make someone argue with.
+    for subtree in routes::mount::subtrees() {
+        match subtree.name {
+            "auth" | "deploy" => assert!(
+                subtree.permission.is_none(),
+                "`{}` gained a permission; if that is intended, say why here",
+                subtree.name
+            ),
+            other => panic!("`{other}` is registered and this test has not been told about it"),
+        }
+    }
 }
