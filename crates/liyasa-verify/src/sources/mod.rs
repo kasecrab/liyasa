@@ -17,4 +17,4 @@ pub mod trust;
 pub use impact::{OperationChange, OperationImpact, PathImpact};
 pub use snapshot::{SnapshotLog, StoredSnapshot, ValueDiffer};
 pub use spec::{FactType, SourceSet, SourceSpec};
-pub use trust::{TransportPolicy, trust_of};
+pub use trust::{TransportError, TransportPolicy, trust_of};

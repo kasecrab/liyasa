@@ -14,6 +14,11 @@ use liyasa_core::verify::SourceKind;
 
 use super::spec::{SourceSpec, kind_name};
 
+/// A refusal is a `Diagnostic`, which is wide; boxing it keeps the `Ok` side of
+/// every transport check from carrying that width. The same shape
+/// `liyasa-markdown` uses for `EscapeError`.
+pub type TransportError = Box<Diagnostic>;
+
 /// VER-26's table. `openapi` is the one kind whose trust depends on where the
 /// document came from rather than on the kind alone: fetched over the network
 /// it is external, and read from the repository it is a repository file.
@@ -59,31 +64,33 @@ impl TransportPolicy {
     /// Certificate validation is never switched off anywhere in this crate, so
     /// there is nothing to check for that: the guarantee is that no code asks
     /// for it.
-    pub fn check(&self, spec: &SourceSpec) -> Result<Url, Diagnostic> {
+    pub fn check(&self, spec: &SourceSpec) -> Result<Url, TransportError> {
         let kind = kind_name(spec.kind);
         let id = &spec.id;
         let Some(raw) = spec.url.as_deref() else {
-            return Err(Diagnostic::new(
+            return Err(Box::new(Diagnostic::new(
                 code::E0806,
                 format!("`verify.sources.{id}` is a `{kind}` source with no `url`"),
-            ));
+            )));
         };
         let url = Url::parse(raw).map_err(|why| {
-            Diagnostic::new(
+            Box::new(Diagnostic::new(
                 code::E0806,
                 format!("`verify.sources.{id}.url` is not a URL: {why}"),
-            )
+            ))
         })?;
 
         // TODO(rfc-2033): drop this once `HttpPolicy` can carry a pin.
         if spec.pin.is_some() {
-            return Err(Diagnostic::new(
-                code::E0806,
-                format!(
-                    "certificate pinning is configured for `verify.sources.{id}` and this client cannot verify a pin"
-                ),
-            )
-            .help("remove `pin` to fetch this source without it"));
+            return Err(Box::new(
+                Diagnostic::new(
+                    code::E0806,
+                    format!(
+                        "certificate pinning is configured for `verify.sources.{id}` and this client cannot verify a pin"
+                    ),
+                )
+                .help("remove `pin` to fetch this source without it"),
+            ));
         }
 
         match url.scheme() {
@@ -93,21 +100,23 @@ impl TransportPolicy {
                 if self.allow_insecure_hosts.matches(host) {
                     Ok(url)
                 } else {
-                    Err(Diagnostic::new(
-                        code::E0806,
-                        format!(
-                            "`verify.sources.{id}` is fetched over plain HTTP from `{host}`, which is not in `network.allowInsecureHosts`"
-                        ),
-                    )
-                    .help("use `https`, or add the host to `network.allowInsecureHosts`"))
+                    Err(Box::new(
+                        Diagnostic::new(
+                            code::E0806,
+                            format!(
+                                "`verify.sources.{id}` is fetched over plain HTTP from `{host}`, which is not in `network.allowInsecureHosts`"
+                            ),
+                        )
+                        .help("use `https`, or add the host to `network.allowInsecureHosts`"),
+                    ))
                 }
             }
-            other => Err(Diagnostic::new(
+            other => Err(Box::new(Diagnostic::new(
                 code::E0806,
                 format!(
                     "`verify.sources.{id}` uses the `{other}` scheme, and a fact source is fetched over HTTP"
                 ),
-            )),
+            ))),
         }
     }
 }
