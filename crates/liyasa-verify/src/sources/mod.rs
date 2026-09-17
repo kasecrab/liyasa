@@ -9,8 +9,10 @@
 //! The graph is WP-20a's and the drift records are WP-20c's; this package is
 //! the half between them.
 
+pub mod impact;
 pub mod snapshot;
 pub mod spec;
 
+pub use impact::{OperationChange, OperationImpact, PathImpact};
 pub use snapshot::{SnapshotLog, StoredSnapshot, ValueDiffer};
 pub use spec::{FactType, SourceSet, SourceSpec};
