@@ -244,3 +244,5 @@ E0852 = { severity = "error", crate = "liyasa-server", title = "AI credits are s
 E0853 = { severity = "error", crate = "liyasa-server", title = "This feature is not included in the organization's plan" }
 E0856 = { severity = "error", crate = "liyasa-server", title = "This plan's project limit is reached" }
 E0857 = { severity = "error", crate = "liyasa-server", title = "Project name is not usable as a subdomain label" }
+W0724 = { severity = "warning", crate = "liyasa-build", title = "`regions.detection` reads a header and `server.trustedProxies` trusts no peer, so no region header is honoured" }
+W0725 = { severity = "warning", crate = "liyasa-build", title = "A page, navigation node, block or availability matrix names a region `regions.list` does not declare" }
