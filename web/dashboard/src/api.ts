@@ -11,51 +11,65 @@ import type { Grain, Range } from "./ranges.ts";
 
 export type ServedBy = "wp-14" | "wp-16" | "unbuilt";
 
+/**
+ * Who may call an endpoint.
+ *
+ * All but one are dashboard operations behind a single permission. ANA-02's
+ * event schema is the exception: a collector reads it to validate events
+ * *before* it may post any, so a caller that needs it has no dashboard
+ * credential by definition.
+ */
+export type Auth = "public" | "dashboard-read";
+
 export interface Endpoint {
   id: string;
   method: string;
   path: string;
   requirement: string;
   servedBy: ServedBy;
+  auth: Auth;
 }
 
 export const API_BASE = "/_liyasa/api/v1";
 
 export const ENDPOINTS: Endpoint[] = [
-  { id: "traffic.series", method: "GET", path: `${API_BASE}/analytics/series`, requirement: "ANA-10", servedBy: "unbuilt" },
-  { id: "traffic.totals", method: "GET", path: `${API_BASE}/analytics/totals`, requirement: "ANA-10", servedBy: "unbuilt" },
-  { id: "traffic.pages", method: "GET", path: `${API_BASE}/analytics/pages`, requirement: "ANA-10", servedBy: "unbuilt" },
-  { id: "traffic.referrers", method: "GET", path: `${API_BASE}/analytics/referrers`, requirement: "ANA-10", servedBy: "unbuilt" },
-  { id: "traffic.journeys", method: "GET", path: `${API_BASE}/analytics/journeys`, requirement: "ANA-10", servedBy: "unbuilt" },
-  { id: "traffic.variants", method: "GET", path: `${API_BASE}/analytics/variants`, requirement: "ANA-10", servedBy: "unbuilt" },
-  { id: "traffic.delivery", method: "GET", path: `${API_BASE}/analytics/delivery`, requirement: "ANA-10", servedBy: "unbuilt" },
-  { id: "traffic.horizon", method: "GET", path: `${API_BASE}/analytics/horizon`, requirement: "ANA-06", servedBy: "unbuilt" },
-  { id: "search.queries", method: "GET", path: `${API_BASE}/analytics/search/queries`, requirement: "ANA-20", servedBy: "unbuilt" },
-  { id: "search.pages", method: "GET", path: `${API_BASE}/analytics/search/pages`, requirement: "ANA-20", servedBy: "unbuilt" },
-  { id: "search.trending", method: "GET", path: `${API_BASE}/analytics/search/trending`, requirement: "ANA-20", servedBy: "unbuilt" },
-  { id: "assistant.summary", method: "GET", path: `${API_BASE}/analytics/assistant`, requirement: "ANA-10", servedBy: "unbuilt" },
-  { id: "insights.cards", method: "GET", path: `${API_BASE}/analytics/insights`, requirement: "ANA-40", servedBy: "unbuilt" },
-  { id: "insights.act", method: "POST", path: `${API_BASE}/analytics/insights/act`, requirement: "ANA-40", servedBy: "unbuilt" },
-  { id: "settings.integrations", method: "GET", path: `${API_BASE}/analytics/integrations`, requirement: "ANA-60", servedBy: "unbuilt" },
-  { id: "content.tree", method: "GET", path: `${API_BASE}/content`, requirement: "REST-02", servedBy: "wp-14" },
-  { id: "feedback.list", method: "GET", path: "/_liyasa/feedback", requirement: "ANA-30", servedBy: "wp-14" },
-  { id: "feedback.summary", method: "GET", path: "/_liyasa/feedback/summary", requirement: "ANA-30", servedBy: "wp-14" },
-  { id: "feedback.status", method: "PATCH", path: "/_liyasa/feedback/{id}", requirement: "ANA-30", servedBy: "wp-14" },
-  { id: "jobs.list", method: "GET", path: `${API_BASE}/jobs`, requirement: "HOST-07", servedBy: "wp-14" },
-  { id: "jobs.retry", method: "POST", path: `${API_BASE}/jobs/{id}/retry`, requirement: "HOST-07", servedBy: "wp-14" },
-  { id: "jobs.cancel", method: "POST", path: `${API_BASE}/jobs/{id}/cancel`, requirement: "HOST-07", servedBy: "wp-14" },
-  { id: "deployments.list", method: "GET", path: `${API_BASE}/deployments`, requirement: "REST-01", servedBy: "wp-14" },
-  { id: "deployments.current", method: "GET", path: `${API_BASE}/deployments/{env}`, requirement: "REST-01", servedBy: "wp-14" },
-  { id: "builds.trigger", method: "POST", path: `${API_BASE}/builds`, requirement: "GIT-21", servedBy: "wp-16" },
-  { id: "builds.queue", method: "GET", path: `${API_BASE}/builds`, requirement: "GIT-24", servedBy: "wp-16" },
-  { id: "builds.status", method: "GET", path: `${API_BASE}/builds/{id}`, requirement: "GIT-21", servedBy: "wp-16" },
-  { id: "builds.activate", method: "POST", path: `${API_BASE}/builds/{id}/deploy`, requirement: "GIT-21", servedBy: "wp-16" },
-  { id: "deployments.history", method: "GET", path: `${API_BASE}/deployments/{env}/history`, requirement: "GIT-21", servedBy: "wp-16" },
-  { id: "deployments.retained", method: "GET", path: `${API_BASE}/deployments/{env}/retained`, requirement: "GIT-40", servedBy: "wp-16" },
-  { id: "deployments.rollback", method: "POST", path: `${API_BASE}/deployments/{env}/rollback/{buildId}`, requirement: "GIT-40", servedBy: "wp-16" },
-  { id: "deployments.latest", method: "POST", path: `${API_BASE}/deployments/{env}/latest`, requirement: "GIT-41", servedBy: "wp-16" },
-  { id: "drift.open", method: "GET", path: `${API_BASE}/drift`, requirement: "REST-05", servedBy: "unbuilt" },
-  { id: "proposals.list", method: "GET", path: `${API_BASE}/proposals`, requirement: "REST-02", servedBy: "unbuilt" },
+  // ANA-02 publishes the event schema here; it is the one route that must stay
+  // readable without a dashboard credential.
+  { id: "schema.event", method: "GET", path: "/_liyasa/schema/event.json", requirement: "ANA-02", servedBy: "unbuilt", auth: "public" },
+  { id: "traffic.series", method: "GET", path: `${API_BASE}/analytics/series`, requirement: "ANA-10", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "traffic.totals", method: "GET", path: `${API_BASE}/analytics/totals`, requirement: "ANA-10", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "traffic.pages", method: "GET", path: `${API_BASE}/analytics/pages`, requirement: "ANA-10", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "traffic.referrers", method: "GET", path: `${API_BASE}/analytics/referrers`, requirement: "ANA-10", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "traffic.journeys", method: "GET", path: `${API_BASE}/analytics/journeys`, requirement: "ANA-10", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "traffic.variants", method: "GET", path: `${API_BASE}/analytics/variants`, requirement: "ANA-10", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "traffic.delivery", method: "GET", path: `${API_BASE}/analytics/delivery`, requirement: "ANA-10", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "traffic.horizon", method: "GET", path: `${API_BASE}/analytics/horizon`, requirement: "ANA-06", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "search.queries", method: "GET", path: `${API_BASE}/analytics/search/queries`, requirement: "ANA-20", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "search.pages", method: "GET", path: `${API_BASE}/analytics/search/pages`, requirement: "ANA-20", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "search.trending", method: "GET", path: `${API_BASE}/analytics/search/trending`, requirement: "ANA-20", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "assistant.summary", method: "GET", path: `${API_BASE}/analytics/assistant`, requirement: "ANA-10", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "insights.cards", method: "GET", path: `${API_BASE}/analytics/insights`, requirement: "ANA-40", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "insights.act", method: "POST", path: `${API_BASE}/analytics/insights/act`, requirement: "ANA-40", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "settings.integrations", method: "GET", path: `${API_BASE}/analytics/integrations`, requirement: "ANA-60", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "content.tree", method: "GET", path: `${API_BASE}/content`, requirement: "REST-02", servedBy: "wp-14", auth: "dashboard-read" },
+  { id: "feedback.list", method: "GET", path: "/_liyasa/feedback", requirement: "ANA-30", servedBy: "wp-14", auth: "dashboard-read" },
+  { id: "feedback.summary", method: "GET", path: "/_liyasa/feedback/summary", requirement: "ANA-30", servedBy: "wp-14", auth: "dashboard-read" },
+  { id: "feedback.status", method: "PATCH", path: "/_liyasa/feedback/{id}", requirement: "ANA-30", servedBy: "wp-14", auth: "dashboard-read" },
+  { id: "jobs.list", method: "GET", path: `${API_BASE}/jobs`, requirement: "HOST-07", servedBy: "wp-14", auth: "dashboard-read" },
+  { id: "jobs.retry", method: "POST", path: `${API_BASE}/jobs/{id}/retry`, requirement: "HOST-07", servedBy: "wp-14", auth: "dashboard-read" },
+  { id: "jobs.cancel", method: "POST", path: `${API_BASE}/jobs/{id}/cancel`, requirement: "HOST-07", servedBy: "wp-14", auth: "dashboard-read" },
+  { id: "deployments.list", method: "GET", path: `${API_BASE}/deployments`, requirement: "REST-01", servedBy: "wp-14", auth: "dashboard-read" },
+  { id: "deployments.current", method: "GET", path: `${API_BASE}/deployments/{env}`, requirement: "REST-01", servedBy: "wp-14", auth: "dashboard-read" },
+  { id: "builds.trigger", method: "POST", path: `${API_BASE}/builds`, requirement: "GIT-21", servedBy: "wp-16", auth: "dashboard-read" },
+  { id: "builds.queue", method: "GET", path: `${API_BASE}/builds`, requirement: "GIT-24", servedBy: "wp-16", auth: "dashboard-read" },
+  { id: "builds.status", method: "GET", path: `${API_BASE}/builds/{id}`, requirement: "GIT-21", servedBy: "wp-16", auth: "dashboard-read" },
+  { id: "builds.activate", method: "POST", path: `${API_BASE}/builds/{id}/deploy`, requirement: "GIT-21", servedBy: "wp-16", auth: "dashboard-read" },
+  { id: "deployments.history", method: "GET", path: `${API_BASE}/deployments/{env}/history`, requirement: "GIT-21", servedBy: "wp-16", auth: "dashboard-read" },
+  { id: "deployments.retained", method: "GET", path: `${API_BASE}/deployments/{env}/retained`, requirement: "GIT-40", servedBy: "wp-16", auth: "dashboard-read" },
+  { id: "deployments.rollback", method: "POST", path: `${API_BASE}/deployments/{env}/rollback/{buildId}`, requirement: "GIT-40", servedBy: "wp-16", auth: "dashboard-read" },
+  { id: "deployments.latest", method: "POST", path: `${API_BASE}/deployments/{env}/latest`, requirement: "GIT-41", servedBy: "wp-16", auth: "dashboard-read" },
+  { id: "drift.open", method: "GET", path: `${API_BASE}/drift`, requirement: "REST-05", servedBy: "unbuilt", auth: "dashboard-read" },
+  { id: "proposals.list", method: "GET", path: `${API_BASE}/proposals`, requirement: "REST-02", servedBy: "unbuilt", auth: "dashboard-read" },
 ];
 
 export function findEndpoint(id: string): Endpoint | undefined {

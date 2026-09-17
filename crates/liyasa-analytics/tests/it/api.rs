@@ -5,7 +5,7 @@
 //! the routes, this one owns the caller, and neither compiles against the
 //! other.
 
-use liyasa_analytics::api::{self, ServedBy};
+use liyasa_analytics::api::{self, Auth, ServedBy};
 use serde_json::Value;
 
 fn fixture() -> Value {
@@ -122,7 +122,49 @@ fn the_analytics_reads_have_no_handler_and_the_list_says_so() {
         !unbuilt.contains(&"jobs.list"),
         "the job endpoints are merged and must not be reported as missing"
     );
-    assert_eq!(unbuilt.len(), 17);
+    assert_eq!(unbuilt.len(), 18);
+}
+
+#[test]
+fn the_published_schema_is_the_one_route_that_cannot_need_a_credential() {
+    // ANA-02: a collector and a browser client validate their events against
+    // this document BEFORE they are allowed to post any, so a caller that
+    // reaches it has no dashboard credential by definition. A subtree that
+    // applies one permission to everything it mounts cannot host it alongside
+    // the rest, which is why `auth` is a field the mount can read.
+    let schema = api::endpoint("schema.event").expect("ANA-02 publishes a schema");
+    assert_eq!(schema.path, liyasa_analytics::schema::PATH);
+    assert_eq!(schema.method, "GET");
+    assert_eq!(schema.auth, Auth::Public);
+
+    let public: Vec<&str> = api::behind(Auth::Public).map(|e| e.id).collect();
+    assert_eq!(
+        public,
+        ["schema.event"],
+        "every other endpoint is a dashboard operation and must stay gated"
+    );
+    assert_eq!(
+        api::behind(Auth::DashboardRead).count(),
+        api::ENDPOINTS.len() - 1
+    );
+}
+
+#[test]
+fn every_endpoint_the_dashboard_reads_is_gated() {
+    // The inverse of the test above, and the one that would catch a new row
+    // pasted in with the wrong `auth`: nothing that reads a reader's traffic,
+    // a search query or a feedback comment may be public.
+    for endpoint in api::ENDPOINTS {
+        if endpoint.id == "schema.event" {
+            continue;
+        }
+        assert_eq!(
+            endpoint.auth,
+            Auth::DashboardRead,
+            "{} is public and reads analytics",
+            endpoint.id
+        );
+    }
 }
 
 #[test]

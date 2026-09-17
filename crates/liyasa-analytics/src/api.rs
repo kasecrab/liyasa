@@ -30,6 +30,24 @@ pub enum ServedBy {
     Unbuilt,
 }
 
+/// Who may call an endpoint.
+///
+/// Sixteen reads and one write are dashboard operations and sit behind one
+/// permission. The published event schema does not: it is the document a
+/// collector and a browser client validate their events against *before* they
+/// are allowed to post any, so a caller that reaches it by definition has no
+/// dashboard credential. A subtree that applies one permission to everything
+/// it mounts cannot host both, which is why this is a field rather than a
+/// sentence in a comment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Auth {
+    /// No credential. Readable by anyone who can reach the host.
+    Public,
+    /// `Permission::DashboardRead` in `liyasa-server`'s role table.
+    DashboardRead,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Endpoint {
@@ -39,15 +57,27 @@ pub struct Endpoint {
     pub path: &'static str,
     pub requirement: &'static str,
     pub served_by: ServedBy,
+    pub auth: Auth,
 }
 
 pub const ENDPOINTS: &[Endpoint] = &[
+    // ANA-02 publishes the event schema here. It is the one route that must
+    // stay readable without a dashboard credential.
+    Endpoint {
+        id: "schema.event",
+        method: "GET",
+        path: "/_liyasa/schema/event.json",
+        requirement: "ANA-02",
+        served_by: ServedBy::Unbuilt,
+        auth: Auth::Public,
+    },
     Endpoint {
         id: "traffic.series",
         method: "GET",
         path: "/_liyasa/api/v1/analytics/series",
         requirement: "ANA-10",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "traffic.totals",
@@ -55,6 +85,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/totals",
         requirement: "ANA-10",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "traffic.pages",
@@ -62,6 +93,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/pages",
         requirement: "ANA-10",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "traffic.referrers",
@@ -69,6 +101,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/referrers",
         requirement: "ANA-10",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "traffic.journeys",
@@ -76,6 +109,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/journeys",
         requirement: "ANA-10",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "traffic.variants",
@@ -83,6 +117,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/variants",
         requirement: "ANA-10",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "traffic.delivery",
@@ -90,6 +125,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/delivery",
         requirement: "ANA-10",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "traffic.horizon",
@@ -97,6 +133,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/horizon",
         requirement: "ANA-06",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "search.queries",
@@ -104,6 +141,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/search/queries",
         requirement: "ANA-20",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "search.pages",
@@ -111,6 +149,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/search/pages",
         requirement: "ANA-20",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "search.trending",
@@ -118,6 +157,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/search/trending",
         requirement: "ANA-20",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "assistant.summary",
@@ -125,6 +165,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/assistant",
         requirement: "ANA-10",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "insights.cards",
@@ -132,6 +173,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/insights",
         requirement: "ANA-40",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "insights.act",
@@ -139,6 +181,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/insights/act",
         requirement: "ANA-40",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "settings.integrations",
@@ -146,6 +189,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/analytics/integrations",
         requirement: "ANA-60",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "content.tree",
@@ -153,6 +197,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/content",
         requirement: "REST-02",
         served_by: ServedBy::Wp14,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "feedback.list",
@@ -160,6 +205,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/feedback",
         requirement: "ANA-30",
         served_by: ServedBy::Wp14,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "feedback.summary",
@@ -167,6 +213,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/feedback/summary",
         requirement: "ANA-30",
         served_by: ServedBy::Wp14,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "feedback.status",
@@ -174,6 +221,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/feedback/{id}",
         requirement: "ANA-30",
         served_by: ServedBy::Wp14,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "jobs.list",
@@ -181,6 +229,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/jobs",
         requirement: "HOST-07",
         served_by: ServedBy::Wp14,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "jobs.retry",
@@ -188,6 +237,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/jobs/{id}/retry",
         requirement: "HOST-07",
         served_by: ServedBy::Wp14,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "jobs.cancel",
@@ -195,6 +245,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/jobs/{id}/cancel",
         requirement: "HOST-07",
         served_by: ServedBy::Wp14,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "deployments.list",
@@ -202,6 +253,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/deployments",
         requirement: "REST-01",
         served_by: ServedBy::Wp14,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "deployments.current",
@@ -209,6 +261,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/deployments/{env}",
         requirement: "REST-01",
         served_by: ServedBy::Wp14,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "builds.trigger",
@@ -216,6 +269,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/builds",
         requirement: "GIT-21",
         served_by: ServedBy::Wp16,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "builds.queue",
@@ -223,6 +277,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/builds",
         requirement: "GIT-24",
         served_by: ServedBy::Wp16,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "builds.status",
@@ -230,6 +285,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/builds/{id}",
         requirement: "GIT-21",
         served_by: ServedBy::Wp16,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "builds.activate",
@@ -237,6 +293,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/builds/{id}/deploy",
         requirement: "GIT-21",
         served_by: ServedBy::Wp16,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "deployments.history",
@@ -244,6 +301,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/deployments/{env}/history",
         requirement: "GIT-21",
         served_by: ServedBy::Wp16,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "deployments.retained",
@@ -251,6 +309,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/deployments/{env}/retained",
         requirement: "GIT-40",
         served_by: ServedBy::Wp16,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "deployments.rollback",
@@ -258,6 +317,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/deployments/{env}/rollback/{buildId}",
         requirement: "GIT-40",
         served_by: ServedBy::Wp16,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "deployments.latest",
@@ -265,6 +325,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/deployments/{env}/latest",
         requirement: "GIT-41",
         served_by: ServedBy::Wp16,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "drift.open",
@@ -272,6 +333,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/drift",
         requirement: "REST-05",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
     Endpoint {
         id: "proposals.list",
@@ -279,6 +341,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         path: "/_liyasa/api/v1/proposals",
         requirement: "REST-02",
         served_by: ServedBy::Unbuilt,
+        auth: Auth::DashboardRead,
     },
 ];
 
@@ -292,4 +355,9 @@ pub fn unbuilt() -> impl Iterator<Item = &'static Endpoint> {
     ENDPOINTS
         .iter()
         .filter(|e| e.served_by == ServedBy::Unbuilt)
+}
+
+/// The endpoints one subtree may mount behind a single permission.
+pub fn behind(auth: Auth) -> impl Iterator<Item = &'static Endpoint> {
+    ENDPOINTS.iter().filter(move |e| e.auth == auth)
 }

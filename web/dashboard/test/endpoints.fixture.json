@@ -1,40 +1,286 @@
 {
-  "note": "Every HTTP call the dashboard makes. crates/liyasa-analytics/tests/it/api.rs holds the Rust list to this file and web/dashboard/test/api.test.ts holds the TypeScript client to it, so a path that exists on one side only is a test failure rather than a 404 nobody sees until the page is open.",
+  "note": "Every HTTP call the dashboard makes, plus the one document it does not: ANA-02's event schema, which a collector reads before it is allowed to post anything and which therefore cannot sit behind a dashboard permission. crates/liyasa-analytics/tests/it/api.rs holds the Rust list to this file and web/dashboard/test/api.test.ts holds the TypeScript client to it, so a path that exists on one side only is a test failure rather than a 404 nobody sees until the page is open.",
   "base": "/_liyasa/api/v1",
   "endpoints": [
-    { "id": "traffic.series", "method": "GET", "path": "/_liyasa/api/v1/analytics/series", "requirement": "ANA-10", "servedBy": "unbuilt" },
-    { "id": "traffic.totals", "method": "GET", "path": "/_liyasa/api/v1/analytics/totals", "requirement": "ANA-10", "servedBy": "unbuilt" },
-    { "id": "traffic.pages", "method": "GET", "path": "/_liyasa/api/v1/analytics/pages", "requirement": "ANA-10", "servedBy": "unbuilt" },
-    { "id": "traffic.referrers", "method": "GET", "path": "/_liyasa/api/v1/analytics/referrers", "requirement": "ANA-10", "servedBy": "unbuilt" },
-    { "id": "traffic.journeys", "method": "GET", "path": "/_liyasa/api/v1/analytics/journeys", "requirement": "ANA-10", "servedBy": "unbuilt" },
-    { "id": "traffic.variants", "method": "GET", "path": "/_liyasa/api/v1/analytics/variants", "requirement": "ANA-10", "servedBy": "unbuilt" },
-    { "id": "traffic.delivery", "method": "GET", "path": "/_liyasa/api/v1/analytics/delivery", "requirement": "ANA-10", "servedBy": "unbuilt" },
-    { "id": "traffic.horizon", "method": "GET", "path": "/_liyasa/api/v1/analytics/horizon", "requirement": "ANA-06", "servedBy": "unbuilt" },
-    { "id": "search.queries", "method": "GET", "path": "/_liyasa/api/v1/analytics/search/queries", "requirement": "ANA-20", "servedBy": "unbuilt" },
-    { "id": "search.pages", "method": "GET", "path": "/_liyasa/api/v1/analytics/search/pages", "requirement": "ANA-20", "servedBy": "unbuilt" },
-    { "id": "search.trending", "method": "GET", "path": "/_liyasa/api/v1/analytics/search/trending", "requirement": "ANA-20", "servedBy": "unbuilt" },
-    { "id": "assistant.summary", "method": "GET", "path": "/_liyasa/api/v1/analytics/assistant", "requirement": "ANA-10", "servedBy": "unbuilt" },
-    { "id": "insights.cards", "method": "GET", "path": "/_liyasa/api/v1/analytics/insights", "requirement": "ANA-40", "servedBy": "unbuilt" },
-    { "id": "insights.act", "method": "POST", "path": "/_liyasa/api/v1/analytics/insights/act", "requirement": "ANA-40", "servedBy": "unbuilt" },
-    { "id": "settings.integrations", "method": "GET", "path": "/_liyasa/api/v1/analytics/integrations", "requirement": "ANA-60", "servedBy": "unbuilt" },
-    { "id": "content.tree", "method": "GET", "path": "/_liyasa/api/v1/content", "requirement": "REST-02", "servedBy": "wp-14" },
-    { "id": "feedback.list", "method": "GET", "path": "/_liyasa/feedback", "requirement": "ANA-30", "servedBy": "wp-14" },
-    { "id": "feedback.summary", "method": "GET", "path": "/_liyasa/feedback/summary", "requirement": "ANA-30", "servedBy": "wp-14" },
-    { "id": "feedback.status", "method": "PATCH", "path": "/_liyasa/feedback/{id}", "requirement": "ANA-30", "servedBy": "wp-14" },
-    { "id": "jobs.list", "method": "GET", "path": "/_liyasa/api/v1/jobs", "requirement": "HOST-07", "servedBy": "wp-14" },
-    { "id": "jobs.retry", "method": "POST", "path": "/_liyasa/api/v1/jobs/{id}/retry", "requirement": "HOST-07", "servedBy": "wp-14" },
-    { "id": "jobs.cancel", "method": "POST", "path": "/_liyasa/api/v1/jobs/{id}/cancel", "requirement": "HOST-07", "servedBy": "wp-14" },
-    { "id": "deployments.list", "method": "GET", "path": "/_liyasa/api/v1/deployments", "requirement": "REST-01", "servedBy": "wp-14" },
-    { "id": "deployments.current", "method": "GET", "path": "/_liyasa/api/v1/deployments/{env}", "requirement": "REST-01", "servedBy": "wp-14" },
-    { "id": "builds.trigger", "method": "POST", "path": "/_liyasa/api/v1/builds", "requirement": "GIT-21", "servedBy": "wp-16" },
-    { "id": "builds.queue", "method": "GET", "path": "/_liyasa/api/v1/builds", "requirement": "GIT-24", "servedBy": "wp-16" },
-    { "id": "builds.status", "method": "GET", "path": "/_liyasa/api/v1/builds/{id}", "requirement": "GIT-21", "servedBy": "wp-16" },
-    { "id": "builds.activate", "method": "POST", "path": "/_liyasa/api/v1/builds/{id}/deploy", "requirement": "GIT-21", "servedBy": "wp-16" },
-    { "id": "deployments.history", "method": "GET", "path": "/_liyasa/api/v1/deployments/{env}/history", "requirement": "GIT-21", "servedBy": "wp-16" },
-    { "id": "deployments.retained", "method": "GET", "path": "/_liyasa/api/v1/deployments/{env}/retained", "requirement": "GIT-40", "servedBy": "wp-16" },
-    { "id": "deployments.rollback", "method": "POST", "path": "/_liyasa/api/v1/deployments/{env}/rollback/{buildId}", "requirement": "GIT-40", "servedBy": "wp-16" },
-    { "id": "deployments.latest", "method": "POST", "path": "/_liyasa/api/v1/deployments/{env}/latest", "requirement": "GIT-41", "servedBy": "wp-16" },
-    { "id": "drift.open", "method": "GET", "path": "/_liyasa/api/v1/drift", "requirement": "REST-05", "servedBy": "unbuilt" },
-    { "id": "proposals.list", "method": "GET", "path": "/_liyasa/api/v1/proposals", "requirement": "REST-02", "servedBy": "unbuilt" }
+    {
+      "id": "schema.event",
+      "method": "GET",
+      "path": "/_liyasa/schema/event.json",
+      "requirement": "ANA-02",
+      "servedBy": "unbuilt",
+      "auth": "public"
+    },
+    {
+      "id": "traffic.series",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/series",
+      "requirement": "ANA-10",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "traffic.totals",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/totals",
+      "requirement": "ANA-10",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "traffic.pages",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/pages",
+      "requirement": "ANA-10",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "traffic.referrers",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/referrers",
+      "requirement": "ANA-10",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "traffic.journeys",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/journeys",
+      "requirement": "ANA-10",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "traffic.variants",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/variants",
+      "requirement": "ANA-10",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "traffic.delivery",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/delivery",
+      "requirement": "ANA-10",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "traffic.horizon",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/horizon",
+      "requirement": "ANA-06",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "search.queries",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/search/queries",
+      "requirement": "ANA-20",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "search.pages",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/search/pages",
+      "requirement": "ANA-20",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "search.trending",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/search/trending",
+      "requirement": "ANA-20",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "assistant.summary",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/assistant",
+      "requirement": "ANA-10",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "insights.cards",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/insights",
+      "requirement": "ANA-40",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "insights.act",
+      "method": "POST",
+      "path": "/_liyasa/api/v1/analytics/insights/act",
+      "requirement": "ANA-40",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "settings.integrations",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/analytics/integrations",
+      "requirement": "ANA-60",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "content.tree",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/content",
+      "requirement": "REST-02",
+      "servedBy": "wp-14",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "feedback.list",
+      "method": "GET",
+      "path": "/_liyasa/feedback",
+      "requirement": "ANA-30",
+      "servedBy": "wp-14",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "feedback.summary",
+      "method": "GET",
+      "path": "/_liyasa/feedback/summary",
+      "requirement": "ANA-30",
+      "servedBy": "wp-14",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "feedback.status",
+      "method": "PATCH",
+      "path": "/_liyasa/feedback/{id}",
+      "requirement": "ANA-30",
+      "servedBy": "wp-14",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "jobs.list",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/jobs",
+      "requirement": "HOST-07",
+      "servedBy": "wp-14",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "jobs.retry",
+      "method": "POST",
+      "path": "/_liyasa/api/v1/jobs/{id}/retry",
+      "requirement": "HOST-07",
+      "servedBy": "wp-14",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "jobs.cancel",
+      "method": "POST",
+      "path": "/_liyasa/api/v1/jobs/{id}/cancel",
+      "requirement": "HOST-07",
+      "servedBy": "wp-14",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "deployments.list",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/deployments",
+      "requirement": "REST-01",
+      "servedBy": "wp-14",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "deployments.current",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/deployments/{env}",
+      "requirement": "REST-01",
+      "servedBy": "wp-14",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "builds.trigger",
+      "method": "POST",
+      "path": "/_liyasa/api/v1/builds",
+      "requirement": "GIT-21",
+      "servedBy": "wp-16",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "builds.queue",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/builds",
+      "requirement": "GIT-24",
+      "servedBy": "wp-16",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "builds.status",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/builds/{id}",
+      "requirement": "GIT-21",
+      "servedBy": "wp-16",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "builds.activate",
+      "method": "POST",
+      "path": "/_liyasa/api/v1/builds/{id}/deploy",
+      "requirement": "GIT-21",
+      "servedBy": "wp-16",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "deployments.history",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/deployments/{env}/history",
+      "requirement": "GIT-21",
+      "servedBy": "wp-16",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "deployments.retained",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/deployments/{env}/retained",
+      "requirement": "GIT-40",
+      "servedBy": "wp-16",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "deployments.rollback",
+      "method": "POST",
+      "path": "/_liyasa/api/v1/deployments/{env}/rollback/{buildId}",
+      "requirement": "GIT-40",
+      "servedBy": "wp-16",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "deployments.latest",
+      "method": "POST",
+      "path": "/_liyasa/api/v1/deployments/{env}/latest",
+      "requirement": "GIT-41",
+      "servedBy": "wp-16",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "drift.open",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/drift",
+      "requirement": "REST-05",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    },
+    {
+      "id": "proposals.list",
+      "method": "GET",
+      "path": "/_liyasa/api/v1/proposals",
+      "requirement": "REST-02",
+      "servedBy": "unbuilt",
+      "auth": "dashboard-read"
+    }
   ]
 }

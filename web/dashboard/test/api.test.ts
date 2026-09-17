@@ -95,6 +95,14 @@ test("a network failure becomes a problem too", async () => {
   if (!result.ok) assert.equal(result.problem.status, 0);
 });
 
+test("ANA-02's schema is listed and is the only public route", () => {
+  const schema = findEndpoint("schema.event");
+  assert.equal(schema?.path, "/_liyasa/schema/event.json");
+  assert.equal(schema?.auth, "public");
+  const publicOnes = ENDPOINTS.filter((e) => e.auth === "public").map((e) => e.id);
+  assert.deepEqual(publicOnes, ["schema.event"]);
+});
+
 test("every endpoint the fixture calls unbuilt is really unbuilt here", () => {
   for (const endpoint of fixture.endpoints) {
     assert.equal(findEndpoint(endpoint.id)?.servedBy, endpoint.servedBy, endpoint.id);
