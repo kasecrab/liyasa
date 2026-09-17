@@ -38,6 +38,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0017`](/errors/W0017) | Warning | Remote OpenAPI source was not checked; this build has no network client |
 | [`W0018`](/errors/W0018) | Warning | External links were not checked; this build has no network client |
 | [`W0019`](/errors/W0019) | Warning | A verification check class could not run in this build |
+| [`W0020`](/errors/W0020) | Warning | Form control has no accessible name |
 
 ## Configuration
 

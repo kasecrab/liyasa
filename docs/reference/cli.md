@@ -51,6 +51,7 @@ Build the site into the output directory
 | Flag | Value | Default | Environment | What it does |
 |---|---|---|---|---|
 | `--base-path` | `<PATH>` | — | `LIYASA_BASE_PATH` | Serve the site from this path prefix |
+| `--build-time` | `<WHEN>` | — | `LIYASA_BUILD_TIME` | Date this build from a fixed instant, so two builds of the same inputs agree (§6.6.2). A Unix timestamp or an RFC 3339 date.  `SOURCE_DATE_EPOCH` wins over it, and a git commit is used when neither is given. |
 | `--check-determinism` | — | — | — | Build twice and report any file that differed (E0706) |
 | `--clean` | — | — | — | Empty the output directory and the cache first |
 | `--drafts` | — | — | `LIYASA_DRAFTS` | Include pages marked `draft: true` |
@@ -244,6 +245,7 @@ Run accessibility, performance, and agent-readiness tests
 | `--output` | `<DIR>` | — | `LIYASA_OUTPUT` | The built site to test. Defaults to the configured output directory |
 | `--perf` | — | — | — | Lighthouse budgets. Needs the companion runtime |
 | `--search` | — | — | — | The search assertions in `tests/search.toml` |
+| `--urls` | `<URL>` | — | — | Score exactly these pages instead of sampling the site (§25). A route (`/guide/install`) or an absolute URL on this site's origin. Repeat the flag or separate with commas.  Explicitly selected pages are scored as given regardless of how few there are, where a sample of under five is not. |
 
 ### `liyasa theme`
 
@@ -289,6 +291,7 @@ Check configuration, content, links, and specs
 | `--links` | — | — | — | Shorthand for `--only links` |
 | `--only` | `<SUBSET>` | — | — | Run only these checks. Repeat or comma-separate.  TODO(rfc-0901): CLI-04 spells the third subset `--config`, which is CLI-34's global flag for the configuration path. |
 | `--openapi` | — | — | — | Shorthand for `--only openapi` |
+| `--personalization` | — | — | — | Also list the pages that are rendered on demand rather than written as files (§6.6.4), so they can be kept few |
 | `--strict` | — | — | `LIYASA_STRICT` | Treat warnings as errors |
 
 ### `liyasa verify`
