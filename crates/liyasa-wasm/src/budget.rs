@@ -15,17 +15,11 @@
 //! environment. `plan/rfcs/2400-wasm-budget-check.md` records why it is split
 //! that way.
 //!
-//! ```sh
-//! LIYASA_WASM_SIZE=1 cargo test -p liyasa-wasm budget
-//! ```
-//!
-//! That test clears `RUSTFLAGS` for the build it runs. `bin/buildenv` puts
-//! `-C link-arg=-fuse-ld=mold` there and this target links with `rust-lld`,
-//! which refuses the flag. Building the module by hand needs the same:
-//!
-//! ```sh
-//! RUSTFLAGS= cargo build -p liyasa-wasm --target wasm32-unknown-unknown --release
-//! ```
+//! That test clears `RUSTFLAGS` for the build it runs, because `bin/buildenv`
+//! puts `-C link-arg=-fuse-ld=mold` there and this target links with
+//! `rust-lld`, which refuses the flag. Building the module by hand needs the
+//! same; `tests/it/budget.rs` carries the invocation, beside the test that
+//! uses it.
 
 /// The compressed size the core module must stay under.
 pub const CORE_MODULE_LIMIT: u64 = 3 * 1024 * 1024;

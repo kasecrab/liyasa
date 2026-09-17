@@ -13,6 +13,18 @@ use liyasa_wasm::budget::{CORE_MODULE_LIMIT, EXCLUDED, LAST_MEASURED_COMPRESSED}
 const TARGET: &str = "wasm32-unknown-unknown";
 const SIZE_ENV: &str = "LIYASA_WASM_SIZE";
 
+// Taking the measurement, and building the module by hand. Plain comments
+// rather than rustdoc: `xtask`'s flag audit reads every doc comment under
+// `crates/` and holds it to the `liyasa` CLI's own flags, and these are cargo's.
+//
+//     LIYASA_WASM_SIZE=1 cargo test -p liyasa-wasm budget
+//     RUSTFLAGS= cargo build -p liyasa-wasm --target wasm32-unknown-unknown --release
+//
+// `RUSTFLAGS=` is not optional: `bin/buildenv` exports
+// `-C link-arg=-fuse-ld=mold` and `rust-lld`, which links this target, answers
+// `unknown argument: -fuse-ld=mold`. An rlib needs no linker, so it is only the
+// `cdylib` that fails and only once you ask for the artefact.
+
 fn root() -> PathBuf {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest
