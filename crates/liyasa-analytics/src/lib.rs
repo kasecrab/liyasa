@@ -14,7 +14,9 @@
 
 pub mod actions;
 pub mod agents;
+pub mod digest;
 pub mod feedback;
+pub mod insights;
 pub mod integrations;
 pub mod privacy;
 pub mod props;

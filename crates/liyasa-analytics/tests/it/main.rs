@@ -6,6 +6,7 @@ mod support;
 mod actions;
 mod agents;
 mod feedback;
+mod insights;
 mod integrations;
 mod schema;
 mod retention;

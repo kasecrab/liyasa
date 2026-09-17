@@ -173,6 +173,36 @@ pub fn parse_rfc3339_ms(text: &str) -> Option<i64> {
     Some(seconds * 1_000 + millis)
 }
 
+/// `YYYY-MM-DD` for an instant in milliseconds, in UTC.
+///
+/// The inverse of [`days_from_civil`], and the only date formatting in the
+/// workspace: §6.2.1 has no date crate, and a digest that says "week of
+/// 1789344000000" is not a digest.
+pub fn format_date_ms(ms: i64) -> String {
+    let days = ms.div_euclid(crate::query::DAY_MS);
+    let (year, month, day) = civil_from_days(days);
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
+/// A proleptic Gregorian date from days since `1970-01-01` (Hinnant).
+pub fn civil_from_days(days: i64) -> (i64, u32, u32) {
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let day_of_era = z - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_position = (5 * day_of_year + 2) / 153;
+    let day = (day_of_year - (153 * month_position + 2) / 5 + 1) as u32;
+    let month = if month_position < 10 {
+        month_position + 3
+    } else {
+        month_position - 9
+    } as u32;
+    (if month <= 2 { year + 1 } else { year }, month, day)
+}
+
 /// Days between `1970-01-01` and a proleptic Gregorian date (Hinnant).
 fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
     let year = if month <= 2 { year - 1 } else { year };
