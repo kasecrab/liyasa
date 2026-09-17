@@ -23,5 +23,7 @@ pub mod clock;
 pub mod config;
 pub mod cookie;
 pub mod random;
+pub mod roles;
 
 pub use config::{AuthConfig, Mode};
+pub use roles::{Grant, Permission, Role};
