@@ -1488,19 +1488,23 @@
       "properties": {
         "enabled": {
           "type": "boolean",
+          "description": "Serve region-specific content at all.",
           "default": false
         },
         "list": {
           "type": "array",
+          "description": "The regions this site has content for.",
           "items": {
             "type": "string"
           }
         },
         "default": {
-          "type": "string"
+          "type": "string",
+          "description": "The region a reader is served when none can be determined."
         },
         "detection": {
           "type": "array",
+          "description": "How a reader's region is decided, in order: from their identity, from a request header, or from a choice they made.",
           "items": {
             "type": "string",
             "enum": [
@@ -1511,10 +1515,12 @@
           }
         },
         "header": {
-          "type": "string"
+          "type": "string",
+          "description": "The request header a region is read from, such as `CF-IPCountry`. It is only trusted from a peer in `server.trustedProxies`."
         },
         "availability": {
-          "type": "string"
+          "type": "string",
+          "description": "A facts file saying which features exist in which region, so a page can say so without hard-coding it."
         }
       },
       "additionalProperties": false,
@@ -1664,15 +1670,19 @@
       "properties": {
         "llms": {
           "type": "object",
+          "description": "The `llms.txt` index an agent reads to find its way around the site.",
           "properties": {
             "custom": {
-              "type": "string"
+              "type": "string",
+              "description": "A file of your own to publish as `llms.txt` instead of the generated index."
             },
             "full": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Also publish `llms-full.txt`, the whole site as one document, for an agent that would rather read everything than navigate."
             },
             "split": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Split `llms-full.txt` into several files when one would be larger than the size limit."
             },
             "fullMaxBytes": {
               "type": "string",
@@ -1684,24 +1694,30 @@
         },
         "markdown": {
           "type": "object",
+          "description": "The Markdown twin of each page, which is what an agent is served when it asks for the page as text.",
           "properties": {
             "includeOpenApiSchema": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Include the schema of an endpoint's request and response in the Markdown twin of its page."
             },
             "instructions": {
-              "type": "string"
+              "type": "string",
+              "description": "A line of guidance prepended to every Markdown twin, for whatever an agent should know before reading the site."
             }
           },
           "additionalProperties": false
         },
         "skill": {
           "type": "object",
+          "description": "The agent skill this site publishes about itself.",
           "properties": {
             "enabled": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Publish the skill."
             },
             "files": {
               "type": "array",
+              "description": "The files that make up the skill.",
               "items": {
                 "type": "string"
               }
@@ -1711,21 +1727,26 @@
         },
         "mcp": {
           "type": "object",
+          "description": "The MCP server this site publishes, so an agent can search and read it through a tool rather than by crawling.",
           "properties": {
             "enabled": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Publish the MCP server."
             },
             "name": {
-              "type": "string"
+              "type": "string",
+              "description": "The server's name as an agent sees it."
             },
             "description": {
-              "type": "string"
+              "type": "string",
+              "description": "What the server says it is for, which is how an agent decides to use it."
             },
             "discoveryVersion": {
               "type": "string"
             },
             "external": {
               "type": "array",
+              "description": "Other MCP servers to advertise alongside this one. A trust-plane key: an untrusted build reads it from the deploy branch, never from the branch being built.",
               "items": {}
             }
           },
@@ -2071,6 +2092,7 @@
       "properties": {
         "models": {
           "type": "object",
+          "description": "Which model answers each kind of request, written as `provider:model`.",
           "properties": {
             "assistant": {
               "type": "string",
@@ -2097,48 +2119,59 @@
         },
         "providers": {
           "type": "object",
+          "description": "Per-provider settings. Keys and secrets are never in this file; they live in the secret store.",
           "properties": {
             "openai": {
               "type": "object",
+              "description": "OpenAI, or anything that speaks its API.",
               "properties": {
                 "baseUrl": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Where to reach the API, for a proxy or a compatible service."
                 }
               },
               "additionalProperties": false
             },
             "anthropic": {
               "type": "object",
+              "description": "Anthropic.",
               "properties": {
                 "baseUrl": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Where to reach the API, for a proxy or a compatible service."
                 }
               },
               "additionalProperties": false
             },
             "google": {
               "type": "object",
+              "description": "Google.",
               "properties": {
                 "baseUrl": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Where to reach the API, for a proxy or a compatible service."
                 }
               },
               "additionalProperties": false
             },
             "ollama": {
               "type": "object",
+              "description": "A local Ollama.",
               "properties": {
                 "baseUrl": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Where the Ollama instance is listening."
                 }
               },
               "additionalProperties": false
             },
             "bedrock": {
               "type": "object",
+              "description": "Amazon Bedrock.",
               "properties": {
                 "region": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "The AWS region to call Bedrock in."
                 }
               },
               "additionalProperties": false
@@ -2148,12 +2181,15 @@
         },
         "assistant": {
           "type": "object",
+          "description": "The assistant a reader can ask questions of.",
           "properties": {
             "enabled": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Offer the assistant to readers."
             },
             "instructions": {
-              "type": "string"
+              "type": "string",
+              "description": "Standing instructions the assistant follows on this site, such as what to recommend and what to refuse."
             }
           },
           "additionalProperties": true
@@ -2164,21 +2200,26 @@
         },
         "agent": {
           "type": "object",
+          "description": "The agent that proposes edits to the documentation itself.",
           "properties": {
             "limits": {
               "type": "object",
+              "description": "How large a change the agent may propose in one go.",
               "properties": {
                 "maxFilesChanged": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "Most files one proposal may touch."
                 },
                 "maxLinesChanged": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "Most lines one proposal may change."
                 }
               },
               "additionalProperties": false
             },
             "contextRepos": {
               "type": "array",
+              "description": "Repositories the agent may read for context while it works.",
               "items": {}
             }
           },
@@ -2186,9 +2227,11 @@
         },
         "reindex": {
           "type": "object",
+          "description": "Reindexing the site for the assistant, which costs money each time.",
           "properties": {
             "autoApproveCents": {
               "type": "integer",
+              "description": "How much a reindex may cost, in cents, before someone has to approve it.",
               "default": 500
             }
           },
@@ -2196,6 +2239,7 @@
         },
         "includePersonalized": {
           "type": "string",
+          "description": "What the assistant does with content written for one reader: `neutral` answers from the version nobody is personalized into, `exclude` leaves that content out of its index entirely.",
           "enum": [
             "neutral",
             "exclude"
@@ -2203,6 +2247,7 @@
         },
         "respectNoindex": {
           "type": "boolean",
+          "description": "Keep pages marked `noindex` out of the assistant's index too, not only out of search engines'.",
           "default": true
         }
       },
@@ -2215,6 +2260,7 @@
       "properties": {
         "enabled": {
           "type": "boolean",
+          "description": "Collect analytics at all.",
           "default": true
         },
         "collector": {
@@ -2230,6 +2276,7 @@
         },
         "rawSink": {
           "type": "string",
+          "description": "Where raw events are written before they are aggregated.",
           "enum": [
             "database",
             "files"
@@ -2237,13 +2284,16 @@
         },
         "retention": {
           "type": "object",
+          "description": "How long analytics are kept.",
           "properties": {
             "rawDays": {
               "type": "integer",
+              "description": "Days of raw events to keep before they are dropped.",
               "default": 90
             },
             "aggregateMonths": {
               "type": "integer",
+              "description": "Months of aggregates to keep, which is what the dashboards read.",
               "default": 13
             }
           },
@@ -2251,10 +2301,12 @@
         },
         "identityLinkage": {
           "type": "boolean",
+          "description": "Link a reader's events to their identity when they are signed in. Off, every event is anonymous.",
           "default": true
         },
         "botList": {
           "type": "string",
+          "description": "Which list of bot user agents is filtered out of the numbers.",
           "default": "builtin"
         }
       },
@@ -2267,22 +2319,27 @@
       "properties": {
         "untrustedRunsPerDay": {
           "type": "integer",
+          "description": "How many automation runs a day an untrusted source may cause.",
           "default": 20
         },
         "untrustedTokensPerDay": {
           "type": "integer",
+          "description": "How many model tokens a day untrusted runs may spend in total.",
           "default": 500000
         },
         "untrustedCostCentsPerDay": {
           "type": "integer",
+          "description": "How much untrusted runs may cost a day, in cents.",
           "default": 500
         },
         "perSourceHourly": {
           "type": "integer",
+          "description": "How many runs a single source may cause in an hour, so one noisy source cannot use the whole day's budget.",
           "default": 1
         },
         "definitions": {
           "type": "string",
+          "description": "Directory the automation definitions are read from. A trust-plane path: an untrusted build reads it from the deploy branch.",
           "default": "automations/"
         }
       },
@@ -2296,19 +2353,23 @@
         "type": "object",
         "properties": {
           "repo": {
-            "type": "string"
+            "type": "string",
+            "description": "The repository to read, as a clone URL or `owner/name`."
           },
           "ref": {
-            "type": "string"
+            "type": "string",
+            "description": "Branch, tag, or commit to read."
           },
           "paths": {
             "type": "array",
+            "description": "Only these paths are fetched, which is how a large repository stays affordable to read.",
             "items": {
               "type": "string"
             }
           },
           "depth": {
             "type": "integer",
+            "description": "How much history to clone. `1` fetches the named ref alone.",
             "default": 1
           },
           "maxBytes": {
