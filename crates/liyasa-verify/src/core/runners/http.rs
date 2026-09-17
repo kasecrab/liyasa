@@ -182,7 +182,7 @@ impl HttpRunner {
                 // it up.
                 let request = match authorized(request, staging, secrets) {
                     Ok(request) => request,
-                    Err(diagnostic) => return CheckOutcome::Error(diagnostic),
+                    Err(diagnostic) => return CheckOutcome::Error(*diagnostic),
                 };
                 self.client
                     .fetch(request, &self.policy)
@@ -214,15 +214,17 @@ fn authorized(
     request: &HttpRequest,
     staging: &StagingTarget,
     secrets: &dyn SecretSource,
-) -> Result<HttpRequest, Diagnostic> {
+) -> Result<HttpRequest, Box<Diagnostic>> {
     staging::secret_name(staging)?;
     let mut request = request.clone();
     match staging::authorize(&mut request, staging, secrets) {
         Ok(_) => Ok(request),
-        Err(unresolved) => Err(Diagnostic::new(code::E0637, unresolved.message).help(
-            "add it to the secret store, or clear `verify.http.staging.auth`; \
-             nothing was sent, so an assertion on `401` would have passed \
-             without the credential ever being used",
+        Err(unresolved) => Err(Box::new(
+            Diagnostic::new(code::E0637, unresolved.message).help(
+                "add it to the secret store, or clear `verify.http.staging.auth`; \
+                 nothing was sent, so an assertion on `401` would have passed \
+                 without the credential ever being used",
+            ),
         )),
     }
 }
