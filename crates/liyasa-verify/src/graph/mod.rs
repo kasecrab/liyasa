@@ -8,5 +8,7 @@
 //! of their own.
 
 pub mod extract;
+pub mod store;
 
 pub use extract::PageExtractor;
+pub use store::{DependencyRecord, MemoryGraph};
