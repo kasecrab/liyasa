@@ -52,6 +52,10 @@ impl Facts {
     /// The `facts.*` layer of a template context, as nested objects: a fact
     /// called `plan.pro.price` arrives as `facts.plan.pro.price`, which is what
     /// `fact("plan.pro.price")` walks.
+    ///
+    /// Values arrive [`plain`], not in `FactValue`'s tagged form: the typed
+    /// filters take a number and a string, and `{"type": "currency", "value":
+    /// …}` is neither.
     pub fn as_context(&self) -> Value {
         let mut root = serde_json::Map::new();
         for (id, fact) in &self.0 {
@@ -59,8 +63,7 @@ impl Facts {
             let Some((last, path)) = parts.split_last() else {
                 continue;
             };
-            let value = serde_json::to_value(&fact.value).unwrap_or(Value::Null);
-            insert_at(&mut root, path, last, value);
+            insert_at(&mut root, path, last, plain(&fact.value));
         }
         Value::Object(root)
     }
@@ -236,6 +239,40 @@ impl<'a> Refresher<'a> {
                 },
             );
         }
+    }
+}
+
+/// A fact as a template sees it (VER-20).
+///
+/// `FactValue` serializes tagged — `{"type": "num", "value": 20.0}` — which is
+/// the right shape for a snapshot and the wrong one for a page: `{{ price |
+/// currency("USD") }}` needs the number. A currency arrives in *major* units
+/// because that is what the `currency` filter scales and groups; the ISO code
+/// stays in the declaration, where the filter's caller reads it.
+pub fn plain(value: &FactValue) -> Value {
+    match value {
+        FactValue::Str(text) | FactValue::Date(text) | FactValue::Enum(text) => {
+            Value::String(text.clone())
+        }
+        FactValue::Num(number) | FactValue::Percent(number) => {
+            serde_json::Number::from_f64(*number).map_or(Value::Null, Value::Number)
+        }
+        FactValue::Bool(flag) => Value::Bool(*flag),
+        FactValue::Currency { amount, minor, .. } => {
+            let major = *amount as f64 / 10f64.powi(i32::from(*minor));
+            serde_json::Number::from_f64(major).map_or(Value::Null, Value::Number)
+        }
+        FactValue::List(items) => Value::Array(items.iter().map(plain).collect()),
+        FactValue::Object(fields) => Value::Object(
+            fields
+                .iter()
+                .map(|(key, field)| (key.clone(), plain(field)))
+                .collect(),
+        ),
+        // `FactValue` is `#[non_exhaustive]`. A variant added to the contract
+        // has no plain form here until this match gives it one, and `null` is
+        // what a template already gets for a fact it cannot read.
+        _ => Value::Null,
     }
 }
 

@@ -20,7 +20,7 @@ pub mod trust;
 pub use impact::{OperationChange, OperationImpact, PathImpact};
 pub use kinds::{Attestation, BuildTrust, DeclaredSource, SandboxLimits};
 pub use openapi::operation_changes;
-pub use refresh::{Fact, Facts, RefreshReport, Refresher};
+pub use refresh::{Fact, Facts, RefreshReport, Refresher, plain};
 pub use snapshot::{SnapshotLog, StoredSnapshot, ValueDiffer};
 pub use spec::{FactType, SourceSet, SourceSpec};
 pub use trust::{TransportError, TransportPolicy, trust_of};
