@@ -2,5 +2,6 @@
 //! `mod` line for a new file rather than a `[[test]]` row (RFC 0007).
 
 mod budget;
+mod session;
 mod typescript;
 mod vfs;

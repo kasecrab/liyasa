@@ -300,3 +300,12 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W1115`](/errors/W1115) | Warning | Page route changed; a redirect from the old URL was generated |
 | [`W1116`](/errors/W1116) | Warning | Converted page does not scan as Liyasa Markdown and needs manual attention |
 
+## Editor and WebAssembly
+
+`1200`–`1299`, raised by `liyasa-wasm`.
+
+| Code | Severity | Meaning |
+|---|---|---|
+| [`E1200`](/errors/E1200) | Error | Editor session request is not valid (nonce or site metadata) |
+| [`W1201`](/errors/W1201) | Warning | Page too large to preview in the browser; rendered by the preview endpoint |
+

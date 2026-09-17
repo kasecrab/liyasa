@@ -35,6 +35,7 @@
 "0900-0999" = { area = "AI, agent, automations", crate = "liyasa-ai" }
 "1000-1099" = { area = "Search and the browser index", crate = "liyasa-search" }
 "1100-1199" = { area = "Importers", crate = "liyasa-import" }
+"1200-1299" = { area = "Editor and WebAssembly", crate = "liyasa-wasm" }
 
 [codes]
 E0001 = { severity = "error", crate = "liyasa-cli", title = "Project root not found (no `liyasa.json` in this or any parent directory)" }
@@ -233,3 +234,5 @@ E0815 = { severity = "error", crate = "liyasa-server", title = "Domain base path
 W0136 = { severity = "warning", crate = "liyasa-config", title = "`seo.canonicalOrigin` already carries `build.basePath`, so every absolute URL doubles it" }
 E0021 = { severity = "error", crate = "liyasa-cli", title = "A network request failed (policy, DNS, TLS, timeout, or the host)" }
 E0637 = { severity = "error", crate = "liyasa-verify", title = "Staging credential could not be resolved; the request was not sent" }
+E1200 = { severity = "error", crate = "liyasa-wasm", title = "Editor session request is not valid (nonce or site metadata)" }
+W1201 = { severity = "warning", crate = "liyasa-wasm", title = "Page too large to preview in the browser; rendered by the preview endpoint" }
