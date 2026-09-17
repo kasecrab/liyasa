@@ -3,4 +3,5 @@
 mod config;
 mod chunk;
 mod exclude;
+mod index;
 mod page;

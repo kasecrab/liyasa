@@ -16,9 +16,11 @@ pub mod chunk;
 pub mod config;
 pub mod error;
 pub mod exclude;
+pub mod index;
 
 pub use chunk::{Chunk, ChunkOptions, chunk};
 pub use config::{AiConfig, AssistantConfig, ModelRef, Role};
 pub use error::AiFailure;
 pub use exclude::{Environment, Excluded, exclusion};
+pub use index::{ChunkQuery, ChunkRecord, Hit, VectorStore};
 pub use liyasa_core::ai::*;
