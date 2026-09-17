@@ -1937,6 +1937,7 @@
       "properties": {
         "mode": {
           "type": "string",
+          "description": "How a reader proves who they are. `public` asks nothing of them; the rest need `liyasa serve`.",
           "enum": [
             "public",
             "password",
@@ -1947,20 +1948,25 @@
         },
         "password": {
           "type": "object",
+          "description": "The single shared password mode.",
           "properties": {
             "argon2": {
               "type": "object",
+              "description": "How the password hash is computed. Higher costs are slower to verify and slower to attack; the defaults are the ones to keep unless a measurement says otherwise.",
               "properties": {
                 "memoryKiB": {
                   "type": "integer",
+                  "description": "Memory one hash computation uses, in KiB.",
                   "default": 65536
                 },
                 "iterations": {
                   "type": "integer",
+                  "description": "How many passes over that memory one hash makes.",
                   "default": 3
                 },
                 "parallelism": {
                   "type": "integer",
+                  "description": "How many lanes a hash computation runs in.",
                   "default": 1
                 }
               },
@@ -1971,63 +1977,79 @@
         },
         "jwt": {
           "type": "object",
+          "description": "Accepting a token your own system issued.",
           "properties": {
             "algs": {
               "type": "array",
+              "description": "Signature algorithms a token may use. Anything else is refused, which is what stops an `alg: none` token.",
               "items": {
                 "type": "string"
               }
             },
             "iss": {
-              "type": "string"
+              "type": "string",
+              "description": "The issuer a token must claim."
             },
             "aud": {
-              "type": "string"
+              "type": "string",
+              "description": "The audience a token must claim, so a token minted for another service is not accepted here."
             },
             "jwksUrl": {
-              "type": "string"
+              "type": "string",
+              "description": "Where the signing keys are published."
             },
             "loginUrl": {
-              "type": "string"
+              "type": "string",
+              "description": "Where a reader without a token is sent to get one."
             },
             "groupsClaim": {
-              "type": "string"
+              "type": "string",
+              "description": "The claim a reader's access groups are read from, which is what page and navigation `groups` are matched against."
             },
             "regionClaim": {
-              "type": "string"
+              "type": "string",
+              "description": "The claim a reader's region is read from."
             },
             "localeClaim": {
-              "type": "string"
+              "type": "string",
+              "description": "The claim a reader's locale is read from."
             }
           },
           "additionalProperties": false
         },
         "oidc": {
           "type": "object",
+          "description": "Signing in through an OpenID Connect provider.",
           "properties": {
             "issuer": {
-              "type": "string"
+              "type": "string",
+              "description": "The provider's issuer URL, from which its endpoints are discovered."
             },
             "clientId": {
-              "type": "string"
+              "type": "string",
+              "description": "This site's client id at the provider. The client secret lives in the secret store, never here."
             },
             "scopes": {
               "type": "array",
+              "description": "Scopes requested at sign-in; ask for the claims the site actually reads and no more.",
               "items": {
                 "type": "string"
               }
             },
             "groupsClaim": {
-              "type": "string"
+              "type": "string",
+              "description": "The claim a reader's access groups are read from."
             }
           },
           "additionalProperties": false
         },
         "managed": {
           "type": "object",
+          "description": "Liyasa's own sign-in, by emailed link.",
           "properties": {
             "allowDomains": {
               "type": "array",
+              "description": "Email domains that may sign in. Empty, nobody can.",
               "items": {
                 "type": "string"
               }
@@ -2042,6 +2064,7 @@
         },
         "session": {
           "type": "object",
+          "description": "How long a reader stays signed in.",
           "properties": {
             "maxAge": {
               "type": "string",
@@ -2054,25 +2077,30 @@
               "description": "A duration such as `500ms`, `30s`, `180d`."
             },
             "cookieName": {
-              "type": "string"
+              "type": "string",
+              "description": "Name of the session cookie, for a site that shares a domain with something else."
             }
           },
           "additionalProperties": false
         },
         "logout": {
           "type": "object",
+          "description": "What happens after a reader signs out.",
           "properties": {
             "redirect": {
-              "type": "string"
+              "type": "string",
+              "description": "Where a reader lands after signing out."
             }
           },
           "additionalProperties": false
         },
         "preview": {
           "type": "object",
+          "description": "Who may see a preview deployment.",
           "properties": {
             "protection": {
               "type": "string",
+              "description": "`org` limits a preview to the organization, `password` to whoever has the password, `public` to anyone with the link.",
               "enum": [
                 "org",
                 "password",
@@ -2393,6 +2421,7 @@
       "properties": {
         "trustedProxies": {
           "type": "array",
+          "description": "CIDRs whose forwarded headers are believed. Until a peer is listed here, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`, and the region headers are ignored, because anyone can send them.",
           "items": {
             "type": "string",
             "description": "CIDR. Default none: forwarded-for and region headers are ignored unless the peer is listed."
@@ -2400,9 +2429,11 @@
         },
         "variantCache": {
           "type": "object",
+          "description": "The cache of rendered page variants the server keeps in memory.",
           "properties": {
             "entries": {
               "type": "integer",
+              "description": "How many variants the cache holds before it evicts the least recently used.",
               "default": 10000
             },
             "bytes": {
@@ -2415,22 +2446,27 @@
         },
         "dynamic": {
           "type": "object",
+          "description": "How pages that cannot be pre-rendered are served on demand.",
           "properties": {
             "concurrency": {
               "oneOf": [
                 {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "One per CPU core."
                 },
                 {
                   "type": "string",
+                  "description": "A fixed number.",
                   "enum": [
                     "cores"
                   ]
                 }
-              ]
+              ],
+              "description": "How many on-demand renders run at once."
             },
             "queue": {
               "type": "integer",
+              "description": "How many renders may wait before further requests are refused rather than queued behind a long line.",
               "default": 256
             },
             "queueTimeout": {
@@ -2448,50 +2484,64 @@
         },
         "rateLimits": {
           "type": "object",
+          "description": "Requests per minute per client, by what is being asked for. A limit is a ceiling on one client, not on the site.",
           "properties": {
             "pages": {
-              "type": "integer"
+              "type": "integer",
+              "description": "Page requests."
             },
             "agentPages": {
-              "type": "integer"
+              "type": "integer",
+              "description": "Requests for the Markdown twins and the agent surfaces, which are cheap to serve and meant to be read in bulk."
             },
             "search": {
-              "type": "integer"
+              "type": "integer",
+              "description": "Search queries."
             },
             "assistant": {
-              "type": "integer"
+              "type": "integer",
+              "description": "Assistant questions, which cost a model call each."
             },
             "feedback": {
-              "type": "integer"
+              "type": "integer",
+              "description": "Feedback submissions."
             },
             "proxy": {
-              "type": "integer"
+              "type": "integer",
+              "description": "Requests through the playground's proxy."
             },
             "rest": {
-              "type": "integer"
+              "type": "integer",
+              "description": "Requests to the REST API."
             },
             "mcp": {
-              "type": "integer"
+              "type": "integer",
+              "description": "Requests to the MCP server."
             },
             "auth": {
-              "type": "integer"
+              "type": "integer",
+              "description": "Sign-in attempts, which is the limit that matters for guessing passwords."
             }
           },
           "additionalProperties": true
         },
         "builds": {
           "type": "object",
+          "description": "What one project's builds may use on the server.",
           "properties": {
             "concurrencyPerProject": {
               "type": "integer",
+              "description": "How many builds of one project run at once. Above one, two builds of the same project compete for the same cache.",
               "default": 1
             },
             "queue": {
               "type": "integer",
+              "description": "How many builds may wait before one is refused.",
               "default": 100
             },
             "cpu": {
               "type": "integer",
+              "description": "CPU cores one build may use.",
               "default": 4
             },
             "memory": {
@@ -2504,9 +2554,11 @@
         },
         "jobs": {
           "type": "object",
+          "description": "Background jobs the server runs.",
           "properties": {
             "leaseSeconds": {
               "type": "integer",
+              "description": "How long a worker holds a job before another may take it, which is what stops a crashed worker from stranding work.",
               "default": 60
             }
           },
@@ -2519,6 +2571,7 @@
         },
         "offline": {
           "type": "boolean",
+          "description": "Run with no outbound network at all: no model calls, no spec fetches, no link checking.",
           "default": false
         }
       },
@@ -2531,30 +2584,36 @@
       "properties": {
         "csp": {
           "type": "object",
+          "description": "Additions to the Content Security Policy the build emits. The policy is generated; these keys widen it where a site needs something the default refuses.",
           "properties": {
             "extraScriptSrc": {
               "type": "array",
+              "description": "Extra sources scripts may load from.",
               "items": {
                 "type": "string"
               }
             },
             "extraImgSrc": {
               "type": "array",
+              "description": "Extra sources images may load from.",
               "items": {
                 "type": "string"
               }
             },
             "extraFrameSrc": {
               "type": "array",
+              "description": "Extra sources that may be framed in a page.",
               "items": {
                 "type": "string"
               }
             },
             "reportUri": {
-              "type": "string"
+              "type": "string",
+              "description": "Where the browser posts a report when the policy blocks something."
             },
             "imgHostsAllow": {
               "type": "array",
+              "description": "Remote image hosts a page may load from, added to `img-src`. A host listed here also stops the build warning about the remote image it serves.",
               "items": {
                 "type": "string",
                 "description": "Remote image hosts added to `img-src` without W0719."
@@ -2565,6 +2624,7 @@
         },
         "frameAncestors": {
           "type": "array",
+          "description": "Hosts that may embed this site's pages in a frame. Empty, none may.",
           "items": {
             "type": "string",
             "description": "Hosts allowed to embed frame-mode pages."
@@ -2572,6 +2632,7 @@
         },
         "styleAttribute": {
           "type": "string",
+          "description": "What happens to a `style` attribute in content: `allowlist` keeps the declarations that cannot load or leak anything, `off` removes the attribute.",
           "enum": [
             "allowlist",
             "off"
@@ -2579,15 +2640,18 @@
         },
         "uploads": {
           "type": "object",
+          "description": "What a reader or an editor may upload.",
           "properties": {
             "allowTypes": {
               "type": "array",
+              "description": "Media types accepted. Anything else is refused at upload rather than served later.",
               "items": {
                 "type": "string"
               }
             },
             "svg": {
               "type": "string",
+              "description": "`sanitize` strips the script and external references out of an uploaded SVG; `attachment` serves it as a download so no browser executes it.",
               "enum": [
                 "sanitize",
                 "attachment"
@@ -2605,10 +2669,12 @@
           "description": "RFC 9116 `security.txt` fields, emitted at `/.well-known/security.txt`.",
           "oneOf": [
             {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "On or off, using the generated defaults."
             },
             {
               "type": "object",
+              "description": "The fields to publish, such as `Contact` and `Expires`.",
               "additionalProperties": true
             }
           ]
@@ -2623,39 +2689,46 @@
       "properties": {
         "allowPrivate": {
           "type": "array",
+          "description": "Hosts or CIDRs that may be reached even though they are private addresses. Empty, a fetch to a private address is refused, which is what stops a config from reaching into the network the build runs on.",
           "items": {
             "type": "string"
           }
         },
         "allowInsecureHosts": {
           "type": "array",
+          "description": "Hosts that may be reached over plain HTTP.",
           "items": {
             "type": "string"
           }
         },
         "allowHosts": {
           "type": "object",
+          "description": "Hosts each kind of fetch may reach, listed separately so widening one does not widen the others.",
           "properties": {
             "specRefs": {
               "type": "array",
+              "description": "Hosts an OpenAPI or AsyncAPI document may pull a reference from.",
               "items": {
                 "type": "string"
               }
             },
             "factSources": {
               "type": "array",
+              "description": "Hosts a fact may read its value from.",
               "items": {
                 "type": "string"
               }
             },
             "agentFetch": {
               "type": "array",
+              "description": "Hosts the agent may fetch while it works.",
               "items": {
                 "type": "string"
               }
             },
             "embeds": {
               "type": "array",
+              "description": "Hosts a page may embed content from.",
               "items": {
                 "type": "string"
               }
@@ -2665,6 +2738,7 @@
         },
         "denyHosts": {
           "type": "array",
+          "description": "Hosts nothing may reach, whatever the allow lists say.",
           "items": {
             "type": "string"
           }
@@ -2686,6 +2760,7 @@
       "properties": {
         "display": {
           "type": "string",
+          "description": "How an endpoint's request appears: `interactive` lets a reader send it, `simple` shows it without sending, `none` shows the documentation alone.",
           "enum": [
             "interactive",
             "simple",
@@ -2694,13 +2769,16 @@
         },
         "proxy": {
           "type": "object",
+          "description": "Sending a playground request through the site's server rather than from the reader's browser, which is how a request reaches an API that does not allow cross-origin calls.",
           "properties": {
             "enabled": {
               "type": "boolean",
+              "description": "Offer the proxy.",
               "default": false
             },
             "allow": {
               "type": "array",
+              "description": "Hosts the proxy may forward to. Nothing else is forwarded, so the proxy cannot be used to reach anything else.",
               "items": {
                 "type": "string"
               }
@@ -2710,12 +2788,14 @@
         },
         "languages": {
           "type": "array",
+          "description": "Code samples to generate for each request, in the order they are shown; the first is the one a reader sees.",
           "items": {
             "type": "string"
           }
         },
         "requiredOnly": {
           "type": "boolean",
+          "description": "Show only the required parameters until a reader asks for the rest.",
           "default": false
         }
       },
@@ -2727,13 +2807,16 @@
       "type": "object",
       "properties": {
         "baseUrl": {
-          "type": "string"
+          "type": "string",
+          "description": "The base URL a manual API page's requests are sent to."
         },
         "auth": {
           "type": "object",
+          "description": "How a manual API page's requests are authenticated.",
           "properties": {
             "method": {
               "type": "string",
+              "description": "The scheme: a bearer token, HTTP basic, an API key, or nothing.",
               "enum": [
                 "bearer",
                 "basic",
@@ -2742,10 +2825,12 @@
               ]
             },
             "name": {
-              "type": "string"
+              "type": "string",
+              "description": "The header, query parameter, or cookie the API key is sent as."
             },
             "in": {
               "type": "string",
+              "description": "Where the API key is sent: in a header, in the query string, or in a cookie.",
               "enum": [
                 "header",
                 "query",
