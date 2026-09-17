@@ -24,7 +24,7 @@ use liyasa_core::net::HttpClient;
 use liyasa_core::verify::{FactChange, FactValue, Sandbox, Snapshot, TruthSource};
 use serde_json::Value;
 
-use super::kinds::{Attestation, BuildTrust, DeclaredSource};
+use super::kinds::{BuildTrust, DeclaredSource};
 use super::snapshot::SnapshotLog;
 use super::trust::needs_escaping;
 
@@ -149,8 +149,14 @@ impl<'a> Refresher<'a> {
     ) -> RefreshReport {
         let mut report = RefreshReport::default();
         for source in sources {
-            if let Some(problem) = attestation_problem(source, now) {
-                report.diagnostics.push(problem);
+            // Preflight first: a refusal here carries the code the requirement
+            // names — `E0621`, `E0806`, `E0606` — where a refusal from inside
+            // the refresh would only be "could not be refreshed".
+            let refusals = source.preflight(now);
+            let refused = refusals.iter().any(Diagnostic::is_error);
+            report.diagnostics.extend(refusals);
+            if refused {
+                continue;
             }
             let taken = if source.leaves_the_machine() && !self.build.is_trusted() {
                 match self.reuse(source, &mut report) {
@@ -298,17 +304,6 @@ fn insert_at(root: &mut serde_json::Map<String, Value>, path: &[&str], last: &st
         }
     }
     at.entry(last).or_insert(value);
-}
-
-fn attestation_problem(source: &DeclaredSource, now: SystemTime) -> Option<Diagnostic> {
-    let state = source.attestation(now);
-    if state == Attestation::Valid || state == Attestation::NotApplicable {
-        return None;
-    }
-    state.diagnostic(
-        source.id(),
-        source.spec().expires.as_deref().unwrap_or("its expiry"),
-    )
 }
 
 #[cfg(test)]

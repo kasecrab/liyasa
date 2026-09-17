@@ -376,3 +376,57 @@ fn two_sources_claiming_one_fact_is_reported_rather_than_resolved_silently() {
         report.diagnostics
     );
 }
+
+#[test]
+fn a_refusal_reaches_the_report_with_the_code_its_requirement_names() {
+    let log = SnapshotLog::new();
+    let http = Canned::new(json!({ "price": 20 }));
+    let vfs = Arc::new(MemoryVfs::new().with("scripts/facts.sh", "echo '{}'\n"));
+    let sources = [
+        source(
+            "insecure",
+            json!({ "kind": "url", "url": "http://api.example.com/x" }),
+        ),
+        source(
+            "unlisted",
+            json!({
+                "kind": "command", "path": "scripts/facts.sh", "command": ["sh"]
+            }),
+        )
+        .with_vfs(vfs),
+    ];
+    let report = block_on(Refresher::new(&log, BuildTrust::Trusted, "main").refresh(
+        &sources,
+        &http,
+        None,
+        at(0),
+    ));
+
+    let codes: Vec<&str> = report.diagnostics.iter().map(|d| d.code.as_str()).collect();
+    assert_eq!(codes, ["E0806", "E0621"], "{:#?}", report.diagnostics);
+    assert!(report.refreshed.is_empty());
+    assert_eq!(http.requests(), 0);
+}
+
+#[test]
+fn a_warning_does_not_stop_a_source_from_refreshing() {
+    let log = SnapshotLog::new();
+    let http = Canned::new(json!({}));
+    let expiry = 1_767_225_600; // 2026-01-01T00:00:00Z
+    let sources = [source(
+        "sla",
+        json!({
+            "kind": "manual", "owner": "ops", "expires": "2026-01-01",
+            "values": { "sla.uptime": 99.95 }
+        }),
+    )];
+    let report = block_on(Refresher::new(&log, BuildTrust::Trusted, "main").refresh(
+        &sources,
+        &http,
+        None,
+        at(expiry + 60),
+    ));
+    assert_eq!(report.refreshed, ["sla"]);
+    assert!(!report.has_errors());
+    assert!(report.facts.get(&FactId::new("sla.uptime")).is_some());
+}

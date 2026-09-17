@@ -284,7 +284,8 @@ impl DeclaredSource {
                 self.refuse("a `command` source names the script it runs in `path`")
             })?;
         let script = self.read_vfs(path)?;
-        self.check_allow_list(path, &script)?;
+        self.check_allow_list(path, &script)
+            .map_err(|refusal| SourceError::Policy(refusal.message))?;
 
         let sandbox = sandbox.ok_or_else(|| {
             self.refuse("a `command` source runs in the sandbox, and none was provided")
@@ -325,22 +326,28 @@ impl DeclaredSource {
     }
 
     /// `E0621`: not on the list, or on it with a different hash.
-    fn check_allow_list(&self, path: &str, script: &[u8]) -> Result<(), SourceError> {
+    ///
+    /// The allow list is the *server's* configuration. A repository that could
+    /// add to it could run anything, so the entry has to come from outside the
+    /// tree being built and the script's content has to hash to what the entry
+    /// says — an allow list by path alone allows whatever is written to that
+    /// path next.
+    pub fn check_allow_list(&self, path: &str, script: &[u8]) -> Result<(), Box<Diagnostic>> {
         let Some(entry) = self.allow.iter().find(|entry| entry.path == path) else {
-            return Err(SourceError::Policy(
-                Diagnostic::new(
-                    code::E0621,
-                    format!(
-                        "`{}` runs `{path}`, which `verify.sources.commands.allow` does not name",
-                        self.spec.id
-                    ),
-                )
-                .message,
-            ));
+            return Err(Box::new(Diagnostic::new(
+                code::E0621,
+                format!(
+                    "`{}` runs `{path}`, which `verify.sources.commands.allow` does not name",
+                    self.spec.id
+                ),
+            )
+            .help(
+                "add the script's path and the SHA-256 of its contents to the server's configuration",
+            )));
         };
         let actual = sha256_hex(script);
         if !entry.sha256.eq_ignore_ascii_case(&actual) {
-            return Err(SourceError::Policy(
+            return Err(Box::new(
                 Diagnostic::new(
                     code::E0621,
                     format!(
@@ -348,10 +355,66 @@ impl DeclaredSource {
                         entry.sha256
                     ),
                 )
-                .message,
+                .help("the script changed; re-hash it and update the allow list"),
             ));
         }
         Ok(())
+    }
+
+    /// Everything that can refuse this source before anything is fetched or
+    /// run, with the code the requirement names: `E0621` for a command off the
+    /// allow list, `E0806` for a transport the policy forbids, `E0606` for an
+    /// attestation past its expiry.
+    ///
+    /// The refusals inside [`TruthSource::snapshot`] are the backstop for a
+    /// caller that skips this; these carry the diagnostic a reader sees.
+    pub fn preflight(&self, now: SystemTime) -> Vec<Diagnostic> {
+        let mut problems = Vec::new();
+        if let Some(problem) = self.attestation(now).diagnostic(
+            &self.spec.id,
+            self.spec.expires.as_deref().unwrap_or("its expiry"),
+        ) {
+            problems.push(problem);
+        }
+        // An untrusted build does not run these at all, so their policy is not
+        // this build's to fail on; the production snapshot stands in.
+        if self.leaves_the_machine() && !self.build.is_trusted() {
+            return problems;
+        }
+        match self.spec.kind {
+            SourceKind::Url | SourceKind::Screenshot => {
+                if let Err(refusal) = self.transport.check(&self.spec) {
+                    problems.push(*refusal);
+                }
+            }
+            SourceKind::OpenApi if self.spec.url.is_some() => {
+                if let Err(refusal) = self.transport.check(&self.spec) {
+                    problems.push(*refusal);
+                }
+            }
+            SourceKind::Command => match self.spec.path.as_deref() {
+                Some(path) => match self.read_vfs(path) {
+                    Ok(script) => {
+                        if let Err(refusal) = self.check_allow_list(path, &script) {
+                            problems.push(*refusal);
+                        }
+                    }
+                    Err(why) => problems.push(Diagnostic::new(
+                        code::E0604,
+                        format!("`{}`: {why}", self.spec.id),
+                    )),
+                },
+                None => problems.push(Diagnostic::new(
+                    code::E0635,
+                    format!(
+                        "`verify.sources.{}` is a `command` source and has no `path`",
+                        self.spec.id
+                    ),
+                )),
+            },
+            _ => {}
+        }
+        problems
     }
 
     /// The document this source produces, whatever it takes to get it.
