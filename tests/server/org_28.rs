@@ -662,11 +662,13 @@ async fn a_notification_channel_with_no_endpoint_is_reported_rather_than_dropped
 
 #[tokio::test]
 async fn the_published_service_levels_are_served_with_their_runbooks() {
-    // HOST-10. The status page and the alert rules read the same table.
+    // HOST-10. The status page and the alert rules read the same table, and
+    // the SLA is readable without a credential: the people who read one are
+    // deciding whether to buy.
     let state = state_with(Tier::Enterprise);
-    let viewer = as_role(&state, Role::Viewer);
-    let (status, body) = send(&viewer, "GET", "/_liyasa/api/v1/org/slo", None).await;
-    assert_eq!(status, StatusCode::OK);
+    let anonymous = routes::router(state.clone());
+    let (status, body) = send(&anonymous, "GET", "/_liyasa/api/v1/org/slo", None).await;
+    assert_eq!(status, StatusCode::OK, "the published SLA needs no session");
     let indicators = body["indicators"].as_array().expect("indicators");
     assert_eq!(indicators.len(), 6);
     for indicator in indicators {
@@ -679,6 +681,43 @@ async fn the_published_service_levels_are_served_with_their_runbooks() {
         assert!(indicator["recordingRule"].as_str().is_some(), "{indicator}");
     }
     assert_eq!(body["alerts"].as_array().expect("alerts").len(), 24);
+
+    // And nothing else in the subtree opened up with it.
+    let (status, _) = send(&anonymous, "GET", ORG, None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = send(&anonymous, "GET", "/_liyasa/api/v1/org/usage", None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn an_upgrade_lifts_the_pause_it_was_bought_to_lift() {
+    // ORG-33 pauses a Free project's metered feature; ORG-30 sells the way
+    // out. A plan endpoint that answers 200 while the feature stays paused is
+    // the shape of defect this fleet has been finding all day.
+    use liyasa_server::org::plan::Resource;
+
+    let state = state_with(Tier::Free);
+    let owner = as_role(&state, Role::Owner);
+    state
+        .write()
+        .meter
+        .request("docs", Resource::SandboxMinutes, 201);
+    let (_, usage) = send(&owner, "GET", "/_liyasa/api/v1/org/usage", None).await;
+    assert_eq!(usage["paused"][0], "sandboxMinutes");
+
+    let (status, _) = send(
+        &owner,
+        "PUT",
+        "/_liyasa/api/v1/org/plan",
+        Some(json!({ "tier": "pro" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, usage) = send(&owner, "GET", "/_liyasa/api/v1/org/usage", None).await;
+    assert!(
+        usage["paused"].as_array().expect("paused").is_empty(),
+        "{usage}"
+    );
 }
 
 #[tokio::test]

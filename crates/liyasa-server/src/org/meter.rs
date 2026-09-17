@@ -120,6 +120,15 @@ impl Meter {
     pub fn new_period(&self) -> Meter {
         Meter::new(self.plan.clone())
     }
+
+    /// A plan change. Consumption stays — it was consumed — and every pause
+    /// lifts, because a pause is a statement about the old plan's quota. The
+    /// next request re-decides against the new one, so a resource still over
+    /// its quota pauses again immediately.
+    pub fn retier(&mut self, plan: Plan) {
+        self.plan = plan;
+        self.paused.clear();
+    }
 }
 
 /// The diagnostic a paused resource raises, for a caller that needs to say why
@@ -172,6 +181,38 @@ mod tests {
         let fresh = meter.new_period();
         assert!(!fresh.is_paused(Resource::SandboxMinutes));
         assert_eq!(fresh.usage.used(Resource::SandboxMinutes), 0);
+    }
+
+    #[test]
+    fn upgrading_lifts_a_pause_the_old_quota_caused() {
+        // The defect this is against: a plan endpoint that answers 200 while
+        // the feature the upgrade was bought for stays paused.
+        let mut meter = Meter::new(Plan::free());
+        meter.request("docs", Resource::SandboxMinutes, 201);
+        assert!(meter.is_paused(Resource::SandboxMinutes));
+
+        meter.retier(Plan::pro());
+        assert!(!meter.is_paused(Resource::SandboxMinutes));
+        assert!(matches!(
+            meter.request("docs", Resource::SandboxMinutes, 100),
+            Decision::Allowed { .. }
+        ));
+    }
+
+    #[test]
+    fn a_downgrade_that_is_already_over_the_new_quota_pauses_again_at_once() {
+        let mut meter = Meter::new(Plan::pro());
+        meter.request("docs", Resource::SandboxMinutes, 1_000);
+        meter.retier(Plan::free());
+        assert!(
+            !meter.is_paused(Resource::SandboxMinutes),
+            "nothing has asked yet"
+        );
+        assert!(matches!(
+            meter.request("docs", Resource::SandboxMinutes, 1),
+            Decision::Paused { .. }
+        ));
+        assert!(meter.is_paused(Resource::SandboxMinutes));
     }
 
     #[test]

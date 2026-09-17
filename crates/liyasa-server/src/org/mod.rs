@@ -12,6 +12,13 @@
 //! [`plan::Plan::unlimited`] and takes the same code path a Free project takes.
 //! No handler asks which edition it is in.
 
+// `Diagnostic` is 160 bytes and is the workspace's user-facing error type,
+// frozen in `liyasa-core`. Every path here that returns one is a plan refusal
+// or a validation failure rather than a hot loop, and boxing it in this
+// subtree alone would make these signatures differ from `auth/`, which made
+// the same call for the same reason.
+#![allow(clippy::result_large_err)]
+
 pub mod audit;
 pub mod credits;
 pub mod meter;

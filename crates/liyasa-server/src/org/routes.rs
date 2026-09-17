@@ -53,19 +53,52 @@ const DEFAULT_INVITE_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 /// whole subtree, so a subtree with three answers to "who may" applies them
 /// here, with `routes::mount::guarded` — the same function `application` would
 /// have used — rather than with a check of its own.
-pub const TABLE: &[(Permission, fn(Arc<OrgState>) -> Router)] = &[
-    (Permission::DashboardRead, read_router),
-    (Permission::SettingsWrite, settings_router),
-    (Permission::OwnerAct, owner_router),
+/// `None` is a surface that is deliberately public. HOST-10 publishes the
+/// service levels in the SLA, and the people who read an SLA are deciding
+/// whether to buy: behind `DashboardRead` it would be unreadable by exactly
+/// the audience it exists for. Same shape as ANA-02's event schema in
+/// RFC 1403, and it is one line here so someone can see it and argue with it.
+pub struct Group {
+    /// `None` is public.
+    pub permission: Option<Permission>,
+    pub build: fn(Arc<OrgState>) -> Router,
+}
+
+pub const TABLE: &[Group] = &[
+    Group {
+        permission: None,
+        build: public_router,
+    },
+    Group {
+        permission: Some(Permission::DashboardRead),
+        build: read_router,
+    },
+    Group {
+        permission: Some(Permission::SettingsWrite),
+        build: settings_router,
+    },
+    Group {
+        permission: Some(Permission::OwnerAct),
+        build: owner_router,
+    },
 ];
 
 /// The whole organization subtree, guarded.
 pub fn router(state: Arc<OrgState>) -> Router {
-    TABLE
-        .iter()
-        .fold(Router::new(), |router, (permission, build)| {
-            router.merge(guarded(build(state.clone()), *permission))
+    TABLE.iter().fold(Router::new(), |router, group| {
+        let routes = (group.build)(state.clone());
+        router.merge(match group.permission {
+            Some(permission) => guarded(routes, permission),
+            None => routes,
         })
+    })
+}
+
+/// HOST-10's published objectives. No credential: this is the SLA.
+pub fn public_router(state: Arc<OrgState>) -> Router {
+    Router::new()
+        .route(&format!("{PREFIX}/slo"), get(slo))
+        .with_state(state)
 }
 
 /// Everything a dashboard reads.
@@ -78,7 +111,6 @@ pub fn read_router(state: Arc<OrgState>) -> Router {
         .route(&format!("{PREFIX}/credentials"), get(list_credentials))
         .route(&format!("{PREFIX}/audit"), get(read_audit))
         .route(&format!("{PREFIX}/usage"), get(usage))
-        .route(&format!("{PREFIX}/slo"), get(slo))
         .route(&format!("{PREFIX}/notifications"), get(read_notifications))
         .with_state(state)
 }
@@ -956,7 +988,7 @@ async fn set_plan(State(state): State<Arc<OrgState>>, request: Request) -> Respo
     let before = json!({ "tier": inner.org.plan.tier.as_str() });
     let plan = Plan::of(tier);
     inner.org.plan = plan.clone();
-    inner.meter.plan = plan.clone();
+    inner.meter.retier(plan.clone());
     // The pool moves with the plan; what has been spent this period does not,
     // because it was spent.
     inner.ledger.pool = plan.monthly_credits;
@@ -1057,7 +1089,9 @@ async fn charge(State(state): State<Arc<OrgState>>, request: Request) -> Respons
 
     let mut inner = state.write();
     let charge = inner.ledger.charge(spend, &project, access);
-    let alerts = inner.ledger.alerts();
+    // The thresholds are read after the refusal is handled, not before: a
+    // threshold fires once per period, so asking on a path that then returns
+    // early would mark it fired and never deliver it.
     if let super::credits::Charge::Refused { needed, balance } = charge {
         let code = liyasa_core::diagnostics::Code::new("E0852").expect("E0852 is registered");
         return Problem::code(StatusCode::PAYMENT_REQUIRED, code)
@@ -1072,6 +1106,7 @@ async fn charge(State(state): State<Arc<OrgState>>, request: Request) -> Respons
             )
             .into_response();
     }
+    let alerts = inner.ledger.alerts();
     let at = state.clock().now_ms();
     inner.log.record(
         at,
@@ -1164,6 +1199,7 @@ pub fn add_member(state: &OrgState, member: Member) -> Result<(), Diagnostic> {
     let mut inner = state.write();
     let subscriber = Subscriber::new(member.user.clone(), member.email.clone());
     inner.org.add_member(member)?;
+    inner.subscribers.retain(|s| s.user != subscriber.user);
     inner.subscribers.push(subscriber);
     Ok(())
 }
