@@ -2507,8 +2507,11 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 name = "liyasa-analytics"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "blake3",
+ "http",
  "jsonschema",
+ "liyasa-analytics",
  "liyasa-core",
  "liyasa-store",
  "serde",
@@ -2516,6 +2519,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tokio",
+ "tower",
  "url",
 ]
 
