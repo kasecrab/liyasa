@@ -23,6 +23,8 @@ pub mod clock;
 pub mod config;
 pub mod cookie;
 pub mod csrf;
+pub mod dns;
+pub mod domains;
 pub mod groups;
 pub mod random;
 pub mod roles;
@@ -30,6 +32,7 @@ pub mod session;
 pub mod variant;
 
 pub use config::{AuthConfig, Mode};
+pub use domains::{Domain, Registry as DomainRegistry};
 pub use groups::{Decision, Declared, SiteDefault};
 pub use roles::{Grant, Permission, Role};
 pub use session::{Principal, Session, Sessions};
