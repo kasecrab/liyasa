@@ -1,0 +1,36 @@
+[package]
+name = "liyasa-wasm"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WebAssembly bindings for the editor and the browser search worker (PRD §6.2, ED-06, ED-07)."
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+# `default-features = false` turns CM-38's grammars off: ED-06 budgets the core
+# module without two-face's 200 syntax definitions, which the editor fetches
+# per language instead.
+liyasa-markdown = { path = "../liyasa-markdown", version = "0.1.0", default-features = false }
+liyasa-components = { path = "../liyasa-components", version = "0.1.0" }
+liyasa-config = { path = "../liyasa-config", version = "0.1.0" }
+# `server` off: tantivy is the build-side index, `idx` is the browser's
+# (plan/rfcs/0700-idx-inside-search.md).
+liyasa-search = { path = "../liyasa-search", version = "0.1.0", default-features = false }
+minijinja = { workspace = true, features = ["loader"] }
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+wasm-bindgen = { workspace = true }
+serde-wasm-bindgen = { workspace = true }
+
+[dev-dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0", features = ["conformance"] }
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"

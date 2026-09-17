@@ -90,6 +90,8 @@ aes-gcm = { version = "0.11", default-features = false }   # the secret store's 
 boa_engine = { version = "0.22", default-features = false }   # literal-only JavaScript evaluation for the Docusaurus importer (PRD §6.2.1, MIG-02)
 argon2 = { version = "0.6", default-features = false, features = ["alloc", "password-hash"] }   # Argon2id password hashing for AUTH-02 and NFR-12 (PRD §6.2.1)
 ring = { version = "0.17", default-features = false, features = ["alloc"] }   # JWT signature verification (AUTH-03, AUTH-09). The PRD names jsonwebtoken 11, whose only two crypto backends each break a workspace rule; ring is the provider rustls and instant-acme already use (RFC 1500)
+wasm-bindgen = { version = "0.2.128", default-features = false, features = ["std"] }   # PRD §6.2.1: the editor and search-worker bindings of liyasa-wasm
+serde-wasm-bindgen = { version = "0.6", default-features = false }   # PRD §6.2.1: structured values across the same boundary, instead of a JSON round trip per keystroke
 
 
 # Host-only crates build unoptimised (RFC 0006). Proc macros, build scripts and
