@@ -148,3 +148,5 @@ mod ed_03_roundtrip;
 mod ed_13_media;
 #[path = "../server/ed_75_roles.rs"]
 mod ed_75_roles;
+#[path = "../editor/ed_73_messages.rs"]
+mod ed_73_messages;
