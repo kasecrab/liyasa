@@ -246,8 +246,13 @@ fn a_remote_index_that_cannot_be_reached_is_a_network_failure() {
 /// HOST-08: an air-gapped run refuses a remote index rather than trying it.
 #[test]
 fn offline_refuses_a_remote_index() {
-    let outcome = Run::new(["update", "--index", "https://127.0.0.1:9/releases", "--offline"])
-        .output();
+    let outcome = Run::new([
+        "update",
+        "--index",
+        "https://127.0.0.1:9/releases",
+        "--offline",
+    ])
+    .output();
     assert_eq!(outcome.code, Exit::Network.code(), "{}", outcome.all());
     assert!(outcome.all().contains("offline"), "{}", outcome.all());
 }

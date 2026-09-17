@@ -233,7 +233,10 @@ fn network(project: Option<&ctx::Project>, offline: bool) -> Vec<Check> {
     if offline {
         return vec![Check::missing(
             "network",
-            format!("{} remote source(s), not checked (`--offline`)", sources.len()),
+            format!(
+                "{} remote source(s), not checked (`--offline`)",
+                sources.len()
+            ),
             "drop `--offline` to check that each one answers",
         )];
     }
@@ -253,9 +256,7 @@ fn network(project: Option<&ctx::Project>, offline: bool) -> Vec<Check> {
                 Ok(status) if status < 400 => {
                     Check::ready("network", format!("{source} answered {status}"))
                 }
-                Ok(status) => {
-                    Check::broken("network", format!("{source} answered {status}"))
-                }
+                Ok(status) => Check::broken("network", format!("{source} answered {status}")),
                 // A refusal is the configuration's own policy, not the wire.
                 Err(error @ liyasa_core::net::NetError::PolicyDenied { .. }) => {
                     Check::broken("network", format!("{source}: {error}"))

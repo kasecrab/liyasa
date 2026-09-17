@@ -105,7 +105,11 @@ fn defaults() -> crate::links::Options {
 /// `--offline` (HOST-08) is a request not to leave the machine, so it is not
 /// worth a warning. A client that cannot be built is W0018: the run covered
 /// only what is in the repository and must not read as a clean bill of health.
-fn external(global: &Global, built: &Built, options: &crate::links::Options) -> crate::links::Outcome {
+fn external(
+    global: &Global,
+    built: &Built,
+    options: &crate::links::Options,
+) -> crate::links::Outcome {
     let empty = || crate::links::Outcome {
         diagnostics: Diagnostics::new(),
         checked: 0,

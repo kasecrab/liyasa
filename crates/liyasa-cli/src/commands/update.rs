@@ -224,10 +224,10 @@ impl Source {
     fn artifact(&self, file: &str) -> Result<Vec<u8>, Failure> {
         match self {
             Self::Local(path) => {
-                let at = path.parent().filter(|_| path.is_file()).map_or_else(
-                    || path.join(file),
-                    |root| root.join(file),
-                );
+                let at = path
+                    .parent()
+                    .filter(|_| path.is_file())
+                    .map_or_else(|| path.join(file), |root| root.join(file));
                 std::fs::read(&at)
                     .map_err(|error| Failure::Index(format!("{}: {error}", at.display())))
             }
@@ -236,7 +236,7 @@ impl Source {
                     .index
                     .join(file)
                     .map_err(|error| Failure::Index(format!("`{file}`: {error}")))?;
-                fetch(&remote.network, &at)
+                fetch_artifact(&remote.network, &at)
             }
         }
     }
@@ -257,8 +257,32 @@ impl Source {
     }
 }
 
+/// The artifact is the binary, which CLI-35 budgets at up to 110 MB, and it
+/// arrives over whatever connection the operator has.
+fn fetch_artifact(
+    network: &crate::net::Network,
+    url: &liyasa_core::net::Url,
+) -> Result<Vec<u8>, Failure> {
+    received(
+        url,
+        network.get_within(
+            url,
+            PURPOSE,
+            256 * 1024 * 1024,
+            std::time::Duration::from_secs(600),
+        ),
+    )
+}
+
 fn fetch(network: &crate::net::Network, url: &liyasa_core::net::Url) -> Result<Vec<u8>, Failure> {
-    match network.get(url, PURPOSE) {
+    received(url, network.get(url, PURPOSE))
+}
+
+fn received(
+    url: &liyasa_core::net::Url,
+    response: Result<liyasa_core::net::HttpResponse, liyasa_core::net::NetError>,
+) -> Result<Vec<u8>, Failure> {
+    match response {
         Err(error) => Err(Failure::Unreachable(format!(
             "`{url}` could not be reached: {error}"
         ))),

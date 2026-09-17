@@ -59,7 +59,7 @@ impl Settings {
             deny_hosts: self.deny_hosts.clone(),
             allow_private: self.allow_private.matches(host),
             max_redirects: 5,
-            max_bytes: 32 * 1024 * 1024,
+            max_bytes: DOCUMENT_BYTES,
             timeout: Duration::from_secs(30),
             purpose,
         }
@@ -127,6 +127,9 @@ fn host_pattern(text: &str) -> HostPattern {
     }
 }
 
+/// The cap on a fetched document: a specification, a release index, a page.
+pub const DOCUMENT_BYTES: u64 = 32 * 1024 * 1024;
+
 /// A runtime and the client that runs on it, for the length of one command.
 pub struct Network {
     runtime: tokio::runtime::Runtime,
@@ -186,7 +189,23 @@ impl Network {
 
     /// One GET, with the policy the purpose and the configuration imply.
     pub fn get(&self, url: &Url, purpose: Purpose) -> Result<HttpResponse, NetError> {
-        let policy = self.settings.policy(purpose, url);
+        self.get_within(url, purpose, DOCUMENT_BYTES, Duration::from_secs(30))
+    }
+
+    /// A GET for something that is not a document. A release artifact is the
+    /// binary itself — CLI-35 budgets it at up to 110 MB — so the caps a
+    /// specification is read under would refuse it as too large, and a
+    /// thirty-second deadline would refuse it on any ordinary connection.
+    pub fn get_within(
+        &self,
+        url: &Url,
+        purpose: Purpose,
+        max_bytes: u64,
+        timeout: Duration,
+    ) -> Result<HttpResponse, NetError> {
+        let mut policy = self.settings.policy(purpose, url);
+        policy.max_bytes = max_bytes;
+        policy.timeout = timeout;
         let request = HttpRequest {
             method: Method::GET,
             url: url.clone(),
@@ -241,7 +260,9 @@ pub fn failed(what: &str, error: &NetError) -> Diagnostic {
         NetError::Tls(_) => {
             "Check the certificate chain; a private CA needs its root in the trust store."
         }
-        NetError::Io(_) | NetError::Status(_) => "Run `liyasa doctor` to see what this machine can reach.",
+        NetError::Io(_) | NetError::Status(_) => {
+            "Run `liyasa doctor` to see what this machine can reach."
+        }
     };
     Diagnostic::new(code::E0021, format!("{what} could not be reached: {error}")).help(help)
 }

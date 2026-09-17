@@ -160,10 +160,14 @@ pub fn check(
     };
 
     let found = external(output);
-    let (verify, _) = VerifyConfig::from_value(config.get("verify").unwrap_or(&serde_json::Value::Null));
+    let (verify, _) =
+        VerifyConfig::from_value(config.get("verify").unwrap_or(&serde_json::Value::Null));
     let mut links = verify.links;
     for allowed in &options.allow {
-        links.allow_hosts.0.push(HostPattern::Exact(host_of(allowed)));
+        links
+            .allow_hosts
+            .0
+            .push(HostPattern::Exact(host_of(allowed)));
     }
 
     let policy = HttpPolicy {

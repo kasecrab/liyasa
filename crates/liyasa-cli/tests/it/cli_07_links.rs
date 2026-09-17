@@ -34,12 +34,7 @@ fn an_external_link_that_cannot_be_reached_is_reported() {
         .cwd(project.path())
         .output();
 
-    assert_eq!(
-        outcome.code,
-        Exit::Verification.code(),
-        "{}",
-        outcome.all()
-    );
+    assert_eq!(outcome.code, Exit::Verification.code(), "{}", outcome.all());
     assert!(outcome.all().contains("W0404"), "{}", outcome.all());
     assert!(outcome.all().contains("127.0.0.1"), "{}", outcome.all());
 }
@@ -52,11 +47,7 @@ fn the_report_names_the_page_the_link_is_on() {
     let outcome = Run::new(["broken-links", "--timeout", "2"])
         .cwd(project.path())
         .output();
-    assert!(
-        outcome.all().contains("linked from"),
-        "{}",
-        outcome.all()
-    );
+    assert!(outcome.all().contains("linked from"), "{}", outcome.all());
 }
 
 /// HOST-08: `--offline` is a request not to leave the machine, and a run that
