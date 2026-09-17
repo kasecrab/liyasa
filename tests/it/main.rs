@@ -124,3 +124,5 @@ mod ver_03_isolation;
 mod mount;
 #[path = "../server/org_28.rs"]
 mod org_28;
+#[path = "../verify/ver_20_types.rs"]
+mod ver_20_types;

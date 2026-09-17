@@ -254,13 +254,10 @@ pub fn plain(value: &FactValue) -> Value {
         FactValue::Str(text) | FactValue::Date(text) | FactValue::Enum(text) => {
             Value::String(text.clone())
         }
-        FactValue::Num(number) | FactValue::Percent(number) => {
-            serde_json::Number::from_f64(*number).map_or(Value::Null, Value::Number)
-        }
+        FactValue::Num(number) | FactValue::Percent(number) => json_number(*number),
         FactValue::Bool(flag) => Value::Bool(*flag),
         FactValue::Currency { amount, minor, .. } => {
-            let major = *amount as f64 / 10f64.powi(i32::from(*minor));
-            serde_json::Number::from_f64(major).map_or(Value::Null, Value::Number)
+            json_number(*amount as f64 / 10f64.powi(i32::from(*minor)))
         }
         FactValue::List(items) => Value::Array(items.iter().map(plain).collect()),
         FactValue::Object(fields) => Value::Object(
@@ -274,6 +271,16 @@ pub fn plain(value: &FactValue) -> Value {
         // what a template already gets for a fact it cannot read.
         _ => Value::Null,
     }
+}
+
+/// A whole number stays whole. `FactValue::Num` is an `f64`, so a fact written
+/// as `5` arrives as `5.0`, and interpolating that into a page renders `5.0` —
+/// which is not what the document says and not what a reader expects.
+fn json_number(value: f64) -> Value {
+    if value.fract() == 0.0 && value.abs() <= i64::MAX as f64 {
+        return Value::Number((value as i64).into());
+    }
+    serde_json::Number::from_f64(value).map_or(Value::Null, Value::Number)
 }
 
 /// A fact called `a` and one called `a.b` cannot both be reachable, and the

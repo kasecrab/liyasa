@@ -274,8 +274,8 @@ fn the_context_nests_a_dotted_fact_the_way_the_fact_filter_walks_it() {
         ),
     ]));
     let context = facts.as_context();
-    assert_eq!(context.pointer("/plan/pro/price"), Some(&json!(20.0)));
-    assert_eq!(context.pointer("/seats"), Some(&json!(5.0)));
+    assert_eq!(context.pointer("/plan/pro/price"), Some(&json!(20)));
+    assert_eq!(context.pointer("/seats"), Some(&json!(5)));
 }
 
 #[test]
@@ -288,9 +288,12 @@ fn a_value_arrives_as_the_typed_filters_can_read_it() {
             minor: 2,
             code: "USD".to_owned()
         }),
-        json!(20.0)
+        json!(20)
     );
     assert_eq!(plain(&FactValue::Percent(99.95)), json!(99.95));
+    // A whole number stays whole: `5` must not render as `5.0` on a page.
+    assert_eq!(plain(&FactValue::Num(5.0)), json!(5));
+    assert_eq!(plain(&FactValue::Num(1234.5)), json!(1234.5));
     assert_eq!(
         plain(&FactValue::Date("2026-09-17".to_owned())),
         json!("2026-09-17")
@@ -299,14 +302,14 @@ fn a_value_arrives_as_the_typed_filters_can_read_it() {
     assert_eq!(plain(&FactValue::Bool(true)), json!(true));
     assert_eq!(
         plain(&FactValue::List(vec![FactValue::Num(1.0)])),
-        json!([1.0])
+        json!([1])
     );
     assert_eq!(
         plain(&FactValue::Object(BTreeMap::from([(
             "seats".to_owned(),
             FactValue::Num(5.0)
         )]))),
-        json!({ "seats": 5.0 })
+        json!({ "seats": 5 })
     );
 }
 
