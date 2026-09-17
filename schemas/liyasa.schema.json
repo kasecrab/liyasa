@@ -480,6 +480,7 @@
       "oneOf": [
         {
           "type": "array",
+          "description": "The navigation tree itself, as an array of nodes.",
           "items": {
             "$ref": "#/$defs/navigationNode"
           }
@@ -490,9 +491,11 @@
         },
         {
           "type": "object",
+          "description": "The navigation tree with its settings: the tree under `pages` or `tabs`, and the three switches that apply to all of it.",
           "properties": {
             "breadcrumbs": {
               "type": "string",
+              "description": "What sits above a page title: the full trail (`path`), the section name alone (`eyebrow`), or nothing.",
               "enum": [
                 "path",
                 "eyebrow",
@@ -501,20 +504,24 @@
             },
             "autofill": {
               "type": "boolean",
+              "description": "During `dev`, append pages that are in the project and not in this tree to an \"Other\" group, so a new page is visible the moment it is written. A `build` warns with W0130 instead of appending.",
               "default": false
             },
             "drilldown": {
               "type": "boolean",
+              "description": "Navigate to a group's first page when the group is expanded, rather than only opening it.",
               "default": false
             },
             "pages": {
               "type": "array",
+              "description": "The navigation tree, when the site has no tabs.",
               "items": {
                 "$ref": "#/$defs/navigationNode"
               }
             },
             "tabs": {
               "type": "array",
+              "description": "The navigation tree, when the top level is tabs; each tab carries its own sidebar.",
               "items": {
                 "$ref": "#/$defs/navigationNode"
               }
@@ -2674,37 +2681,48 @@
         },
         {
           "type": "object",
+          "description": "A collapsible group of pages in the sidebar.",
           "properties": {
             "group": {
-              "type": "string"
+              "type": "string",
+              "description": "The group's label."
             },
             "icon": {
-              "type": "string"
+              "type": "string",
+              "description": "Icon shown beside the label."
             },
             "tag": {
-              "type": "string"
+              "type": "string",
+              "description": "Short badge beside the label, such as `new` or `beta`."
             },
             "expanded": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Whether the group starts open."
             },
             "root": {
-              "type": "string"
+              "type": "string",
+              "description": "A page the group's own label links to, rather than the label being inert."
             },
             "pages": {
               "type": "array",
+              "description": "The group's entries. A glob such as `getting-started/*` expands to the pages under it, ordered by `order` front matter and then by title.",
               "items": {
                 "$ref": "#/$defs/navigationNode"
               }
             },
             "groups": {
               "type": "array",
+              "description": "Access groups that may see this subtree. A reader in none of them is served as if it did not exist.",
               "items": {
                 "type": "string"
               }
             },
-            "regions": {},
+            "regions": {
+              "description": "Regions this subtree belongs to; a reader outside them does not see it."
+            },
             "hidden": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Keep the subtree routable but out of the sidebar."
             }
           },
           "required": [
@@ -2714,18 +2732,22 @@
         },
         {
           "type": "object",
+          "description": "Every page under a directory, as a group generated from the files.",
           "properties": {
             "directory": {
-              "type": "string"
+              "type": "string",
+              "description": "The directory to generate from. Labels and order come from each page's front matter, and `index.md` becomes the group's root page."
             },
             "groups": {
               "type": "array",
+              "description": "Access groups that may see this subtree.",
               "items": {
                 "type": "string"
               }
             },
             "hidden": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Keep the subtree routable but out of the sidebar."
             }
           },
           "required": [
@@ -2735,27 +2757,33 @@
         },
         {
           "type": "object",
+          "description": "A top-level tab, with a sidebar of its own.",
           "properties": {
             "tab": {
-              "type": "string"
+              "type": "string",
+              "description": "The tab's label."
             },
             "icon": {
-              "type": "string"
+              "type": "string",
+              "description": "Icon shown beside the label."
             },
             "pages": {
               "type": "array",
+              "description": "The tab's sidebar.",
               "items": {
                 "$ref": "#/$defs/navigationNode"
               }
             },
             "groups": {
               "type": "array",
+              "description": "Access groups that may see this tab.",
               "items": {
                 "type": "string"
               }
             },
             "hidden": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Keep the tab routable but out of the navbar."
             }
           },
           "required": [
@@ -2765,9 +2793,11 @@
         },
         {
           "type": "object",
+          "description": "A dropdown menu in the navbar, holding tabs, groups, or links.",
           "properties": {
             "menu": {
-              "type": "string"
+              "type": "string",
+              "description": "The menu's label in the navbar."
             },
             "items": {
               "type": "array",
@@ -2783,18 +2813,23 @@
         },
         {
           "type": "object",
+          "description": "A global anchor, shown above the sidebar on every tab.",
           "properties": {
             "anchor": {
-              "type": "string"
+              "type": "string",
+              "description": "The anchor's label."
             },
             "href": {
-              "type": "string"
+              "type": "string",
+              "description": "Where the anchor goes."
             },
             "icon": {
-              "type": "string"
+              "type": "string",
+              "description": "Icon shown beside the label."
             },
             "color": {
-              "type": "string"
+              "type": "string",
+              "description": "Accent colour for this anchor alone, as any CSS colour."
             }
           },
           "required": [
@@ -2804,9 +2839,11 @@
         },
         {
           "type": "object",
+          "description": "A dropdown inside the sidebar, which is how a site switches between products.",
           "properties": {
             "dropdown": {
-              "type": "string"
+              "type": "string",
+              "description": "The dropdown's label."
             },
             "items": {
               "type": "array",
@@ -2822,12 +2859,15 @@
         },
         {
           "type": "object",
+          "description": "A subtree that exists only for one value of a content dimension.",
           "properties": {
             "product": {
-              "type": "string"
+              "type": "string",
+              "description": "The dimension value this subtree belongs to; it must be one `dimensions` declares."
             },
             "pages": {
               "type": "array",
+              "description": "The subtree.",
               "items": {
                 "$ref": "#/$defs/navigationNode"
               }
@@ -2840,12 +2880,15 @@
         },
         {
           "type": "object",
+          "description": "A subtree that exists only in one version.",
           "properties": {
             "version": {
-              "type": "string"
+              "type": "string",
+              "description": "The version this subtree belongs to; it must be one `versions` declares."
             },
             "pages": {
               "type": "array",
+              "description": "The subtree.",
               "items": {
                 "$ref": "#/$defs/navigationNode"
               }
@@ -2858,12 +2901,15 @@
         },
         {
           "type": "object",
+          "description": "A subtree that exists only in one locale.",
           "properties": {
             "language": {
-              "type": "string"
+              "type": "string",
+              "description": "The locale this subtree belongs to; it must be one `locales` declares."
             },
             "pages": {
               "type": "array",
+              "description": "The subtree.",
               "items": {
                 "$ref": "#/$defs/navigationNode"
               }
@@ -2876,28 +2922,34 @@
         },
         {
           "type": "object",
+          "description": "Endpoint pages generated from an OpenAPI document.",
           "properties": {
             "openapi": {
-              "type": "string"
+              "type": "string",
+              "description": "The spec to generate from, by the `id` it was given under `openapi`."
             },
             "operations": {
               "oneOf": [
                 {
                   "type": "string",
+                  "description": "Every operation in the document.",
                   "enum": [
                     "all"
                   ]
                 },
                 {
                   "type": "array",
+                  "description": "Only these operations, written as `GET /users` or as operation ids.",
                   "items": {
                     "type": "string"
                   }
                 }
-              ]
+              ],
+              "description": "Which operations to generate pages for."
             },
             "groupBy": {
               "type": "string",
+              "description": "Whether generated pages are grouped by their tag or by their path.",
               "enum": [
                 "tag",
                 "path"
@@ -2905,12 +2957,14 @@
             },
             "order": {
               "type": "array",
+              "description": "The order the groups appear in; anything not named follows in the document's own order.",
               "items": {
                 "type": "string"
               }
             },
             "labels": {
               "type": "object",
+              "description": "Display names for groups, keyed by the tag or path they replace.",
               "additionalProperties": {
                 "type": "string"
               }
@@ -2923,9 +2977,11 @@
         },
         {
           "type": "object",
+          "description": "Channel and message pages generated from an AsyncAPI document.",
           "properties": {
             "asyncapi": {
-              "type": "string"
+              "type": "string",
+              "description": "The spec to generate from, by the `id` it was given under `asyncapi`."
             }
           },
           "required": [
@@ -2935,9 +2991,11 @@
         },
         {
           "type": "object",
+          "description": "Type and operation pages generated from a GraphQL schema.",
           "properties": {
             "graphql": {
-              "type": "string"
+              "type": "string",
+              "description": "The schema to generate from, by the `id` it was given under `graphql`."
             }
           },
           "required": [
@@ -2947,12 +3005,15 @@
         },
         {
           "type": "object",
+          "description": "SDK reference pages generated from a documentation export.",
           "properties": {
             "sdk": {
-              "type": "string"
+              "type": "string",
+              "description": "The language the reference is for, such as `typescript`."
             },
             "source": {
-              "type": "string"
+              "type": "string",
+              "description": "The export to generate from, such as a `typedoc.json`."
             }
           },
           "required": [
@@ -2962,15 +3023,19 @@
         },
         {
           "type": "object",
+          "description": "A link to somewhere outside the site, placed anywhere in the tree.",
           "properties": {
             "link": {
-              "type": "string"
+              "type": "string",
+              "description": "The link's label."
             },
             "href": {
-              "type": "string"
+              "type": "string",
+              "description": "Where the link goes."
             },
             "icon": {
-              "type": "string"
+              "type": "string",
+              "description": "Icon shown beside the label."
             }
           },
           "required": [
@@ -2980,9 +3045,11 @@
         },
         {
           "type": "object",
+          "description": "A heading in the sidebar that separates what follows; it collapses nothing and links nowhere.",
           "properties": {
             "divider": {
-              "type": "string"
+              "type": "string",
+              "description": "The heading's text."
             }
           },
           "required": [
