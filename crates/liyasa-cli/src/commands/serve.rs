@@ -4,11 +4,16 @@
 //! authentication, TLS with automatic certificates, a database, deployments,
 //! and the analytics collector.
 //!
-//! That crate now exists, but it exposes only `routes`: the pieces are there —
-//! the request path, TLS, telemetry — and nothing assembles them into a process
-//! a command can start, and `--init` has no store to create an admin token in.
-//! So the command still cannot run, for a narrower reason than before, and a
-//! command that quietly served static files instead would be claiming to be it.
+//! Every piece of that is on main, and so is the assembly: `liyasa-server`'s
+//! own `src/main.rs` opens the store, reads the bundle, builds the router,
+//! terminates TLS and drains on a signal. It is a **binary**, and all of it is
+//! private, so no library call reaches it — the crate's public surface is
+//! `routes`, `deploy` and `auth`, the parts and not the whole. Rebuilding that
+//! assembly here would be a second copy of one program, drifting from the
+//! first. RFC 0912 asks WP-14 for the one `pub async fn` its own `main` calls.
+//!
+//! So the command still cannot run, for a narrower reason again, and a command
+//! that quietly served static files instead would be claiming to be it.
 //!
 //! `liyasa dev` is the one that serves a directory, and it says so.
 
@@ -36,7 +41,7 @@ pub fn run(global: &Global, args: &Serve) -> Exit {
             code::E0006,
             format!("{what} is not in this build"),
         )
-        .help("`liyasa dev` serves a built site locally. `liyasa serve` needs an assembled entry point in `liyasa-server`, which is not written yet."),
+        .help("`liyasa dev` serves a built site locally. `liyasa serve` needs `liyasa-server` to export the entry point its own binary uses (RFC 0912); run `liyasa-server` directly until it does."),
     );
     Exit::Errors
 }
