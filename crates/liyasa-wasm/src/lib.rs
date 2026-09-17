@@ -7,6 +7,7 @@
 //! The crate does no I/O.
 
 pub mod api;
+pub mod ts;
 pub mod vfs;
 
 pub use api::{
