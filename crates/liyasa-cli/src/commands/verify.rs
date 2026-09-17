@@ -1,10 +1,10 @@
 //! CLI-06 and CLI-07: `liyasa verify` and `liyasa broken-links`.
 //!
-//! The checks this release can run are the ones the build decides: internal
-//! links, anchors, and assets (E0401, E0402, E0403). Code runners, facts,
-//! screenshots, and prose need the verification orchestrator and the sandbox,
-//! and a run says which classes did not run rather than counting them as
-//! passing.
+//! Internal links, anchors, and assets are what the build decides (E0401,
+//! E0402, E0403); external links are requested over the network (VER-51,
+//! W0404). Code runners, facts, screenshots, and prose need the verification
+//! orchestrator and the sandbox, and a run says which classes did not run
+//! rather than counting them as passing.
 
 use liyasa_core::Diagnostics;
 use liyasa_core::diagnostics::{Diagnostic, code};
@@ -31,14 +31,17 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
         args.only.clone()
     };
 
-    let Some((diagnostics, sources)) = link_diagnostics(global, format) else {
+    let Some(built) = build_site(global, format) else {
         return Exit::Errors;
     };
 
     let mut out = Diagnostics::new();
+    let mut failed = false;
     if classes.contains(&CheckClass::Links) {
-        out.extend(diagnostics);
-        out.extend(external_note(global.offline));
+        out.extend(built.diagnostics.clone());
+        let external = external(global, &built, &defaults());
+        failed |= external.broken > 0;
+        out.extend(external.diagnostics);
     }
     for class in &classes {
         if let Some(note) = unavailable(*class) {
@@ -46,28 +49,106 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
         }
     }
 
-    report(global, format, &out, &sources)
+    let exit = report(global, format, &out, &built.sources, failed);
+    built.discard();
+    exit
 }
 
 pub fn links(global: &Global, args: &BrokenLinks) -> Exit {
     let format = global.resolve(args.format);
-    let Some((diagnostics, sources)) = link_diagnostics(global, format) else {
+    let Some(built) = build_site(global, format) else {
         return Exit::Errors;
     };
 
-    let mut out = diagnostics;
+    let mut out = built.diagnostics.clone();
+    let mut failed = false;
     if !args.internal_only {
-        out.extend(external_note(global.offline));
+        let options = crate::links::Options {
+            concurrency: args.concurrency,
+            timeout: std::time::Duration::from_secs(args.timeout),
+            allow: args.allow.clone(),
+        };
+        let external = external(global, &built, &options);
+        failed |= external.broken > 0;
+        if !global.quiet && format == crate::cli::Format::Text && external.checked > 0 {
+            println!(
+                "checked {} external link{}{}",
+                external.checked,
+                if external.checked == 1 { "" } else { "s" },
+                if external.skipped > 0 {
+                    format!(", skipped {}", external.skipped)
+                } else {
+                    String::new()
+                }
+            );
+        }
+        out.extend(external.diagnostics);
     }
-    report(global, format, &out, &sources)
+
+    let exit = report(global, format, &out, &built.sources, failed);
+    built.discard();
+    exit
 }
 
-/// Every link, anchor, and asset problem the build found, from a cold build so
-/// the answer does not depend on the cache (RFC 0904).
-fn link_diagnostics(
-    global: &Global,
-    format: crate::cli::Format,
-) -> Option<(Diagnostics, SourceMap)> {
+/// `liyasa verify` has no link flags of its own, so it runs the same defaults
+/// `liyasa broken-links` declares.
+fn defaults() -> crate::links::Options {
+    crate::links::Options {
+        concurrency: 8,
+        timeout: std::time::Duration::from_secs(10),
+        allow: Vec::new(),
+    }
+}
+
+/// The external half of a link run.
+///
+/// `--offline` (HOST-08) is a request not to leave the machine, so it is not
+/// worth a warning. A client that cannot be built is W0018: the run covered
+/// only what is in the repository and must not read as a clean bill of health.
+fn external(global: &Global, built: &Built, options: &crate::links::Options) -> crate::links::Outcome {
+    let empty = || crate::links::Outcome {
+        diagnostics: Diagnostics::new(),
+        checked: 0,
+        skipped: 0,
+        broken: 0,
+    };
+    if global.offline {
+        return empty();
+    }
+    let config = crate::net::config_value(&built.project.config);
+    match crate::net::Network::for_project(&config) {
+        Ok(network) => crate::links::check(&network, &config, &built.output, options),
+        Err(_) => {
+            let mut out = empty();
+            out.diagnostics.push(
+                Diagnostic::new(
+                    code::W0018,
+                    "external links were not checked: no HTTP client on this machine",
+                )
+                .help("Internal links, anchors, and assets were checked."),
+            );
+            out
+        }
+    }
+}
+
+/// A cold build and what it decided, kept until the caller has read the output
+/// it wrote (RFC 0904: cold, so the answer does not depend on the cache).
+struct Built {
+    project: ctx::Project,
+    diagnostics: Diagnostics,
+    sources: SourceMap,
+    /// The throwaway output, which the external check reads for its links.
+    output: std::path::PathBuf,
+}
+
+impl Built {
+    fn discard(self) {
+        let _ = std::fs::remove_dir_all(&self.output);
+    }
+}
+
+fn build_site(global: &Global, format: crate::cli::Format) -> Option<Built> {
     let cwd = ctx::cwd();
     let project = match ctx::locate(global, &cwd) {
         Ok(project) => project,
@@ -86,7 +167,6 @@ fn link_diagnostics(
         ..liyasa_build::engine::Options::default()
     };
     let report = liyasa_build::engine::build(&vfs, &git, &project.root, &options);
-    let _ = std::fs::remove_dir_all(&scratch);
 
     let found: Diagnostics = report
         .diagnostics
@@ -101,7 +181,12 @@ fn link_diagnostics(
     } else {
         SourceMap::new()
     };
-    Some((found, sources))
+    Some(Built {
+        project,
+        diagnostics: found,
+        sources,
+        output: scratch,
+    })
 }
 
 fn reconstruct(
@@ -127,21 +212,6 @@ fn reconstruct(
         },
     );
     sources
-}
-
-/// External links need an HTTP client. Saying nothing would let a run that
-/// checked only internal links read as a clean bill of health.
-fn external_note(offline: bool) -> Option<Diagnostic> {
-    if offline {
-        return None;
-    }
-    Some(
-        Diagnostic::new(
-            code::W0018,
-            "external links were not requested: this build has no network client",
-        )
-        .help("Internal links, anchors, and assets were checked."),
-    )
 }
 
 fn unavailable(class: CheckClass) -> Option<Diagnostic> {
@@ -178,13 +248,16 @@ fn report(
     format: crate::cli::Format,
     diagnostics: &Diagnostics,
     sources: &SourceMap,
+    failed: bool,
 ) -> Exit {
     crate::diag::Printer::new(format, ctx::use_color(global)).emit(diagnostics, sources);
-    if !global.quiet && format == crate::cli::Format::Text && !diagnostics.has_errors() {
+    if !global.quiet && format == crate::cli::Format::Text && !diagnostics.has_errors() && !failed {
         println!("no failing checks");
     }
-    // CLI-31: a verification failure is exit 3, not exit 1.
-    if diagnostics.has_errors() {
+    // CLI-31: a verification failure is exit 3, not exit 1. A broken external
+    // link is W0404, a warning, and still a failed check: VER-51 makes it a
+    // warning so it does not stop a build, not so a link run can ignore it.
+    if diagnostics.has_errors() || failed {
         Exit::Verification
     } else {
         Exit::Success

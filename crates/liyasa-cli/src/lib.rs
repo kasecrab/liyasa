@@ -17,6 +17,7 @@ pub mod diag;
 pub mod exit;
 pub mod git;
 pub mod home;
+pub mod links;
 pub mod lock;
 pub mod net;
 pub mod pdf;
