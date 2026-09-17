@@ -50,7 +50,32 @@ pub fn dispatch(global: &Global, command: Command) -> Exit {
         Command::Doctor(args) => doctor::run(global, &args),
         Command::Companion(which) => companion::run(global, &which),
         Command::Lock(which) => lock::run(global, &which),
+        Command::Lsp => lsp(global),
         Command::Budgets => budgets(global),
+    }
+}
+
+/// CLI-25: the language server, speaking the protocol over stdin and stdout.
+///
+/// A failure is reported on stderr rather than discarded. Stdout carries the
+/// protocol and nothing else, so a diagnostic there would corrupt the stream;
+/// stderr is where an editor's log looks, and it is the only place a user of a
+/// stdio language server can see why it stopped. A bare non-zero exit tells
+/// them nothing.
+fn lsp(global: &Global) -> Exit {
+    match liyasa_lsp::serve_stdio() {
+        Ok(()) => Exit::Success,
+        Err(error) => {
+            crate::ctx::report(
+                global,
+                global.resolve(crate::cli::Format::Text),
+                liyasa_core::Diagnostic::new(
+                    liyasa_core::diagnostics::code::E0002,
+                    format!("the language server stopped: {error}"),
+                ),
+            );
+            Exit::Errors
+        }
     }
 }
 

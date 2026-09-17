@@ -147,6 +147,9 @@ pub enum Command {
     /// Inspect and refresh `liyasa.lock` (CLI-33).
     #[command(subcommand)]
     Lock(Lock),
+    /// Run the language server an editor talks to over stdin and stdout
+    /// (CLI-25).
+    Lsp,
     /// Print the artifact size budgets (CLI-35).
     ///
     /// Hidden: it exists so the release job reads the table from one place
