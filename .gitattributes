@@ -35,6 +35,27 @@ crates/*/Cargo.toml merge=union
 tests/it/main.rs merge=union
 crates/*/tests/it/main.rs merge=union
 
+# Each crate root is the fourth file of this shape and was missed when the other
+# three were done. CLAUDE.md and bin/path-guard both already treat it as shared
+# and append-only — several packages own subtrees of one crate, so the root
+# carries everyone's `pub mod` and `pub use` lines — but git was still merging it
+# three-way.
+#
+# WP-21 proved the failure rather than predicting it, on the live case:
+# WP-20a appended `pub mod graph;` and WP-21 appended `pub mod runners;` to
+# crates/liyasa-verify/src/lib.rs. `git merge-file` conflicts; `git merge-file
+# --union` keeps both lines in order and is correct. Two packages appending one
+# line each, to names that do not intersect, conflicting purely on adjacency —
+# the WP-14/WP-29 manifest case one file to the left.
+#
+# Safe for the same reason tests/it/main.rs is: a duplicate `pub mod foo;` fails
+# to compile immediately and loudly, so union keeping both sides cannot produce a
+# silent wrong result.
+#
+# markdown, verify and server are all named in CLAUDE.md as crates with several
+# owners, so this recurs for every pair of them. Structural, not bad luck.
+crates/*/src/lib.rs merge=union
+
 *.png binary
 *.jpg binary
 *.woff2 binary
