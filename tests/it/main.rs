@@ -56,6 +56,8 @@ mod host_01_matrix;
 mod host_02;
 #[path = "../hosting/host_04_proxies.rs"]
 mod host_04_proxies;
+#[path = "../server/host_20_domains.rs"]
+mod host_20_domains;
 #[path = "../server/host_05.rs"]
 mod host_05;
 #[path = "../server/host_07_jobs.rs"]
