@@ -380,6 +380,17 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         files: tree.assets.iter().map(|asset| asset.path.clone()).collect(),
         base_path: settings.base_path.clone(),
     };
+    // What a link resolves to — and whether it resolves at all — depends on
+    // every route and file the build has, so the table keys the render's
+    // artifacts the way the page's own bytes do.
+    let link_fingerprint = Fingerprint::of_parts(
+        link_table
+            .routes
+            .iter()
+            .map(|route| route.as_str().as_bytes())
+            .chain(link_table.files.iter().map(|file| file.as_str().as_bytes()))
+            .chain(std::iter::once(link_table.base_path.as_bytes())),
+    );
     let strictness = match load
         .value
         .get("build")
@@ -402,6 +413,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         &navigations,
         options,
         &link_table,
+        link_fingerprint,
         strictness,
         &nonce,
         config_fingerprint,
@@ -839,6 +851,7 @@ fn render_pages(
     navigations: &BTreeMap<Option<liyasa_core::ids::Version>, liyasa_theme::nav::Navigation>,
     build_options: &Options,
     link_table: &crate::links::Table,
+    link_fingerprint: Fingerprint,
     strictness: crate::links::Strictness,
     nonce: &str,
     config_fingerprint: Fingerprint,
@@ -921,6 +934,25 @@ fn render_pages(
                 "page_content_hosts",
                 &[page.fingerprint, config_fingerprint],
             );
+            // What a render said about this page (RFC 0904). A hit has to
+            // report it again, or the same commit is clean warm and broken
+            // cold; the key is everything a render reads, so what comes back
+            // is what this page would say if it ran.
+            let navigation_fingerprint = navigations
+                .get(&page.version)
+                .and_then(|navigation| serde_json::to_vec(navigation).ok())
+                .map(Fingerprint::of)
+                .unwrap_or_else(|| Fingerprint::of("no navigation"));
+            let diagnostics_key = crate::cache::key(
+                "page_diagnostics",
+                &[
+                    page.fingerprint,
+                    config_fingerprint,
+                    navigation_fingerprint,
+                    snippets_fingerprint,
+                    link_fingerprint,
+                ],
+            );
             let mut markdown = cache
                 .get(&markdown_key)
                 .and_then(|bytes| String::from_utf8(bytes.to_vec()).ok())
@@ -938,6 +970,13 @@ fn render_pages(
                 .get(&hosts_key)
                 .and_then(|bytes| serde_json::from_slice(&bytes).ok())
                 .unwrap_or_default();
+            // Kept apart from `diagnostics`, which already holds the scan's:
+            // those are recomputed every build, and storing them too would
+            // report each of them twice on a warm one.
+            let mut render_diagnostics: Vec<Diagnostic> = cache
+                .get(&diagnostics_key)
+                .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+                .unwrap_or_default();
             let mut recorded = false;
             let (mut hits, mut misses) = (0usize, 0usize);
             let mut converged = false;
@@ -946,12 +985,11 @@ fn render_pages(
             for _ in 0..settings.caps.iterations.max(1) {
                 rendered.clear();
                 let mut grew = false;
+                // One pass's worth, so that a fixed point that renders twice
+                // does not report everything twice.
+                let mut pass = Diagnostics::new();
+                let rendered_before = misses;
                 for variant in variant_set(&outcome) {
-                    let navigation_fingerprint = navigations
-                        .get(&page.version)
-                        .and_then(|navigation| serde_json::to_vec(navigation).ok())
-                        .map(Fingerprint::of)
-                        .unwrap_or_else(|| Fingerprint::of("no navigation"));
                     let key = crate::cache::key(
                         "page_html",
                         &[
@@ -959,6 +997,10 @@ fn render_pages(
                             config_fingerprint,
                             assets_built.fingerprint,
                             navigation_fingerprint,
+                            // A link is resolved against the whole route and
+                            // file set, so a page that gains or loses a
+                            // neighbour has to be rendered again.
+                            link_fingerprint,
                             // A page may include any snippet, so an edit to one
                             // invalidates every page — which is what keeps a
                             // fixed-nonce dev rebuild correct (CM-70).
@@ -981,7 +1023,7 @@ fn render_pages(
                             let started = Instant::now();
                             let page_render = render::page(sources, &source, &context, &options);
                             spent += started.elapsed();
-                            diagnostics.extend(page_render.diagnostics.as_slice().to_vec());
+                            pass.extend(page_render.diagnostics.as_slice().to_vec());
                             grew |= reads.absorb(&page_render.record);
                             if !recorded {
                                 recorded = true;
@@ -991,7 +1033,7 @@ fn render_pages(
                                     registry,
                                     site,
                                     all_routes,
-                                    &mut diagnostics,
+                                    &mut pass,
                                 );
                                 referenced = referenced_files(&page_render);
                                 changelog = page_render
@@ -1015,7 +1057,7 @@ fn render_pages(
                                 page,
                                 &variant,
                                 &page_render.html,
-                                &mut diagnostics,
+                                &mut pass,
                             );
                             let _ = cache.put(
                                 &key,
@@ -1030,6 +1072,9 @@ fn render_pages(
                     if let Some(path) = paths.get(&variant_key) {
                         rendered.push((variant_key, path.clone(), html));
                     }
+                }
+                if misses > rendered_before {
+                    render_diagnostics = pass.into_vec();
                 }
                 if !grew {
                     converged = true;
@@ -1048,15 +1093,11 @@ fn render_pages(
                 let variant = variant_set(&outcome).first().cloned().unwrap_or_default();
                 let context = template_context(settings, build_options, page, &variant);
                 let page_render = render::page(sources, &source, &context, &options);
-                diagnostics.extend(page_render.diagnostics.as_slice().to_vec());
-                markdown = agent_markdown(
-                    &page_render,
-                    page,
-                    registry,
-                    site,
-                    all_routes,
-                    &mut diagnostics,
-                );
+                let mut pass = Diagnostics::new();
+                pass.extend(page_render.diagnostics.as_slice().to_vec());
+                markdown =
+                    agent_markdown(&page_render, page, registry, site, all_routes, &mut pass);
+                render_diagnostics = pass.into_vec();
                 referenced = referenced_files(&page_render);
                 changelog = page_render
                     .document
@@ -1067,6 +1108,25 @@ fn render_pages(
                 recorded = true;
             }
             if recorded {
+                // One entry per diagnostic: every variant of a page raises the
+                // same broken link, and a reader should see it once. Not
+                // `dedup`, which only removes neighbours — the repeats come a
+                // whole variant apart.
+                let mut seen: Vec<Diagnostic> = Vec::with_capacity(render_diagnostics.len());
+                render_diagnostics.retain(|diagnostic| {
+                    let first = !seen.contains(diagnostic);
+                    if first {
+                        seen.push(diagnostic.clone());
+                    }
+                    first
+                });
+                if let Ok(encoded) = serde_json::to_vec(&render_diagnostics) {
+                    let _ = cache.put(
+                        &diagnostics_key,
+                        liyasa_core::vfs::Bytes::from(encoded),
+                        &[page.fingerprint, config_fingerprint],
+                    );
+                }
                 let _ = cache.put(
                     &markdown_key,
                     liyasa_core::vfs::Bytes::from(markdown.clone().into_bytes()),
@@ -1094,6 +1154,8 @@ fn render_pages(
                     );
                 }
             }
+
+            diagnostics.extend(render_diagnostics);
 
             Outcome {
                 route: page.route.clone(),

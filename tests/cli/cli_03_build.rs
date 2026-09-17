@@ -670,3 +670,74 @@ fn a_determinism_check_that_could_not_build_says_so() {
         "{difference:?}"
     );
 }
+
+/// §6.6.2 checks that two builds of the same inputs write the same bytes.
+/// A cache hit has to keep the same promise about what the build *said*: the
+/// diagnostics a page produced are part of its result, not a side effect of
+/// having rendered it this time (`plan/rfcs/0904-a-cache-hit-loses-its-diagnostics.md`).
+#[test]
+fn a_warm_build_is_deterministic_in_its_diagnostics_too() {
+    let project = Project::new("diagnostics-warm");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","seo":{"canonicalOrigin":"https://docs.acme.com"},
+                "build":{"strictLinks":false}}"#,
+        )
+        .write("index.md", "---\ntitle: Home\n---\n# Home\n\n[Ghost](./ghost.md)\n")
+        .write(
+            "guides/install.md",
+            "---\ntitle: Install\n---\n# Install\n\n![Gone](./missing.png)\n\n[Also gone](./nowhere.md)\n",
+        );
+
+    let codes = |report: &engine::Report| {
+        let mut out: Vec<String> = report
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.code.as_str().to_owned())
+            .collect();
+        out.sort();
+        out
+    };
+
+    let cold = build(&project, options());
+    let warm = build(&project, options());
+    assert_eq!(warm.cache_misses, 0, "the second build is the warm one");
+    assert!(
+        codes(&cold).iter().any(|code| code == "E0401"),
+        "the fixture has a broken link: {:?}",
+        codes(&cold)
+    );
+    assert!(
+        codes(&cold).iter().any(|code| code == "E0403"),
+        "and a missing image: {:?}",
+        codes(&cold)
+    );
+    assert_eq!(codes(&warm), codes(&cold));
+}
+
+#[test]
+fn a_page_with_several_variants_reports_its_defect_once() {
+    // Each variant renders the page again, so the same broken link is found
+    // once per variant; the report is for a reader, who needs it once.
+    let project = Project::new("diagnostics-variants");
+    project
+        .write(
+            "liyasa.json",
+            r#"{"name":"Acme docs","seo":{"canonicalOrigin":"https://docs.acme.com"},
+                "build":{"strictLinks":false}}"#,
+        )
+        .write(
+            "index.md",
+            "---\ntitle: Home\ngroups: [admin, partner]\n---\n# Home\n\n[Ghost](./ghost.md)\n",
+        );
+
+    let report = build(&project, options());
+    assert!(report.variants > 1, "the fixture has several variants");
+    let broken = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code.as_str() == "E0401")
+        .count();
+    assert_eq!(broken, 1, "{:?}", report.diagnostics);
+}
