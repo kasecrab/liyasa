@@ -154,3 +154,5 @@ mod ed_75_roles;
 mod ed_73_messages;
 #[path = "../editor/ed_01_model.rs"]
 mod ed_01_model;
+#[path = "../server/host_07_worker.rs"]
+mod host_07_worker;

@@ -375,6 +375,9 @@ async fn run_serve(options: Options) -> Result<(), String> {
         .await
         .map_err(|e| format!("opening the analytics database: {e}"))?;
     runtime.spawn_salt_rotation();
+    // RFC 1404: claim and run jobs, and say at startup what this binary can
+    // and cannot run rather than draining a queue silently or not at all.
+    runtime.spawn_worker(routes::work::kinds()).await;
     if !offline {
         match liyasa_net::Client::new(liyasa_net::ClientOptions::default()) {
             Ok(client) => runtime.spawn_webhooks(Arc::new(client)),

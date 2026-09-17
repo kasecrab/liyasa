@@ -24,6 +24,7 @@ pub mod serve;
 pub mod session;
 pub mod site;
 pub mod telemetry;
+pub mod work;
 pub mod tls;
 pub mod webhooks;
 
@@ -115,6 +116,10 @@ pub struct AppState {
     /// What `application` mounted, so readiness can report it (RFC 1403).
     /// Written once, by `application`, before the server accepts a request.
     mounted: std::sync::OnceLock<Vec<MountRecord>>,
+    /// A handle to this state, for the background work an event starts
+    /// (RFC 1404). Weak so the state does not hold itself alive; written once,
+    /// by `application`.
+    self_arc: std::sync::OnceLock<std::sync::Weak<AppState>>,
 }
 
 impl std::fmt::Debug for AppState {
@@ -142,6 +147,7 @@ impl AppState {
             challenges: Arc::new(acme::Challenges::default()),
             started: Instant::now(),
             mounted: std::sync::OnceLock::new(),
+            self_arc: std::sync::OnceLock::new(),
             draining: AtomicBool::new(false),
             config,
         }
@@ -295,9 +301,19 @@ impl AppState {
         let payload = serde_json::to_string(&envelope).unwrap_or_else(|_| "{}".to_owned());
         let id = envelope["id"].as_str().unwrap_or_default().to_owned();
         let event_type = event_type.to_owned();
+        let state = self.self_arc.get().and_then(std::sync::Weak::upgrade);
+        let data = data.clone();
         tokio::spawn(async move {
             if let Err(error) = store.webhooks().queue(&id, &event_type, &payload).await {
                 tracing::warn!(target: "liyasa_server", %error, "a webhook could not be queued");
+            }
+            // RFC 1404: the same event that notifies a receiver starts the
+            // work packages registered for it.
+            if event_type == "deployment.succeeded"
+                && let Some(state) = state
+                && let Err(error) = work::on_deployment(&state, work::kinds(), &data).await
+            {
+                tracing::warn!(target: "liyasa_server", %error, "a post-deploy job could not be queued");
             }
         });
     }
@@ -554,6 +570,7 @@ pub fn application(state: Arc<AppState>) -> Application {
     // Readiness answers from the state, not from the router, so record it
     // before the first request can ask.
     let _ = state.mounted.set(mounted.clone());
+    let _ = state.self_arc.set(Arc::downgrade(&state));
     Application {
         router,
         mounted,

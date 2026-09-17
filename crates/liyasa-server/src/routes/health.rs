@@ -72,6 +72,23 @@ pub async fn ready(State(state): State<Arc<AppState>>) -> Response {
         }
     }
 
+    // RFC 1404: a job name in the queue with no handler is work nobody can
+    // do, and it is invisible unless something says so.
+    let mut orphaned_jobs: Vec<String> = Vec::new();
+    if let Ok(registered) = super::work::registered(&state, super::work::kinds()).await {
+        orphaned_jobs = registered.orphaned;
+        if !orphaned_jobs.is_empty() {
+            checks.push(json!({
+                "name": "jobs",
+                "status": "warn",
+                "detail": format!(
+                    "queued with no handler: {}",
+                    orphaned_jobs.join(", ")
+                ),
+            }));
+        }
+    }
+
     if state.draining() {
         // A draining replica finishes what it has and takes no new traffic.
         ready = false;
@@ -90,6 +107,8 @@ pub async fn ready(State(state): State<Arc<AppState>>) -> Response {
             "checks": checks,
             // RFC 1403: which subtrees this instance mounted, and why not.
             "subtrees": subtrees,
+            // RFC 1404: job names queued that nothing here can run.
+            "orphanedJobs": orphaned_jobs,
         }),
     )
     .into_response()

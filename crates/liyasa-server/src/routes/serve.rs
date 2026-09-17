@@ -85,6 +85,34 @@ impl Runtime {
         }));
     }
 
+    /// Claims and runs jobs, and fires timer triggers (RFC 1404).
+    pub async fn spawn_worker(&mut self, kinds: &'static [super::work::JobKind]) {
+        use super::work;
+        match work::registered(&self.state, kinds).await {
+            Ok(registered) => work::report(&registered),
+            Err(error) => {
+                tracing::warn!(target: "liyasa_server", %error, "the job queue could not be read")
+            }
+        }
+        let state = self.state.clone();
+        let worker = worker_name();
+        let mut rx = self.shutdown_rx.clone();
+        self.tasks.push(tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(work::TICK) => {}
+                    _ = rx.changed() => return,
+                }
+                if let Err(error) = work::fire_timers(&state, kinds).await {
+                    tracing::warn!(target: "liyasa_server", %error, "a timer trigger failed");
+                }
+                if let Err(error) = work::run_once(&state, kinds, &worker).await {
+                    tracing::warn!(target: "liyasa_server", %error, "a job pass failed");
+                }
+            }
+        }));
+    }
+
     /// Rotates the analytics salt at midnight UTC (ANA-03).
     pub fn spawn_salt_rotation(&mut self) {
         let state = self.state.clone();

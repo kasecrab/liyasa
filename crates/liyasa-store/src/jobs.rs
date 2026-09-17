@@ -420,6 +420,21 @@ impl Jobs {
         rows.iter().map(job_from_row).collect()
     }
 
+    /// The distinct names of jobs waiting to run. A name here that no handler
+    /// is registered for is work nobody can do, which is the shape of defect
+    /// this project keeps producing (RFC 1404).
+    pub async fn live_names(&self) -> Result<Vec<String>, StoreError> {
+        let rows = sqlx::query(
+            "SELECT DISTINCT name FROM job WHERE state IN ('queued', 'leased') ORDER BY name",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sql_error)?;
+        rows.iter()
+            .map(|row| row.try_get("name").map_err(sql_error))
+            .collect()
+    }
+
     /// The number of live jobs, for the metrics endpoint and the queue cap.
     pub async fn depth(&self, name: Option<&str>) -> Result<u64, StoreError> {
         let row = sqlx::query(
