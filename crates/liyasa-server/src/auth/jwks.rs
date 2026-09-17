@@ -318,20 +318,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_same_unknown_kid_is_negatively_cached_for_sixty_seconds() {
+    async fn the_same_unknown_kid_is_negatively_cached_and_a_repeat_costs_nothing() {
         let jwks = Jwks::new(Clock::manual());
         let source = Counting::with(&["real"]);
         assert_eq!(jwks.resolve("absent", &source).await, Resolution::Unknown);
         assert_eq!(source.calls(), 1);
 
-        // Past the refresh window, but inside the negative window: still no
-        // fetch, because this particular kid is known to be absent.
-        jwks.clock().advance(REFRESH_INTERVAL);
+        // However many times it is asked, inside the window.
+        for _ in 0..100 {
+            assert_eq!(jwks.resolve("absent", &source).await, Resolution::Unknown);
+        }
+        jwks.clock().advance(NEGATIVE_TTL - Duration::from_secs(1));
         assert_eq!(jwks.resolve("absent", &source).await, Resolution::Unknown);
         assert_eq!(source.calls(), 1, "a negative entry suppresses the refetch");
 
-        // Past both: the key may have appeared since.
-        jwks.clock().advance(NEGATIVE_TTL);
+        // AUTH-03 sets both windows to 60 s, so they lapse together and the
+        // key may have appeared since. That the two coincide is the spec's
+        // choice, not an accident here: they are separate constants, and if
+        // one moves this test is what says the behaviour moved with it.
+        assert_eq!(NEGATIVE_TTL, REFRESH_INTERVAL);
+        jwks.clock().advance(Duration::from_secs(1));
         assert_eq!(jwks.resolve("absent", &source).await, Resolution::Unknown);
         assert_eq!(source.calls(), 2);
     }
