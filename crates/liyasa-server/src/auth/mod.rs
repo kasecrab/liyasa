@@ -20,5 +20,8 @@
 
 pub mod base64url;
 pub mod clock;
+pub mod config;
 pub mod cookie;
 pub mod random;
+
+pub use config::{AuthConfig, Mode};
