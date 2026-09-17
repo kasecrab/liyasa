@@ -39,6 +39,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0018`](/errors/W0018) | Warning | External links were not checked; this build has no network client |
 | [`W0019`](/errors/W0019) | Warning | A verification check class could not run in this build |
 | [`W0020`](/errors/W0020) | Warning | Form control has no accessible name |
+| [`E0021`](/errors/E0021) | Error | A network request failed (policy, DNS, TLS, timeout, or the host) |
 
 ## Configuration
 

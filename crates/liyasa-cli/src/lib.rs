@@ -18,6 +18,7 @@ pub mod exit;
 pub mod git;
 pub mod home;
 pub mod lock;
+pub mod net;
 pub mod pdf;
 pub mod scaffold;
 pub mod serve;
