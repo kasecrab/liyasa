@@ -131,8 +131,11 @@ pub struct Filters {
     pub route_prefix: Option<String>,
 }
 
+/// Reads one `variant` dimension off a filter set.
+type VariantOf = fn(&Filters) -> Option<&String>;
+
 /// A dimension that lives inside the `variant` JSON rather than in a column.
-const VARIANTS: [(&str, fn(&Filters) -> Option<&String>); 4] = [
+const VARIANTS: [(&str, VariantOf); 4] = [
     ("version", |f| f.version.as_ref()),
     ("locale", |f| f.locale.as_ref()),
     ("region", |f| f.region.as_ref()),

@@ -232,5 +232,5 @@ pub fn utm_from_route(route: &str) -> Option<Value> {
             object.insert(field.to_owned(), Value::String(value.into_owned()));
         }
     }
-    (!object.is_empty()).then(|| Value::Object(object))
+    (!object.is_empty()).then_some(Value::Object(object))
 }

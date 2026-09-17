@@ -458,7 +458,7 @@ pub fn consent_provider(configured: &[Configured]) -> Option<&Configured> {
 /// Integrations that are gated but have no provider to gate them: they would
 /// never load. A dashboard Settings page says so rather than leaving an
 /// operator to notice their analytics are silent.
-pub fn gated_without_a_provider<'a>(configured: &'a [Configured]) -> Vec<&'a Configured> {
+pub fn gated_without_a_provider(configured: &[Configured]) -> Vec<&Configured> {
     if consent_provider(configured).is_some() {
         return Vec::new();
     }
