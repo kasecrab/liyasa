@@ -29,7 +29,7 @@ pub const REPLAY_RETENTION: Duration = Duration::from_secs(24 * 60 * 60);
 /// next insert. A sweep is linear, so it is amortised rather than per-request.
 const SWEEP_AT: usize = 4096;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Provider {
     GitHub,
     GitLab,

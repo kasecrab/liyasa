@@ -7,10 +7,13 @@
 //! request gets, and the rules an untrusted build is held to.
 
 pub mod environment;
+pub mod hooks;
 pub mod preview;
 pub mod queue;
 pub mod retention;
+pub mod routes;
 pub mod rollback;
+pub mod service;
 pub mod untrusted;
 
 pub use environment::{Environment, EnvironmentKind, Protection};
@@ -18,4 +21,6 @@ pub use preview::Preview;
 pub use queue::{Accepted, BuildRequest, Class, DeployQueue, Limits, QueueError, Trigger};
 pub use retention::Retention;
 pub use rollback::{Actor, Rollback, RollbackError};
+pub use routes::router;
+pub use service::{Binding, DeployState, Hooks};
 pub use untrusted::{Reason, Sandbox};
