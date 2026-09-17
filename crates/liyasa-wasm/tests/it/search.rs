@@ -53,7 +53,9 @@ fn files() -> BTreeMap<String, Vec<u8>> {
             source: (*source).to_owned(),
             ..ParseRequest::default()
         });
-        let document = parsed.document.expect("the page parses");
+        let document = parsed
+            .document
+            .unwrap_or_else(|| panic!("the page parses: {:?}", parsed.diagnostics));
         let mut meta = PageMeta::new(Route::new(*route), *title, Locale::new("en"));
         meta.kind = DocKind::Page;
         documents.extend(section::extract(&document, &meta));

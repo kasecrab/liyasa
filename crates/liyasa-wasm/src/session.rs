@@ -274,8 +274,19 @@ impl Session {
         document: &SourceDocument,
         context: serde_json::Value,
     ) -> Result<liyasa_core::markdown::Expanded, Vec<Diagnostic>> {
+        // `BUILD`, not `REQUEST`, even though a preview is interactive. The
+        // budget's clock is a wall clock and RFC 0206 says so: `REQUEST`'s
+        // 200ms is the right number for a reader waiting on a server, because
+        // 200ms of real time is slow to them whatever the machine was doing.
+        // The preview runs in the author's own browser on the author's own
+        // machine, so the same 200ms means "your laptop was busy" and answers a
+        // page that is fine with `E0204`. It did exactly that here: the search
+        // corpus built from two plain Markdown pages passed alone in 0.01s and
+        // failed inside a 4,196-test parallel run. `iterations`, `depth` and
+        // `output_bytes` are what actually bound a runaway template, and none
+        // of them is load-sensitive.
         let options = ExpandOptions {
-            budget: Budget::REQUEST,
+            budget: Budget::BUILD,
             undefined: Undefined::Strict,
         };
         let environment = expand::environment(&options);
