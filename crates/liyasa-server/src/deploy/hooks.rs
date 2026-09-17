@@ -122,6 +122,19 @@ async fn on_push(state: &DeployState, event: &Event, push: &Push) -> Response {
     }
     let environment = binding.environment_for(&push.branch);
     let reason = classify(event, &binding.deploy_branch, &binding.trusted_branches);
+    // GIT-20: the previous build of this environment warms the artifact cache,
+    // and the commit this push moved from is what `verify --changed` diffs
+    // against. Both are best-effort: a first deploy has neither.
+    let cache_from = match state.app.store.as_ref() {
+        Some(store) => store
+            .deployments_typed()
+            .current(&binding.project, &environment.name)
+            .await
+            .ok()
+            .flatten()
+            .map(|record| record.build.to_string()),
+        None => None,
+    };
     let mut request = BuildRequest::new(
         binding.project,
         &environment.name,
@@ -130,7 +143,8 @@ async fn on_push(state: &DeployState, event: &Event, push: &Push) -> Response {
         &push.branch,
         &push.head,
     )
-    .with_trigger(Trigger::Push);
+    .with_trigger(Trigger::Push)
+    .incremental_from(push.before.clone(), cache_from);
     if reason.untrusted() && environment.kind != EnvironmentKind::Production {
         request = request.untrusted();
     }

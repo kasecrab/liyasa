@@ -27,6 +27,12 @@ use serde_json::{Value, json};
 /// The job name every deploy and preview build is queued under.
 pub const JOB_NAME: &str = "deploy.build";
 
+/// The post-deploy job of GIT-20 and AST-01: re-embedding the chunks that
+/// changed. It is queued *after* the pointer moves and never waited on, so a
+/// slow model provider cannot hold a deploy open. The assistant answers from
+/// the previous embeddings until this job swaps the new ones in.
+pub const EMBED_JOB: &str = "assistant.embed";
+
 /// `server.builds.queue`.
 pub const DEFAULT_QUEUE_CAP: u64 = 100;
 /// `server.builds.concurrencyPerProject`.
@@ -130,6 +136,14 @@ pub struct BuildRequest {
     pub untrusted: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pull_request: Option<u64>,
+    /// The commit this push moved from. A deploy build verifies only what
+    /// changed since it (`verify --changed`, VER-72).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_commit: Option<String>,
+    /// The build whose artifact cache this one restores from, which is what
+    /// makes a server-side build incremental (GIT-20).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_from: Option<String>,
 }
 
 impl BuildRequest {
@@ -152,7 +166,21 @@ impl BuildRequest {
             trigger: Trigger::Push,
             untrusted: false,
             pull_request: None,
+            base_commit: None,
+            cache_from: None,
         }
+    }
+
+    /// What `verify --changed` is given, and what the artifact cache is warmed
+    /// from (GIT-20).
+    pub fn incremental_from(
+        mut self,
+        base_commit: Option<String>,
+        cache_from: Option<String>,
+    ) -> Self {
+        self.base_commit = base_commit;
+        self.cache_from = cache_from;
+        self
     }
 
     pub fn with_trigger(mut self, trigger: Trigger) -> Self {
@@ -201,6 +229,8 @@ impl BuildRequest {
             "trigger": self.trigger.as_str(),
             "untrusted": self.untrusted,
             "pullRequest": self.pull_request,
+            "baseCommit": self.base_commit,
+            "cacheFrom": self.cache_from,
         })
     }
 
@@ -541,6 +571,30 @@ impl DeployQueue {
         Ok(position(&queued, id))
     }
 
+    /// Queues the post-deploy embedding job (GIT-20, AST-01). Returns the job
+    /// id, or `None` when one is already queued for this build.
+    ///
+    /// Keyed by build so two deploys of the same bundle do not embed twice,
+    /// and queued at the lowest class so it never delays a build.
+    pub async fn queue_embedding(
+        &self,
+        project: &ProjectId,
+        build: &str,
+    ) -> Result<Option<JobId>, QueueError> {
+        let enqueue = Enqueue {
+            priority: Class::Reindex.priority(),
+            project: Some(*project),
+            payload: json!({ "buildId": build, "project": project.to_string() }),
+            max_attempts: 3,
+            lease: BUILD_LEASE,
+            ..Enqueue::new(EMBED_JOB, format!("{project}:{build}"))
+        };
+        Ok(match self.store.jobs_typed().enqueue(&enqueue).await? {
+            liyasa_store::Enqueued::Queued(id) => Some(id),
+            liyasa_store::Enqueued::Duplicate(_) => None,
+        })
+    }
+
     /// Records what a build produced (GIT-21).
     pub async fn complete(&self, id: &JobId, outcome: &BuildOutcome) -> Result<(), QueueError> {
         let result = serde_json::to_value(outcome).unwrap_or(Value::Null);
@@ -813,6 +867,37 @@ mod tests {
                 .untrusted();
         assert_eq!(request.payload()["untrusted"], true);
         assert_eq!(request.payload()["pullRequest"], 3);
+    }
+
+    #[test]
+    fn an_incremental_build_names_what_to_verify_and_what_to_warm_from() {
+        let request = BuildRequest::new(
+            project(6),
+            "production",
+            Class::Production,
+            "o/r",
+            "main",
+            "new",
+        )
+        .incremental_from(Some("old".to_owned()), Some("blake3:previous".to_owned()));
+        let payload = request.payload();
+        assert_eq!(payload["baseCommit"], "old");
+        assert_eq!(payload["cacheFrom"], "blake3:previous");
+    }
+
+    #[test]
+    fn a_first_build_has_nothing_to_verify_against_or_warm_from() {
+        let payload = BuildRequest::new(
+            project(7),
+            "production",
+            Class::Production,
+            "o/r",
+            "main",
+            "first",
+        )
+        .payload();
+        assert!(payload["baseCommit"].is_null());
+        assert!(payload["cacheFrom"].is_null());
     }
 
     #[test]

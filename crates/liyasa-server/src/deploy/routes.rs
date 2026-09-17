@@ -212,6 +212,72 @@ pub async fn status(State(state): State<Arc<DeployState>>, Path(id): Path<String
     Json(body).into_response()
 }
 
+/// `POST /_liyasa/api/v1/builds/{id}/deploy` — makes the build a finished job
+/// produced live (GIT-20).
+///
+/// The pointer moves, then the embedding job is queued and not waited on, so a
+/// network-bound model provider is never on the deploy path (AST-01).
+pub async fn activate(State(state): State<Arc<DeployState>>, Path(id): Path<String>) -> Response {
+    let Some(job_id) = JobId::parse(&id) else {
+        return Problem::bad_request("`id` is a ULID").into_response();
+    };
+    let Some(store) = state.app.store.clone() else {
+        return Problem::not_found("store").into_response();
+    };
+    let job = match store.jobs_typed().get(&job_id).await {
+        Ok(Some(job)) => job,
+        Ok(None) => return Problem::not_found("build").into_response(),
+        Err(error) => return Problem::store(&error).into_response(),
+    };
+    let Some(project) = job.project else {
+        return Problem::not_found("project").into_response();
+    };
+    let outcome = job
+        .result
+        .clone()
+        .and_then(|result| serde_json::from_value::<super::queue::BuildOutcome>(result).ok());
+    let Some(outcome) = outcome.filter(|outcome| !outcome.build_id.is_empty()) else {
+        return Problem::new(StatusCode::CONFLICT, "Build has no outcome")
+            .detail("this build job has not recorded the build it produced")
+            .into_response();
+    };
+    let Some(build) = Fingerprint::parse(&outcome.build_id).map(BuildId) else {
+        return Problem::code(StatusCode::INTERNAL_SERVER_ERROR, E0804)
+            .detail("the build job recorded a build id that is not a digest")
+            .into_response();
+    };
+    let env = job.payload["env"]
+        .as_str()
+        .unwrap_or("production")
+        .to_owned();
+    if let Err(error) = store
+        .deployments_typed()
+        .point(&project, &env, &build)
+        .await
+    {
+        tracing::error!(target: "liyasa_server", %error, "a deployment pointer could not be moved");
+        return Problem::code(StatusCode::INTERNAL_SERVER_ERROR, E0804)
+            .detail("the deployment pointer could not be moved")
+            .into_response();
+    }
+    let embedding = state
+        .queue
+        .queue_embedding(&project, &outcome.build_id)
+        .await
+        .ok()
+        .flatten()
+        .map(|id| id.to_string());
+    let body = json!({
+        "project": project.to_string(),
+        "env": env,
+        "buildId": outcome.build_id,
+        "commit": job.payload["commit"].as_str(),
+        "embeddingJobId": embedding,
+    });
+    state.app.notify_webhook("deployment.succeeded", &body);
+    Json(body).into_response()
+}
+
 /// `GET /_liyasa/api/v1/deployments/{env}/history` (GIT-21).
 pub async fn history(
     State(state): State<Arc<DeployState>>,
@@ -387,6 +453,7 @@ pub fn router(state: Arc<DeployState>) -> Router {
         .route("/_liyasa/hooks/{provider}", post(super::hooks::receive))
         .route("/_liyasa/api/v1/builds", get(queued).post(trigger))
         .route("/_liyasa/api/v1/builds/{id}", get(status))
+        .route("/_liyasa/api/v1/builds/{id}/deploy", post(activate))
         .route("/_liyasa/api/v1/deployments/{env}/history", get(history))
         .route("/_liyasa/api/v1/deployments/{env}/retained", get(retained))
         .route(
