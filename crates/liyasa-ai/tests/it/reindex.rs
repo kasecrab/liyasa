@@ -6,8 +6,7 @@ use std::time::Duration;
 use liyasa_ai::config::ModelRef;
 use liyasa_ai::index::{ChunkRecord, MemoryStore, VectorStore};
 use liyasa_ai::reindex::{
-    BATCH, Backoff, CHECKPOINT_EVERY, Progress, ProgressSink, ReindexError, Sleeper, embed_into,
-    swap,
+    BATCH, Backoff, CHECKPOINT_EVERY, Embedder, Progress, ProgressSink, ReindexError, Sleeper, swap,
 };
 use liyasa_core::ai::{AiError, EmbeddingModel};
 use liyasa_core::ids::Route;
@@ -127,16 +126,15 @@ async fn embedding_goes_in_batches_not_one_call_per_chunk() {
     let reports = Reports::default();
     let records = records(BATCH + 5);
 
-    let done = embed_into(
-        &store,
-        &index.id,
-        embeddings.as_ref(),
-        &records,
-        0,
-        Backoff::default(),
-        &sleeper,
-        &reports,
-    )
+    let done = Embedder {
+        store: &store,
+        index: &index.id,
+        model: embeddings.as_ref(),
+        backoff: Backoff::default(),
+        sleeper: &sleeper,
+        progress: &reports,
+    }
+    .run(&records, 0)
     .await
     .expect("the run finishes");
 
@@ -154,20 +152,19 @@ async fn a_rate_limit_backs_off_and_the_run_still_finishes() {
     let reports = Reports::default();
     let records = records(4);
 
-    let done = embed_into(
-        &store,
-        &index.id,
-        embeddings.as_ref(),
-        &records,
-        0,
-        Backoff {
+    let done = Embedder {
+        store: &store,
+        index: &index.id,
+        model: embeddings.as_ref(),
+        backoff: Backoff {
             base: Duration::from_millis(10),
             max: Duration::from_secs(1),
             attempts: 6,
         },
-        &sleeper,
-        &reports,
-    )
+        sleeper: &sleeper,
+        progress: &reports,
+    }
+    .run(&records, 0)
     .await
     .expect("the run finishes after backing off");
 
@@ -191,20 +188,19 @@ async fn a_provider_that_never_lets_up_fails_rather_than_looping() {
     let sleeper = FakeSleeper::default();
     let reports = Reports::default();
 
-    let error = embed_into(
-        &store,
-        &index.id,
-        embeddings.as_ref(),
-        &records(4),
-        0,
-        Backoff {
+    let error = Embedder {
+        store: &store,
+        index: &index.id,
+        model: embeddings.as_ref(),
+        backoff: Backoff {
             base: Duration::from_millis(1),
             max: Duration::from_millis(10),
             attempts: 3,
         },
-        &sleeper,
-        &reports,
-    )
+        sleeper: &sleeper,
+        progress: &reports,
+    }
+    .run(&records(4), 0)
     .await
     .expect_err("it gives up");
 
@@ -221,16 +217,15 @@ async fn a_restart_resumes_from_the_checkpoint_rather_than_re_embedding() {
     let reports = Reports::default();
     let records = records(BATCH * 3);
 
-    let done = embed_into(
-        &store,
-        &index.id,
-        embeddings.as_ref(),
-        &records,
-        BATCH,
-        Backoff::default(),
-        &sleeper,
-        &reports,
-    )
+    let done = Embedder {
+        store: &store,
+        index: &index.id,
+        model: embeddings.as_ref(),
+        backoff: Backoff::default(),
+        sleeper: &sleeper,
+        progress: &reports,
+    }
+    .run(&records, BATCH)
     .await
     .expect("the run finishes");
 
@@ -252,16 +247,15 @@ async fn progress_is_reported_and_checkpointed_every_thousand() {
     let reports = Reports::default();
     let records = records(CHECKPOINT_EVERY * 2 + 10);
 
-    embed_into(
-        &store,
-        &index.id,
-        embeddings.as_ref(),
-        &records,
-        0,
-        Backoff::default(),
-        &sleeper,
-        &reports,
-    )
+    Embedder {
+        store: &store,
+        index: &index.id,
+        model: embeddings.as_ref(),
+        backoff: Backoff::default(),
+        sleeper: &sleeper,
+        progress: &reports,
+    }
+    .run(&records, 0)
     .await
     .expect("the run finishes");
 
@@ -285,31 +279,29 @@ async fn the_old_index_answers_every_query_until_the_swap() {
     let sleeper = FakeSleeper::default();
     let reports = Reports::default();
 
-    embed_into(
-        &store,
-        &old.id,
-        embeddings.as_ref(),
-        &records(4),
-        0,
-        Backoff::default(),
-        &sleeper,
-        &reports,
-    )
+    Embedder {
+        store: &store,
+        index: &old.id,
+        model: embeddings.as_ref(),
+        backoff: Backoff::default(),
+        sleeper: &sleeper,
+        progress: &reports,
+    }
+    .run(&records(4), 0)
     .await
     .expect("run");
     swap(&store, &old.id).await.expect("swap");
 
     let new = store.create(&model(), 4).await.expect("create");
-    embed_into(
-        &store,
-        &new.id,
-        embeddings.as_ref(),
-        &records(12),
-        0,
-        Backoff::default(),
-        &sleeper,
-        &reports,
-    )
+    Embedder {
+        store: &store,
+        index: &new.id,
+        model: embeddings.as_ref(),
+        backoff: Backoff::default(),
+        sleeper: &sleeper,
+        progress: &reports,
+    }
+    .run(&records(12), 0)
     .await
     .expect("run");
 
@@ -339,36 +331,34 @@ async fn a_failed_run_leaves_the_live_index_untouched() {
     let good = FakeEmbeddings::new(4, 0);
     let sleeper = FakeSleeper::default();
     let reports = Reports::default();
-    embed_into(
-        &store,
-        &old.id,
-        good.as_ref(),
-        &records(4),
-        0,
-        Backoff::default(),
-        &sleeper,
-        &reports,
-    )
+    Embedder {
+        store: &store,
+        index: &old.id,
+        model: good.as_ref(),
+        backoff: Backoff::default(),
+        sleeper: &sleeper,
+        progress: &reports,
+    }
+    .run(&records(4), 0)
     .await
     .expect("run");
     swap(&store, &old.id).await.expect("swap");
 
     let new = store.create(&model(), 4).await.expect("create");
     let broken = FakeEmbeddings::new(4, 1000);
-    let _ = embed_into(
-        &store,
-        &new.id,
-        broken.as_ref(),
-        &records(12),
-        0,
-        Backoff {
+    let _ = Embedder {
+        store: &store,
+        index: &new.id,
+        model: broken.as_ref(),
+        backoff: Backoff {
             base: Duration::from_millis(1),
             max: Duration::from_millis(2),
             attempts: 1,
         },
-        &sleeper,
-        &reports,
-    )
+        sleeper: &sleeper,
+        progress: &reports,
+    }
+    .run(&records(12), 0)
     .await
     .expect_err("the run fails");
 

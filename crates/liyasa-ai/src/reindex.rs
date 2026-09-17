@@ -248,61 +248,70 @@ pub enum ReindexError {
     RateLimited { attempts: u32 },
 }
 
-/// Embeds `records` into `index`, in batches, with backoff on 429.
+/// One re-embedding run, with everything it needs to make progress.
 ///
-/// Writes into `index`, which is NOT the active one during a full re-index: the
-/// old index answers every query until [`swap`] runs.
-pub async fn embed_into(
-    store: &dyn VectorStore,
-    index: &IndexId,
-    model: &dyn EmbeddingModel,
-    records: &[ChunkRecord],
-    from: usize,
-    backoff: Backoff,
-    sleeper: &dyn Sleeper,
-    progress: &dyn ProgressSink,
-) -> Result<usize, ReindexError> {
-    let mut embedded = from;
-    let mut retries = 0;
-    let mut last_checkpoint = from;
+/// A struct rather than eight arguments: the sleeper, the clock-free backoff
+/// and the progress sink travel together for the whole run and are the seams a
+/// test replaces.
+pub struct Embedder<'a> {
+    pub store: &'a dyn VectorStore,
+    /// The index being FILLED, which during a full re-index is not the active
+    /// one: the old index answers every query until [`swap`] runs.
+    pub index: &'a IndexId,
+    pub model: &'a dyn EmbeddingModel,
+    pub backoff: Backoff,
+    pub sleeper: &'a dyn Sleeper,
+    pub progress: &'a dyn ProgressSink,
+}
 
-    for batch in records[from.min(records.len())..].chunks(BATCH) {
-        let inputs: Vec<String> = batch.iter().map(|r| r.text.clone()).collect();
-        let vectors = loop {
-            match model.embed(&inputs).await {
-                Ok(vectors) => break vectors,
-                Err(AiError::RateLimited { retry_after }) => {
-                    if retries >= backoff.attempts {
-                        return Err(ReindexError::RateLimited { attempts: retries });
+impl Embedder<'_> {
+    /// Embeds `records` in batches, resuming at `from`.
+    pub async fn run(&self, records: &[ChunkRecord], from: usize) -> Result<usize, ReindexError> {
+        let mut embedded = from;
+        let mut retries = 0;
+        let mut last_checkpoint = from;
+
+        for batch in records[from.min(records.len())..].chunks(BATCH) {
+            let inputs: Vec<String> = batch.iter().map(|r| r.text.clone()).collect();
+            let vectors = loop {
+                match self.model.embed(&inputs).await {
+                    Ok(vectors) => break vectors,
+                    Err(AiError::RateLimited { retry_after }) => {
+                        if retries >= self.backoff.attempts {
+                            return Err(ReindexError::RateLimited { attempts: retries });
+                        }
+                        self.sleeper
+                            .sleep(self.backoff.delay(retries, retry_after))
+                            .await;
+                        retries += 1;
                     }
-                    sleeper.sleep(backoff.delay(retries, retry_after)).await;
-                    retries += 1;
+                    Err(other) => return Err(other.into()),
                 }
-                Err(other) => return Err(other.into()),
+            };
+
+            let rows: Vec<(ChunkRecord, Vec<f32>)> = batch.iter().cloned().zip(vectors).collect();
+            self.store.upsert(self.index, &rows).await?;
+            embedded += rows.len();
+
+            self.progress.report(&Progress {
+                embedded,
+                total: records.len(),
+                checkpoint: last_checkpoint,
+                retries,
+            });
+            // On crossing a multiple of the interval, not on having advanced by
+            // it: a batch size that does not divide the interval otherwise
+            // drifts, and the last checkpoint of a run can be missed entirely.
+            // Measured at 2,010 chunks in batches of 64, where the drifting
+            // rule checkpointed once instead of twice and a restart would have
+            // re-embedded 986.
+            if embedded / CHECKPOINT_EVERY > last_checkpoint / CHECKPOINT_EVERY {
+                last_checkpoint = embedded;
+                self.progress.checkpoint(embedded);
             }
-        };
-
-        let rows: Vec<(ChunkRecord, Vec<f32>)> = batch.iter().cloned().zip(vectors).collect();
-        store.upsert(index, &rows).await?;
-        embedded += rows.len();
-
-        progress.report(&Progress {
-            embedded,
-            total: records.len(),
-            checkpoint: last_checkpoint,
-            retries,
-        });
-        // On crossing a multiple of the interval, not on having advanced by
-        // it: a batch size that does not divide the interval otherwise drifts,
-        // and the last checkpoint of a run can be missed entirely. Measured at
-        // 2,010 chunks in batches of 64, where the drifting rule checkpointed
-        // once instead of twice and a restart would have re-embedded 986.
-        if embedded / CHECKPOINT_EVERY > last_checkpoint / CHECKPOINT_EVERY {
-            last_checkpoint = embedded;
-            progress.checkpoint(embedded);
         }
+        Ok(embedded)
     }
-    Ok(embedded)
 }
 
 /// One transaction: point at `index`, drop what it replaced (AST-05).
