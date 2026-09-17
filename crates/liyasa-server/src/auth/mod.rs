@@ -26,6 +26,8 @@ pub mod csrf;
 pub mod dns;
 pub mod domains;
 pub mod groups;
+pub mod jwks;
+pub mod jwt;
 pub mod password;
 pub mod random;
 pub mod roles;
