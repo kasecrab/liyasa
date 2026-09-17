@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 //! Markdown through the real parser and the real component registry, so a
 //! chunking test is a test of what the build produces.
 

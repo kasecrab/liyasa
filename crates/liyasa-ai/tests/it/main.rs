@@ -5,6 +5,7 @@ mod assistant;
 mod chunk;
 mod exclude;
 mod index;
+mod indexing;
 mod openapi_doc;
 mod providers;
 mod reindex;

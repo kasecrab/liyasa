@@ -19,6 +19,7 @@ pub mod config;
 pub mod error;
 pub mod exclude;
 pub mod index;
+pub mod indexing;
 pub mod insights;
 pub mod openapi_doc;
 pub mod privacy;
