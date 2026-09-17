@@ -4,6 +4,7 @@
 mod support;
 
 mod actions;
+mod api;
 mod agents;
 mod feedback;
 mod insights;

@@ -14,7 +14,9 @@
     "serve": "node reader/e2e/serve.mjs",
     "site": "cd .. && cargo run -q -p liyasa-tests --bin reference-site -- target/reference-site",
     "e2e": "playwright test",
-    "e2e:gate": "playwright test --workers=1 --grep-invert lighthouse && playwright test --workers=1 --grep lighthouse"
+    "e2e:gate": "playwright test --workers=1 --grep-invert lighthouse && playwright test --workers=1 --grep lighthouse",
+    "build:dashboard": "node --disable-warning=ExperimentalWarning dashboard/build.mjs",
+    "test:dashboard": "node --disable-warning=ExperimentalWarning --test dashboard/test/*.test.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

@@ -1,0 +1,445 @@
+/* The dashboard's own layer over the design system (ANA-70).
+ *
+ * Every colour, space and radius is a `--ly-*` token from
+ * `crates/liyasa-theme`. The block at the top is a fallback set, not a second
+ * palette: it is what the tokens resolve to when the dashboard is opened
+ * without the theme stylesheet — during a build, in a test, from a file — and
+ * it is the only place in this file a literal colour appears. Everything below
+ * names tokens, so light and dark are the theme's decision and not this
+ * package's. `test/css.test.ts` holds that line.
+ */
+
+:root {
+  --ly-color-bg: #ffffff;
+  --ly-color-bg-subtle: #f6f7f9;
+  --ly-color-surface: #ffffff;
+  --ly-color-elevated: #ffffff;
+  --ly-color-text: #16181d;
+  --ly-color-text-muted: #4a4f5a;
+  --ly-color-text-subtle: #6b7280;
+  --ly-color-border: #dfe3e8;
+  --ly-color-border-strong: #c3c9d2;
+  --ly-color-primary: #2a5bd7;
+  --ly-color-primary-subtle: #eaf0fe;
+  --ly-color-primary-contrast: #ffffff;
+  --ly-color-focus: #2a5bd7;
+  --ly-color-success: #1f7a45;
+  --ly-color-warning: #8a5a00;
+  --ly-color-danger: #b3261e;
+  --ly-space-1: 0.25rem;
+  --ly-space-2: 0.5rem;
+  --ly-space-3: 0.75rem;
+  --ly-space-4: 1rem;
+  --ly-space-6: 1.5rem;
+  --ly-radius-sm: 4px;
+  --ly-radius-md: 8px;
+  --ly-radius-lg: 12px;
+  --ly-text-xs: 0.75rem;
+  --ly-text-sm: 0.875rem;
+  --ly-text-lg: 1.125rem;
+  --ly-border: 1px solid var(--ly-color-border);
+  --ly-border-subtle: 1px solid var(--ly-color-border);
+  --ly-font-weight-semibold: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ly-color-bg: #0e1116;
+    --ly-color-bg-subtle: #151a21;
+    --ly-color-surface: #151a21;
+    --ly-color-elevated: #1b212a;
+    --ly-color-text: #e7eaee;
+    --ly-color-text-muted: #aab1bd;
+    --ly-color-text-subtle: #868e9c;
+    --ly-color-border: #2a313c;
+    --ly-color-border-strong: #3a414d;
+    --ly-color-primary: #8fb0ff;
+    --ly-color-primary-subtle: #1b2436;
+    --ly-color-primary-contrast: #0e1116;
+    --ly-color-focus: #8fb0ff;
+    --ly-color-success: #5fd39a;
+    --ly-color-warning: #e0b055;
+    --ly-color-danger: #ff8a80;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ly-color-bg: #0e1116;
+  --ly-color-bg-subtle: #151a21;
+  --ly-color-surface: #151a21;
+  --ly-color-elevated: #1b212a;
+  --ly-color-text: #e7eaee;
+  --ly-color-text-muted: #aab1bd;
+  --ly-color-text-subtle: #868e9c;
+  --ly-color-border: #2a313c;
+  --ly-color-border-strong: #3a414d;
+  --ly-color-primary: #8fb0ff;
+  --ly-color-primary-subtle: #1b2436;
+  --ly-color-primary-contrast: #0e1116;
+  --ly-color-focus: #8fb0ff;
+  --ly-color-success: #5fd39a;
+  --ly-color-warning: #e0b055;
+  --ly-color-danger: #ff8a80;
+}
+
+body {
+  margin: 0;
+  background: var(--ly-color-bg);
+  color: var(--ly-color-text);
+  font-family: system-ui, sans-serif;
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
+}
+
+@media (max-width: 48rem) {
+  body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--ly-color-focus);
+  outline-offset: 2px;
+}
+
+.ly-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ly-nav {
+  border-right: var(--ly-border);
+  padding: var(--ly-space-4) var(--ly-space-2);
+  background: var(--ly-color-bg-subtle);
+}
+
+.ly-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ly-space-1);
+}
+
+.ly-nav a {
+  display: block;
+  padding: var(--ly-space-2) var(--ly-space-3);
+  border-radius: var(--ly-radius-sm);
+  color: var(--ly-color-text-muted);
+  text-decoration: none;
+}
+
+.ly-nav a[aria-current="page"] {
+  background: var(--ly-color-primary-subtle);
+  color: var(--ly-color-primary);
+  font-weight: var(--ly-font-weight-semibold);
+}
+
+.ly-main {
+  padding: var(--ly-space-6);
+  min-width: 0;
+}
+
+.ly-page-header h1 {
+  margin: 0 0 var(--ly-space-1);
+}
+
+.ly-page-header p {
+  margin: 0 0 var(--ly-space-4);
+  color: var(--ly-color-text-muted);
+}
+
+.ly-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ly-space-3);
+  align-items: center;
+  padding: var(--ly-space-3);
+  margin-bottom: var(--ly-space-4);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+  background: var(--ly-color-surface);
+}
+
+.ly-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ly-space-2);
+  align-items: center;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font-size: var(--ly-text-sm);
+}
+
+.ly-control legend,
+.ly-filter-label {
+  color: var(--ly-color-text-subtle);
+  font-size: var(--ly-text-xs);
+  text-transform: uppercase;
+}
+
+.ly-control a {
+  color: var(--ly-color-text-muted);
+  text-decoration: none;
+  padding: var(--ly-space-1) var(--ly-space-2);
+  border-radius: var(--ly-radius-sm);
+  border: var(--ly-border);
+}
+
+.ly-control a[aria-current="true"],
+.ly-control a[aria-pressed="true"],
+.ly-control a[aria-checked="true"] {
+  background: var(--ly-color-primary-subtle);
+  color: var(--ly-color-primary);
+  border-color: var(--ly-color-primary);
+}
+
+.ly-control button {
+  font: inherit;
+  color: var(--ly-color-text-muted);
+  background: transparent;
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-sm);
+  padding: var(--ly-space-1) var(--ly-space-2);
+}
+
+.ly-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ly-space-4);
+  margin: 0 0 var(--ly-space-4);
+}
+
+.ly-stat {
+  flex: 1 1 8rem;
+  padding: var(--ly-space-3);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+  background: var(--ly-color-surface);
+}
+
+.ly-stat dt {
+  color: var(--ly-color-text-subtle);
+  font-size: var(--ly-text-xs);
+}
+
+.ly-stat dd {
+  margin: var(--ly-space-1) 0 0;
+  font-size: var(--ly-text-lg);
+}
+
+.ly-stat-change {
+  margin-left: var(--ly-space-2);
+  font-size: var(--ly-text-sm);
+  color: var(--ly-color-text-muted);
+}
+
+.ly-panel {
+  padding: var(--ly-space-4);
+  margin-bottom: var(--ly-space-4);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+  background: var(--ly-color-surface);
+}
+
+.ly-panel h3 {
+  margin: 0 0 var(--ly-space-3);
+  font-size: var(--ly-text-lg);
+}
+
+.ly-problem[data-unserved="true"] {
+  border-color: var(--ly-color-border-strong);
+  background: var(--ly-color-bg-subtle);
+}
+
+.ly-problem-title {
+  margin: 0;
+  color: var(--ly-color-text-muted);
+}
+
+.ly-problem-detail,
+.ly-note,
+.ly-source,
+.ly-empty {
+  margin: var(--ly-space-2) 0 0;
+  color: var(--ly-color-text-subtle);
+  font-size: var(--ly-text-sm);
+}
+
+.ly-warning {
+  padding: var(--ly-space-3);
+  border: 1px solid var(--ly-color-warning);
+  border-radius: var(--ly-radius-md);
+  color: var(--ly-color-warning);
+  font-size: var(--ly-text-sm);
+}
+
+.ly-chart {
+  margin: 0;
+}
+
+.ly-chart figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ly-space-2);
+  align-items: baseline;
+}
+
+.ly-chart-note {
+  color: var(--ly-color-warning);
+  font-size: var(--ly-text-xs);
+}
+
+.ly-chart-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ly-space-3);
+  margin: var(--ly-space-2) 0;
+  padding: 0;
+  font-size: var(--ly-text-sm);
+  color: var(--ly-color-text-muted);
+}
+
+.ly-chart-swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: var(--ly-space-1);
+  border-radius: var(--ly-radius-sm);
+  background: var(--ly-color-text-subtle);
+}
+
+.ly-chart-legend li[data-series="human"] .ly-chart-swatch {
+  background: var(--ly-color-primary);
+}
+
+.ly-chart-legend li[data-series="agent"] .ly-chart-swatch {
+  background: var(--ly-color-success);
+}
+
+.ly-chart-legend li[data-series="bot"] .ly-chart-swatch {
+  background: var(--ly-color-text-subtle);
+}
+
+.ly-chart-plot {
+  width: 100%;
+  height: 12rem;
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+  background: var(--ly-color-bg-subtle);
+}
+
+.ly-chart-line {
+  fill: none;
+  stroke: var(--ly-color-text-subtle);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.ly-chart-line[data-series="human"] {
+  stroke: var(--ly-color-primary);
+}
+
+.ly-chart-line[data-series="agent"] {
+  stroke: var(--ly-color-success);
+}
+
+.ly-chart-bar {
+  fill: var(--ly-color-primary);
+}
+
+.ly-chart-cursor {
+  stroke: var(--ly-color-border-strong);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.ly-chart-readout {
+  min-height: 1.25rem;
+  margin: var(--ly-space-2) 0 0;
+  font-size: var(--ly-text-sm);
+  color: var(--ly-color-text-muted);
+}
+
+.ly-chart-data summary {
+  cursor: pointer;
+  color: var(--ly-color-text-muted);
+  font-size: var(--ly-text-sm);
+}
+
+.ly-table,
+.ly-chart-data table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--ly-text-sm);
+}
+
+.ly-table th,
+.ly-table td,
+.ly-chart-data th,
+.ly-chart-data td {
+  padding: var(--ly-space-2);
+  border-bottom: var(--ly-border-subtle);
+  text-align: left;
+}
+
+.ly-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--ly-space-3);
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+}
+
+.ly-card {
+  padding: var(--ly-space-3);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+  background: var(--ly-color-elevated);
+}
+
+.ly-card h4 {
+  margin: 0 0 var(--ly-space-1);
+}
+
+.ly-card p {
+  margin: 0 0 var(--ly-space-2);
+  color: var(--ly-color-text-muted);
+  font-size: var(--ly-text-sm);
+}
+
+.ly-card button,
+form button {
+  font: inherit;
+  color: var(--ly-color-primary-contrast);
+  background: var(--ly-color-primary);
+  border: 0;
+  border-radius: var(--ly-radius-sm);
+  padding: var(--ly-space-2) var(--ly-space-3);
+}
+
+form label {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--ly-space-1);
+  margin-right: var(--ly-space-3);
+  font-size: var(--ly-text-sm);
+  color: var(--ly-color-text-muted);
+}
+
+form input {
+  font: inherit;
+  color: var(--ly-color-text);
+  background: var(--ly-color-bg);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-sm);
+  padding: var(--ly-space-1) var(--ly-space-2);
+}

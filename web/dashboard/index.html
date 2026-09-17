@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Liyasa dashboard</title>
+    <link rel="stylesheet" href="dashboard.css" />
+  </head>
+  <body>
+    <!-- The eleven pages of ANA-70 as plain links. The application replaces
+         this once dashboard.js runs; before then it is still a table of
+         contents rather than a blank page, and it is what a reader with
+         JavaScript turned off is left with. -->
+    <div id="dashboard">
+      <nav class="ly-nav" aria-label="Dashboard">
+        <ul>
+          <li><a href="#/overview">Overview</a></li>
+          <li><a href="#/traffic">Traffic</a></li>
+          <li><a href="#/search">Search</a></li>
+          <li><a href="#/assistant">Assistant</a></li>
+          <li><a href="#/feedback">Feedback</a></li>
+          <li><a href="#/truth">Truth</a></li>
+          <li><a href="#/proposals">Proposals</a></li>
+          <li><a href="#/deployments">Deployments</a></li>
+          <li><a href="#/automations">Automations</a></li>
+          <li><a href="#/content">Content</a></li>
+          <li><a href="#/settings">Settings</a></li>
+        </ul>
+      </nav>
+      <main class="ly-main" id="main">
+        <header class="ly-page-header">
+          <h1>Liyasa dashboard</h1>
+          <p>Loading.</p>
+        </header>
+        <noscript>
+          <p class="ly-warning">
+            The dashboard is an application and needs JavaScript. The documentation site it reports
+            on does not: every page there is complete and navigable without any.
+          </p>
+        </noscript>
+      </main>
+    </div>
+    <script src="dist/dashboard.js" defer></script>
+  </body>
+</html>

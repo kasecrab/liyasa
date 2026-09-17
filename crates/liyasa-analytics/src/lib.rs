@@ -13,6 +13,7 @@
 //! `liyasa_store::ingest::Writer::pool()` (RFC 1700).
 
 pub mod actions;
+pub mod api;
 pub mod agents;
 pub mod digest;
 pub mod feedback;
