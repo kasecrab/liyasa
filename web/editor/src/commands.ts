@@ -70,7 +70,7 @@ export interface Shortcut {
   level?: number;
 }
 
-const SHORTCUTS: { pattern: RegExp; kind: ShortcutKind }[] = [
+const MARKDOWN_SHORTCUTS: { pattern: RegExp; kind: ShortcutKind }[] = [
   { pattern: /^(#{1,6} )$/, kind: "heading" },
   { pattern: /^([-*+] )$/, kind: "list" },
   { pattern: /^(\d+[.)] )$/, kind: "ordered" },
@@ -86,7 +86,7 @@ const SHORTCUTS: { pattern: RegExp; kind: ShortcutKind }[] = [
  * shortcut that fires mid-sentence rewrites prose the author was writing.
  */
 export function matchShortcut(typed: string): Shortcut | null {
-  for (const { pattern, kind } of SHORTCUTS) {
+  for (const { pattern, kind } of MARKDOWN_SHORTCUTS) {
     const found = pattern.exec(typed);
     if (!found) continue;
     const replace = found[1] as string;

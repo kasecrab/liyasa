@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Liyasa editor</title>
+    <link rel="stylesheet" href="editor.css" />
+  </head>
+  <body>
+    <!-- The shell is the landmarks and nothing else. The editor is an
+         application and may assume it runs, but "assume it runs" is not
+         "render a blank page while it loads": a reader with JavaScript turned
+         off, or on a connection that dropped the bundle, is told what happened
+         and given the way back. -->
+    <div class="shell" data-editor>
+      <p data-announce role="status" aria-live="polite"></p>
+
+      <header class="toolbar" data-landmark="Editor toolbar">
+        <strong>Liyasa editor</strong>
+        <button type="button" data-mode-switch>Source</button>
+        <button type="button" data-action="suggest" class="primary">Submit for review</button>
+        <button type="button" data-help aria-keyshortcuts="?">Help</button>
+      </header>
+
+      <nav class="pages" data-landmark="Pages" data-drafts>
+        <h2>Pages</h2>
+        <p class="empty">Loading.</p>
+      </nav>
+
+      <main class="page" id="main" data-landmark="Page content">
+        <div class="surface" data-editor-surface>
+          <p class="empty">Loading this draft.</p>
+        </div>
+        <noscript>
+          <p class="ly-warning">
+            The editor is an application and needs JavaScript. The documentation it edits does
+            not: every published page is complete and navigable without any. To suggest a change
+            without the editor, edit the Markdown file in the project's repository.
+          </p>
+        </noscript>
+      </main>
+
+      <div class="side">
+        <aside class="preview" data-landmark="Preview" data-preview>
+          <h2>Preview</h2>
+          <p class="empty">
+            The preview is built by the same code that builds the site, so it is not an
+            approximation.
+          </p>
+        </aside>
+
+        <aside class="problems-pane" data-landmark="Problems" data-problems>
+          <h2>Problems</h2>
+          <p class="empty">No problems found.</p>
+        </aside>
+      </div>
+
+      <footer class="status" data-landmark="Draft status">
+        <span data-draft-status>No draft open.</span>
+      </footer>
+    </div>
+
+    <script defer src="dist/editor.js"></script>
+  </body>
+</html>

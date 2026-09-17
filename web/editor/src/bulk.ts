@@ -19,6 +19,7 @@ import type { Diagnostic, SegmentEdit, SourceDocument } from "../../../crates/li
 import { parseFrontmatter, writeFrontmatter } from "./frontmatter.ts";
 import type { Project, ProjectChange, NavigationGroup } from "./pages.ts";
 import { navigationOf } from "./pages.ts";
+import { byteIndex, byteToIndex, escapeRegExp, isRecord, lineOf, lineStarts, lineText } from "./text.ts";
 
 export interface ScannedPage {
   path: string;
@@ -208,19 +209,6 @@ function replaceInPage(
   return { path: page.path, before: page.source, after, edits };
 }
 
-/** A byte offset into `text`, as a string index. */
-function byteToIndex(text: string, offset: number): number {
-  const encoder = new TextEncoder();
-  let bytes = 0;
-  let index = 0;
-  for (const character of text) {
-    if (bytes >= offset) break;
-    bytes += encoder.encode(character).length;
-    index += character.length;
-  }
-  return index;
-}
-
 export function changeFactReference(
   pages: ScannedPage[],
   options: { from: string; to: string },
@@ -314,44 +302,3 @@ export function applyTag(
   return writes;
 }
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function lineStarts(text: string): number[] {
-  const starts = [0];
-  for (let at = 0; at < text.length; at += 1) if (text[at] === "\n") starts.push(at + 1);
-  return starts;
-}
-
-function lineOf(starts: number[], at: number): number {
-  let line = 0;
-  while (line + 1 < starts.length && (starts[line + 1] as number) <= at) line += 1;
-  return line;
-}
-
-function lineText(text: string, starts: number[], line: number): string {
-  const start = starts[line] as number;
-  const end = starts[line + 1] ?? text.length + 1;
-  return text.slice(start, end - 1).replace(/\n$/, "");
-}
-
-function byteIndex(text: string): (offset: number) => number {
-  const encoder = new TextEncoder();
-  const map = new Map<number, number>();
-  let at = 0;
-  for (let index = 0; index < text.length; ) {
-    map.set(at, index);
-    const point = text.codePointAt(index) as number;
-    const unit = String.fromCodePoint(point);
-    at += encoder.encode(unit).length;
-    index += unit.length;
-  }
-  map.set(at, text.length);
-  const total = at;
-  return (offset) => map.get(Math.min(Math.max(offset, 0), total)) ?? text.length;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}

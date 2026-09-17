@@ -11,6 +11,7 @@
 
 import type { Diagnostic } from "../../../crates/liyasa-wasm/ts/liyasa-wasm.d.ts";
 import { parseFrontmatter, writeFrontmatter } from "./frontmatter.ts";
+import { isRecord } from "./text.ts";
 
 export interface Project {
   config: Record<string, unknown>;
@@ -304,6 +305,3 @@ export function reorderNavigation(
   };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}

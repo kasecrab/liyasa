@@ -17,6 +17,7 @@
 // above it, and every test written in ASCII passes.
 
 import type { Diagnostic, Segment, SourceDocument } from "../../../crates/liyasa-wasm/ts/liyasa-wasm.d.ts";
+import { byteIndex, lineStarts } from "./text.ts";
 
 export type TokenKind =
   | "frontmatter"
@@ -66,23 +67,6 @@ export interface Completion {
   label: string;
   kind: "component" | "prop" | "function" | "statement" | "fact" | "variable";
   detail?: string;
-}
-
-/** Maps every byte offset in `text` to its string index. */
-function byteIndex(text: string): (offset: number) => number {
-  const encoder = new TextEncoder();
-  const map = new Map<number, number>();
-  let at = 0;
-  for (let index = 0; index < text.length; ) {
-    map.set(at, index);
-    const point = text.codePointAt(index) as number;
-    const unit = String.fromCodePoint(point);
-    at += encoder.encode(unit).length;
-    index += unit.length;
-  }
-  map.set(at, text.length);
-  const total = at;
-  return (offset) => map.get(Math.min(Math.max(offset, 0), total)) ?? text.length;
 }
 
 /** The whole file as highlightable runs, in order and with no gaps. */
@@ -258,8 +242,3 @@ export function placeDiagnostics(text: string, diagnostics: Diagnostic[]): Place
   });
 }
 
-function lineStarts(text: string): number[] {
-  const starts = [0];
-  for (let at = 0; at < text.length; at += 1) if (text[at] === "\n") starts.push(at + 1);
-  return starts;
-}

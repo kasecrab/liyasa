@@ -174,8 +174,8 @@ export function merge3(base: string, mine: string, theirs: string): Merge {
   const mineLines = lines(mine);
   const theirsLines = lines(theirs);
 
-  const toMine = matches(baseLines, mineLines);
-  const toTheirs = matches(baseLines, theirsLines);
+  const toMine = lcsMatches(baseLines, mineLines);
+  const toTheirs = lcsMatches(baseLines, theirsLines);
 
   // A base line both sides kept is a place the three agree, and the regions
   // between two such lines are what has to be reconciled.
@@ -242,7 +242,7 @@ function countLines(chunks: string[]): number {
 }
 
 /** Longest common subsequence: base index to other index, for the lines both hold. */
-function matches(left: string[], right: string[]): Map<number, number> {
+function lcsMatches(left: string[], right: string[]): Map<number, number> {
   const table: number[][] = Array.from({ length: left.length + 1 }, () =>
     new Array<number>(right.length + 1).fill(0),
   );

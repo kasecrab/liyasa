@@ -16,6 +16,7 @@
 // names so they cannot drift without saying so.
 
 import type { Diagnostic } from "../../../crates/liyasa-wasm/ts/liyasa-wasm.d.ts";
+import { isRecord } from "./text.ts";
 
 export type Scalar = string | number | boolean | null;
 export type FieldValue = Scalar | Scalar[] | Record<string, Scalar>;
@@ -322,7 +323,7 @@ export function validateFrontmatter(schema: JsonSchema, fields: Record<string, u
       unchecked.push(name);
       continue;
     }
-    if (!types.some((type) => matches(type, value))) {
+    if (!types.some((type) => matchesType(type, value))) {
       errors.push({
         field: name,
         code: "E0102",
@@ -337,7 +338,7 @@ export function validateFrontmatter(schema: JsonSchema, fields: Record<string, u
         unchecked.push(name);
         continue;
       }
-      if (!value.every((item) => matches(itemType, item))) {
+      if (!value.every((item) => matchesType(itemType, item))) {
         errors.push({
           field: name,
           code: "E0102",
@@ -360,7 +361,7 @@ export function frontmatterDiagnostics(validation: Validation): Diagnostic[] {
   }));
 }
 
-function matches(type: string, value: unknown): boolean {
+function matchesType(type: string, value: unknown): boolean {
   switch (type) {
     case "string":
       return typeof value === "string";
@@ -388,6 +389,3 @@ function describe(value: unknown): string {
   return typeof value;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}

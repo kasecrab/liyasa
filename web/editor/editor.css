@@ -1,0 +1,249 @@
+/* The editor's own layer over the design system (ED-80).
+ *
+ * The blocks below are a fallback set, not a second palette: they are what the
+ * `--ly-*` tokens resolve to when the editor is opened without the theme
+ * stylesheet — during a build, in a test, from a file. Everything after them
+ * names tokens, so light and dark stay the theme's decision rather than this
+ * package's, and `test/css.test.ts` holds that line.
+ *
+ * Two rules here are ED-80's and are not negotiable:
+ *
+ *   * `:focus-visible` is never removed. Hiding the ring for pointer users is
+ *     the most common WCAG 2.4.7 failure, and it is invisible to whoever wrote
+ *     the CSS because they were using a mouse at the time.
+ *   * `prefers-reduced-motion` means no motion, not less. The people who set it
+ *     do so because movement causes nausea or seizures.
+ */
+
+:root {
+  --ly-color-bg: #ffffff;
+  --ly-color-bg-subtle: #f6f7f9;
+  --ly-color-surface: #ffffff;
+  --ly-color-elevated: #ffffff;
+  --ly-color-text: #16181d;
+  --ly-color-text-muted: #4a4f5a;
+  --ly-color-text-subtle: #6b7280;
+  --ly-color-border: #dfe3e8;
+  --ly-color-border-strong: #c3c9d2;
+  --ly-color-primary: #2a5bd7;
+  --ly-color-primary-subtle: #eaf0fe;
+  --ly-color-primary-contrast: #ffffff;
+  --ly-color-focus: #2a5bd7;
+  --ly-color-success: #1f7a45;
+  --ly-color-warning: #8a5a00;
+  --ly-color-danger: #b3261e;
+  --ly-space-1: 0.25rem;
+  --ly-space-2: 0.5rem;
+  --ly-space-3: 0.75rem;
+  --ly-space-4: 1rem;
+  --ly-space-6: 1.5rem;
+  --ly-radius-sm: 4px;
+  --ly-radius-md: 8px;
+  --ly-radius-lg: 12px;
+  --ly-text-xs: 0.75rem;
+  --ly-text-sm: 0.875rem;
+  --ly-text-lg: 1.125rem;
+  --ly-border: 1px solid var(--ly-color-border);
+  --ly-border-subtle: 1px solid var(--ly-color-border);
+  --ly-font-weight-semibold: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ly-color-bg: #0e1116;
+    --ly-color-bg-subtle: #151a21;
+    --ly-color-surface: #151a21;
+    --ly-color-elevated: #1b212a;
+    --ly-color-text: #e7eaee;
+    --ly-color-text-muted: #aab1bd;
+    --ly-color-text-subtle: #868e9c;
+    --ly-color-border: #2a313c;
+    --ly-color-border-strong: #3a414d;
+    --ly-color-primary: #8fb0ff;
+    --ly-color-primary-subtle: #1b2436;
+    --ly-color-primary-contrast: #0e1116;
+    --ly-color-focus: #8fb0ff;
+    --ly-color-success: #5fd39a;
+    --ly-color-warning: #e0b055;
+    --ly-color-danger: #ff8a80;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ly-color-bg: #0e1116;
+  --ly-color-bg-subtle: #151a21;
+  --ly-color-surface: #151a21;
+  --ly-color-elevated: #1b212a;
+  --ly-color-text: #e7eaee;
+  --ly-color-text-muted: #aab1bd;
+  --ly-color-text-subtle: #868e9c;
+  --ly-color-border: #2a313c;
+  --ly-color-border-strong: #3a414d;
+  --ly-color-primary: #8fb0ff;
+  --ly-color-primary-subtle: #1b2436;
+  --ly-color-primary-contrast: #0e1116;
+  --ly-color-focus: #8fb0ff;
+  --ly-color-success: #5fd39a;
+  --ly-color-warning: #e0b055;
+  --ly-color-danger: #ff8a80;
+}
+
+body {
+  margin: 0;
+  background: var(--ly-color-bg);
+  color: var(--ly-color-text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* The three-column shell: pages, the page, the preview. Each is a landmark. */
+.shell {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "toolbar toolbar toolbar" "pages page preview" "status status status";
+  min-height: 100vh;
+}
+
+.toolbar {
+  grid-area: toolbar;
+  display: flex;
+  gap: var(--ly-space-2);
+  align-items: center;
+  padding: var(--ly-space-2) var(--ly-space-4);
+  border-bottom: var(--ly-border);
+  background: var(--ly-color-surface);
+}
+
+.pages { grid-area: pages; border-right: var(--ly-border); overflow: auto; }
+.page { grid-area: page; overflow: auto; padding: var(--ly-space-6); }
+.side { grid-area: preview; display: flex; flex-direction: column; border-left: var(--ly-border); min-height: 0; }
+.preview { flex: 1 1 auto; overflow: auto; padding: var(--ly-space-6); }
+.problems-pane { flex: 0 0 auto; max-height: 40%; overflow: auto; border-top: var(--ly-border); padding: var(--ly-space-3) var(--ly-space-4); }
+.status { grid-area: status; border-top: var(--ly-border); padding: var(--ly-space-2) var(--ly-space-4); font-size: var(--ly-text-sm); }
+
+/* A narrow window stacks rather than compressing three columns to nothing. */
+@media (max-width: 60rem) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "toolbar" "page" "preview" "status";
+  }
+  .pages { display: none; }
+}
+
+.surface { max-width: 46rem; }
+
+.block {
+  padding: var(--ly-space-2) var(--ly-space-3);
+  border-radius: var(--ly-radius-sm);
+  border: 1px solid transparent;
+  white-space: pre-wrap;
+}
+
+.block:hover { border-color: var(--ly-color-border); }
+
+.block-chip,
+.block-logic_block,
+.block-component,
+.block-opaque {
+  background: var(--ly-color-bg-subtle);
+  border-color: var(--ly-color-border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--ly-text-sm);
+}
+
+.block-code {
+  background: var(--ly-color-bg-subtle);
+  border-color: var(--ly-color-border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ED-80: the focus ring, everywhere, always. */
+:focus-visible {
+  outline: 2px solid var(--ly-color-focus);
+  outline-offset: 2px;
+}
+
+.primary {
+  background: var(--ly-color-primary);
+  color: var(--ly-color-primary-contrast);
+  border: 0;
+  border-radius: var(--ly-radius-sm);
+  padding: var(--ly-space-2) var(--ly-space-4);
+  font-weight: var(--ly-font-weight-semibold);
+}
+
+button {
+  background: var(--ly-color-surface);
+  color: var(--ly-color-text);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-sm);
+  padding: var(--ly-space-1) var(--ly-space-3);
+}
+
+.problems { list-style: none; margin: 0; padding: 0; }
+
+.problem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: var(--ly-space-2);
+  align-items: baseline;
+  padding: var(--ly-space-2) var(--ly-space-3);
+  border-bottom: var(--ly-border-subtle);
+}
+
+.problem-error { border-left: 3px solid var(--ly-color-danger); }
+.problem-warning { border-left: 3px solid var(--ly-color-warning); }
+
+.problem .where { color: var(--ly-color-text-subtle); font-size: var(--ly-text-sm); }
+.problem .code { color: var(--ly-color-text-subtle); font-size: var(--ly-text-xs); }
+
+.empty { color: var(--ly-color-text-muted); }
+
+/* The preview keeps the last good render while a page does not expand. */
+.preview[data-stale="true"] { opacity: 0.6; }
+
+.preview[data-stale="true"]::before {
+  content: "Showing the last version that built.";
+  display: block;
+  margin-bottom: var(--ly-space-4);
+  padding: var(--ly-space-2) var(--ly-space-3);
+  background: var(--ly-color-bg-subtle);
+  border-radius: var(--ly-radius-sm);
+  color: var(--ly-color-text-muted);
+  font-size: var(--ly-text-sm);
+  opacity: 1;
+}
+
+/* A tracked change from the agent (ED-41): visible, and not yet applied. */
+.suggestion { border-left: 3px solid var(--ly-color-primary); background: var(--ly-color-primary-subtle); }
+.suggestion-before { text-decoration: line-through; color: var(--ly-color-text-subtle); }
+.suggestion-after { color: var(--ly-color-text); }
+
+.shortcuts { border-collapse: collapse; width: 100%; }
+.shortcuts th, .shortcuts td { text-align: left; padding: var(--ly-space-1) var(--ly-space-3); border-bottom: var(--ly-border-subtle); }
+
+/* The live region is heard, not seen. `display: none` would silence it. */
+[data-announce] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.transition { transition: opacity var(--motion, 180ms) ease, transform var(--motion, 180ms) ease; }
+
+/* ED-80: no motion, not less. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

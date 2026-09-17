@@ -9,6 +9,7 @@
 import { draftBranch } from "./drafts.ts";
 import { changeFactReference, findReplace } from "./bulk.ts";
 import type { BulkPlan, ScannedPage } from "./bulk.ts";
+import { escapeRegExp } from "./text.ts";
 
 /**
  * ED-70: where "Suggest an edit" on a published page goes.
@@ -149,10 +150,6 @@ function setFactValue(source: string, fact: string, value: string): string {
   if (!pattern.test(source)) return source;
   const written = /^-?\d+(\.\d+)?$/.test(value) ? value : JSON.stringify(value);
   return source.replace(pattern, `$1${written}`);
-}
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /** ED-71's "rename a feature everywhere": pages and facts, with a preview. */

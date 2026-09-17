@@ -102,7 +102,7 @@ export interface ReviewState {
   status: "open" | "changes-requested" | "approved" | "merged" | "rejected";
 }
 
-const DAY = 86_400_000;
+const MILLISECONDS_PER_DAY = 86_400_000;
 
 /**
  * ED-52's stale reminders.
@@ -117,10 +117,10 @@ export function staleReminders(
 ): { id: string; reviewers: string[] }[] {
   return reviews
     .filter((review) => review.status === "open" || review.status === "changes-requested")
-    .filter((review) => options.now - review.requestedAt >= options.afterDays * DAY)
+    .filter((review) => options.now - review.requestedAt >= options.afterDays * MILLISECONDS_PER_DAY)
     .filter(
       (review) =>
-        review.remindedAt === null || options.now - review.remindedAt >= options.repeatAfterDays * DAY,
+        review.remindedAt === null || options.now - review.remindedAt >= options.repeatAfterDays * MILLISECONDS_PER_DAY,
     )
     .map((review) => ({ id: review.id, reviewers: [...review.reviewers] }));
 }

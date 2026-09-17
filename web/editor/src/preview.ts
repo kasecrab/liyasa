@@ -17,6 +17,7 @@
 // think".
 
 import type { Diagnostic, ExpansionRecord } from "../../../crates/liyasa-wasm/ts/liyasa-wasm.d.ts";
+import { isRecord } from "./text.ts";
 
 export interface PreviewLimits {
   maxIterations: number;
@@ -212,10 +213,6 @@ export function chipSource(expression: string, record: ExpansionRecord): ChipSou
   }
 
   return { kind: "expression", name: trimmed, detail: "an expression over the preview context" };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function pathOf(value: unknown, path: string[]): unknown {
