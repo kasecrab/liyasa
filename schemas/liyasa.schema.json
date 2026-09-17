@@ -1359,19 +1359,24 @@
       "type": "object",
       "properties": {
         "enabled": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether verification runs at all for this site."
         },
-        "policy": {},
+        "policy": {
+          "description": "What each kind of finding costs, keyed by kind (`code`, `facts`, `links`, `screenshots`) and valued by severity. A kind set to `error` fails the build when `build.strictVerification` is on."
+        },
         "sources": {
           "description": "Truth sources by id, plus the `commands` allow list (VER-25, a trust-plane key per CFG-95).",
           "type": "object",
           "properties": {
             "commands": {
               "type": "object",
+              "description": "The commands a fact may run to produce a value. A trust-plane key: an untrusted build reads it from the deploy branch, never from the branch being built.",
               "additionalProperties": true,
               "properties": {
                 "allow": {
                   "type": "array",
+                  "description": "The command allow list. A fact that runs anything else is refused rather than executed.",
                   "items": {
                     "type": "string"
                   }
@@ -1386,13 +1391,17 @@
         },
         "runners": {
           "type": "object",
+          "description": "The runners checks execute in, keyed by name.",
           "additionalProperties": {}
         },
         "facts": {
           "type": "object",
+          "description": "Accepted by the schema and read by nothing. RFC 1302 records that neither VER-76 nor the schema says what it should contain.",
           "additionalProperties": {}
         },
-        "sandbox": {},
+        "sandbox": {
+          "description": "Accepted by the schema and read by nothing; `runners.sandbox` is the key that carries the sandbox (RFC 1302)."
+        },
         "budget": {
           "type": "object",
           "additionalProperties": true,
@@ -1415,24 +1424,36 @@
           },
           "description": "Wall-clock budgets; W0622 queues the remainder when the deploy budget is spent."
         },
-        "schedule": {},
-        "report": {},
-        "prose": {},
-        "screenshots": {},
+        "schedule": {
+          "description": "When verification runs on its own, as a cron expression, for the checks that are too slow to run on every build."
+        },
+        "report": {
+          "description": "Accepted by the schema and read by nothing. RFC 1302 records that neither VER-76 nor the schema says what it should contain."
+        },
+        "prose": {
+          "description": "Accepted by the schema and read by nothing. RFC 1302 records that neither VER-76 nor the schema says what it should contain."
+        },
+        "screenshots": {
+          "description": "Screenshot comparison settings, including how much a screenshot may differ before it is a finding."
+        },
         "drift": {
           "type": "object",
+          "description": "How a drift between the docs and their source is reported.",
           "additionalProperties": true,
           "properties": {
             "batchSize": {
-              "type": "integer"
+              "type": "integer",
+              "description": "How many pages one drift pass examines."
             },
             "autoResolve": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Close a drift finding automatically once the page and its source agree again."
             }
           }
         },
         "http": {
           "type": "object",
+          "description": "How a documented HTTP call is verified: against a mock, against a staging deployment, or both.",
           "additionalProperties": true,
           "properties": {
             "target": {
@@ -1443,6 +1464,7 @@
         },
         "links": {
           "type": "object",
+          "description": "Link checking.",
           "additionalProperties": true,
           "properties": {
             "grace": {
@@ -1451,7 +1473,8 @@
               "description": "A duration such as `500ms`, `30s`, `180d`."
             },
             "external": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Check links that leave the site. Off, only internal links are checked, which needs no network."
             }
           }
         }
