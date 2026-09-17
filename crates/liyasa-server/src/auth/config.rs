@@ -56,7 +56,9 @@ impl Mode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Argon2Params {
-    #[serde(default = "default_memory")]
+    // Not `rename_all`'s doing: it produces `memoryKib`, and the schema key is
+    // `memoryKiB` — KiB is a unit, not two words.
+    #[serde(default = "default_memory", rename = "memoryKiB")]
     pub memory_kib: u32,
     #[serde(default = "default_iterations")]
     pub iterations: u32,
@@ -478,6 +480,96 @@ mod tests {
         // hashes below the floor.
         assert_eq!(config.argon2().memory_kib, ARGON2_MIN_MEMORY_KIB);
         assert_eq!(config.argon2().iterations, ARGON2_MIN_ITERATIONS);
+    }
+
+    /// The schema is the source of truth for config keys, and `rename_all`
+    /// does not always agree with it — `memory_kib` becomes `memoryKib` and
+    /// the key is `memoryKiB`, because KiB is a unit rather than two words.
+    /// That was a real defect found by one test happening to use the key;
+    /// this one checks every key there is.
+    fn auth_schema() -> serde_json::Value {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../schemas/liyasa.schema.json");
+        let text =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let schema: serde_json::Value = serde_json::from_str(&text).expect("the schema is JSON");
+        schema["properties"]["auth"].clone()
+    }
+
+    /// A value of the right shape for every leaf the schema declares.
+    fn populate(node: &serde_json::Value) -> serde_json::Value {
+        use serde_json::{Value, json};
+        if let Some(choices) = node.get("enum").and_then(Value::as_array) {
+            return choices.first().cloned().unwrap_or(json!("x"));
+        }
+        match node.get("type").and_then(Value::as_str) {
+            Some("object") => {
+                let mut out = serde_json::Map::new();
+                if let Some(properties) = node.get("properties").and_then(Value::as_object) {
+                    for (key, child) in properties {
+                        out.insert(key.clone(), populate(child));
+                    }
+                }
+                Value::Object(out)
+            }
+            Some("array") => json!([]),
+            Some("integer") | Some("number") => json!(1),
+            Some("boolean") => json!(true),
+            // The duration keys carry a pattern; one value satisfies them all.
+            _ => match node.get("pattern").and_then(Value::as_str) {
+                Some(pattern) if pattern.contains("ms|s|m|h|d") => json!("15m"),
+                _ => json!("x"),
+            },
+        }
+    }
+
+    #[test]
+    fn every_key_the_schema_declares_is_a_key_this_deserializer_accepts() {
+        let schema = auth_schema();
+        let populated = populate(&schema);
+        let keys = populated
+            .as_object()
+            .expect("the auth section is an object")
+            .len();
+        assert!(keys >= 8, "the schema declares {keys} keys under `auth`");
+
+        // `deny_unknown_fields` means any key the schema has and this struct
+        // spells differently is a hard error here.
+        AuthConfig::from_value(&populated).unwrap_or_else(|error| {
+            panic!(
+                "a config using every schema key was refused: {}\n{}",
+                error.message,
+                serde_json::to_string_pretty(&populated).unwrap_or_default()
+            )
+        });
+    }
+
+    #[test]
+    fn every_key_this_struct_writes_is_a_key_the_schema_declares() {
+        // The other direction: a field here that the schema does not have
+        // would be a key an operator could never legitimately set.
+        fn walk(value: &serde_json::Value, schema: &serde_json::Value, path: &str) {
+            let (Some(fields), Some(properties)) = (
+                value.as_object(),
+                schema
+                    .get("properties")
+                    .and_then(serde_json::Value::as_object),
+            ) else {
+                return;
+            };
+            for (key, child) in fields {
+                let here = match path.is_empty() {
+                    true => key.clone(),
+                    false => format!("{path}.{key}"),
+                };
+                let declared = properties
+                    .get(key)
+                    .unwrap_or_else(|| panic!("`auth.{here}` is not in the schema"));
+                walk(child, declared, &here);
+            }
+        }
+        let written = serde_json::to_value(AuthConfig::default()).expect("it serializes");
+        walk(&written, &auth_schema(), "");
     }
 
     #[test]
