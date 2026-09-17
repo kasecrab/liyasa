@@ -44,6 +44,7 @@ host documents", and confirm anything you are depending on.
 
 | Check | GitHub Pages | Cloudflare Pages | Netlify | Vercel | S3 + CloudFront | Web server |
 |---|---|---|---|---|---|---|
+| `upload-delivery` | yes | yes | yes | yes | yes | yes |
 | `markdown-url-support` | yes | yes | yes | yes | manual | manual |
 | `content-negotiation` | partial | partial | partial | partial | partial | partial |
 | `cache-header-hygiene` | partial | partial | partial | partial | manual | manual |
