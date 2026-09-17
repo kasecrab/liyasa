@@ -521,12 +521,20 @@ mod tests {
 
     #[test]
     fn a_top_up_does_not_roll_over_and_the_alerts_rearm() {
+        // A top-up raises what the alerts are a percentage of, which is the
+        // point of buying one: sixty answers against a hundred-credit pool is
+        // an alert, and against the same pool plus a thousand it is not.
         let mut ledger = Ledger::new(Some(100));
         ledger.top_up(1_000);
         for _ in 0..60 {
             ledger.charge(Spend::AssistantAnswer, "docs", Access::Managed);
         }
-        assert!(!ledger.alerts().is_empty());
+        assert_eq!(ledger.percent_used(), Some(5));
+        assert_eq!(ledger.alerts(), Vec::<u8>::new());
+        for _ in 0..500 {
+            ledger.charge(Spend::AssistantAnswer, "docs", Access::Managed);
+        }
+        assert_eq!(ledger.alerts(), vec![50]);
         let next = ledger.next_period();
         assert_eq!(next.topped_up, 0);
         assert_eq!(next.spent(), 0);

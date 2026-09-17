@@ -12,4 +12,5 @@
 //! [`plan::Plan::unlimited`] and takes the same code path a Free project takes.
 //! No handler asks which edition it is in.
 
+pub mod credits;
 pub mod plan;
