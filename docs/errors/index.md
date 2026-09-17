@@ -221,6 +221,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0720`](/errors/W0720) | Warning | Served HTML response exceeds 1 MB (spec check `page-size-transfer` warn band) |
 | [`E0721`](/errors/E0721) | Error | Served HTML response exceeds 10 MB, above documented agent fetch-buffer caps |
 | [`E0722`](/errors/E0722) | Error | CSP source in `security.csp` or `network.allowHosts.embeds` is not a source expression |
+| [`W0723`](/errors/W0723) | Warning | Pages in a reserved directory are not routed |
 
 ## Server, auth, deployments, network
 
