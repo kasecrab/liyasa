@@ -125,12 +125,20 @@ impl<'g> PathImpact<'g> {
 /// An `EdgeOrigin` names a `PageId` and a build renders a `Route`, and the
 /// pairing lives in the store (RFC 2001). `MemoryGraph::rows` is where it is
 /// visible from outside, so this reads it rather than guessing.
+///
+/// Only the current build's rows are read. `rows` returns every build and is
+/// ordered by `BuildId`, which is a fingerprint — so "the last row for this
+/// page" is the build whose hash sorts highest, not the most recent one. A page
+/// that moved route would take whichever of its two routes hashed larger.
 pub fn routes_of(
     graph: &MemoryGraph,
     blocks: &[(EdgeOrigin, Vec<Edge>)],
 ) -> Result<Vec<Route>, StoreError> {
+    let Some(current) = graph.current_build()? else {
+        return Ok(Vec::new());
+    };
     let mut routes: BTreeMap<PageId, Route> = BTreeMap::new();
-    for row in graph.rows()? {
+    for row in graph.rows()?.into_iter().filter(|row| row.build == current) {
         let (EdgeOrigin::Block(page, _) | EdgeOrigin::Page(page)) = &row.edge.from;
         routes.entry(*page).or_insert(row.page);
     }

@@ -236,3 +236,50 @@ fn the_routes_an_impact_reaches_are_the_pages_a_build_renders_again() {
             .is_empty()
     );
 }
+
+/// A page that moved route between two builds is named by the current build's
+/// route.
+///
+/// Run for both orderings of the two `BuildId`s. `rows` returns every build in
+/// `BuildId` order and a `BuildId` is a fingerprint, so which of the two comes
+/// first is a property of the hash rather than of which build was newer. With
+/// one pair of tags a query that reads every build happens to answer correctly
+/// and the test proves nothing — checking both orderings means one of the two
+/// cases always exercises the wrong answer.
+#[test]
+fn a_page_that_moved_route_is_named_by_the_route_of_the_build_being_rendered() {
+    for (first, second) in [("b1", "b2"), ("b2", "b1")] {
+        let graph = MemoryGraph::new();
+        for (tag, route) in [(first, "/pricing"), (second, "/plans")] {
+            graph
+                .replace_page_edges(
+                    BuildId(Fingerprint::of(tag)),
+                    &Route::new(route),
+                    &[edge(
+                        block(1, "price"),
+                        DepTarget::Fact(FactId::new("plan.pro.price")),
+                        EdgeKind::Reads,
+                    )],
+                )
+                .expect("the graph accepts a page");
+        }
+        let impacts = PathImpact::new(&graph)
+            .impact_of(&[changed("plan.pro.price")])
+            .expect("the graph answers");
+        assert_eq!(
+            routes_of(&graph, &impacts[0].blocks).expect("the graph answers"),
+            [Route::new("/plans")],
+            "the route of the build written last, with `{first}` before `{second}`"
+        );
+    }
+}
+
+#[test]
+fn an_empty_graph_names_no_routes() {
+    let graph = MemoryGraph::new();
+    assert!(
+        routes_of(&graph, &[(block(1, "price"), vec![])])
+            .expect("the graph answers")
+            .is_empty()
+    );
+}
