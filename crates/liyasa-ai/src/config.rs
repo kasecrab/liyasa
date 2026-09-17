@@ -168,6 +168,10 @@ pub struct AssistantConfig {
     pub deflection: Deflection,
     pub bot_protection: BotProtection,
     pub rate_limits: Option<RateLimit>,
+    /// AST-22. Not one of the keys AST-20 enumerates; proposed for the schema
+    /// in RFC 1806, and readable today because `ai.assistant` accepts keys it
+    /// does not name.
+    pub privacy: crate::privacy::PrivacyConfig,
     /// Keys the schema allows and this version does not read.
     #[serde(flatten)]
     pub extra: BTreeMap<String, serde_json::Value>,
@@ -191,6 +195,7 @@ impl Default for AssistantConfig {
             deflection: Deflection::default(),
             bot_protection: BotProtection::None,
             rate_limits: None,
+            privacy: crate::privacy::PrivacyConfig::default(),
             extra: BTreeMap::new(),
         }
     }
@@ -331,6 +336,21 @@ mod tests {
         assert!(c.assistant.enabled);
         assert_eq!(c.assistant.name, "Acme Assistant");
         assert_eq!(c.assistant.sample_questions.len(), 1);
+    }
+
+    #[test]
+    fn privacy_takes_the_prd_defaults_and_can_be_configured() {
+        let c: AiConfig = serde_json::from_str("{}").expect("empty");
+        assert!(c.assistant.privacy.store);
+        assert_eq!(c.assistant.privacy.retention_days, 90);
+        assert!(!c.assistant.privacy.store_identity);
+
+        let c: AiConfig = serde_json::from_value(serde_json::json!({
+            "assistant": { "privacy": { "store": false, "retentionDays": 30 } }
+        }))
+        .expect("config");
+        assert!(!c.assistant.privacy.store);
+        assert_eq!(c.assistant.privacy.retention_days, 30);
     }
 
     #[test]
