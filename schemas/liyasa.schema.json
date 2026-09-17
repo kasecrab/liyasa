@@ -1263,41 +1263,50 @@
       "items": {
         "oneOf": [
           {
-            "type": "string"
+            "type": "string",
+            "description": "The document's path or URL, when the defaults suit it. Its id is derived from the file name."
           },
           {
             "type": "object",
+            "description": "The document with settings of its own.",
             "properties": {
               "id": {
-                "type": "string"
+                "type": "string",
+                "description": "How navigation and pages refer to this document."
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "Path or URL of the document. A remote URL is a trust-plane value: an untrusted build may only use the URLs the deploy branch already names."
               },
               "overlays": {
                 "type": "array",
+                "description": "Overlay documents applied to the spec in order, which is how a published API is adjusted for the docs without editing the spec itself.",
                 "items": {
                   "type": "string"
                 }
               },
               "baseUrl": {
-                "type": "string"
+                "type": "string",
+                "description": "Server the playground sends requests to, instead of the one the document names."
               },
               "operations": {
                 "oneOf": [
                   {
                     "type": "string",
+                    "description": "Every operation in the document.",
                     "enum": [
                       "all"
                     ]
                   },
                   {
                     "type": "array",
+                    "description": "Only these operations, written as `GET /users` or as operation ids.",
                     "items": {
                       "type": "string"
                     }
                   }
-                ]
+                ],
+                "description": "Which operations this document contributes."
               }
             },
             "additionalProperties": false
@@ -1312,16 +1321,20 @@
       "items": {
         "oneOf": [
           {
-            "type": "string"
+            "type": "string",
+            "description": "The document's path or URL, when the defaults suit it."
           },
           {
             "type": "object",
+            "description": "The document with settings of its own.",
             "properties": {
               "id": {
-                "type": "string"
+                "type": "string",
+                "description": "How navigation and pages refer to this document."
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "Path or URL of the document. A remote URL is a trust-plane value: an untrusted build may only use the URLs the deploy branch already names."
               }
             },
             "additionalProperties": false
@@ -1336,16 +1349,20 @@
       "items": {
         "oneOf": [
           {
-            "type": "string"
+            "type": "string",
+            "description": "The schema's path or URL, when the defaults suit it."
           },
           {
             "type": "object",
+            "description": "The schema with settings of its own.",
             "properties": {
               "id": {
-                "type": "string"
+                "type": "string",
+                "description": "How navigation and pages refer to this schema."
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "Path or URL of the schema."
               }
             },
             "additionalProperties": false
@@ -1535,6 +1552,7 @@
           "oneOf": [
             {
               "type": "string",
+              "description": "The provider by name, or `builtin` for Liyasa's own banner.",
               "enum": [
                 "osano",
                 "transcend",
@@ -1545,9 +1563,11 @@
             },
             {
               "type": "object",
+              "description": "The provider with its own settings.",
               "properties": {
                 "provider": {
                   "type": "string",
+                  "description": "Which consent provider manages the banner.",
                   "enum": [
                     "osano",
                     "transcend",
@@ -1563,7 +1583,8 @@
               "additionalProperties": true
             },
             {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "`true` uses the built-in banner; `false` asks for no consent, which only suits a site whose integrations need none."
             }
           ]
         },
@@ -2938,10 +2959,12 @@
           "type": "object",
           "properties": {
             "id": {
-              "type": "string"
+              "type": "string",
+              "description": "The account, site, or measurement id the third-party script is loaded with."
             },
             "consent": {
               "type": "string",
+              "description": "`required` holds the script until the reader consents; `none` loads it immediately, which suits an integration that sets no cookie and follows nobody.",
               "enum": [
                 "required",
                 "none"
