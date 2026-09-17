@@ -108,3 +108,11 @@ mod thm_31;
 mod web_reader;
 #[path = "../verify/truth_graph.rs"]
 mod truth_graph;
+#[path = "../verify/ver_01_attributes.rs"]
+mod ver_01_attributes;
+#[path = "../verify/runners/rust.rs"]
+mod ver_02_06_rust;
+#[path = "../verify/runners/shell.rs"]
+mod ver_02_1_shell;
+#[path = "../verify/ver_03_isolation.rs"]
+mod ver_03_isolation;
