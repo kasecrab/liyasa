@@ -136,7 +136,9 @@ impl Surface {
 pub enum Spend {
     /// ORG-31: one credit per assistant answer.
     AssistantAnswer,
-    AgentTask { size: TaskSize },
+    AgentTask {
+        size: TaskSize,
+    },
 }
 
 impl Spend {
@@ -230,8 +232,10 @@ impl Ledger {
     /// Everything spendable this period: the pool, what rolled over, and any
     /// top-up (ORG-31).
     pub fn granted(&self) -> Option<u64> {
-        self.pool
-            .map(|pool| pool.saturating_add(self.carried).saturating_add(self.topped_up))
+        self.pool.map(|pool| {
+            pool.saturating_add(self.carried)
+                .saturating_add(self.topped_up)
+        })
     }
 
     pub fn spent(&self) -> u64 {
@@ -289,9 +293,7 @@ impl Ledger {
 
     /// ORG-31's usage dashboard, by project.
     pub fn by_project(&self) -> impl Iterator<Item = (&str, u64)> + '_ {
-        self.spent_by_project
-            .iter()
-            .map(|(p, c)| (p.as_str(), *c))
+        self.spent_by_project.iter().map(|(p, c)| (p.as_str(), *c))
     }
 
     /// How much of the pool is gone, as a percentage. `None` on an unmetered
@@ -507,7 +509,11 @@ mod tests {
     #[test]
     fn rollover_is_half_of_what_is_left_and_never_takes_the_balance_past_one_and_a_half_pools() {
         let ledger = Ledger::new(Some(1_000));
-        assert_eq!(ledger.rollover(), 500, "nothing spent: half the pool carries");
+        assert_eq!(
+            ledger.rollover(),
+            500,
+            "nothing spent: half the pool carries"
+        );
         let next = ledger.next_period();
         assert_eq!(next.granted(), Some(1_500));
 

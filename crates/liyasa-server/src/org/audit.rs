@@ -194,7 +194,12 @@ pub struct Record {
 }
 
 impl Record {
-    pub fn new(actor: Actor, area: Area, action: impl Into<String>, object: impl Into<String>) -> Self {
+    pub fn new(
+        actor: Actor,
+        area: Area,
+        action: impl Into<String>,
+        object: impl Into<String>,
+    ) -> Self {
         Self {
             actor,
             area,
@@ -387,22 +392,33 @@ impl Log {
     /// one column each: an audit row whose diff was flattened away is not an
     /// audit row.
     pub fn to_csv(&self, query: &Query) -> String {
-        let mut out = String::from(
-            "id,at,actor,actorKind,area,action,object,project,origin,before,after\n",
-        );
+        let mut out =
+            String::from("id,at,actor,actorKind,area,action,object,project,origin,before,after\n");
         for entry in self.search(query) {
             let row = [
                 entry.id.to_string(),
                 entry.at_ms.to_string(),
-                entry.actor.email.clone().unwrap_or_else(|| entry.actor.id.clone()),
+                entry
+                    .actor
+                    .email
+                    .clone()
+                    .unwrap_or_else(|| entry.actor.id.clone()),
                 entry.actor.kind.as_str().to_owned(),
                 entry.area.as_str().to_owned(),
                 entry.action.clone(),
                 entry.object.clone(),
                 entry.project.clone().unwrap_or_default(),
                 entry.origin.describe(),
-                entry.before.as_ref().map(Value::to_string).unwrap_or_default(),
-                entry.after.as_ref().map(Value::to_string).unwrap_or_default(),
+                entry
+                    .before
+                    .as_ref()
+                    .map(Value::to_string)
+                    .unwrap_or_default(),
+                entry
+                    .after
+                    .as_ref()
+                    .map(Value::to_string)
+                    .unwrap_or_default(),
             ];
             let cells: Vec<String> = row.iter().map(|cell| csv_cell(cell)).collect();
             out.push_str(&cells.join(","));
@@ -485,7 +501,10 @@ mod tests {
         assert_eq!(entry.actor.email.as_deref(), Some("ana@acme.com"));
         assert_eq!(entry.action, "role.change");
         assert_eq!(entry.at_ms, 1_000);
-        assert_eq!(entry.origin.ip.map(|ip| ip.to_string()).as_deref(), Some("203.0.113.7"));
+        assert_eq!(
+            entry.origin.ip.map(|ip| ip.to_string()).as_deref(),
+            Some("203.0.113.7")
+        );
         assert_eq!(entry.before.as_ref().expect("before")["role"], "viewer");
         assert_eq!(entry.after.as_ref().expect("after")["role"], "editor");
     }
@@ -642,7 +661,8 @@ mod tests {
         assert_eq!(log.to_json(&Query::default())["dropped"], 3);
         assert_eq!(log.to_json(&Query::default())["complete"], false);
         assert!(
-            log.to_csv(&Query::default()).contains("3 earlier entries were dropped"),
+            log.to_csv(&Query::default())
+                .contains("3 earlier entries were dropped"),
             "the CSV export must say so too"
         );
     }

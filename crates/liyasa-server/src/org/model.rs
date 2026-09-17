@@ -14,7 +14,7 @@ use liyasa_core::diagnostics::{Code, Diagnostic};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::clock::Clock;
-use crate::auth::roles::{Grant, Permission, Role};
+use crate::auth::roles::{Grant, Permission};
 
 use super::plan::{Feature, Plan, Resource};
 use super::region::Region;
@@ -45,13 +45,14 @@ pub const COOLING_OFF: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 pub fn check_label(label: &str) -> Result<(), Diagnostic> {
     let code = Code::new("E0857").expect("E0857 is registered");
     let refuse = |why: &str| {
-        Err(
-            Diagnostic::new(code, format!("`{label}` cannot be a subdomain label: {why}"))
-                .help(format!(
-                    "pick a label of lowercase letters, digits and hyphens, and set the display \
-                     name separately; the project is served at <label>.{SUBDOMAIN_SUFFIX}"
-                )),
+        Err(Diagnostic::new(
+            code,
+            format!("`{label}` cannot be a subdomain label: {why}"),
         )
+        .help(format!(
+            "pick a label of lowercase letters, digits and hyphens, and set the display \
+                     name separately; the project is served at <label>.{SUBDOMAIN_SUFFIX}"
+        )))
     };
     if label.is_empty() || label.len() > 63 {
         return refuse("a label is between one and sixty-three characters");
@@ -90,7 +91,9 @@ impl Project {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum InviteKind {
-    Email { address: String },
+    Email {
+        address: String,
+    },
     /// Anyone holding the link may accept it once.
     Link,
 }
@@ -364,7 +367,9 @@ impl Organization {
                 self.plan.tier.as_str()
             ),
         )
-        .help("revoke a pending invitation, remove a member, or move to a plan that bills per seat"))
+        .help(
+            "revoke a pending invitation, remove a member, or move to a plan that bills per seat",
+        ))
     }
 
     pub fn add_member(&mut self, member: Member) -> Result<(), Diagnostic> {
@@ -416,7 +421,12 @@ impl Organization {
         self.invites.values()
     }
 
-    pub fn invite(&mut self, kind: InviteKind, grant: Grant, valid_for: Duration) -> Result<&Invite, Diagnostic> {
+    pub fn invite(
+        &mut self,
+        kind: InviteKind,
+        grant: Grant,
+        valid_for: Duration,
+    ) -> Result<&Invite, Diagnostic> {
         self.check_seat()?;
         let now = self.clock.now_ms();
         let id = self.next_id("inv");
@@ -584,10 +594,12 @@ impl Organization {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::auth::roles::Role;
     use crate::org::plan::Tier;
 
     fn org(tier: Tier) -> Organization {
-        Organization::new("org_1", Settings::new("Acme"), Plan::of(tier)).with_clock(Clock::manual())
+        Organization::new("org_1", Settings::new("Acme"), Plan::of(tier))
+            .with_clock(Clock::manual())
     }
 
     #[test]
@@ -627,14 +639,24 @@ mod tests {
     fn a_project_is_served_at_its_subdomain() {
         // HOST-10.
         let mut org = org(Tier::Pro);
-        let project = org.create_project("acme-docs", "Acme", None).expect("a project");
+        let project = org
+            .create_project("acme-docs", "Acme", None)
+            .expect("a project");
         assert_eq!(project.subdomain(), "acme-docs.liyasa.site");
     }
 
     #[test]
     fn a_name_that_is_not_a_dns_label_is_refused_before_the_project_exists() {
         let mut org = org(Tier::Pro);
-        for bad in ["", "Docs", "-docs", "docs-", "docs.api", "www", &"x".repeat(64)] {
+        for bad in [
+            "",
+            "Docs",
+            "-docs",
+            "docs-",
+            "docs.api",
+            "www",
+            &"x".repeat(64),
+        ] {
             let refused = org
                 .create_project(bad, "Title", None)
                 .expect_err(&format!("`{bad}` is not a label"));
@@ -692,10 +714,18 @@ mod tests {
             .expect("a seat");
         }
         let refused = org
-            .invite(InviteKind::Link, Grant::role(Role::Viewer), Duration::from_secs(60))
+            .invite(
+                InviteKind::Link,
+                Grant::role(Role::Viewer),
+                Duration::from_secs(60),
+            )
             .expect_err("three seats are taken");
         assert_eq!(refused.code.as_str(), "E0851");
-        assert_eq!(org.invites().count(), 0, "a refused invitation is not stored");
+        assert_eq!(
+            org.invites().count(),
+            0,
+            "a refused invitation is not stored"
+        );
 
         // Changing an existing member's role does not need a seat.
         assert!(org.set_role("u0", Grant::role(Role::Owner)));
@@ -705,8 +735,12 @@ mod tests {
     #[test]
     fn an_expired_invitation_releases_its_seat_and_cannot_be_accepted() {
         let mut org = org(Tier::Free);
-        org.invite(InviteKind::Link, Grant::role(Role::Viewer), Duration::from_secs(60))
-            .expect("a seat");
+        org.invite(
+            InviteKind::Link,
+            Grant::role(Role::Viewer),
+            Duration::from_secs(60),
+        )
+        .expect("a seat");
         assert_eq!(org.seats_taken(), 1);
         org.clock().advance(Duration::from_secs(120));
         assert_eq!(org.seats_taken(), 0);
@@ -723,7 +757,11 @@ mod tests {
     fn a_revoked_invitation_cannot_be_accepted() {
         let mut org = org(Tier::Pro);
         let id = org
-            .invite(InviteKind::Link, Grant::role(Role::Viewer), Duration::from_secs(3600))
+            .invite(
+                InviteKind::Link,
+                Grant::role(Role::Viewer),
+                Duration::from_secs(3600),
+            )
             .expect("an invitation")
             .id
             .clone();
@@ -775,7 +813,8 @@ mod tests {
     #[test]
     fn deleting_a_project_drops_the_overrides_that_named_it() {
         let mut org = org(Tier::Pro);
-        org.create_project("secret", "Secret", None).expect("a project");
+        org.create_project("secret", "Secret", None)
+            .expect("a project");
         org.add_member(Member::new("u1", "u1@acme.com", Grant::role(Role::Editor)))
             .expect("a seat");
         org.set_project_role("u1", "secret", Grant::role(Role::Viewer));
@@ -798,7 +837,11 @@ mod tests {
         org.create_project("docs", "Docs", None).expect("a project");
         org.request_deletion("u1");
         assert!(!org.is_erasable());
-        assert!(org.export()["projects"].as_array().is_some_and(|p| p.len() == 1));
+        assert!(
+            org.export()["projects"]
+                .as_array()
+                .is_some_and(|p| p.len() == 1)
+        );
 
         org.clock().advance(COOLING_OFF / 2);
         assert!(!org.is_erasable());
@@ -813,7 +856,8 @@ mod tests {
     #[test]
     fn the_export_carries_everything_the_workspace_holds() {
         let mut org = org(Tier::Pro);
-        org.create_project("docs", "Docs", Some(Region::Eu)).expect("a project");
+        org.create_project("docs", "Docs", Some(Region::Eu))
+            .expect("a project");
         org.add_member(Member::new("u1", "u1@acme.com", Grant::role(Role::Owner)))
             .expect("a seat");
         org.issue_credential(CredentialKind::ApiKey, "ci", "u1");
