@@ -80,7 +80,7 @@ impl Check {
 pub fn run(global: &Global, _args: &Doctor) -> Exit {
     let cwd = ctx::cwd();
     let project = ctx::locate(global, &cwd).ok();
-    let checks = collect(project.as_ref());
+    let checks = collect(project.as_ref(), global.offline);
 
     if global.json {
         let rows: Vec<serde_json::Value> = checks
@@ -117,7 +117,7 @@ pub fn run(global: &Global, _args: &Doctor) -> Exit {
 
 /// Every check, in the order CLI-27 lists them: toolchain, sandbox, browser,
 /// network, cache.
-pub fn collect(project: Option<&ctx::Project>) -> Vec<Check> {
+pub fn collect(project: Option<&ctx::Project>, offline: bool) -> Vec<Check> {
     let mut checks = vec![Check::ready(
         "liyasa",
         format!(
@@ -177,11 +177,7 @@ pub fn collect(project: Option<&ctx::Project>) -> Vec<Check> {
         ));
     }
 
-    checks.push(Check::missing(
-        "network",
-        "this build has no HTTP client",
-        "`liyasa update`, remote OpenAPI sources, and external link checking cannot reach the network",
-    ));
+    checks.extend(network(project, offline));
 
     checks.push(Check::ready(
         "telemetry",
@@ -208,6 +204,93 @@ pub fn collect(project: Option<&ctx::Project>) -> Vec<Check> {
     }
 
     checks
+}
+
+/// CLI-27's "network reachability of configured sources": every remote source
+/// the configuration names is asked for once, and nothing else is.
+///
+/// A host that cannot be reached at all is `Missing` — a laptop on a train is
+/// not a broken project. A host that answers and refuses, or one the policy
+/// will not let the build reach, is `Broken`: the configuration names a source
+/// this project cannot use, and that is a fault wherever it runs.
+fn network(project: Option<&ctx::Project>, offline: bool) -> Vec<Check> {
+    let Some(project) = project else {
+        return vec![Check::missing(
+            "network",
+            "not inside a project, so no sources to reach",
+            "run `liyasa doctor` inside a project to check its remote sources",
+        )];
+    };
+
+    let config = crate::net::config_value(&project.config);
+    let sources = remote_sources(&config);
+    if sources.is_empty() {
+        return vec![Check::ready(
+            "network",
+            "no remote sources configured; nothing to reach",
+        )];
+    }
+    if offline {
+        return vec![Check::missing(
+            "network",
+            format!("{} remote source(s), not checked (`--offline`)", sources.len()),
+            "drop `--offline` to check that each one answers",
+        )];
+    }
+
+    let client = match crate::net::Network::for_project(&config) {
+        Ok(client) => client,
+        Err(diagnostic) => {
+            return vec![Check::broken("network", diagnostic.message.clone())];
+        }
+    };
+
+    sources
+        .into_iter()
+        .map(|source| match liyasa_core::net::Url::parse(&source) {
+            Err(error) => Check::broken("network", format!("`{source}` is not a URL: {error}")),
+            Ok(url) => match client.reach(&url, liyasa_core::net::Purpose::SpecRef) {
+                Ok(status) if status < 400 => {
+                    Check::ready("network", format!("{source} answered {status}"))
+                }
+                Ok(status) => {
+                    Check::broken("network", format!("{source} answered {status}"))
+                }
+                // A refusal is the configuration's own policy, not the wire.
+                Err(error @ liyasa_core::net::NetError::PolicyDenied { .. }) => {
+                    Check::broken("network", format!("{source}: {error}"))
+                }
+                Err(error) => Check::missing(
+                    "network",
+                    format!("{source}: {error}"),
+                    "the build cannot read this source until the host answers",
+                ),
+            },
+        })
+        .collect()
+}
+
+/// Every remote `source` the configuration names, in `openapi`, `asyncapi` and
+/// `graphql`. Each entry is either the URL itself or an object carrying one.
+fn remote_sources(config: &serde_json::Value) -> Vec<String> {
+    let mut out = Vec::new();
+    for key in ["openapi", "asyncapi", "graphql"] {
+        let Some(entries) = config.get(key).and_then(|value| value.as_array()) else {
+            continue;
+        };
+        for entry in entries {
+            let source = entry
+                .as_str()
+                .or_else(|| entry.get("source").and_then(|s| s.as_str()));
+            if let Some(source) = source
+                && (source.starts_with("http://") || source.starts_with("https://"))
+                && !out.iter().any(|seen| seen == source)
+            {
+                out.push(source.to_owned());
+            }
+        }
+    }
+    out
 }
 
 /// A cache that cannot be read is the one thing here that is a real fault: the
