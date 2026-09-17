@@ -12,6 +12,7 @@ pub mod negotiate;
 pub mod regions;
 pub mod variations;
 pub mod strings;
+pub mod sync;
 
 pub use config::{Detection, Fallback, LocaleDecl, Localization, Regions, VariationDecl};
 pub use fallback::{Serve, Translations};

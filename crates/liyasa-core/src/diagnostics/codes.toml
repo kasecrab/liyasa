@@ -247,3 +247,4 @@ E0857 = { severity = "error", crate = "liyasa-server", title = "Project name is 
 W0724 = { severity = "warning", crate = "liyasa-build", title = "`regions.detection` reads a header and `server.trustedProxies` trusts no peer, so no region header is honoured" }
 W0725 = { severity = "warning", crate = "liyasa-build", title = "A page, navigation node, block or availability matrix names a region `regions.list` does not declare" }
 W0726 = { severity = "warning", crate = "liyasa-build", title = "A `:::variation` directive names a variation or option `variations` does not declare" }
+W0727 = { severity = "warning", crate = "liyasa-build", title = "A translation was made from an older version of its source page" }
