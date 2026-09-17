@@ -130,3 +130,5 @@ mod ver_20_types;
 mod ver_21_deps;
 #[path = "../verify/ver_22_snapshots.rs"]
 mod ver_22_snapshots;
+#[path = "../verify/ver_25_commands.rs"]
+mod ver_25_commands;
