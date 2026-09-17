@@ -12,7 +12,9 @@
 pub mod impact;
 pub mod snapshot;
 pub mod spec;
+pub mod trust;
 
 pub use impact::{OperationChange, OperationImpact, PathImpact};
 pub use snapshot::{SnapshotLog, StoredSnapshot, ValueDiffer};
 pub use spec::{FactType, SourceSet, SourceSpec};
+pub use trust::{TransportPolicy, trust_of};
