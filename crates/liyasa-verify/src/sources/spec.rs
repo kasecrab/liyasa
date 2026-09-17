@@ -31,6 +31,10 @@ pub enum FactType {
         minor: u8,
         minor_units: bool,
     },
+    /// The number as written, in percent: `99.95` is 99.95%, not 9995%. A
+    /// document that gives a fraction has to be read as a `number` and scaled
+    /// by the page, because nothing here can tell `0.9995` the fraction from
+    /// `0.9995` the percentage.
     Percent,
     Date,
     Bool,
