@@ -6,6 +6,7 @@
 pub mod budget;
 pub mod cdn;
 pub mod config;
+pub mod deploy;
 pub mod docs;
 pub mod hosting;
 pub mod server;
