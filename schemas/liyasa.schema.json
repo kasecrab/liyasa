@@ -425,13 +425,16 @@
             "type": "object",
             "properties": {
               "label": {
-                "type": "string"
+                "type": "string",
+                "description": "The link's text."
               },
               "href": {
-                "type": "string"
+                "type": "string",
+                "description": "Where the link goes; absolute for an external destination, a route for one inside the site."
               },
               "icon": {
-                "type": "string"
+                "type": "string",
+                "description": "Icon shown before the label, resolved the way `theme.icons` says."
               }
             },
             "additionalProperties": false
@@ -440,19 +443,23 @@
         },
         "primary": {
           "type": "object",
+          "description": "The call to action at the end of the navbar: one button, or the repository link.",
           "properties": {
             "type": {
               "type": "string",
+              "description": "`button` renders `label` and `href` as written; `github` renders the repository link with its star count, fetched at build time and cached, never from the reader's browser.",
               "enum": [
                 "button",
                 "github"
               ]
             },
             "label": {
-              "type": "string"
+              "type": "string",
+              "description": "The button's text. Unused by the `github` form, which labels itself."
             },
             "href": {
-              "type": "string"
+              "type": "string",
+              "description": "Where the button goes. For the `github` form, the repository URL whose stars are counted."
             }
           },
           "additionalProperties": false,
@@ -523,17 +530,20 @@
       "properties": {
         "socials": {
           "type": "object",
+          "description": "Social links, keyed by platform (`x`, `github`, `linkedin`, `discord`, `slack`, `youtube`, `bluesky`, `mastodon`, `website`, or your own name with an icon). Each renders as an icon with an accessible label.",
           "additionalProperties": {
             "type": "string"
           }
         },
         "links": {
           "type": "array",
+          "description": "Link columns, in the order they are written.",
           "items": {
             "type": "object",
             "properties": {
               "header": {
-                "type": "string"
+                "type": "string",
+                "description": "The column's heading."
               },
               "items": {
                 "type": "array",
@@ -541,10 +551,12 @@
                   "type": "object",
                   "properties": {
                     "label": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "The link's text."
                     },
                     "href": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "Where the link goes."
                     }
                   },
                   "additionalProperties": false
@@ -711,25 +723,31 @@
       "type": "object",
       "properties": {
         "content": {
-          "type": "string"
+          "type": "string",
+          "description": "The banner's text, as Markdown. It is rendered at build time, so a banner costs the reader no script."
         },
         "dismissible": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether a reader may close the banner. A dismissal is remembered against `id`."
         },
         "id": {
-          "type": "string"
+          "type": "string",
+          "description": "What a dismissal is remembered against. Change it to show a closed banner again; absent, the content is its own identity."
         },
         "by_locale": {
           "type": "object",
+          "description": "Per-locale text, keyed by locale code, used instead of `content` for a reader in that locale.",
           "additionalProperties": {
             "type": "string"
           }
         },
         "start": {
-          "type": "string"
+          "type": "string",
+          "description": "When the banner begins showing, as `YYYY-MM-DD` or an RFC 3339 timestamp. Compared against the build clock, not the reader's, so an unstarted banner is simply absent from the output."
         },
         "end": {
-          "type": "string"
+          "type": "string",
+          "description": "When the banner stops showing, as `YYYY-MM-DD` or an RFC 3339 timestamp. An expired banner is absent from the output rather than hidden by a script."
         }
       },
       "additionalProperties": false,
@@ -815,18 +833,23 @@
       "properties": {
         "thumbnails": {
           "type": "object",
+          "description": "How the Open Graph card is drawn for a page that has no image of its own. The card is generated from the page's title and description and is deterministic: the same page and configuration produce the same bytes.",
           "properties": {
             "appearance": {
-              "type": "string"
+              "type": "string",
+              "description": "`dark` draws the card from the dark scheme's tokens; anything else uses the light scheme's."
             },
             "background": {
-              "type": "string"
+              "type": "string",
+              "description": "Card background, as any CSS colour. Absent, the theme's page background is used."
             },
             "font": {
-              "type": "string"
+              "type": "string",
+              "description": "CSS font stack the card's text is set in."
             },
             "logo": {
-              "type": "string"
+              "type": "string",
+              "description": "A logo placed in the card's corner, as a path or a data URI."
             }
           },
           "additionalProperties": false
