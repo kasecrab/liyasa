@@ -84,3 +84,5 @@ mod rx_50_feedback;
 mod thm_31;
 #[path = "../web/reader.rs"]
 mod web_reader;
+#[path = "../verify/truth_graph.rs"]
+mod truth_graph;
