@@ -63,3 +63,27 @@ fn the_build_rewrites_its_own_absolute_paths() {
     assert!(home.contains("href=\"/docs/_liyasa/theme."), "{home}");
     assert!(!home.contains("href=\"/_liyasa/"), "{home}");
 }
+
+/// RFC 1006: the agent surfaces publish absolute URLs, and those are built from
+/// `seo.canonicalOrigin` — which carries no prefix — rather than from the route
+/// the site is actually served at. A reader under `/docs` followed them to
+/// nothing.
+#[test]
+fn every_agent_surface_url_carries_the_base_path() {
+    let site = under_docs("rx111-surfaces");
+    let origin = "https://docs.acme.com";
+    for surface in ["llms.txt", "llms-full.txt"] {
+        for line in site.read(surface).lines() {
+            for at in line.match_indices(origin).map(|(at, _)| at) {
+                let url = line[at..]
+                    .split([' ', ')', '>', '"', ','])
+                    .next()
+                    .expect("a URL");
+                assert!(
+                    url == origin || url.starts_with("https://docs.acme.com/docs"),
+                    "{surface}: {url}"
+                );
+            }
+        }
+    }
+}

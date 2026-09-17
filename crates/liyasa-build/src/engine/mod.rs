@@ -1319,7 +1319,10 @@ fn write_surfaces(
     report: &mut Report,
     outputs: &mut Outputs,
 ) -> usize {
-    let Some(origin) = crate::agents::site::CanonicalOrigin::parse(&settings.canonical_origin)
+    let Some(origin) = crate::agents::site::CanonicalOrigin::parse_with_base_path(
+        &settings.canonical_origin,
+        &settings.base_path,
+    )
     else {
         // Without an origin every absolute URL in a surface would be wrong, so
         // the surfaces are skipped rather than written with a placeholder. The

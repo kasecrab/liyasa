@@ -23,9 +23,6 @@ pub struct CanonicalOrigin {
 }
 
 impl CanonicalOrigin {
-    // TODO(rfc-1006): `engine::mod` still builds the origin through this, so a
-    // real build drops `build.basePath` from every surface until WP-06 moves
-    // that one call site to `parse_with_base_path`.
     pub fn parse(text: &str) -> Option<Self> {
         Self::parse_with_base_path(text, "")
     }
