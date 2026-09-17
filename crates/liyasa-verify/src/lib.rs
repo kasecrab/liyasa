@@ -13,3 +13,4 @@
 pub mod core;
 pub mod report;
 pub mod graph;
+pub mod runners;
