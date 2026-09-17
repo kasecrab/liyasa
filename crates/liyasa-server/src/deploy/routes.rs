@@ -239,11 +239,21 @@ pub async fn history(
         Ok(records) => records,
         Err(error) => return Problem::store(&error).into_response(),
     };
+    // The build record holds no commit, logs, diagnostics or verification
+    // report; the job that produced it holds all four. Joining them here is
+    // what makes the history GIT-21 describes (RFC 1605).
+    let outcomes = state
+        .queue
+        .outcomes(&project, super::rollback::HISTORY_PAGE)
+        .await
+        .unwrap_or_default();
     let mut items = Vec::with_capacity(records.len());
     for record in &records {
         let build = store.builds_typed().get(&record.build).await.ok().flatten();
+        let id = record.build.to_string();
+        let job = outcomes.iter().find(|(_, outcome)| outcome.build_id == id);
         items.push(json!({
-            "buildId": record.build.to_string(),
+            "buildId": id,
             "env": record.env,
             "deployedAt": record.created_at,
             "status": build.as_ref().map(|b| format!("{:?}", b.status).to_lowercase()),
@@ -251,6 +261,14 @@ pub async fn history(
                 .as_ref()
                 .map(|b| b.updated_at.saturating_sub(b.created_at)),
             "dist": build.as_ref().map(|b| b.dist.clone()),
+            "commit": job.and_then(|(job, _)| job.payload["commit"].as_str()),
+            "branch": job.and_then(|(job, _)| job.payload["branch"].as_str()),
+            "message": job.and_then(|(job, _)| job.payload["message"].as_str()),
+            "trigger": job.and_then(|(job, _)| job.payload["trigger"].as_str()),
+            "logsUrl": job.and_then(|(_, outcome)| outcome.logs_url.clone()),
+            "errors": job.map(|(_, outcome)| outcome.errors),
+            "warnings": job.map(|(_, outcome)| outcome.warnings),
+            "verification": job.and_then(|(_, outcome)| outcome.verification.clone()),
         }));
     }
     Json(json!({ "items": items, "nextCursor": Value::Null })).into_response()

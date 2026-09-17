@@ -272,6 +272,55 @@ impl From<StoreError> for QueueError {
     }
 }
 
+/// What a worker records when a build finishes (GIT-21).
+///
+/// `BuildRecord` holds the build's id, environment, status and bundle path and
+/// nothing else — no commit, no logs, no diagnostics, no verification report.
+/// Those live here, in the job's result, and the history endpoint joins the
+/// two on `build_id`. The alternative was five columns on a table this package
+/// does not own (`plan/rfcs/1605-deployment-history-joins-the-job.md`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildOutcome {
+    /// The build this job produced, as a `BuildId` string.
+    pub build_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub logs_url: Option<String>,
+    #[serde(default)]
+    pub errors: u32,
+    #[serde(default)]
+    pub warnings: u32,
+    /// The verification report's summary line, or `None` when `verify` did not
+    /// run for this build.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification: Option<String>,
+}
+
+impl BuildOutcome {
+    pub fn new(build_id: impl Into<String>) -> Self {
+        Self {
+            build_id: build_id.into(),
+            ..Self::default()
+        }
+    }
+
+    pub fn with_logs(mut self, url: impl Into<String>) -> Self {
+        self.logs_url = Some(url.into());
+        self
+    }
+
+    pub fn with_diagnostics(mut self, errors: u32, warnings: u32) -> Self {
+        self.errors = errors;
+        self.warnings = warnings;
+        self
+    }
+
+    pub fn with_verification(mut self, summary: impl Into<String>) -> Self {
+        self.verification = Some(summary.into());
+        self
+    }
+}
+
 /// A queued build, reduced to what the ordering rules look at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Pending {
@@ -491,6 +540,61 @@ impl DeployQueue {
         let (queued, _) = self.pending().await?;
         Ok(position(&queued, id))
     }
+
+    /// Records what a build produced (GIT-21).
+    pub async fn complete(&self, id: &JobId, outcome: &BuildOutcome) -> Result<(), QueueError> {
+        let result = serde_json::to_value(outcome).unwrap_or(Value::Null);
+        self.store.jobs_typed().complete(id, result).await?;
+        Ok(())
+    }
+
+    /// Records that a build failed. The job is retried until its attempts run
+    /// out, which is what `Jobs::fail` decides.
+    pub async fn fail(&self, id: &JobId, error: &str) -> Result<JobState, QueueError> {
+        Ok(self.store.jobs_typed().fail(id, error).await?)
+    }
+
+    /// Finished build jobs for a project, newest first, keyed by the build
+    /// each produced. A job with no recorded outcome is skipped: there is
+    /// nothing to join it to.
+    pub async fn outcomes(
+        &self,
+        project: &ProjectId,
+        limit: u32,
+    ) -> Result<Vec<(JobRecord, BuildOutcome)>, QueueError> {
+        let mut out = Vec::new();
+        for state in [JobState::Done, JobState::Failed, JobState::Dead] {
+            let rows = self
+                .store
+                .jobs_typed()
+                .list(
+                    &JobQuery {
+                        name: Some(JOB_NAME.to_owned()),
+                        state: Some(state),
+                        project: Some(*project),
+                    },
+                    Page {
+                        cursor: None,
+                        limit,
+                    },
+                )
+                .await?;
+            for job in rows {
+                let Some(result) = job.result.clone() else {
+                    continue;
+                };
+                let Ok(outcome) = serde_json::from_value::<BuildOutcome>(result) else {
+                    continue;
+                };
+                if outcome.build_id.is_empty() {
+                    continue;
+                }
+                out.push((job, outcome));
+            }
+        }
+        out.sort_by(|a, b| b.0.updated_at.cmp(&a.0.updated_at));
+        Ok(out)
+    }
 }
 
 #[cfg(test)]
@@ -709,6 +813,30 @@ mod tests {
                 .untrusted();
         assert_eq!(request.payload()["untrusted"], true);
         assert_eq!(request.payload()["pullRequest"], 3);
+    }
+
+    #[test]
+    fn an_outcome_carries_what_the_build_record_cannot() {
+        let outcome = BuildOutcome::new("blake3:aa")
+            .with_logs("https://liyasa.example/builds/1/logs")
+            .with_diagnostics(2, 7)
+            .with_verification("41 of 42 checks passed");
+        let text = serde_json::to_string(&outcome).expect("an outcome serializes");
+        assert!(text.contains("buildId"), "{text}");
+        assert!(text.contains("logsUrl"), "{text}");
+        let back: BuildOutcome = serde_json::from_str(&text).expect("it deserializes");
+        assert_eq!(back, outcome);
+        assert_eq!(back.errors, 2);
+        assert_eq!(back.warnings, 7);
+    }
+
+    #[test]
+    fn an_outcome_with_nothing_recorded_still_names_its_build() {
+        let outcome = BuildOutcome::new("blake3:bb");
+        let text = serde_json::to_string(&outcome).expect("an outcome serializes");
+        assert!(!text.contains("logsUrl"), "{text}");
+        assert!(!text.contains("verification"), "{text}");
+        assert_eq!(outcome.build_id, "blake3:bb");
     }
 
     #[test]
