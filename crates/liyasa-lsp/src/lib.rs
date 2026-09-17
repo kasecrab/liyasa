@@ -20,6 +20,9 @@ pub mod hover;
 pub mod jsonrpc;
 pub mod locate;
 pub mod protocol;
+pub mod server;
 pub mod text;
 pub mod uri;
 pub mod workspace;
+
+pub use server::{Server, serve, serve_stdio};

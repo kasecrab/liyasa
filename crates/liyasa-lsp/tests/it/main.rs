@@ -8,6 +8,7 @@ mod diagnostics;
 mod hover;
 mod jsonrpc;
 mod locate;
+mod server;
 mod text;
 mod uri;
 mod workspace;
