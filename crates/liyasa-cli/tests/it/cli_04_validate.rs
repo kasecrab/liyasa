@@ -237,7 +237,9 @@ fn a_remote_spec_is_reported_as_unchecked() {
         )
         .write("index.md", "---\ntitle: Home\n---\n\n# Home\n");
 
-    let outcome = Run::new(["validate", "--format", "json"])
+    // `--offline` (HOST-08), so the assertion is about the report and not
+    // about whether this machine can reach example.com today.
+    let outcome = Run::new(["validate", "--format", "json", "--offline"])
         .cwd(project.path())
         .output();
     assert!(
@@ -247,6 +249,37 @@ fn a_remote_spec_is_reported_as_unchecked() {
     );
     // A warning, so the project still validates.
     assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
+}
+
+/// CLI-04 with a client: a remote spec is fetched, and one that cannot be
+/// reached is an error rather than a spec quietly counted as sound.
+///
+/// The URL is a loopback address, which `liyasa-net` refuses at connect time
+/// (§30.2.3), so this asserts the whole path without leaving the machine.
+#[test]
+fn a_remote_spec_that_cannot_be_reached_is_reported() {
+    let project = Dir::new("cli04-remote-unreachable");
+    project
+        .write(
+            "liyasa.json",
+            concat!(
+                "{\n",
+                "  \"name\": \"Acme docs\",\n",
+                "  \"seo\": { \"canonicalOrigin\": \"https://docs.acme.com\" },\n",
+                "  \"openapi\": [{ \"id\": \"api\", \"source\": \"https://127.0.0.1:9/api.yaml\" }]\n",
+                "}\n"
+            ),
+        )
+        .write("index.md", "---\ntitle: Home\n---\n\n# Home\n");
+
+    let outcome = Run::new(["validate", "--format", "json"])
+        .cwd(project.path())
+        .output();
+    assert!(
+        codes(&outcome.stdout).contains("E0021"),
+        "{}",
+        outcome.all()
+    );
 }
 
 /// §6.6.4: `--personalization` lists the pages rendered per request, so an

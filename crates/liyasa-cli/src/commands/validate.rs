@@ -78,7 +78,7 @@ pub fn run(global: &Global, args: &Validate) -> Exit {
     // The engine does not read `openapi` yet, so the spec half of CLI-04 is
     // run here against `liyasa-openapi` directly.
     let mut all = report.diagnostics.clone();
-    all.extend(specs(&vfs, &project.root));
+    all.extend(specs(&vfs, &project.root, global.offline));
 
     let selected = filter(&all, &subsets(args));
 
@@ -126,10 +126,10 @@ pub fn run(global: &Global, args: &Validate) -> Exit {
 
 /// CLI-04's OpenAPI half: every `openapi[]` entry is loaded and validated.
 ///
-/// Remote sources need an `HttpClient`, which lives in `liyasa-net` and does
-/// not exist; those are reported as W0017 rather than silently passing, so
-/// `--only openapi` never claims a spec is sound when it was never read.
-fn specs(vfs: &OsVfs, root: &std::path::Path) -> Diagnostics {
+/// A remote source is fetched with `Purpose::SpecRef`, which §30.2.3 requires
+/// to be over TLS. One that cannot be read is W0017 rather than a silent pass,
+/// so `--only openapi` never claims a spec is sound when it was never read.
+fn specs(vfs: &OsVfs, root: &std::path::Path, offline: bool) -> Diagnostics {
     use liyasa_core::diagnostics::code;
     use liyasa_core::vfs::Vfs;
     use liyasa_openapi::source::Location;
@@ -142,17 +142,50 @@ fn specs(vfs: &OsVfs, root: &std::path::Path) -> Diagnostics {
     };
 
     let (configured, _) = liyasa_openapi::config::specs(value.get("openapi"));
+    let mut network = None;
     for spec in configured {
         match Location::parse(&spec.source) {
-            Location::Remote(url) => out.push(
-                Diagnostic::new(
-                    code::W0017,
-                    format!("`{url}` was not checked: this build cannot fetch a remote spec"),
-                )
-                .help(
-                    "Download the spec into the project and point `openapi[].source` at the file.",
-                ),
-            ),
+            Location::Remote(url) => {
+                if offline {
+                    out.push(unchecked(&url, "`--offline` was given"));
+                    continue;
+                }
+                if network.is_none() {
+                    match crate::net::Network::for_project(&value) {
+                        Ok(open) => network = Some(open),
+                        Err(_) => {
+                            out.push(unchecked(&url, "this machine has no HTTP client"));
+                            continue;
+                        }
+                    }
+                }
+                let Some(client) = network.as_ref() else {
+                    continue;
+                };
+                match client.get(&url, liyasa_core::net::Purpose::SpecRef) {
+                    Err(error) => out.push(crate::net::failed(&format!("`{url}`"), &error)),
+                    Ok(response) if response.status >= 400 => out.push(
+                        Diagnostic::new(
+                            code::E0021,
+                            format!("`{url}` answered {}", response.status),
+                        )
+                        .help("Check `openapi[].source` against what the host serves."),
+                    ),
+                    Ok(response) => {
+                        match liyasa_openapi::load::from_bytes(
+                            &spec.id,
+                            &url.to_string(),
+                            &response.body,
+                        ) {
+                            Err(diagnostic) => out.push(*diagnostic),
+                            Ok(loaded) => {
+                                out.extend(liyasa_openapi::validate::all(&loaded));
+                                out.extend(loaded.diagnostics);
+                            }
+                        }
+                    }
+                }
+            }
             Location::File(path) => match vfs.read(&path) {
                 Err(error) => out.push(
                     Diagnostic::new(
@@ -174,6 +207,15 @@ fn specs(vfs: &OsVfs, root: &std::path::Path) -> Diagnostics {
         }
     }
     out
+}
+
+/// W0017: a remote specification this run did not read, and why.
+fn unchecked(url: &liyasa_core::net::Url, reason: &str) -> Diagnostic {
+    Diagnostic::new(
+        liyasa_core::diagnostics::code::W0017,
+        format!("`{url}` was not checked: {reason}"),
+    )
+    .help("Download the spec into the project and point `openapi[].source` at the file.")
 }
 
 /// The pages §6.6.4 renders per request rather than writing as files.
