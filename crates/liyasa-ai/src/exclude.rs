@@ -49,6 +49,17 @@ pub enum Excluded {
     OptedOut,
     /// `noindex: true` with `ai.respectNoindex` on.
     Noindex,
+    /// `regions: { except: [...] }`, which the index cannot express.
+    ///
+    /// A chunk's `regions` is an allow-list — "a reader in one of these" — and
+    /// so is `liyasa_search::idx::query::ReaderScope::admits`, the filter the
+    /// search index uses. Neither can say "everyone except these". Taking
+    /// `only` and dropping `except` would index the page as visible
+    /// EVERYWHERE, including the region it was written to exclude, so the page
+    /// stays out instead. Failing closed costs an operator one page in the
+    /// assistant; failing open serves a restricted page to the region that
+    /// restricted it.
+    RegionExcept,
 }
 
 impl Excluded {
@@ -61,6 +72,7 @@ impl Excluded {
             Self::Hidden => "hidden",
             Self::OptedOut => "ai-false",
             Self::Noindex => "noindex",
+            Self::RegionExcept => "region-except",
         }
     }
 }
@@ -90,7 +102,28 @@ pub fn exclusion(page: &PageFacts<'_>, env: Environment, config: &AiConfig) -> O
     if config.respect_noindex.0 && page.front.noindex.unwrap_or(false) {
         return Some(Excluded::Noindex);
     }
+    if page
+        .front
+        .regions
+        .as_ref()
+        .is_some_and(|gate| gate.except.as_ref().is_some_and(|list| !list.is_empty()))
+    {
+        return Some(Excluded::RegionExcept);
+    }
     None
+}
+
+/// The regions a chunk carries, from the page's gate.
+///
+/// `only` is the allow-list. `except` never reaches here: [`exclusion`] keeps
+/// such a page out of the index altogether, because this return type cannot
+/// carry it.
+pub fn regions_of(front: &FrontmatterFields) -> Vec<String> {
+    front
+        .regions
+        .as_ref()
+        .and_then(|gate| gate.only.clone())
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -198,6 +231,75 @@ mod tests {
         config.respect_noindex.0 = false;
         assert_eq!(
             exclusion(&facts(&front), Environment::Production, &config),
+            None
+        );
+    }
+
+    #[test]
+    fn a_region_exclusion_keeps_the_page_out_rather_than_indexing_it_everywhere() {
+        use liyasa_core::frontmatter::RegionGate;
+
+        let front = FrontmatterFields {
+            regions: Some(RegionGate {
+                only: None,
+                except: Some(vec!["us".to_owned()]),
+            }),
+            ..Default::default()
+        };
+        assert_eq!(
+            exclusion(
+                &facts(&front),
+                Environment::Production,
+                &AiConfig::default()
+            ),
+            Some(Excluded::RegionExcept)
+        );
+    }
+
+    #[test]
+    fn an_only_list_is_carried_and_indexes_normally() {
+        use liyasa_core::frontmatter::RegionGate;
+
+        let front = FrontmatterFields {
+            regions: Some(RegionGate {
+                only: Some(vec!["eu".to_owned()]),
+                except: None,
+            }),
+            ..Default::default()
+        };
+        assert_eq!(
+            exclusion(
+                &facts(&front),
+                Environment::Production,
+                &AiConfig::default()
+            ),
+            None
+        );
+        assert_eq!(regions_of(&front), ["eu"]);
+    }
+
+    #[test]
+    fn a_page_with_no_region_gate_carries_no_regions() {
+        assert!(regions_of(&FrontmatterFields::default()).is_empty());
+    }
+
+    #[test]
+    fn an_empty_except_list_is_not_an_exclusion() {
+        use liyasa_core::frontmatter::RegionGate;
+
+        let front = FrontmatterFields {
+            regions: Some(RegionGate {
+                only: Some(vec!["eu".to_owned()]),
+                except: Some(Vec::new()),
+            }),
+            ..Default::default()
+        };
+        assert_eq!(
+            exclusion(
+                &facts(&front),
+                Environment::Production,
+                &AiConfig::default()
+            ),
             None
         );
     }
