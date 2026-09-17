@@ -1,0 +1,30 @@
+[package]
+name = "liyasa-ai"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The assistant: provider adapters, the chunk and vector index, and the retrieval loop (PRD §6.7, §21)."
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+liyasa-openapi = { path = "../liyasa-openapi", version = "0.1.0" }
+liyasa-search = { path = "../liyasa-search", version = "0.1.0", default-features = false }
+futures-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+url.workspace = true
+regex.workspace = true
+
+[dev-dependencies]
+liyasa-core = { path = "../liyasa-core", version = "0.1.0", features = ["conformance"] }
+tokio = { workspace = true, features = ["rt", "macros"] }
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"
