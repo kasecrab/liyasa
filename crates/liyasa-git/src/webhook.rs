@@ -168,7 +168,10 @@ pub fn constant_time_eq(a: &str, b: &str) -> bool {
     if a.len() != b.len() {
         return false;
     }
-    a.bytes().zip(b.bytes()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+    a.bytes()
+        .zip(b.bytes())
+        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+        == 0
 }
 
 /// The delivery IDs accepted recently, so a replay of one is refused
@@ -328,10 +331,7 @@ mod tests {
 
     fn github(extra: &[(&str, &str)]) -> Vec<(String, String)> {
         let signature = sign(SECRET, BODY);
-        let mut rows = headers(&[
-            ("X-GitHub-Event", "push"),
-            ("X-GitHub-Delivery", "d-1"),
-        ]);
+        let mut rows = headers(&[("X-GitHub-Event", "push"), ("X-GitHub-Delivery", "d-1")]);
         rows.push(("X-Hub-Signature-256".to_owned(), signature));
         rows.extend(headers(extra));
         rows
@@ -346,12 +346,16 @@ mod tests {
             headers: &rows,
             body: BODY,
         };
-        let verified = verifier.verify(&delivery, 1_000).expect("a signed delivery");
+        let verified = verifier
+            .verify(&delivery, 1_000)
+            .expect("a signed delivery");
         assert_eq!(verified.event, "push");
         assert_eq!(verified.delivery, "d-1");
         assert_eq!(
             verifier.verify(&delivery, 1_001),
-            Err(Rejection::Replayed { id: "d-1".to_owned() }),
+            Err(Rejection::Replayed {
+                id: "d-1".to_owned()
+            }),
             "the same delivery ID must not be accepted twice"
         );
     }
@@ -365,7 +369,10 @@ mod tests {
             headers: &rows,
             body: br#"{"ref":"refs/heads/evil"}"#,
         };
-        assert_eq!(verifier.verify(&delivery, 1_000), Err(Rejection::BadSignature));
+        assert_eq!(
+            verifier.verify(&delivery, 1_000),
+            Err(Rejection::BadSignature)
+        );
     }
 
     #[test]
@@ -377,7 +384,10 @@ mod tests {
             headers: &rows,
             body: BODY,
         };
-        assert_eq!(verifier.verify(&delivery, 1_000), Err(Rejection::BadSignature));
+        assert_eq!(
+            verifier.verify(&delivery, 1_000),
+            Err(Rejection::BadSignature)
+        );
     }
 
     #[test]
@@ -449,7 +459,10 @@ mod tests {
                 body: BODY,
             };
             assert!(
-                matches!(verifier.verify(&delivery, 1_000), Err(Rejection::Stale { .. })),
+                matches!(
+                    verifier.verify(&delivery, 1_000),
+                    Err(Rejection::Stale { .. })
+                ),
                 "{label}"
             );
         }

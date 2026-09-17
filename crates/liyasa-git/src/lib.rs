@@ -9,4 +9,6 @@
 //! `liyasa-server`'s deploy module — maps it to the code a user sees
 //! (`plan/rfcs/1601-clone-policy-without-gix.md`).
 
+pub mod event;
+pub mod repo;
 pub mod webhook;
