@@ -54,9 +54,10 @@ fn no_endpoint_id_or_path_and_method_pair_appears_twice() {
 }
 
 #[test]
-fn the_paths_wp_16_serves_are_spelled_the_way_wp_16_spells_them() {
-    // Taken from `crates/liyasa-server/src/deploy/routes.rs` on
-    // `wp/16-deployments-git`, which is written and tested but not yet merged.
+fn the_deploy_paths_are_spelled_the_way_main_spells_them() {
+    // Read off `crates/liyasa-server/src/deploy/routes.rs` on `main` at
+    // 08f9ca3, where WP-16 merged them — not off `wp/16-deployments-git`,
+    // which is the same code until integrate rebases it and stale after.
     // GIT-21 and GIT-24 both name the dashboard as their missing half.
     for (id, path) in [
         ("builds.trigger", "/_liyasa/api/v1/builds"),
