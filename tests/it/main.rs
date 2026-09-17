@@ -30,6 +30,8 @@ mod cfg_83;
 mod cfg_90_diagnostics;
 #[path = "../build/cfg_90_rules.rs"]
 mod cfg_90_rules;
+#[path = "../build/cmp_80_gates.rs"]
+mod cmp_80_gates;
 #[path = "../config/cfg_91.rs"]
 mod cfg_91;
 #[path = "../config/cfg_94_schema.rs"]
