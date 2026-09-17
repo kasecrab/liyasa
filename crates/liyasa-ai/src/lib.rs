@@ -12,7 +12,9 @@
 //! address policy of §30.2.3 applies to a model provider exactly as it applies
 //! to a spec fetch, and a test injects a client instead of a server.
 
+pub mod config;
 pub mod error;
 
+pub use config::{AiConfig, AssistantConfig, ModelRef, Role};
 pub use error::AiFailure;
 pub use liyasa_core::ai::*;
