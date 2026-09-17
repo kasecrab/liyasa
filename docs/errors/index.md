@@ -255,8 +255,13 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`E0814`](/errors/E0814) | Error | Domain is claimed by another project |
 | [`E0815`](/errors/E0815) | Error | Domain base path is not a subpath |
 | [`E0850`](/errors/E0850) | Error | Plan quota is spent and the metered feature is paused for this period |
+| [`E0851`](/errors/E0851) | Error | This plan's seat limit is reached |
+| [`E0852`](/errors/E0852) | Error | AI credits are spent and overage is turned off |
+| [`E0853`](/errors/E0853) | Error | This feature is not included in the organization's plan |
 | [`E0854`](/errors/E0854) | Error | A project's region is chosen when it is created and cannot be changed |
 | [`E0855`](/errors/E0855) | Error | Data may not leave the region the project was created in |
+| [`E0856`](/errors/E0856) | Error | This plan's project limit is reached |
+| [`E0857`](/errors/E0857) | Error | Project name is not usable as a subdomain label |
 
 ## AI, agent, automations
 

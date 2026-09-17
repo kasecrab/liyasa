@@ -14,5 +14,6 @@
 
 pub mod credits;
 pub mod meter;
+pub mod model;
 pub mod plan;
 pub mod region;

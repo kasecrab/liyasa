@@ -239,3 +239,8 @@ W1201 = { severity = "warning", crate = "liyasa-wasm", title = "Page too large t
 E0850 = { severity = "error", crate = "liyasa-server", title = "Plan quota is spent and the metered feature is paused for this period" }
 E0854 = { severity = "error", crate = "liyasa-server", title = "A project's region is chosen when it is created and cannot be changed" }
 E0855 = { severity = "error", crate = "liyasa-server", title = "Data may not leave the region the project was created in" }
+E0851 = { severity = "error", crate = "liyasa-server", title = "This plan's seat limit is reached" }
+E0852 = { severity = "error", crate = "liyasa-server", title = "AI credits are spent and overage is turned off" }
+E0853 = { severity = "error", crate = "liyasa-server", title = "This feature is not included in the organization's plan" }
+E0856 = { severity = "error", crate = "liyasa-server", title = "This plan's project limit is reached" }
+E0857 = { severity = "error", crate = "liyasa-server", title = "Project name is not usable as a subdomain label" }
