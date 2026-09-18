@@ -88,6 +88,8 @@ mod mig_22;
 mod nfr_70;
 #[path = "../web/nojs.rs"]
 mod nojs;
+#[path = "../build/src_05_index_written.rs"]
+mod src_05_index_written;
 #[path = "../build/rx_02_assets.rs"]
 mod rx_02_assets;
 #[path = "../build/rx_110_csp.rs"]

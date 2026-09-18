@@ -14,6 +14,7 @@
 
 pub mod analytics;
 pub mod api;
+pub mod build;
 pub mod cli;
 pub mod config;
 pub mod doc;

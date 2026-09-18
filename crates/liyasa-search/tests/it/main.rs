@@ -9,6 +9,7 @@ mod src_02_tokenizers;
 mod src_03_ranking;
 mod src_04_query;
 mod src_05_budget;
+mod src_05_index_built;
 mod src_06_hybrid;
 mod src_07_incremental;
 mod src_10_agents;
