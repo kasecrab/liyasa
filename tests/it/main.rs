@@ -156,3 +156,5 @@ mod ed_73_messages;
 mod ed_01_model;
 #[path = "../server/host_07_worker.rs"]
 mod host_07_worker;
+#[path = "../server/dashboard_read_ratchet.rs"]
+mod dashboard_read_ratchet;
