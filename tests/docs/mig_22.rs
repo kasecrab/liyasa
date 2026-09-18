@@ -30,7 +30,15 @@ fn the_only_warnings_are_the_absolute_link_rewrites() {
     let unexpected: Vec<String> = docs
         .warnings()
         .into_iter()
-        .filter(|warning| !warning.starts_with("W0406") && !warning.starts_with("W0319"))
+        .filter(|warning| {
+            // W0406 once per rewritten link, W0319 from the two pages that
+            // quote `<!--ly:` while documenting it, and W0723 because
+            // `snippets/` holds the generated host matrix, which is included
+            // by the hosting guide rather than served on its own.
+            !warning.starts_with("W0406")
+                && !warning.starts_with("W0319")
+                && !warning.starts_with("W0723")
+        })
         .collect();
     assert!(unexpected.is_empty(), "{unexpected:#?}");
 }
@@ -343,4 +351,30 @@ fn the_component_heavy_pages_render_as_components() {
     // Markdown twin readable for an agent.
     let quickstart = docs.read("getting-started/quickstart.md");
     assert!(quickstart.contains("Create a project"), "{quickstart}");
+}
+
+#[test]
+fn the_hosting_page_renders_the_included_matrix() {
+    // `{% snippet %}` is expansion, not a link: if it silently produced
+    // nothing the page would lose its table and the source would still carry
+    // the directive. Assert on what a reader is served.
+    let docs = Docs::build("matrix-include");
+    let html = docs.read("guides/hosting/index.html");
+    assert!(
+        html.contains("Cloudflare Pages") && html.contains("markdown-url-support"),
+        "the host matrix did not render into the hosting page"
+    );
+    assert!(
+        !html.contains("snippet"),
+        "the snippet directive reached the rendered page"
+    );
+    let markdown = docs.read("guides/hosting.md");
+    println!("--- markdown around the matrix ---");
+    for line in markdown
+        .lines()
+        .skip_while(|l| !l.contains("Host capability"))
+        .take(14)
+    {
+        println!("{line}");
+    }
 }

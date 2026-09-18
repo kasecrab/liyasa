@@ -22,6 +22,34 @@ use serde_json::Value;
 /// body yet. `tests/docs/nfr_70.rs` counts these.
 pub const UNWRITTEN: &str = "This page is not written yet";
 
+/// The sorted list of codes with no hand-written body.
+///
+/// `tests/docs/nfr_70.rs` asserts the file matches this, and the `--pins` mode
+/// of `docs-reference` rewrites it.
+pub const UNDOCUMENTED_PINS: &str = "tests/pins/undocumented-codes.txt";
+
+/// Every registered code with no `docs/errors/_notes/<CODE>.md`, sorted.
+pub fn undocumented_codes() -> Vec<String> {
+    let notes = repository().join("docs/errors/_notes");
+    let written: std::collections::BTreeSet<String> = std::fs::read_dir(&notes)
+        .map(|entries| {
+            entries
+                .filter_map(|entry| {
+                    let name = entry.ok()?.file_name().to_string_lossy().into_owned();
+                    Some(name.strip_suffix(".md")?.to_owned())
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut out: Vec<String> = registry()
+        .iter()
+        .map(|info| info.code.to_string())
+        .filter(|code| !written.contains(code))
+        .collect();
+    out.sort();
+    out
+}
+
 /// One generated file, at a path relative to `docs/`.
 pub struct File {
     pub path: String,
@@ -44,6 +72,7 @@ pub fn files() -> Vec<File> {
     out.extend(component_pages());
     out.push(frontmatter_page());
     out.push(cli_page());
+    out.push(matrix_snippet());
     out
 }
 
@@ -929,9 +958,6 @@ fn component_pages() -> Vec<File> {
 
 // ---- the host capability matrix (RFC 1201) ----
 
-/// The marker in `docs/guides/hosting.md` that the matrix is spliced after.
-pub const MATRIX_MARKER: &str = "<!-- generated: host-matrix -->";
-
 /// `crates/liyasa-build/src/hosting/MATRIX.md`, the build's own generated file.
 pub fn matrix() -> String {
     let path = repository().join("crates/liyasa-build/src/hosting/MATRIX.md");
@@ -941,28 +967,30 @@ pub fn matrix() -> String {
         .to_owned()
 }
 
-/// The hosting page with the matrix in place of whatever currently follows the
-/// marker, up to the next top-level heading.
-pub fn splice_matrix(page: &str) -> String {
-    let at = page
-        .find(MATRIX_MARKER)
-        .unwrap_or_else(|| panic!("the hosting page carries `{MATRIX_MARKER}`"));
-    let after = at + MATRIX_MARKER.len();
-    let rest = &page[after..];
-    let next = rest
-        .find("\n## ")
-        .map(|offset| after + offset)
-        .unwrap_or(page.len());
-    format!(
-        "{}\n\n{}\n{}",
-        &page[..after],
-        matrix(),
-        page[next..].trim_start_matches('\n')
-    )
-}
+/// Where the matrix lands in the docs project, as a snippet the hosting guide
+/// includes.
+///
+/// It was spliced into the middle of `docs/guides/hosting.md` until 2026-09-18,
+/// which left that page half prose and half derived and gave it no workable
+/// owner: every package that changes `MATRIX.md` has to regenerate the table
+/// and none of them may write `docs/guides/`. As its own file it follows the
+/// rule the rest of the generated docs already follow — the package that owns
+/// the source owns the derived file — and the prose around it stays WP-31's.
+pub const MATRIX_SNIPPET: &str = "snippets/host-matrix.md";
 
-pub fn hosting_page() -> PathBuf {
-    repository().join("docs/guides/hosting.md")
+fn matrix_snippet() -> File {
+    let mut text = String::new();
+    text.push_str(
+        "<!-- Generated from crates/liyasa-build/src/hosting/MATRIX.md.\n\
+         Included by docs/guides/hosting.md; edit the emulators, not this file.\n\
+         Regenerate with: cargo run -p liyasa-tests --bin docs-reference -->\n\n",
+    );
+    text.push_str(&matrix());
+    text.push('\n');
+    File {
+        path: MATRIX_SNIPPET.to_owned(),
+        text,
+    }
 }
 
 // ---- helpers ----

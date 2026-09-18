@@ -21,7 +21,14 @@ liyasa deploy --gh-pages        # or upload dist/ however you like
 | `_headers` | Cloudflare Pages, Netlify |
 | `_redirects` | Cloudflare Pages, Netlify |
 | `vercel.json` | Vercel |
+| `.nojekyll` | GitHub Pages |
 | `<meta refresh>` pages | Any host that reads no redirect file |
+
+`.nojekyll` is written on every build rather than for one host, because it is
+inert everywhere else and a `dist/` is uploaded by hand as often as by a
+configured deploy. Without it GitHub Pages runs Jekyll over the upload, and
+Jekyll publishes nothing whose name begins with `_` or `.` — which is the
+theme, the image variants, and the agent surfaces.
 
 Set `build.basePath` when the site is served under a path rather than at the
 root of a domain, for example `/liyasa/docs` on GitHub Pages. Every emitted
@@ -40,78 +47,18 @@ behaviour, the model is what needs updating. Treat a `yes` as "this is what the
 host documents", and confirm anything you are depending on.
 :::
 
-<!-- generated: host-matrix -->
-
-| Check | GitHub Pages | Cloudflare Pages | Netlify | Vercel | S3 + CloudFront | Web server |
-|---|---|---|---|---|---|---|
-| `upload-delivery` | yes | yes | yes | yes | yes | yes |
-| `markdown-url-support` | yes | yes | yes | yes | manual | manual |
-| `content-negotiation` | partial | partial | partial | partial | partial | partial |
-| `cache-header-hygiene` | partial | partial | partial | partial | manual | manual |
-| `http-status-codes` | yes | yes | yes | yes | partial | partial |
-| `redirect-behavior` | manual | yes | yes | yes | manual | manual |
-| `security-headers` | manual | yes | yes | yes | manual | manual |
-| `content-security-policy` | manual | yes | yes | yes | manual | manual |
-| `immutable-assets` | manual | yes | yes | yes | manual | manual |
-| `trailing-slash` | yes | yes | yes | yes | partial | yes |
-
-`yes`: the upload alone passes. `partial`: passes in part, see the note. `manual`: passes with configuration the hosting guide describes. `no`: cannot pass.
-
-**GitHub Pages**
-
-- `content-negotiation`: a static host cannot negotiate; the `.md` route is the documented alternative
-- `cache-header-hygiene`: the host sends `max-age=600` and reads no header file
-- `redirect-behavior`: no redirect file is read; the hosting guide gives the host's own rule format or the `<meta refresh>` fallback pages
-- `security-headers`: no header file is read; the docs give the host's own header configuration
-- `content-security-policy`: no header file is read; the docs give the host's own header configuration
-- `immutable-assets`: no header file is read; set `Cache-Control` per prefix at upload or in the server block
-
-**Cloudflare Pages**
-
-- `content-negotiation`: a static host cannot negotiate; the `.md` route is the documented alternative
-- `cache-header-hygiene`: no `Last-Modified`; validation is by `ETag` alone
-
-**Netlify**
-
-- `content-negotiation`: a static host cannot negotiate; the `.md` route is the documented alternative
-- `cache-header-hygiene`: no `Last-Modified`; validation is by `ETag` alone
-
-**Vercel**
-
-- `content-negotiation`: a static host cannot negotiate; the `.md` route is the documented alternative
-- `cache-header-hygiene`: no `Last-Modified`; validation is by `ETag` alone
-
-**S3 + CloudFront**
-
-- `markdown-url-support`: `.md` is served as `application/octet-stream`; set the type at upload or in the server's MIME table
-- `content-negotiation`: a static host cannot negotiate; the `.md` route is the documented alternative
-- `cache-header-hygiene`: `Cache-Control` comes from the upload metadata or the server block
-- `http-status-codes`: 404 status with the host's own body; `404.html` needs the host's error-page setting
-- `redirect-behavior`: no redirect file is read; the hosting guide gives the host's own rule format or the `<meta refresh>` fallback pages
-- `security-headers`: no header file is read; the docs give the host's own header configuration
-- `content-security-policy`: no header file is read; the docs give the host's own header configuration
-- `immutable-assets`: no header file is read; set `Cache-Control` per prefix at upload or in the server block
-- `trailing-slash`: the bucket's website endpoint answers 302, not 301
-
-**Web server**
-
-- `markdown-url-support`: `.md` is served as `application/octet-stream`; set the type at upload or in the server's MIME table
-- `content-negotiation`: a static host cannot negotiate; the `.md` route is the documented alternative
-- `cache-header-hygiene`: `Cache-Control` comes from the upload metadata or the server block
-- `http-status-codes`: 404 status with the host's own body; `404.html` needs the host's error-page setting
-- `redirect-behavior`: no redirect file is read; the hosting guide gives the host's own rule format or the `<meta refresh>` fallback pages
-- `security-headers`: no header file is read; the docs give the host's own header configuration
-- `content-security-policy`: no header file is read; the docs give the host's own header configuration
-- `immutable-assets`: no header file is read; set `Cache-Control` per prefix at upload or in the server block
+{% snippet "host-matrix" %}
 ## Choosing
 
 ::::columns{cols=2}
 
 :::column
 **GitHub Pages** is the simplest thing that works, and the right default for an
-open-source project. It reads no header or redirect file, so redirects become
-`<meta refresh>` pages and security headers have to be set elsewhere or gone
-without. Use `build.basePath` when publishing under a repository path.
+open-source project. The build writes `.nojekyll` for it, which is the one thing
+it needs and does not ask for. Beyond that it reads no header or redirect file,
+so redirects become `<meta refresh>` pages and security headers have to be set
+elsewhere or gone without. Use `build.basePath` when publishing under a
+repository path.
 :::
 
 :::column

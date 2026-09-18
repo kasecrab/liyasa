@@ -31,15 +31,30 @@ fn every_generated_page_matches_its_source() {
 }
 
 #[test]
-fn the_hosting_guide_carries_the_matrix_verbatim() {
-    let page = fs::read_to_string(generate::hosting_page()).expect("the hosting guide");
+fn the_hosting_guide_includes_the_generated_matrix() {
+    // The matrix is a snippet of its own rather than a region spliced into the
+    // middle of the guide. `every_generated_page_matches_its_source` keeps the
+    // snippet equal to the build's `MATRIX.md`; this keeps the guide pointing
+    // at it, so the table cannot quietly stop being on the page.
+    let page = fs::read_to_string(generate::repository().join("docs/guides/hosting.md"))
+        .expect("the hosting guide");
     assert!(
-        page.contains(&generate::matrix()),
-        "the hosting guide does not carry the current host matrix verbatim; {REGENERATE}"
+        page.contains(r#"{% snippet "host-matrix" %}"#),
+        "the hosting guide no longer includes the generated matrix; {REGENERATE}"
     );
-    assert_eq!(page, generate::splice_matrix(&page), "{REGENERATE}");
-}
+    assert!(
+        !page.contains("| Check | GitHub Pages |"),
+        "the hosting guide carries a copy of the matrix as well as the include"
+    );
 
+    let snippet = fs::read_to_string(
+        generate::repository()
+            .join("docs")
+            .join(generate::MATRIX_SNIPPET),
+    )
+    .expect("the generated matrix snippet");
+    assert!(snippet.contains(&generate::matrix()), "{REGENERATE}");
+}
 #[test]
 fn every_error_code_has_a_page() {
     let docs = generate::repository().join("docs/errors");
@@ -51,42 +66,62 @@ fn every_error_code_has_a_page() {
     assert!(missing.is_empty(), "codes with no page: {missing:?}");
 }
 
-/// How many codes may still be waiting for a hand-written body.
-///
-/// A ratchet, not a target. `CLAUDE.md` requires a note in the same commit as a
-/// new code, so this can only go down; if it goes up, someone added a code
-/// without writing what it means, and a page of generated scaffolding that says
-/// "not written yet" is honest but is not documentation.
-const UNWRITTEN_CAP: usize = 97;
+// The codes with no hand-written body are pinned as a sorted list rather than
+// counted. A single integer is one line that two packages documenting codes in
+// the same window must both edit, and the resolution cannot be known without
+// running the test: main and wp/18 reached 101 and 102 on 2026-09-18 and the
+// answer was 97. A list lets them delete different lines, which git merges.
+use generate::UNDOCUMENTED_PINS;
+
+/// Every registered code with no `docs/errors/_notes/<CODE>.md`.
+fn undocumented() -> BTreeSet<String> {
+    generate::undocumented_codes().into_iter().collect()
+}
+
+/// The entries of a pin file, comments and blanks dropped. The shape matches
+/// `tests/pins/` next door, which `xtask::pins::read` parses the same way.
+fn pinned(file: &str) -> BTreeSet<String> {
+    let path = generate::repository().join(file);
+    let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    text.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(str::to_owned)
+        .collect()
+}
 
 #[test]
-fn the_unwritten_pages_are_counted_and_shrinking() {
-    let errors = generate::repository().join("docs/errors");
-    let mut unwritten: Vec<String> = Vec::new();
-    for entry in fs::read_dir(&errors).expect("docs/errors") {
-        let entry = entry.expect("a directory entry");
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if !name.ends_with(".md") || name == "index.md" {
-            continue;
-        }
-        if fs::read_to_string(entry.path()).is_ok_and(|text| text.contains(generate::UNWRITTEN)) {
-            unwritten.push(name);
-        }
-    }
-    unwritten.sort();
+fn the_undocumented_codes_are_the_pinned_ones() {
+    let actual = undocumented();
+    let pinned = pinned(UNDOCUMENTED_PINS);
+
+    let documented: Vec<&String> = pinned.difference(&actual).collect();
     assert!(
-        unwritten.len() <= UNWRITTEN_CAP,
-        "{} codes have no written body, over the cap of {UNWRITTEN_CAP}. A new code \
-         needs its note in `docs/errors/_notes/<CODE>.md` in the same commit \
-         (CLAUDE.md). Undocumented: {unwritten:#?}",
-        unwritten.len()
+        documented.is_empty(),
+        "these codes now have a body, so DELETE their line from {UNDOCUMENTED_PINS}: \
+         {documented:?}"
     );
-    assert_eq!(
-        unwritten.len(),
-        UNWRITTEN_CAP,
-        "the undocumented count has dropped to {}; lower UNWRITTEN_CAP to match so \
-         it cannot drift back up",
-        unwritten.len()
+
+    let undocumented: Vec<&String> = actual.difference(&pinned).collect();
+    assert!(
+        undocumented.is_empty(),
+        "these codes have no body at `docs/errors/_notes/<CODE>.md`: {undocumented:?}. \
+         A new code needs its note in the same commit that adds the row (CLAUDE.md). \
+         If you are deliberately deferring one, add its line to {UNDOCUMENTED_PINS}"
+    );
+}
+
+#[test]
+fn the_pin_file_carries_its_own_instructions() {
+    let text = fs::read_to_string(generate::repository().join(UNDOCUMENTED_PINS))
+        .expect("the pin file is readable");
+    assert!(
+        text.contains("DELETE"),
+        "it does not say how an entry comes out"
+    );
+    assert!(
+        text.contains("--pins"),
+        "it does not say how to regenerate itself"
     );
 }
 
