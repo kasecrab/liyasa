@@ -16,9 +16,6 @@ fn index_path(name: &str) -> String {
 }
 
 #[test]
-#[ignore = "fails until WP-06 calls liyasa_search::build::index_site from \
-            engine::build; see plan/rfcs/0705-who-builds-the-search-index.md. \
-            Remove this attribute in the commit that lands the call site."]
 fn a_built_site_has_a_search_index() {
     let docs = Docs::build("src_05_index");
     assert!(
@@ -30,9 +27,6 @@ fn a_built_site_has_a_search_index() {
 }
 
 #[test]
-#[ignore = "fails until WP-06 calls liyasa_search::build::index_site from \
-            engine::build; see plan/rfcs/0705-who-builds-the-search-index.md. \
-            Remove this attribute in the commit that lands the call site."]
 fn the_index_a_build_writes_answers_a_query_about_the_site() {
     use std::collections::BTreeMap;
 
