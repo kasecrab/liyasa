@@ -35,12 +35,6 @@ const UNCALLED_TODAY: &[(&str, &str)] = &[
          five-second export timer. The loop is what production runs.",
     ),
     (
-        "role_source",
-        "seam, waiting on WP-15: `auth::mount::contribute` must chain \
-         `operator_roles()` then this. Until it does, membership elevates \
-         nobody.",
-    ),
-    (
         "with_limiter",
         "deliberate: a test-only builder. `main` configures pools through \
          `state.limiter.configure` instead, so there is nothing to replace.",
