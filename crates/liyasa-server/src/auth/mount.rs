@@ -69,15 +69,33 @@ pub fn contribute(app: &Arc<AppState>) -> Contribution {
     match AuthState::new(config, &app.config.env, origins, Default::default()) {
         Ok((state, diagnostics)) => {
             let mut state = state.with_proxies(app.proxies.clone());
-            // `auth.operators` is the bootstrap: the only path to a role above
-            // `Reader` that does not already require one. It goes **first** in
-            // the chain deliberately — it is a break-glass credential and must
-            // work whatever the membership table says, which is the same
-            // reason it survives a member being reduced or removed. WP-14's
-            // `role_source` accessor supplies membership behind it once it
-            // lands; until then this is the whole chain.
+            // The role chain, assembled here because this is the only place
+            // that can see both halves: `AppState::role_source` has no
+            // `AuthConfig` and so cannot see `auth.operators`, and
+            // `AuthConfig` has no organization. (WP-14 found that by trying to
+            // build the chain on their side first.)
+            //
+            // **Operators first, and that is a decision.** It is a break-glass
+            // credential and must work whatever the membership table says —
+            // which is the same reason it survives a member being reduced or
+            // removed. Reversed, it would stop working at the moment somebody
+            // needs it, after a bad membership edit. `Chain` documents the
+            // hazard that follows from the ordering; keep the two agreeing.
+            let mut sources: Vec<Arc<dyn crate::auth::layer::Roles>> = Vec::new();
             if let Some(operators) = state.config.operator_roles() {
-                state = state.with_roles(Arc::new(operators));
+                sources.push(Arc::new(operators));
+            }
+            if let Some(members) = app.role_source() {
+                sources.push(members);
+            }
+            // Empty means no source at all rather than one that answers
+            // nothing: a `Chain` over zero sources would look configured and
+            // elevate nobody, which is the pair of meanings this package keeps
+            // having to keep apart.
+            if !sources.is_empty() {
+                state = state.with_roles(Arc::new(
+                    sources.into_iter().collect::<crate::auth::layer::Chain>(),
+                ));
             }
             // HOST-08: an offline instance makes no outbound request of any
             // kind, so it gets no client and `jwks_source` falls back to
