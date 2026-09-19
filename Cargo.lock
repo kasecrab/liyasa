@@ -2811,6 +2811,7 @@ dependencies = [
  "liyasa-git",
  "liyasa-markdown",
  "liyasa-net",
+ "liyasa-search",
  "liyasa-server",
  "liyasa-store",
  "liyasa-theme",
