@@ -58,11 +58,12 @@ fn site(name: &str) -> Project {
         .write("index.md", "---\ntitle: Home\n---\n# Home\n")
         .write(
             "internal/runbook.md",
-            "---\ntitle: Runbook\nhidden: true\n---\n# Runbook\n\nOn-call steps.\n",
+            "---\ntitle: Runbook\nhidden: true\n---\n# Runbook\n\nOn-call steps. Nothing else says runbookword.\n",
         )
         .write(
             "internal/searchable.md",
-            "---\ntitle: Searchable\nhidden: true\nsearch: true\n---\n# Searchable\n",
+            "---\ntitle: Searchable\nhidden: true\nsearch: true\n---\n# Searchable\n\n\
+             Hidden but findable, saying searchableword.\n",
         )
         .write(
             "internal/listed.md",
@@ -252,4 +253,54 @@ fn a_page_under_public_is_routed_and_raises_nothing() {
         report.diagnostics
     );
     assert!(project.dist("public/guide/index.html").exists());
+}
+
+/// CM-80's search clause, which nothing could check until a build wrote an
+/// index: a hidden page is out of search, and `search: true` brings it back on
+/// its own. Both halves, because "out of search" is also what an empty index
+/// looks like.
+#[test]
+fn a_hidden_page_is_out_of_search_unless_it_asks_to_be_in() {
+    use std::collections::BTreeMap;
+
+    use liyasa_search::idx::Index;
+    use liyasa_search::idx::manifest::Context;
+    use liyasa_search::idx::query;
+    use liyasa_search::idx::search::SearchOptions;
+    use liyasa_search::idx::writer;
+
+    let project = site("cm80-search");
+    let report = build(&project);
+    assert!(!report.failed(false), "{:?}", report.diagnostics);
+
+    let mut files = BTreeMap::new();
+    for entry in std::fs::read_dir(project.dist(writer::DIRECTORY))
+        .expect("the build writes the index directory")
+        .flatten()
+    {
+        if let (Ok(bytes), Some(name)) = (
+            std::fs::read(entry.path()),
+            entry.file_name().to_str().map(str::to_owned),
+        ) {
+            files.insert(name, bytes);
+        }
+    }
+    let index = Index::open(files).expect("the index the build wrote opens");
+    let hits_for = |term: &str| {
+        let parsed = query::parse(term, "en").expect("valid query");
+        index
+            .search(&parsed, &Context::default(), &SearchOptions::default())
+            .expect("searches")
+            .len()
+    };
+
+    assert!(
+        hits_for("searchableword") > 0,
+        "`search: true` puts a hidden page back into search on its own"
+    );
+    assert_eq!(
+        hits_for("runbookword"),
+        0,
+        "a `hidden: true` page with no `search: true` is not in the index"
+    );
 }
