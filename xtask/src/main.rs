@@ -5,8 +5,8 @@ use std::process::ExitCode;
 
 use xtask::spike::engines;
 use xtask::{
-    conformance, corpus, corpus_import, corpus_seed, flags, licences, notices, parity, pins,
-    schemas,
+    conformance, corpus, corpus_import, corpus_seed, flags, licences, lints, notices, parity, pins,
+    schemas, workflows,
 };
 
 const USAGE: &str = "\
@@ -22,9 +22,17 @@ usage: cargo run -p xtask -- <command>
       Check deny.toml against NFR-15's allow list and every bundled asset
       against xtask/assets.toml.
 
+  lints
+      Check that every crate inherits the workspace lint table, which is what
+      forbids `unsafe_code`.
+
   notices
       Regenerate THIRD_PARTY_LICENSES.md from the resolved dependency graph
       and xtask/assets.toml. Commit the diff.
+
+  workflows
+      Report a package or a binary .github/ names that the workspace does not
+      have.
 
   pins [--update]
       Check, or re-derive, tests/pins/*.txt. Run --update after fixing a flag
@@ -75,7 +83,9 @@ fn dispatch(args: &[String]) -> Result<(), String> {
         }
         Some("flags") => flags::run(&repo_root()),
         Some("licences") => licences::run(&repo_root()),
+        Some("lints") => lints::run(&repo_root()),
         Some("notices") => notices::run(&repo_root()),
+        Some("workflows") => workflows::run(&repo_root()),
         Some("pins") => pins::run(&repo_root(), args.iter().any(|a| a == "--update")),
         Some("conformance") => {
             let dir = positional(args).ok_or("conformance needs a directory")?;
