@@ -13,6 +13,7 @@ use axum::body::Body;
 use http::Request;
 use http::StatusCode;
 use liyasa_server::auth::roles::{Grant, Role};
+use liyasa_server::auth::session::Principal;
 use liyasa_server::org::model::Member;
 use liyasa_server::routes::mount::Mount;
 use liyasa_server::routes::{self, AppState, ServerConfig};
@@ -370,6 +371,85 @@ async fn the_role_source_answers_about_the_organization_the_api_writes_to() {
     // Nothing above changes an HTTP answer yet: `contribute` does not call
     // `with_roles`, so `AuthState.roles` is still `None` and every reader is
     // still `Reader`. Those are WP-15's three lines, and they land after this.
+}
+
+#[tokio::test]
+async fn an_elevated_principal_reaches_a_guarded_route_and_an_unelevated_one_does_not() {
+    // Nothing in the workspace asserts a 200 on a guarded route reached by an
+    // elevated principal — measured by WP-15 across org_28.rs,
+    // auth_session_layer.rs and ed_75_roles.rs. Not an oversight: until the
+    // role source was reachable there was no path to assert. So the first
+    // time an instance elevates somebody and serves a guarded route would
+    // have been on an operator's laptop.
+    //
+    // Both halves are in one test on purpose. The 200 proves the pieces
+    // compose; the 403 in the same test stops it passing by elevating
+    // everyone, which is the failure that looks most like success.
+    let (harness, _site) = Harness::new(Setup {
+        site_config: Some(with_password_auth()),
+        ..Setup::new("mount-elevated")
+    })
+    .await;
+
+    let auth = harness.state.auth_state().expect("auth mounted").clone();
+
+    // Self-clearing skip: `contribute` does not yet call `with_roles`, so no
+    // instance has a role source and the 200 below is unreachable. Those are
+    // WP-15's three lines. The moment they land this test runs rather than
+    // needing anyone to remember it — an `#[ignore]` would not.
+    if auth.roles.is_none() {
+        eprintln!(
+            "SKIPPED: `AuthState.roles` is `None` — `auth::mount::contribute` \
+             does not call `with_roles` yet (WP-15). Nothing to elevate with."
+        );
+        return;
+    }
+
+    let org = harness.state.org_state().expect("an organization");
+    org.write()
+        .org
+        .add_member(Member::new(
+            "an-editor",
+            "editor@example.com",
+            Grant::role(Role::Editor),
+        ))
+        .expect("the member is added");
+
+    let issue = |subject: &str| {
+        auth.tokens
+            .issue_personal(&Principal::new(subject), "ci", &Default::default(), None)
+            .expect("a token")
+    };
+
+    // `Editor` carries `DashboardRead` (AUTH-30's table), and `/org/members`
+    // is guarded by it.
+    let elevated = issue("an-editor");
+    let response = harness
+        .get_with(
+            "/_liyasa/api/v1/org/members",
+            &[("authorization", &format!("Bearer {}", elevated.secret))],
+        )
+        .await;
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "a member with `DashboardRead` did not reach a `DashboardRead` route: \
+         the five preconditions do not compose"
+    );
+
+    // Same route, same instance, a subject with no member row.
+    let unelevated = issue("a-stranger");
+    let response = harness
+        .get_with(
+            "/_liyasa/api/v1/org/members",
+            &[("authorization", &format!("Bearer {}", unelevated.secret))],
+        )
+        .await;
+    assert_eq!(
+        response.status(),
+        StatusCode::FORBIDDEN,
+        "everyone was elevated, not just the member"
+    );
 }
 
 #[tokio::test]
