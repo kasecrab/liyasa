@@ -416,12 +416,69 @@ impl Schema {
     }
 }
 
-/// `{"name": "Acme", <path>: value}`.
-fn config_with(path: &[String], value: &str) -> Value {
+/// `{"name": "Acme", <path>: value}`, plus whatever the schema requires
+/// alongside each step of the path. A block with required siblings — `mail`
+/// wants a `from` and an `smtp.host`, because a mail block that could not send
+/// is refused — would otherwise fail for the sibling rather than for the enum
+/// value under test.
+fn config_with(schema: &Schema, path: &[String], value: &str) -> Value {
+    fn stub(schema: &Schema, node: &Value) -> Value {
+        let node = schema.deref(node);
+        if let Some(Value::Array(values)) = node.get("enum")
+            && let Some(first) = values.first()
+        {
+            return first.clone();
+        }
+        match node.get("type").and_then(Value::as_str) {
+            Some("object") => {
+                let mut object = Map::new();
+                fill(schema, node, &mut object);
+                Value::Object(object)
+            }
+            Some("array") => Value::Array(Vec::new()),
+            Some("integer") | Some("number") => Value::from(1),
+            Some("boolean") => Value::Bool(true),
+            _ => Value::String("x".to_owned()),
+        }
+    }
+
+    /// Every key `node` requires, except the ones already written.
+    fn fill(schema: &Schema, node: &Value, into: &mut Map<String, Value>) {
+        let Some(Value::Array(required)) = node.get("required") else {
+            return;
+        };
+        for key in required.iter().filter_map(Value::as_str) {
+            if into.contains_key(key) {
+                continue;
+            }
+            let Some(property) = node.pointer("/properties").and_then(|p| p.get(key)) else {
+                continue;
+            };
+            into.insert(key.to_owned(), stub(schema, property));
+        }
+    }
+
+    // Walk down from the root, collecting the node at each step, then build
+    // back up so each level can be filled from its own schema.
+    let mut nodes = vec![&schema.root];
+    for segment in path {
+        let next = nodes
+            .last()
+            .and_then(|node| schema.deref(node).pointer("/properties"))
+            .and_then(|properties| properties.get(segment));
+        match next {
+            Some(node) => nodes.push(node),
+            None => break,
+        }
+    }
+
     let mut leaf = Value::String(value.to_owned());
-    for segment in path.iter().rev() {
+    for (depth, segment) in path.iter().enumerate().rev() {
         let mut object = Map::new();
         object.insert(segment.clone(), leaf);
+        if let Some(parent) = nodes.get(depth) {
+            fill(schema, schema.deref(parent), &mut object);
+        }
         leaf = Value::Object(object);
     }
     let Value::Object(mut object) = leaf else {
@@ -444,7 +501,7 @@ fn every_enum_value_the_schema_offers_is_one_the_type_accepts() {
             continue;
         }
         for value in values {
-            let config = config_with(&path, &value);
+            let config = config_with(&schema, &path, &value);
             let text = serde_json::to_string(&config).expect("serializes");
             let report = schema::check(&config, &SpanIndex::scan(SourceId(0), &text));
             assert!(

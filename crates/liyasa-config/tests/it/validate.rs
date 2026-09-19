@@ -19,6 +19,25 @@ fn check(text: &str, pages: &[&str], mode: Mode) -> Vec<String> {
         .collect()
 }
 
+/// The diagnostics' messages rather than their codes, for a rule whose point
+/// is what it says.
+fn messages(text: &str) -> Vec<String> {
+    let value: serde_json::Value = serde_json::from_str(text).expect("the fixture is valid JSON");
+    let spans = SpanIndex::scan(SourceId(0), text);
+    let pages = Pages::new();
+    validate::validate(
+        &value,
+        &spans,
+        &Context {
+            pages: &pages,
+            mode: Mode::Build,
+        },
+    )
+    .iter()
+    .map(|diagnostic| diagnostic.message.clone())
+    .collect()
+}
+
 fn build(text: &str, pages: &[&str]) -> Vec<String> {
     check(text, pages, Mode::Build)
 }
@@ -241,13 +260,13 @@ fn an_operator_under_a_mode_that_names_nobody_is_w0137() {
         r#"{ "mode": "password", "operators": [{ "subject": "ana", "role": "owner" }] }"#,
         "",
     );
-    assert_eq!(build(&password, &[]), ["W0137"]);
+    assert_eq!(build(&password, &[]), ["W0139", "W0137"]);
 
     let public = auth_config(
         r#"{ "mode": "public", "operators": [{ "subject": "ana", "role": "owner" }] }"#,
         "",
     );
-    assert_eq!(build(&public, &[]), ["W0137"]);
+    assert_eq!(build(&public, &[]), ["W0139", "W0137"]);
 
     // The mode is the default when nothing says otherwise, and the default is
     // public, so an operator with no mode is the same mistake.
@@ -255,7 +274,7 @@ fn an_operator_under_a_mode_that_names_nobody_is_w0137() {
         r#"{ "operators": [{ "subject": "ana", "role": "owner" }] }"#,
         "",
     );
-    assert_eq!(build(&no_mode, &[]), ["W0137"]);
+    assert_eq!(build(&no_mode, &[]), ["W0139", "W0137"]);
 }
 
 #[test]
@@ -265,7 +284,7 @@ fn the_shared_password_subject_is_w0137_under_any_mode() {
         "",
     );
     let codes = build(&config, &[]);
-    assert_eq!(codes, ["W0137"]);
+    assert_eq!(codes, ["W0139", "W0137"]);
 }
 
 #[test]
@@ -274,7 +293,7 @@ fn an_address_under_magic_link_sign_in_is_w0137() {
         r#"{ "mode": "managed", "operators": [{ "subject": "ana@acme.dev", "role": "owner" }] }"#,
         r#", "mail": { "from": "docs@acme.dev", "smtp": { "host": "smtp.acme.dev" } }"#,
     );
-    assert_eq!(build(&config, &[]), ["W0137"]);
+    assert_eq!(build(&config, &[]), ["W0139", "W0137"]);
 }
 
 #[test]
@@ -285,7 +304,41 @@ fn a_subject_a_provider_really_issues_is_accepted() {
              { "subject": "https://idp.acme.dev/users/42", "role": "admin" }] }"#,
         "",
     );
-    assert_eq!(build(&config, &[]), Vec::<String>::new());
+    assert_eq!(
+        build(&config, &[]),
+        ["W0139"],
+        "a well-formed operator list is still a standing grant, and says so"
+    );
+}
+
+/// The warning is about the grant outliving the membership row, so it names
+/// the subjects rather than counting them: somebody reading a build log has to
+/// be able to tell whether the person who just left is one of them.
+#[test]
+fn the_standing_grant_names_who_holds_it() {
+    let config = auth_config(
+        r#"{ "mode": "oidc", "operators": [
+             { "subject": "8f14e45fce", "role": "owner" },
+             { "subject": "c9a1b2", "role": "admin" }] }"#,
+        "",
+    );
+    let text = messages(&config);
+    let warning = text
+        .iter()
+        .find(|message| message.contains("no membership change"))
+        .expect("the standing grant is reported");
+    assert!(warning.contains("2 subjects"), "{warning}");
+    assert!(
+        warning.contains("8f14e45fce") && warning.contains("c9a1b2"),
+        "{warning}"
+    );
+
+    let none = auth_config(r#"{ "mode": "oidc" }"#, "");
+    assert_eq!(
+        build(&none, &[]),
+        Vec::<String>::new(),
+        "no entries, nothing to say"
+    );
 }
 
 #[test]

@@ -2135,7 +2135,7 @@
         },
         "operators": {
           "type": "array",
-          "description": "The operators an instance names in configuration, for the one job organization membership cannot do: an empty membership table elevates nobody, so on a fresh instance there is no one who can reach `settingsWrite` to add the first member. There is no default and no implicit operator; an absent or empty list elevates nobody, which is the safe direction. An entry here is a credential, not a membership row \u2014 removing somebody from the organization does not remove them from this list, and a configured grant cannot be lowered by the membership table. Review it as you would review a key. Under `mode: \"password\"` it can name nobody at all: every reader who knows the password carries one subject, so nobody can be told apart, and a dashboard role in that mode is not available to anyone.",
+          "description": "The operators an instance names in configuration, for the one job organization membership cannot do: an empty membership table elevates nobody, so on a fresh instance there is no one who can reach `settingsWrite` to add the first member. There is no default and no implicit operator; an absent or empty list elevates nobody, which is the safe direction. **An entry here is a credential, not a membership row.** Role sources are asked in order and the first answer wins, so a configured grant cannot be lowered or removed by the membership table: taking somebody out of the organization \u2014 the obvious correct thing to do when they leave \u2014 does not take away what this list gives them. Remove the entry as well, and treat the list as the break-glass key it is: the shortest safe life for an entry is from a fresh instance to its first real member. `liyasa validate` reports W0139 while any entry stands, so the standing grant is visible rather than remembered. Under `mode: \"password\"` it can name nobody at all: every reader who knows the password carries one subject, so nobody can be told apart, and a dashboard role in that mode is not available to anyone.",
           "items": {
             "type": "object",
             "description": "One operator: the subject their sign-in issues, and the role it grants them.",
@@ -2146,7 +2146,7 @@
               },
               "role": {
                 "type": "string",
-                "description": "What the subject is granted, whatever the membership table says. `owner` is the bootstrap case: it is the role that can add the first member and hand the instance over, after which this entry can go.",
+                "description": "What the subject is granted, whatever the membership table says. `owner` is the bootstrap case: it is the role that can add the first member and hand the instance over, after which this entry can go. `reader` is deliberately not one of the values \u2014 it carries no permission at all, so configuring it would read as a grant and be a no-op.",
                 "enum": [
                   "viewer",
                   "contributor",

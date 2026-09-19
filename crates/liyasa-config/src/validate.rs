@@ -110,6 +110,32 @@ impl Run<'_> {
             return;
         };
 
+        let subjects: Vec<&str> = entries
+            .iter()
+            .filter_map(|entry| entry.get("subject").and_then(Value::as_str))
+            .collect();
+        if !subjects.is_empty() {
+            self.report(
+                Diagnostic::new(
+                    code::W0139,
+                    format!(
+                        "configuration grants a role to {}, and no membership change can take it \
+                         away: {}",
+                        match subjects.len() {
+                            1 => "one subject".to_owned(),
+                            count => format!("{count} subjects"),
+                        },
+                        subjects.join(", ")
+                    ),
+                )
+                .help(
+                    "remove the entry once the organization has a member who can administer it; \
+                     removing that person from the organization does not remove them from here",
+                ),
+                "/auth/operators",
+            );
+        }
+
         match mode {
             "password" => self.report(
                 Diagnostic::new(
