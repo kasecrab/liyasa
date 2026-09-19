@@ -18,6 +18,25 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = Number(process.env["PORT"] ?? 4173);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
+// NFR-40: Chrome, Edge, Firefox, Safari and iOS Safari. Playwright ships one
+// build per engine, so a runner cannot hold the last two versions of each; what
+// it can hold is all five engines, and four of them were untested with nothing
+// saying so, which is the part of the requirement a suite can answer for.
+//
+// CI only, the same way `forbidOnly` and `retries` below are: a developer's
+// `npx playwright test` keeps the two Chromium projects it has always had, at
+// the speed it has always had, and no package's suite reddens on a laptop
+// because another engine arrived. The matrix runs in `.github/workflows/browsers.yml`.
+//
+// `grepInvert` on every row: the Lighthouse specs drive Chrome over the
+// DevTools protocol and cannot run on Firefox or WebKit at all.
+const CROSS_BROWSER = [
+  { name: "firefox", use: { ...devices["Desktop Firefox"] }, grepInvert: /lighthouse/ },
+  { name: "webkit", use: { ...devices["Desktop Safari"] }, grepInvert: /lighthouse/ },
+  { name: "edge", use: { ...devices["Desktop Edge"], channel: "msedge" }, grepInvert: /lighthouse/ },
+  { name: "mobile-safari", use: { ...devices["iPhone 14"] }, grepInvert: /lighthouse/ },
+];
+
 export default defineConfig({
   testDir: ".",
   // `web/e2e/` is shared by every package (PRD §31.5); `web/reader/e2e/` is
@@ -37,6 +56,7 @@ export default defineConfig({
     // RX-11 is a budget on a mid-range phone; the throttling itself is set per
     // test through CDP, because a device descriptor only changes the viewport.
     { name: "mobile", use: { ...devices["Pixel 7"] } },
+    ...(process.env["CI"] ? CROSS_BROWSER : []),
   ],
   webServer: {
     command: "npm run site && npm run serve",

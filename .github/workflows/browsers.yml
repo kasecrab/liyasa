@@ -1,0 +1,55 @@
+name: browsers
+
+# NFR-40: the reader must work on Chrome, Edge, Firefox, Safari and iOS Safari,
+# and read without JavaScript everywhere. Until this job existed the browser
+# suite ran on Chromium alone — two projects, one engine — and nothing said the
+# other four were untested.
+#
+# The extra projects are declared in `web/playwright.config.ts` behind `CI`, so
+# a developer's local run is unchanged. This is the job that sets it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "web/**"
+      - "crates/liyasa-theme/**"
+      - ".github/workflows/browsers.yml"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  SOURCE_DATE_EPOCH: "1700000000"
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    # The suite builds the reference site with cargo before it serves it, so
+    # this job pays for a Rust build as well as a browser download.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      # `msedge` is a channel rather than a bundled browser: Playwright installs
+      # the real Edge, which is the only way to test Edge rather than the
+      # Chromium it is built on.
+      - run: npx playwright install --with-deps chromium firefox webkit msedge
+        working-directory: web
+      - run: npm run e2e
+        working-directory: web
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report
+            web/test-results
