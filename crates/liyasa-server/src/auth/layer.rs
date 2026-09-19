@@ -47,6 +47,73 @@ pub trait Roles: std::fmt::Debug + Send + Sync {
     /// The grant this subject holds, or `None` for somebody the source has
     /// never heard of — who stays whatever they authenticated as.
     fn grant_for(&self, subject: &str) -> Option<Grant>;
+
+    /// The same question with the whole reader in view.
+    ///
+    /// A subject is one string, which forecloses more than it looks like: a
+    /// source cannot see which flow authenticated the reader, cannot read
+    /// anything the flow put in `data`, and so cannot tell a person from a
+    /// mode. WP-28 hit that three times over — the per-project reduction of
+    /// ORG-02, the shared-password subject, and the magic-link address hash.
+    ///
+    /// The default forwards, so a source that only wants the subject writes
+    /// one method and nothing changes for it.
+    fn grant_for_principal(&self, principal: &Principal) -> Option<Grant> {
+        self.grant_for(&principal.subject)
+    }
+}
+
+/// Several role sources, asked in order until one answers.
+///
+/// An instance needs more than one. Organization membership is the real
+/// source, and an empty membership table elevates nobody — which is the safe
+/// direction and also means a fresh instance has no one who can reach
+/// `SettingsWrite` to add the first member. The break-glass is a
+/// [`StaticRoles`] operator, and both have to be live at once.
+///
+/// **Order is precedence, and the hazard is in that direction.** The first
+/// source with an answer wins, so a subject named in an earlier source cannot
+/// be lowered by a later one: an operator listed in configuration keeps that
+/// grant after their membership is reduced or removed. Put the source that
+/// should be able to demote people first, and treat a configured operator as
+/// what it is — a key that works whatever the database says.
+///
+/// The consequence worth saying out loud: an operator entry is **permanent**
+/// in a way a membership row is not. Removing someone from the organization
+/// does not remove them from it, so the configuration key is a credential and
+/// should be reviewed like one.
+#[derive(Debug, Default)]
+pub struct Chain(Vec<Arc<dyn Roles>>);
+
+impl Chain {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn then(mut self, source: Arc<dyn Roles>) -> Self {
+        self.0.push(source);
+        self
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl FromIterator<Arc<dyn Roles>> for Chain {
+    fn from_iter<I: IntoIterator<Item = Arc<dyn Roles>>>(sources: I) -> Self {
+        Self(sources.into_iter().collect())
+    }
+}
+
+impl Roles for Chain {
+    fn grant_for(&self, subject: &str) -> Option<Grant> {
+        self.0.iter().find_map(|source| source.grant_for(subject))
+    }
 }
 
 /// A role source written down in one place: an operator with no organization
@@ -109,7 +176,14 @@ fn apply_roles(state: &AuthState, mut principal: Principal) -> Principal {
     let Some(source) = state.roles.as_ref() else {
         return principal;
     };
-    if let Some(grant) = source.grant_for(&principal.subject) {
+    // A shared subject names a flow rather than a person. Asking a role source
+    // about it is how `password:production` in a member row would become an
+    // administrator for everyone who knows the site password, so the question
+    // is not asked rather than answered carefully.
+    if principal.shared {
+        return principal;
+    }
+    if let Some(grant) = source.grant_for_principal(&principal) {
         principal.role = grant.role;
         principal.grant = Some(grant);
     }
@@ -408,6 +482,180 @@ mod tests {
             "the composed half, which `role` alone cannot answer"
         );
         assert!(!principal.allows(Permission::OwnerAct));
+    }
+
+    #[test]
+    fn a_chain_asks_each_source_until_one_answers() {
+        let membership = StaticRoles::new().role("a-member", Role::Editor);
+        let operators = StaticRoles::new().role("the-operator", Role::Owner);
+        let chain = Chain::new()
+            .then(Arc::new(membership))
+            .then(Arc::new(operators));
+
+        assert_eq!(
+            chain.grant_for("a-member").map(|g| g.role),
+            Some(Role::Editor)
+        );
+        assert_eq!(
+            chain.grant_for("the-operator").map(|g| g.role),
+            Some(Role::Owner),
+            "a later source still answers for a subject the first does not know"
+        );
+        assert!(chain.grant_for("a-stranger").is_none());
+    }
+
+    #[test]
+    fn an_empty_chain_elevates_nobody() {
+        // The shape a fresh instance has before anyone is configured: safe,
+        // and the reason a second source is needed at all.
+        let chain = Chain::new();
+        assert!(chain.is_empty());
+        assert!(chain.grant_for("anyone").is_none());
+    }
+
+    #[test]
+    fn a_membership_source_alone_leaves_a_fresh_instance_with_no_administrator() {
+        // Named because it is the input that motivates `Chain`: an empty
+        // membership table means nobody can reach `SettingsWrite` to add the
+        // first member.
+        let empty_membership = StaticRoles::new();
+        let chain = Chain::new().then(Arc::new(empty_membership));
+        assert!(chain.grant_for("the-founder").is_none());
+
+        let with_break_glass = Chain::new()
+            .then(Arc::new(StaticRoles::new()))
+            .then(Arc::new(
+                StaticRoles::new().role("the-founder", Role::Owner),
+            ));
+        assert!(
+            with_break_glass
+                .grant_for("the-founder")
+                .is_some_and(|g| g.allows(Permission::SettingsWrite))
+        );
+    }
+
+    #[test]
+    fn an_earlier_source_cannot_be_lowered_by_a_later_one() {
+        // The hazard the ordering documents. A configured operator keeps their
+        // grant after membership reduces them, because the first answer wins.
+        let operators_first = Chain::new()
+            .then(Arc::new(StaticRoles::new().role("ana", Role::Owner)))
+            .then(Arc::new(StaticRoles::new().role("ana", Role::Viewer)));
+        assert_eq!(
+            operators_first.grant_for("ana").map(|g| g.role),
+            Some(Role::Owner)
+        );
+
+        // Reversing the order reverses which one can demote.
+        let membership_first = Chain::new()
+            .then(Arc::new(StaticRoles::new().role("ana", Role::Viewer)))
+            .then(Arc::new(StaticRoles::new().role("ana", Role::Owner)));
+        assert_eq!(
+            membership_first.grant_for("ana").map(|g| g.role),
+            Some(Role::Viewer)
+        );
+    }
+
+    #[tokio::test]
+    async fn a_chain_reaches_the_layer_like_any_other_source() {
+        let state = Arc::new(
+            bare(Mode::Password).with_roles(Arc::new(
+                Chain::new()
+                    .then(Arc::new(StaticRoles::new()))
+                    .then(Arc::new(
+                        StaticRoles::new().role("the-operator", Role::Admin),
+                    )),
+            )),
+        );
+        let session = state
+            .sessions
+            .begin(Principal::new("the-operator"))
+            .expect("a session");
+        let router = probe(state.clone());
+
+        let (_, body) = ask(&router, &[("cookie", cookie_header(&state, &session.id))]).await;
+        assert_eq!(body, "the-operator|admin|");
+    }
+
+    /// The input WP-28 found by reading all five sign-in paths: a member row
+    /// whose id is the shared-password subject would otherwise hand that
+    /// member's grant to every reader who knows the site password.
+    #[test]
+    fn a_member_row_naming_the_shared_password_subject_elevates_nobody() {
+        let subject = "password:production";
+        let source = StaticRoles::new().role(subject, Role::Owner);
+        let state = bare(Mode::Password).with_roles(Arc::new(source));
+
+        // The same string, once as the flow builds it and once as a person.
+        let shared = apply_roles(
+            &state,
+            Principal::new(subject).with_via("password").shared(),
+        );
+        assert_eq!(
+            shared.role,
+            Role::Reader,
+            "the site password must not become an admin password"
+        );
+        assert!(shared.grant.is_none());
+        assert!(!shared.allows(Permission::SettingsWrite));
+
+        // A source that names a real person still works — the check is about
+        // the flow, not about refusing this string.
+        let person = apply_roles(&state, Principal::new(subject));
+        assert_eq!(person.role, Role::Owner);
+    }
+
+    #[tokio::test]
+    async fn a_shared_password_session_is_signed_in_and_holds_no_role() {
+        // It is a real session — the reader may read private pages — and it
+        // carries no permission, so a dashboard route refuses it at the guard.
+        let state = Arc::new(bare(Mode::Password).with_roles(Arc::new(
+            StaticRoles::new().role("password:production", Role::Owner),
+        )));
+        let session = state
+            .sessions
+            .begin(
+                Principal::new("password:production")
+                    .with_via("password")
+                    .shared(),
+            )
+            .expect("a session");
+        let router = probe(state.clone());
+
+        let (status, body) = ask(&router, &[("cookie", cookie_header(&state, &session.id))]).await;
+        assert_eq!(status, StatusCode::OK, "the session is valid");
+        assert_eq!(body, "password:production|reader|password");
+    }
+
+    /// A source that wants more than the subject gets the whole reader, and a
+    /// source that does not need to change.
+    #[test]
+    fn a_source_may_read_the_whole_principal_and_the_default_forwards() {
+        #[derive(Debug)]
+        struct ByFlow;
+        impl Roles for ByFlow {
+            fn grant_for(&self, _subject: &str) -> Option<Grant> {
+                None
+            }
+            fn grant_for_principal(&self, principal: &Principal) -> Option<Grant> {
+                // Something `grant_for` could not have asked.
+                (principal.via == "oidc").then(|| Grant::role(Role::Viewer))
+            }
+        }
+        let state = bare(Mode::Password).with_roles(Arc::new(ByFlow));
+        assert_eq!(
+            apply_roles(&state, Principal::new("a").with_via("oidc")).role,
+            Role::Viewer
+        );
+        assert_eq!(
+            apply_roles(&state, Principal::new("a").with_via("jwt")).role,
+            Role::Reader
+        );
+
+        // And a subject-only source keeps working through the default.
+        let plain =
+            bare(Mode::Password).with_roles(Arc::new(StaticRoles::new().role("a", Role::Admin)));
+        assert_eq!(apply_roles(&plain, Principal::new("a")).role, Role::Admin);
     }
 
     #[test]
