@@ -66,9 +66,26 @@ impl std::fmt::Debug for JobKind {
 
 /// Every job kind, in no particular order. One line per package (RFC 1404).
 ///
-/// WP-16's build job registers with `Trigger::Caller` because its deploy queue
-/// already enqueues it, and its retention sweep with `Trigger::Scheduled`;
-/// WP-18's index build and retention sweep are the same two shapes.
+/// Expected, and owed by the packages that own the handlers:
+///
+/// ```text
+/// deploy.build      WP-16, `Trigger::Caller` — its deploy queue enqueues it
+/// deploy.retention  WP-16, `Trigger::Scheduled`
+/// assistant.embed   WP-18, `Trigger::Caller` — renamed from `assistant.index`,
+///                   which nothing ever enqueued
+/// assistant.sweep   WP-18, `Trigger::Scheduled`
+/// ```
+///
+/// Those four are a comment rather than a pinned list in a test ON PURPOSE,
+/// and the next person here will want to "strengthen" them into one. Do not.
+/// A pin makes this package's test assert a claim about another package's
+/// naming, so it fails when WP-16 registers `build.run` instead — reddening
+/// their branch for being right. **A test is the wrong place for a claim
+/// about work that has not happened.**
+///
+/// The absence is already reported where it belongs: [`report`] logs at warn
+/// when nothing is registered, and `/_liyasa/ready` names the kinds nobody can
+/// run. Those tell an operator; the defect ledger tells the fleet.
 pub fn kinds() -> &'static [JobKind] {
     &[]
 }

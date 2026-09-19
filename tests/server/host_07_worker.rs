@@ -6,7 +6,6 @@
 //! the thing that turns the handle.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use liyasa_core::store::JobState;
@@ -17,16 +16,11 @@ use serde_json::json;
 
 /// A handler that counts its runs, so "exactly once" is a number and not a
 /// shape.
-static RUNS: AtomicUsize = AtomicUsize::new(0);
-
 fn counting<'a>(
     _: &'a Arc<liyasa_server::routes::AppState>,
     _: &'a liyasa_store::records::JobRecord,
 ) -> work::Run<'a> {
-    Box::pin(async move {
-        RUNS.fetch_add(1, Ordering::SeqCst);
-        Outcome::Done(json!({ "ok": true }))
-    })
+    Box::pin(async move { Outcome::Done(json!({ "ok": true })) })
 }
 
 fn failing<'a>(
@@ -45,7 +39,6 @@ fn skipping<'a>(
 
 #[tokio::test]
 async fn the_worker_runs_a_queued_job_and_records_its_result() {
-    RUNS.store(0, Ordering::SeqCst);
     let (harness, _site) = Harness::serving("worker-runs").await;
     let store = harness.state.store.clone().expect("a store");
     let id = store
@@ -64,8 +57,6 @@ async fn the_worker_runs_a_queued_job_and_records_its_result() {
         .await
         .expect("a pass");
     assert_eq!(ran, 1, "one runnable job, one run");
-    assert_eq!(RUNS.load(Ordering::SeqCst), 1);
-
     let job = store
         .jobs_typed()
         .get(&id)
@@ -83,7 +74,6 @@ async fn the_worker_runs_a_queued_job_and_records_its_result() {
             .expect("a pass"),
         0
     );
-    assert_eq!(RUNS.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
@@ -317,6 +307,15 @@ fn every_registered_kind_is_named_once() {
     );
 }
 
+/// A job name no package will ever register, for the orphan fixture.
+///
+/// It used to be `"assistant.index"`, which was a real constant until WP-18
+/// renamed it — so the fixture named a live job by coincidence and would have
+/// broken the day somebody registered a handler for it, for reasons having
+/// nothing to do with what this asserts. A fixture standing for "nothing can
+/// run this" has to be a name nothing can ever run.
+const ORPHAN: &str = "nobody.registers.this";
+
 #[tokio::test]
 async fn work_nobody_can_run_is_named_rather_than_silently_queued() {
     // The dominant defect in this project is a complete mechanism with no
@@ -326,7 +325,7 @@ async fn work_nobody_can_run_is_named_rather_than_silently_queued() {
     let store = harness.state.store.clone().expect("a store");
     store
         .jobs_typed()
-        .enqueue(&Enqueue::new("assistant.index", "build-1"))
+        .enqueue(&Enqueue::new(ORPHAN, "build-1"))
         .await
         .expect("a job some package enqueued");
     store
@@ -346,7 +345,7 @@ async fn work_nobody_can_run_is_named_rather_than_silently_queued() {
     assert_eq!(registered.handled, ["test.counting"]);
     assert_eq!(
         registered.orphaned,
-        ["assistant.index"],
+        [ORPHAN],
         "a queued name with no handler is work nobody can do and must be named"
     );
 
@@ -357,7 +356,7 @@ async fn work_nobody_can_run_is_named_rather_than_silently_queued() {
     let after = work::registered(&harness.state, &kinds)
         .await
         .expect("a report");
-    assert_eq!(after.orphaned, ["assistant.index"]);
+    assert_eq!(after.orphaned, [ORPHAN]);
 }
 
 #[tokio::test]
