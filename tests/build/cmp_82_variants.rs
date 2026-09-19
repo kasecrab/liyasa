@@ -11,6 +11,7 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use liyasa_build::engine::{self, Options};
 use liyasa_build::git::NoGit;
@@ -27,9 +28,16 @@ impl Drop for Project {
     }
 }
 
+/// Distinguishes the fixtures of tests that run as parallel threads in one
+/// process. Without it both tests here build at the same path and each one's
+/// `remove_dir_all` deletes the other's fixture, which fails at random rather
+/// than every time. The pattern is `tests/src/server.rs`'s.
+static COUNTER: AtomicU64 = AtomicU64::new(0);
+
 /// A one-page site whose page declares an `admin` group and gates a block on it.
 fn admin_gated_site() -> Project {
-    let root = std::env::temp_dir().join(format!("liyasa-cmp-82-{}", std::process::id()));
+    let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+    let root = std::env::temp_dir().join(format!("liyasa-cmp-82-{}-{n}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("a project directory");
     fs::write(
