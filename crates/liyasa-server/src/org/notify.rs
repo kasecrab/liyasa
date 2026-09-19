@@ -241,10 +241,24 @@ impl Notification {
     }
 }
 
+/// Whether this instance can send email at all.
+///
+/// Not part of [`Endpoints`] on purpose. The sender lives on `AuthState`,
+/// built from the site's `mail` block, and a copy of "do we have one" stored
+/// beside the organization's own endpoints would be a second source of truth
+/// that drifts the first time mail is reconfigured. The caller reads the live
+/// one and passes it in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mailer {
+    Configured,
+    Absent,
+}
+
 /// ORG-21, in one function.
 pub fn route(
     subscribers: &[Subscriber],
     endpoints: &Endpoints,
+    mailer: Mailer,
     notification: &Notification,
 ) -> Routed {
     let mut routed = Routed::default();
@@ -268,6 +282,19 @@ pub fn route(
                         continue;
                     }
                 }
+            } else if mailer == Mailer::Absent {
+                // Email needs no per-organization endpoint, which used to mean
+                // it could never be skipped — so a site with no `mail` block
+                // produced a delivery to an address nothing would ever send
+                // to. A reported skip and a silent drop are the same outcome
+                // for the reader and opposite outcomes for the operator.
+                routed.skipped.push(Skipped {
+                    user: subscriber.user.clone(),
+                    channel,
+                    reason: "this instance has no mail sender configured; see the site's                              `mail` block"
+                        .to_owned(),
+                });
+                continue;
             } else {
                 subscriber.email.clone()
             };
@@ -301,6 +328,7 @@ mod tests {
             let routed = route(
                 &subscribers,
                 &Endpoints::default(),
+                Mailer::Configured,
                 &Notification::new(*event, "something happened"),
             );
             assert_eq!(routed.deliveries.len(), 1, "{}", event.as_str());
@@ -324,6 +352,7 @@ mod tests {
         let quiet = route(
             &[subscriber.clone()],
             &endpoints(),
+            Mailer::Configured,
             &Notification::new(Event::Deployment, "deployed").in_project("noisy"),
         );
         assert!(quiet.deliveries.is_empty());
@@ -332,6 +361,7 @@ mod tests {
         let loud = route(
             &[subscriber],
             &endpoints(),
+            Mailer::Configured,
             &Notification::new(Event::Deployment, "deployed").in_project("docs"),
         );
         assert_eq!(loud.deliveries.len(), 2);
@@ -349,6 +379,7 @@ mod tests {
         let routed = route(
             &[subscriber],
             &endpoints(),
+            Mailer::Configured,
             &Notification::new(Event::UsageAlert, "80% of the credit pool"),
         );
         assert_eq!(routed.deliveries.len(), 1);
@@ -360,6 +391,46 @@ mod tests {
             "{}",
             routed.skipped[0].reason
         );
+    }
+
+    #[test]
+    fn a_site_with_no_mail_sender_reports_the_skip_rather_than_dropping_it() {
+        // ORG-21 delivers by email by default, and email needs no
+        // per-organization endpoint — which used to mean it could never be
+        // skipped. On a site with no `mail` block that produced a `Delivery`
+        // to an address nothing would ever send to: a silent drop wearing a
+        // success.
+        let subscribers = [Subscriber::new("u1", "ana@acme.com")];
+        let routed = route(
+            &subscribers,
+            &Endpoints::default(),
+            Mailer::Absent,
+            &Notification::new(Event::Deployment, "deployed"),
+        );
+        assert!(routed.deliveries.is_empty());
+        assert_eq!(routed.skipped.len(), 1);
+        assert_eq!(routed.skipped[0].channel, Channel::Email);
+        assert!(
+            routed.skipped[0].reason.contains("mail"),
+            "the reason must name what to configure: {}",
+            routed.skipped[0].reason
+        );
+
+        // The same instance still delivers on a channel that has an endpoint,
+        // so an absent mailer stops email and nothing else.
+        let mut subscriber = Subscriber::new("u1", "ana@acme.com");
+        subscriber
+            .preferences
+            .set(Event::Deployment, [Channel::Email, Channel::Slack]);
+        let routed = route(
+            &[subscriber],
+            &endpoints(),
+            Mailer::Absent,
+            &Notification::new(Event::Deployment, "deployed"),
+        );
+        assert_eq!(routed.deliveries.len(), 1);
+        assert_eq!(routed.deliveries[0].channel, Channel::Slack);
+        assert_eq!(routed.skipped.len(), 1);
     }
 
     #[test]
@@ -378,6 +449,7 @@ mod tests {
         let routed = route(
             &[quiet, loud],
             &endpoints(),
+            Mailer::Configured,
             &Notification::new(Event::Comment, "a comment"),
         );
         assert_eq!(routed.deliveries.len(), 1);

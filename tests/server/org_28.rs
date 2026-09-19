@@ -691,7 +691,7 @@ async fn deleting_the_workspace_waits_and_can_be_undone_and_exports_meanwhile() 
 async fn a_notification_channel_with_no_endpoint_is_reported_rather_than_dropped() {
     // ORG-21. `announce` is what another package calls; the endpoints and the
     // preferences come from the routed API.
-    use liyasa_server::org::notify::{Event, Notification};
+    use liyasa_server::org::notify::{Channel, Event, Notification};
 
     let state = state_with(Tier::Pro);
     let owner = as_role(&state, Role::Owner);
@@ -714,10 +714,33 @@ async fn a_notification_channel_with_no_endpoint_is_reported_rather_than_dropped
     .await;
     assert_eq!(status, StatusCode::OK);
 
+    // Two reasons a channel goes nowhere, and both are reported. Teams has no
+    // endpoint configured; email has no *sender* — this organization was
+    // built without a server, so there is no `mail` block behind it, which is
+    // exactly the shape of a real instance that never configured one.
     let routed = routes::announce(&state, &Notification::new(Event::Deployment, "deployed"));
-    assert_eq!(routed.deliveries.len(), 1);
-    assert_eq!(routed.deliveries[0].target, "bo@acme.com");
-    assert_eq!(routed.skipped.len(), 1, "{routed:?}");
+    assert!(
+        routed.deliveries.is_empty(),
+        "nothing can be delivered yet: {routed:?}"
+    );
+    let reasons: Vec<(Channel, &str)> = routed
+        .skipped
+        .iter()
+        .map(|s| (s.channel, s.reason.as_str()))
+        .collect();
+    assert_eq!(reasons.len(), 2, "{routed:?}");
+    assert!(
+        reasons
+            .iter()
+            .any(|(c, r)| *c == Channel::Teams && r.contains("endpoint")),
+        "{reasons:?}"
+    );
+    assert!(
+        reasons
+            .iter()
+            .any(|(c, r)| *c == Channel::Email && r.contains("mail")),
+        "an email nothing can send must say so rather than read as delivered: {reasons:?}"
+    );
 
     let (status, _) = send(
         &owner,
@@ -730,8 +753,18 @@ async fn a_notification_channel_with_no_endpoint_is_reported_rather_than_dropped
     .await;
     assert_eq!(status, StatusCode::OK);
     let routed = routes::announce(&state, &Notification::new(Event::Deployment, "deployed"));
-    assert_eq!(routed.deliveries.len(), 2);
-    assert!(routed.skipped.is_empty());
+    assert_eq!(
+        routed.deliveries.len(),
+        1,
+        "configuring Teams delivers Teams and nothing else: {routed:?}"
+    );
+    assert_eq!(routed.deliveries[0].channel, Channel::Teams);
+    assert_eq!(
+        routed.skipped.len(),
+        1,
+        "and email is still unsendable on this instance"
+    );
+    assert_eq!(routed.skipped[0].channel, Channel::Email);
 }
 
 #[tokio::test]

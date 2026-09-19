@@ -1232,7 +1232,31 @@ async fn export(State(state): State<Arc<OrgState>>, request: Request) -> Respons
 /// the surfaces that raise these live in other packages and call this.
 pub fn announce(state: &OrgState, notification: &notify::Notification) -> notify::Routed {
     let inner = state.read();
-    notify::route(&inner.subscribers, &inner.endpoints, notification)
+    notify::route(
+        &inner.subscribers,
+        &inner.endpoints,
+        mailer(state),
+        notification,
+    )
+}
+
+/// Whether this instance can send email, read live rather than cached.
+///
+/// The sender is built from the site's `mail` block and hangs off
+/// `AuthState`, so this is the one source of truth. A copy kept beside the
+/// organization's own endpoints would drift the first time mail is
+/// reconfigured, which is the two-consumers shape this crate has already hit
+/// twice (RFC 2802).
+fn mailer(state: &OrgState) -> notify::Mailer {
+    let configured = state
+        .app()
+        .and_then(|app| app.auth_state().map(|auth| auth.mail.is_some()))
+        .unwrap_or(false);
+    if configured {
+        notify::Mailer::Configured
+    } else {
+        notify::Mailer::Absent
+    }
 }
 
 /// Adds a member and subscribes them on the standard preferences, which is
