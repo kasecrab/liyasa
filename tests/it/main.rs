@@ -4,6 +4,8 @@
 
 #[path = "../server/auth_13_cache_key.rs"]
 mod auth_13_cache_key;
+#[path = "../server/auth_session_layer.rs"]
+mod auth_session_layer;
 #[path = "../server/auth_13_cdn.rs"]
 mod auth_13_cdn;
 #[path = "../server/auth_14_bot_protection.rs"]
