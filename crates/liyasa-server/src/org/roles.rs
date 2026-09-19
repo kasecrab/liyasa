@@ -33,7 +33,7 @@
 
 use std::sync::Arc;
 
-use crate::auth::roles::{Grant, Permission};
+use crate::auth::roles::{Grant, Permission, Role};
 
 use super::state::OrgState;
 
@@ -198,13 +198,41 @@ pub fn allows_in_project(
     in_project(state, subject, project, permission) == ProjectVerdict::Allowed
 }
 
+/// Whether removing or demoting this member leaves a grant standing that the
+/// membership table cannot reach (RFC 0109 §"The standing grant").
+///
+/// `auth.operators` is a credential rather than a membership row, and
+/// `auth::layer::Chain` asks sources in order with the first answer winning,
+/// so a configured operator cannot be lowered or removed by anything here.
+/// That is the intended break-glass property — it is the only path to a role
+/// above `Reader` that does not itself require a role above `Reader` — and it
+/// is also exactly the shape of a stale-credential incident: somebody leaves,
+/// an administrator does the obvious correct thing and removes their member
+/// row, and they keep `owner` because a line in a config file outlived it.
+///
+/// RFC 0109 found four places that could say so and only three that exist. A
+/// build warning and a startup line reach whoever builds and whoever runs the
+/// instance; neither reaches the person at the moment they remove the row,
+/// which is the only moment it is actionable. This is that moment.
+///
+/// `lookup` is the operator directory, taken as a value rather than reached
+/// for, because it lives on `AppState` and this is the only part of the check
+/// that depends on *this* package's matching rules — a member is matched on
+/// id or address, exactly as [`MembershipRoles::grant_for`] matches, so a
+/// notice cannot disagree with the source it is warning about.
+pub fn standing_grant(
+    member: &super::model::Member,
+    lookup: impl Fn(&str) -> Option<Role>,
+) -> Option<Role> {
+    lookup(&member.user).or_else(|| lookup(&member.email))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Duration;
 
     use crate::auth::clock::Clock;
-    use crate::auth::roles::Role;
     use crate::org::model::{Member, Settings};
     use crate::org::plan::Plan;
 
@@ -488,6 +516,50 @@ mod tests {
             Some(Role::Owner),
             "and it does confer one once accepted"
         );
+    }
+
+    #[test]
+    fn removing_a_configured_operator_leaves_a_grant_the_membership_table_cannot_reach() {
+        // RFC 0109's fourth place, and the only one that reaches the person
+        // taking the action. The failing input is the ordinary one: somebody
+        // leaves and an administrator removes their row.
+        let operators = |subject: &str| match subject {
+            "auth0|9f3" => Some(Role::Owner),
+            _ => None,
+        };
+        let leaving = Member::new("auth0|9f3", "ana@acme.com", Grant::role(Role::Admin));
+        assert_eq!(standing_grant(&leaving, operators), Some(Role::Owner));
+
+        let ordinary = Member::new("auth0|aa1", "bo@acme.com", Grant::role(Role::Admin));
+        assert_eq!(standing_grant(&ordinary, operators), None);
+    }
+
+    #[test]
+    fn the_notice_matches_a_member_the_same_way_the_role_source_does() {
+        // If the notice matched on id only and the source matched on address
+        // too, an operator configured by address would keep owner and the
+        // removal would say nothing. A warning that disagrees with the thing
+        // it warns about is worse than none.
+        let by_address = |subject: &str| match subject {
+            "ana@acme.com" => Some(Role::Owner),
+            _ => None,
+        };
+        let member = Member::new("auth0|9f3", "ana@acme.com", Grant::role(Role::Admin));
+        assert_eq!(standing_grant(&member, by_address), Some(Role::Owner));
+
+        // And the id still wins where both could answer, as `grant_for` does.
+        let both = |subject: &str| match subject {
+            "auth0|9f3" => Some(Role::Owner),
+            "ana@acme.com" => Some(Role::Viewer),
+            _ => None,
+        };
+        assert_eq!(standing_grant(&member, both), Some(Role::Owner));
+    }
+
+    #[test]
+    fn an_instance_with_no_operators_configured_says_nothing() {
+        let member = Member::new("u1", "ana@acme.com", Grant::role(Role::Admin));
+        assert_eq!(standing_grant(&member, |_| None), None);
     }
 
     #[test]
