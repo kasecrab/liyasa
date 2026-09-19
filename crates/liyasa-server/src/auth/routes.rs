@@ -27,6 +27,7 @@ use serde_json::json;
 use crate::auth::config::Mode;
 use crate::auth::cookie::{self, Cookie};
 use crate::auth::csrf;
+use crate::auth::jwt;
 use crate::auth::magic::Consumed;
 use crate::auth::oidc;
 use crate::auth::password::Outcome;
@@ -48,7 +49,9 @@ pub fn router(state: Arc<AuthState>) -> Router {
     }
     Router::new()
         .route("/_liyasa/auth/login", get(login))
-        .route("/_liyasa/auth/callback", get(callback))
+        // AUTH-03 returns by POST and OIDC by GET, on one path because
+        // AUTH-09's table names one endpoint (RFC 1505).
+        .route("/_liyasa/auth/callback", get(callback).post(jwt_callback))
         .route("/_liyasa/auth/password", post(password))
         .route("/_liyasa/auth/magic", post(magic_request))
         .route("/_liyasa/auth/magic/{token}", get(magic_consume))
@@ -191,6 +194,9 @@ pub struct CallbackParams {
     pub state: Option<String>,
     #[serde(default)]
     pub error: Option<String>,
+    /// Only ever read to refuse it. See [`callback`].
+    #[serde(default)]
+    pub token: Option<String>,
 }
 
 /// `GET /_liyasa/auth/callback`.
@@ -199,6 +205,20 @@ async fn callback(
     Query(params): Query<CallbackParams>,
     headers: HeaderMap,
 ) -> Response {
+    // RFC 1505: an operator who built against a guess is told, not silently
+    // accommodated — accommodating it means the token is in their proxy's
+    // access log either way.
+    if params.token.is_some() {
+        return Problem::new(
+            StatusCode::METHOD_NOT_ALLOWED,
+            "A token is returned by POST",
+        )
+        .detail(
+            "a token in the query string reaches every proxy access log, the `Referer` of \
+                 the landing page and browser history; POST it as `token` in a form body instead",
+        )
+        .into_response();
+    }
     if let Some(error) = params.error {
         return Problem::new(StatusCode::BAD_REQUEST, "The provider refused the sign-in")
             .detail(error)
@@ -227,6 +247,111 @@ async fn callback(
         )
         .detail(format!("{refused:?}"))
         .into_response(),
+    }
+}
+
+/// `POST /_liyasa/auth/callback` — AUTH-03's return leg (RFC 1505).
+///
+/// The operator's login application signs a JWT and posts the reader back
+/// here. POST rather than a query parameter because the token is a bearer
+/// credential and a query string reaches every proxy access log, the landing
+/// page's `Referer` and browser history — one of our own four deployment
+/// guides enables Traefik's default access log, which records the full URI.
+async fn jwt_callback(
+    State(state): State<Arc<AuthState>>,
+    request: axum::extract::Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    let headers = parts.headers.clone();
+    let form = parse_body(&headers, &read_body(body).await);
+
+    if state.config.mode != Mode::Jwt {
+        return Problem::new(
+            StatusCode::NOT_FOUND,
+            "This site does not sign in with a JWT",
+        )
+        .into_response();
+    }
+
+    // TODO(rfc-1506): the accepted origins are `auth.jwt.loginUrl`'s plus this
+    // site's own, and the slice is built HERE rather than pushed into
+    // `state.origins`. That list is shared by `guard` across the password,
+    // magic and logout endpoints; widening it would accept a cross-site
+    // password submission and a cross-site logout from the operator's login
+    // application, which is not what RFC 1505 decided and would be invisible
+    // at the line that did it.
+    let origins = return_origins(&state);
+    if let Err(refused) = csrf::check(&headers, &origins, None, csrf::supplied(&headers, &form)) {
+        return Problem::new(
+            StatusCode::FORBIDDEN,
+            "This sign-in did not come from your login",
+        )
+        .detail(refused.detail())
+        .into_response();
+    }
+
+    let Some(token) = field(&form, "token") else {
+        return Problem::bad_request("`token` is required").into_response();
+    };
+    let now = state.clock.now_secs();
+    match jwt::verify(
+        &token,
+        &state.config.jwt,
+        &state.jwks,
+        &*state.jwks_source(),
+        now,
+    )
+    .await
+    {
+        Ok(verified) => {
+            let principal = verified.principal(&state.config.jwt);
+            sign_in(
+                &state,
+                principal,
+                Some(&oidc::safe_return_to(
+                    field(&form, "returnTo").as_deref().unwrap_or("/"),
+                )),
+            )
+        }
+        // `Invalid::detail` is the operator's, not the reader's: it names which
+        // check failed, which is a verification oracle for anyone probing with
+        // crafted tokens. `reader_message` is the same sentence for every
+        // variant, by design in `jwt`.
+        Err(invalid) => {
+            tracing::warn!(
+                target: "liyasa_server",
+                detail = %invalid.detail(),
+                "a returned JWT was rejected"
+            );
+            Problem::new(StatusCode::UNAUTHORIZED, invalid.reader_message()).into_response()
+        }
+    }
+}
+
+/// The origins `POST /_liyasa/auth/callback` accepts, and only that endpoint
+/// (RFC 1506).
+fn return_origins(state: &AuthState) -> Vec<String> {
+    let mut origins = state.origins.clone();
+    if let Some(login) = state.config.jwt.login_url.as_deref()
+        && let Some(origin) = origin_of(login)
+    {
+        origins.push(origin);
+    }
+    origins
+}
+
+/// Scheme, host and port of a URL, with the path discarded. An `Origin` header
+/// has no path, so comparing against a configured URL means comparing against
+/// its origin.
+fn origin_of(url: &str) -> Option<String> {
+    let (scheme, rest) = url.split_once("://")?;
+    if rest.is_empty() {
+        return None;
+    }
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    match authority.is_empty() {
+        true => None,
+        false => Some(format!("{scheme}://{authority}")),
     }
 }
 
@@ -510,6 +635,35 @@ mod tests {
         );
         assert!(parse_body(&headers, b"not json").is_empty());
         assert!(parse_body(&headers, b"[1,2,3]").is_empty());
+    }
+
+    /// RFC 1506 derives the accepted return origin from `auth.jwt.loginUrl`.
+    /// A value that is not a URL must contribute **nothing** rather than a
+    /// garbage entry: the degenerate case is "only this site's origins", which
+    /// refuses the operator's login application and is the safe direction.
+    #[test]
+    fn a_login_url_that_is_not_a_url_contributes_no_origin() {
+        assert_eq!(
+            origin_of("https://login.acme.com"),
+            Some("https://login.acme.com".to_owned())
+        );
+        assert_eq!(
+            origin_of("https://login.acme.com/sign-in?product=docs"),
+            Some("https://login.acme.com".to_owned())
+        );
+        assert_eq!(
+            origin_of("https://login.acme.com:8443/x"),
+            Some("https://login.acme.com:8443".to_owned())
+        );
+        for not_a_url in [
+            "",
+            "login.acme.com",
+            "https://",
+            "https:///sign-in",
+            "//login",
+        ] {
+            assert_eq!(origin_of(not_a_url), None, "{not_a_url}");
+        }
     }
 
     #[test]

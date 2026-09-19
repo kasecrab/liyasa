@@ -72,6 +72,7 @@ liyasa-search = { path = "../crates/liyasa-search", version = "0.1.0" }
 # carries, and resolver 3 keeps it out of the normal build.
 [dev-dependencies]
 liyasa-core = { path = "../crates/liyasa-core", version = "0.1.0", features = ["conformance"] }
+ring.workspace = true   # WP-15 signs a JWT the way an operator's login application would (AUTH-03)
 
 [[bin]]
 name = "reference-site"
