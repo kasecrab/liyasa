@@ -102,21 +102,51 @@ fn the_site_builds_and_the_run_reports_what_it_built() {
 #[test]
 fn the_percentile_is_the_nearest_rank() {
     let mut one = [Duration::from_millis(7)];
-    assert_eq!(measure::p95(&mut one), Duration::from_millis(7));
+    assert_eq!(
+        measure::percentile(&mut one, 0.95),
+        Duration::from_millis(7)
+    );
 
-    // Twenty samples: the 95th percentile by nearest rank is the 19th.
+    // Twenty samples: the 95th by nearest rank is the 19th and the 50th is the
+    // 10th. Nearest rank, so neither is an average of two samples.
     let mut twenty: Vec<Duration> = (1..=20).map(Duration::from_millis).collect();
-    assert_eq!(measure::p95(&mut twenty), Duration::from_millis(19));
+    assert_eq!(
+        measure::percentile(&mut twenty, 0.95),
+        Duration::from_millis(19)
+    );
+    assert_eq!(
+        measure::percentile(&mut twenty, 0.50),
+        Duration::from_millis(10)
+    );
 
-    // Out of order, and the outlier must survive the sort.
-    let mut jumbled = [
-        Duration::from_millis(900),
-        Duration::from_millis(1),
-        Duration::from_millis(2),
-    ];
-    assert_eq!(measure::p95(&mut jumbled), Duration::from_millis(900));
+    // At twenty samples the p95 IS the 19th, so exactly one stall is excluded
+    // by it — the figure a reader would expect to catch an outlier does not.
+    // Worth pinning: it means a p95 above the clean build is the distribution
+    // sitting there, not one unlucky sample, which is the opposite of how such
+    // a number is usually read.
+    let mut one_stall: Vec<Duration> = (1..=19).map(Duration::from_millis).collect();
+    one_stall.push(Duration::from_millis(9_000));
+    assert_eq!(
+        measure::percentile(&mut one_stall, 0.95),
+        Duration::from_millis(19),
+        "one stall in twenty is the maximum, not the 95th percentile"
+    );
 
-    assert_eq!(measure::p95(&mut []), Duration::ZERO);
+    // Two of them do move it, and the p50 stays where it was either way, which
+    // is the whole reason both figures are published.
+    let mut two_stalls: Vec<Duration> = (1..=18).map(Duration::from_millis).collect();
+    two_stalls.push(Duration::from_millis(9_000));
+    two_stalls.push(Duration::from_millis(9_000));
+    assert_eq!(
+        measure::percentile(&mut two_stalls, 0.95),
+        Duration::from_millis(9_000)
+    );
+    assert_eq!(
+        measure::percentile(&mut two_stalls, 0.50),
+        Duration::from_millis(10)
+    );
+
+    assert_eq!(measure::percentile(&mut [], 0.95), Duration::ZERO);
 }
 
 #[test]
@@ -137,6 +167,7 @@ fn comfortable(pages: usize) -> Measurement {
         clean_ms: 1_000,
         warm_ms: 100,
         edit_p95_ms: 10,
+        edit_p50_ms: 4,
         edit_samples: 20,
         navigation_ms: 200,
         peak_resident_bytes: Some(512 * 1024 * 1024),
@@ -274,6 +305,10 @@ fn the_table_is_markdown_a_release_note_can_paste() {
     assert!(table.contains("| 1,000 pages |"), "{table}");
     assert!(table.contains("| 10,000 pages |"), "{table}");
     assert!(table.contains("512 MB"), "{table}");
+    assert!(
+        table.contains("One-page edit (p50)") && table.contains("One-page edit (p95)"),
+        "both figures are published: {table}"
+    );
 
     let budgets = report::budgets(&[comfortable(1_000), comfortable(10_000)]);
     for budget in SIX_SIX {

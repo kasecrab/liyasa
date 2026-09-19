@@ -80,8 +80,8 @@ pub fn show(limit: Limit) -> String {
 /// The table a release note publishes.
 pub fn table(runs: &[Measurement]) -> String {
     let mut out = String::from(
-        "| Site | Clean build | Warm build | One-page edit (p95) | Navigation change | Peak resident |\n\
-         |---|---|---|---|---|---|\n",
+        "| Site | Clean build | Warm build | One-page edit (p50) | One-page edit (p95) | Navigation change | Peak resident |\n\
+         |---|---|---|---|---|---|---|\n",
     );
     for run in runs {
         let resident = run
@@ -89,10 +89,13 @@ pub fn table(runs: &[Measurement]) -> String {
             .map_or_else(|| "—".to_owned(), |b| show(Limit::Resident(b)));
         let _ = writeln!(
             out,
-            "| {} pages | {} | {} | {} | {} | {resident} |",
+            "| {} pages | {} | {} | {} | {} | {} | {resident} |",
             thousands(run.pages),
             show(Limit::Time(std::time::Duration::from_millis(run.clean_ms))),
             show(Limit::Time(std::time::Duration::from_millis(run.warm_ms))),
+            show(Limit::Time(std::time::Duration::from_millis(
+                run.edit_p50_ms
+            ))),
             show(Limit::Time(std::time::Duration::from_millis(
                 run.edit_p95_ms
             ))),

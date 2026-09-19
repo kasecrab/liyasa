@@ -30,6 +30,11 @@ pub struct Measurement {
     pub clean_ms: u64,
     pub warm_ms: u64,
     pub edit_p95_ms: u64,
+    /// Published beside the p95 because §6.6 budgets the tail, and a tail with
+    /// no middle beside it cannot be acted on: on a loaded machine the p95 of
+    /// twenty samples can land above the clean build, and only the p50 says
+    /// whether that is one stall or a level shift.
+    pub edit_p50_ms: u64,
     pub edit_samples: usize,
     pub navigation_ms: u64,
     /// `None` where the platform does not publish a high-water mark.
@@ -114,7 +119,8 @@ pub fn measure_with(dir: &Path, pages: usize, count: usize) -> Result<Measuremen
         cores: std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
         clean_ms: millis(clean),
         warm_ms: millis(warm),
-        edit_p95_ms: millis(p95(&mut edits)),
+        edit_p95_ms: millis(percentile(&mut edits, 0.95)),
+        edit_p50_ms: millis(percentile(&mut edits, 0.50)),
         edit_samples: count,
         navigation_ms: millis(navigation),
         peak_resident_bytes: peak_resident(),
@@ -128,14 +134,14 @@ fn millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
 
-/// The 95th percentile by nearest rank, which is the definition that does not
+/// A percentile by nearest rank, which is the definition that does not
 /// interpolate between two samples that were never measured.
-pub fn p95(samples: &mut [Duration]) -> Duration {
+pub fn percentile(samples: &mut [Duration], fraction: f64) -> Duration {
     if samples.is_empty() {
         return Duration::ZERO;
     }
     samples.sort_unstable();
-    let rank = (samples.len() as f64 * 0.95).ceil() as usize;
+    let rank = (samples.len() as f64 * fraction).ceil() as usize;
     samples[rank.clamp(1, samples.len()) - 1]
 }
 
