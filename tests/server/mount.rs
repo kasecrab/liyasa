@@ -480,43 +480,29 @@ async fn an_operator_named_in_the_config_reaches_a_guarded_route() {
     })
     .await;
 
-    // Self-clearing skip, keyed on the external dependency rather than on a
-    // date or a flag: `AuthConfig` is `deny_unknown_fields`, so until WP-15
-    // adds the field the whole section fails to parse and the subtree skips.
-    // When it starts failing instead of skipping, the missing piece is mine —
-    // `AppState::role_source` must return a `Chain` of `StaticRoles` built
-    // from these operators THEN `MembershipRoles`, rather than membership
-    // alone.
+    // The skip that used to be here is gone, and deleting it is part of the
+    // convention rather than tidying: a skip branch left in after its
+    // precondition is met would silently hide a later regression that
+    // removed the key again. `auth.operators` landed on main in 35128d4 and
+    // this test has asserted since.
     let auth = harness
         .mounted
         .iter()
         .find(|m| m.name == "auth")
         .expect("auth is a registered subtree");
-    if !auth.mounted {
-        // A skip that reads as a pass is the defect this project keeps
-        // finding, so the skip verifies its own reason: the subtree must have
-        // declined because the section did not PARSE. If it declined for any
-        // other reason the fixture is wrong and that is a failure, not a
-        // skip.
-        let reason = auth.skipped.as_deref().unwrap_or("");
-        assert!(
-            reason.contains("could not be read"),
-            "the `auth` subtree declined for a reason this test did not \
-             expect, so the skip below would hide a broken fixture: {reason}"
-        );
-        eprintln!(
-            "SKIPPED: `auth.operators` is not a key `AuthConfig` accepts yet \
-             — it is `deny_unknown_fields`, so the section does not parse. \
-             WP-01 e1a5df8 has the schema; WP-15 mirrors it into `AuthConfig`."
-        );
-        return;
-    }
+    assert!(
+        auth.mounted,
+        "the `auth` section did not parse, so this test would be asserting \
+         against a server with no authentication: {:?}",
+        auth.skipped
+    );
 
     let auth_state = harness.state.auth_state().expect("auth mounted").clone();
-    if auth_state.roles.is_none() {
-        eprintln!("SKIPPED: no role source; `contribute` does not call `with_roles` yet");
-        return;
-    }
+    assert!(
+        auth_state.roles.is_some(),
+        "`auth.operators` is configured but no role source was built, so \
+         nothing can elevate the operator below"
+    );
 
     let issue = |subject: &str| {
         auth_state
