@@ -63,8 +63,19 @@ pub struct JwkSet {
 }
 
 impl JwkSet {
+    /// A JWKS is a JSON **object**. The check is explicit because serde
+    /// deserializes a struct from a sequence too, so `[]` parses into this
+    /// type and yields zero keys — indistinguishable from a provider that is
+    /// rotating and has none. The caller then negatively caches every `kid`
+    /// as absent for a minute, and the operator is told "unknown key" when
+    /// the truth is that `auth.jwt.jwksUrl` points at something that is not a
+    /// JWKS at all.
     pub fn parse(text: &str) -> Option<Self> {
-        serde_json::from_str(text).ok()
+        let value: serde_json::Value = serde_json::from_str(text).ok()?;
+        if !value.is_object() {
+            return None;
+        }
+        serde_json::from_value(value).ok()
     }
 }
 
@@ -389,6 +400,24 @@ mod tests {
             Resolution::Found(_)
         ));
         assert_eq!(jwks.resolve("other", &NoSource).await, Resolution::Unknown);
+    }
+
+    /// `[]` was accepted before this and produced an empty key set. Named
+    /// after the input rather than after the rule, because the input is what
+    /// makes the rule believable.
+    #[test]
+    fn a_json_array_is_not_a_jwks_with_no_keys() {
+        assert!(JwkSet::parse("[]").is_none());
+        assert!(JwkSet::parse(r#"[{"kid":"k1"}]"#).is_none());
+        for not_an_object in ["null", "42", "\"a string\"", "true"] {
+            assert!(JwkSet::parse(not_an_object).is_none(), "{not_an_object}");
+        }
+        // An object with no keys is a real thing: a provider mid-rotation.
+        assert_eq!(JwkSet::parse("{}").map(|s| s.keys.len()), Some(0));
+        assert_eq!(
+            JwkSet::parse(r#"{"keys":[]}"#).map(|s| s.keys.len()),
+            Some(0)
+        );
     }
 
     #[test]
