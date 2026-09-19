@@ -453,6 +453,109 @@ async fn an_elevated_principal_reaches_a_guarded_route_and_an_unelevated_one_doe
 }
 
 #[tokio::test]
+async fn an_operator_named_in_the_config_reaches_a_guarded_route() {
+    // The other half of the elevation story, and the one an instance needs
+    // FIRST: membership cannot bootstrap itself, because adding a member
+    // requires a role nobody has until somebody has one. `auth.operators` is
+    // the break-glass — the only path to a role above `Reader` that does not
+    // itself require a role above `Reader`.
+    //
+    // Shape agreed with WP-01 (RFC 0109): an array of objects with `subject`
+    // and `role`, both required, `reader` excluded from the enum because
+    // granting the empty permission set reads like a grant and is not one.
+    // `subject` is what sign-in actually mints, which is why it is a field
+    // with a description and not a bare map key that would invite an email
+    // address.
+    const OPERATOR: &str = "8f14e45fce";
+    let (harness, _site) = Harness::new(Setup {
+        site_config: Some(json!({
+            "name": "Acme docs",
+            "seo": { "canonicalOrigin": "https://docs.acme.com" },
+            "auth": {
+                "mode": "password",
+                "operators": [{ "subject": OPERATOR, "role": "owner" }]
+            }
+        })),
+        ..Setup::new("mount-operator")
+    })
+    .await;
+
+    // Self-clearing skip, keyed on the external dependency rather than on a
+    // date or a flag: `AuthConfig` is `deny_unknown_fields`, so until WP-15
+    // adds the field the whole section fails to parse and the subtree skips.
+    // When it starts failing instead of skipping, the missing piece is mine —
+    // `AppState::role_source` must return a `Chain` of `StaticRoles` built
+    // from these operators THEN `MembershipRoles`, rather than membership
+    // alone.
+    let auth = harness
+        .mounted
+        .iter()
+        .find(|m| m.name == "auth")
+        .expect("auth is a registered subtree");
+    if !auth.mounted {
+        // A skip that reads as a pass is the defect this project keeps
+        // finding, so the skip verifies its own reason: the subtree must have
+        // declined because the section did not PARSE. If it declined for any
+        // other reason the fixture is wrong and that is a failure, not a
+        // skip.
+        let reason = auth.skipped.as_deref().unwrap_or("");
+        assert!(
+            reason.contains("could not be read"),
+            "the `auth` subtree declined for a reason this test did not \
+             expect, so the skip below would hide a broken fixture: {reason}"
+        );
+        eprintln!(
+            "SKIPPED: `auth.operators` is not a key `AuthConfig` accepts yet \
+             — it is `deny_unknown_fields`, so the section does not parse. \
+             WP-01 e1a5df8 has the schema; WP-15 mirrors it into `AuthConfig`."
+        );
+        return;
+    }
+
+    let auth_state = harness.state.auth_state().expect("auth mounted").clone();
+    if auth_state.roles.is_none() {
+        eprintln!("SKIPPED: no role source; `contribute` does not call `with_roles` yet");
+        return;
+    }
+
+    let issue = |subject: &str| {
+        auth_state
+            .tokens
+            .issue_personal(&Principal::new(subject), "ci", &Default::default(), None)
+            .expect("a token")
+    };
+
+    let operator = issue(OPERATOR);
+    let response = harness
+        .get_with(
+            "/_liyasa/api/v1/org/members",
+            &[("authorization", &format!("Bearer {}", operator.secret))],
+        )
+        .await;
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "an operator named in `auth.operators` cannot reach a guarded route, \
+         so a fresh instance still has no way to appoint its first member"
+    );
+
+    // The organization has no members at all here, so this also pins that the
+    // break-glass key elevates exactly who it names.
+    let stranger = issue("someone-else");
+    let response = harness
+        .get_with(
+            "/_liyasa/api/v1/org/members",
+            &[("authorization", &format!("Bearer {}", stranger.secret))],
+        )
+        .await;
+    assert_eq!(
+        response.status(),
+        StatusCode::FORBIDDEN,
+        "the operator key elevated everybody"
+    );
+}
+
+#[tokio::test]
 async fn a_public_site_mounts_no_auth_routes_and_says_why() {
     // AUTH-01: a public site has no auth code path, and that includes routes
     // that answer "you are not signed in".
