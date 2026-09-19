@@ -65,11 +65,21 @@ pub trait Roles: std::fmt::Debug + Send + Sync {
 
 /// Several role sources, asked in order until one answers.
 ///
-/// An instance needs more than one. Organization membership is the real
-/// source, and an empty membership table elevates nobody — which is the safe
-/// direction and also means a fresh instance has no one who can reach
-/// `SettingsWrite` to add the first member. The break-glass is a
-/// [`StaticRoles`] operator, and both have to be live at once.
+/// An instance needs more than one, and this is **not** a convenience for the
+/// fresh-instance case. Organization membership is the real source, and it
+/// cannot bootstrap itself: adding the first member needs `SettingsWrite`, and
+/// holding `SettingsWrite` needs a membership row that nobody can create yet.
+///
+/// So a [`StaticRoles`] operator is **the only path to a role above
+/// [`Role::Reader`] that does not itself require a role above `Role::Reader`**,
+/// and this is what lets both sources be live at once. Every other piece of the
+/// authorization chain can be correct and the instance still elevates nobody
+/// without it — which looks, from a reader's seat, exactly like none of it
+/// having been built. Do not remove this because membership works.
+///
+/// The operator list needs a configuration key and the schema has none, so
+/// `StaticRoles` can currently only be constructed in code. That key is the
+/// last thing between this chain and a working gate.
 ///
 /// **Order is precedence, and the hazard is in that direction.** The first
 /// source with an answer wins, so a subject named in an earlier source cannot
