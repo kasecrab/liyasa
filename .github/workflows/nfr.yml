@@ -1,0 +1,133 @@
+name: nfr
+
+# The cross-cutting requirements that are checked rather than tested: the
+# licence gate (NFR-15), determinism (NFR-30) and the MSRV floor (NFR-42).
+#
+# A file of its own rather than more jobs in ci.yml, which WP-00 wrote and owns.
+# Nothing here duplicates it: ci.yml runs `cargo deny check` (every check,
+# advisories included) and the workspace test suite, and this runs what those
+# two cannot see.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  # §6.6.2 rule 1: a fixed build clock, so two runs on two machines date their
+  # output from the same instant and a difference is the engine's.
+  SOURCE_DATE_EPOCH: "1700000000"
+
+jobs:
+  # NFR-15. `cargo deny check licenses` enforces the allow list; this enforces
+  # that the allow list is still the one the requirement names, and that a
+  # bundled font or grammar did not arrive without a licence anybody looked at.
+  licences:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo run -p xtask -- licences
+      # NFR-15's other half: the inventory is published as well as enforced.
+      # The crate rows come from the resolved graph, so they are regenerated
+      # here rather than checked offline, the same way the schemas are.
+      - run: cargo run -p xtask -- notices
+      - name: The notices file is in step with the graph
+        run: |
+          if git diff --exit-code THIRD_PARTY_LICENSES.md; then
+            echo "THIRD_PARTY_LICENSES.md is current"
+          else
+            echo '::error::THIRD_PARTY_LICENSES.md is stale; run cargo run -p xtask -- notices and commit it'
+            exit 1
+          fi
+
+  # NFR-42: CI tests the MSRV as well as current stable, which ci.yml's `check`
+  # job already covers. The floor is read out of the workspace manifest rather
+  # than written here, so raising it is one edit and not two.
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: floor
+        run: |
+          version=$(sed -n 's/^rust-version *= *"\(.*\)"/\1/p' Cargo.toml | head -1)
+          test -n "$version" || { echo "no rust-version in Cargo.toml"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.floor.outputs.version }}
+      - uses: Swatinem/rust-cache@v2
+      # `check`, not `test`: the floor is about what compiles. Running the suite
+      # on the oldest toolchain as well would double the slowest job in CI to
+      # re-prove what stable already proved.
+      - run: cargo check --workspace --all-targets --all-features
+
+  # NFR-30, first half: §6.6.2 rule 6's `--check-determinism`, which builds the
+  # reference site twice in one process and diffs `dist/`. Cheap, and it catches
+  # iteration order, unsorted maps and anything that reads the wall clock.
+  determinism:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo run --release -p liyasa-cli --bin liyasa -- build --config docs/liyasa.json --check-determinism
+
+  # NFR-30, second half, and what §6.6.2's closing sentence actually asks for:
+  # "the release pipeline builds the reference site twice on different machines
+  # and diffs dist/". One process cannot see an absolute path, a locale, a CPU
+  # feature or a filesystem ordering baked into the output, because both halves
+  # of the in-process check inherit all four.
+  reference-site:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            name: ubuntu
+          - runner: macos-latest
+            name: macos
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo run --release -p liyasa-cli --bin liyasa -- build --config docs/liyasa.json
+      # Hashes rather than the bundle: the artifact is then a few kilobytes, and
+      # the diff below names the file that moved instead of reporting that two
+      # tarballs are not equal.
+      # `shasum` rather than `sha256sum`, which is not on the macOS runner, and
+      # `LC_ALL=C sort` because two machines that collate differently would
+      # diff on the order of the lines rather than on the bytes of the site.
+      - name: Hash the bundle
+        run: |
+          cd docs/dist
+          find . -type f -exec shasum -a 256 {} + | LC_ALL=C sort -k2 \
+            > "$RUNNER_TEMP/bundle-${{ matrix.name }}.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.name }}
+          path: ${{ runner.temp }}/bundle-${{ matrix.name }}.txt
+
+  cross-machine-diff:
+    needs: reference-site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: bundles
+          merge-multiple: true
+      # An `if`, not `diff … && exit 0`: under `set -e` a failing left operand
+      # of `&&` ends the step before the message is printed, so the job fails
+      # with nothing said about why.
+      - name: Diff the two bundles
+        run: |
+          if diff -u bundles/bundle-ubuntu.txt bundles/bundle-macos.txt; then
+            echo "the two machines agree on every file"
+          else
+            echo "::error::two machines built the reference site differently (NFR-30, §6.6.2)"
+            exit 1
+          fi
