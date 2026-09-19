@@ -28,6 +28,8 @@ mod cfg_64;
 mod cfg_65;
 #[path = "../cli/cfg_83.rs"]
 mod cfg_83;
+#[path = "../config/cfg_96_operators.rs"]
+mod cfg_96_operators;
 #[path = "../config/cfg_90_diagnostics.rs"]
 mod cfg_90_diagnostics;
 #[path = "../build/cfg_90_rules.rs"]
