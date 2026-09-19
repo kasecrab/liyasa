@@ -586,7 +586,15 @@ mod tests {
         // spells differently is a hard error here.
         AuthConfig::from_value(&populated).unwrap_or_else(|error| {
             panic!(
-                "a config using every schema key was refused: {}\n{}",
+                "a config using every schema key was refused: {}\n\
+                 \n\
+                 This is the mirror of \
+                 `every_key_this_struct_writes_is_a_key_the_schema_declares`. A \
+                 schema key with no field in `AuthConfig` fails here; a field \
+                 with no schema key fails there. If a key was just added to the \
+                 schema, its mirror field belongs in the same tree — each half \
+                 reddens alone and both are green together.\n\
+                 \n{}",
                 error.message,
                 serde_json::to_string_pretty(&populated).unwrap_or_default()
             )
@@ -611,9 +619,24 @@ mod tests {
                     true => key.clone(),
                     false => format!("{path}.{key}"),
                 };
-                let declared = properties
-                    .get(key)
-                    .unwrap_or_else(|| panic!("`auth.{here}` is not in the schema"));
+                let declared = properties.get(key).unwrap_or_else(|| {
+                    panic!(
+                        "`auth.{here}` is not in the schema.\n\
+                         \n\
+                         If this is a key you just added to `AuthConfig`: a key \
+                         present on one side and absent on the other is the \
+                         signature of a schema key and its mirror field being \
+                         merged separately. The two ratchets here point in \
+                         opposite directions, so each half reddens alone and \
+                         both are green together — they belong in one tree. \
+                         Check whether the schema change is on another branch \
+                         before treating this as a defect.\n\
+                         \n\
+                         If it is a key nobody added: `AuthConfig` is writing a \
+                         field the schema does not declare, which an operator \
+                         could never legitimately set."
+                    )
+                });
                 walk(child, declared, &here);
             }
         }
