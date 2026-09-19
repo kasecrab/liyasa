@@ -267,6 +267,67 @@ fn the_application_does_not_keep_its_own_state_alive() {
 }
 
 #[tokio::test]
+async fn the_application_extracts_a_session_before_the_guards_run() {
+    // The failure this rules out has no status code of its own: sign-in
+    // answers 200 and sets a cookie, and every later request arrives
+    // anonymous because the layer was never mounted, or was mounted over a
+    // different `AuthState`. The tell is that a guarded route keeps saying
+    // 401 to somebody who is signed in.
+    //
+    // WP-15's own tests compose a router to prove the layer works. This one
+    // asserts it is wired into the router the BINARY builds, which is the
+    // distinction that let auth and deploy sit unrouted for days.
+    let (harness, _site) = Harness::new(Setup {
+        site_config: Some(with_password_auth()),
+        ..Setup::new("mount-session")
+    })
+    .await;
+
+    let published = harness
+        .state
+        .auth_state()
+        .expect("auth mounted, so it published its state")
+        .clone();
+    published
+        .passwords
+        .rotate(&published.env, "correct horse battery staple")
+        .expect("the password hashes");
+
+    // Anonymous: 401, because there is no session to extract.
+    expect_status(
+        harness.get("/_liyasa/api/v1/org/members").await,
+        StatusCode::UNAUTHORIZED,
+    );
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/_liyasa/auth/password")
+        .header("origin", "https://docs.acme.com")
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(Body::from("password=correct+horse+battery+staple"))
+        .expect("a well-formed request");
+    let cookie = header(&harness.send(request).await, "set-cookie")
+        .expect("signing in sets a session cookie")
+        .split(';')
+        .next()
+        .expect("the cookie pair")
+        .to_owned();
+
+    // Signed in: 403, not 401. A `Reader` holds no `DashboardRead`, so the
+    // guard still refuses — but it refuses the right way, which is only
+    // possible if extraction ran outside it.
+    let response = harness
+        .get_with("/_liyasa/api/v1/org/members", &[("cookie", &cookie)])
+        .await;
+    assert_eq!(
+        response.status(),
+        StatusCode::FORBIDDEN,
+        "a signed-in caller is still arriving anonymous: the session layer is \
+         not mounted, or not over the state the endpoints use"
+    );
+}
+
+#[tokio::test]
 async fn a_public_site_mounts_no_auth_routes_and_says_why() {
     // AUTH-01: a public site has no auth code path, and that includes routes
     // that answer "you are not signed in".

@@ -146,44 +146,17 @@ pub fn subtrees() -> &'static [Subtree] {
 // paths and this package may not write in them. Moving one is a cut and paste
 // plus changing its line in `subtrees` (RFC 1403).
 
-/// WP-15. Belongs in `crate::auth` as `pub fn mount`.
+/// WP-15's subtree. Shrunk to what the seam cannot express:
+/// `auth::mount::contribute` returns the endpoint table AND the state the
+/// session layer must use, and a `fn(&Arc<AppState>) -> Mount` can only
+/// return one of them, so publishing the state is the other half (RFC 1403,
+/// "One state, two consumers"). `contribute` does not publish it itself.
 fn auth(app: &Arc<AppState>) -> Mount {
-    use crate::auth::config::AuthConfig;
-    use crate::auth::state::AuthState;
-
-    let config = match AuthConfig::from_site_config(&app.config.site_config) {
-        Ok(config) => config,
-        Err(diagnostic) => {
-            let mut diagnostics = Diagnostics::new();
-            diagnostics.push(diagnostic);
-            // A config that does not parse is not a public site: saying so
-            // would hide the mistake behind a working server.
-            return Mount::skipped("the `auth` section could not be read")
-                .with_diagnostics(diagnostics);
-        }
-    };
-    if config.mode.is_public() {
-        // AUTH-01: a public site has no auth code path at all.
-        return Mount::skipped("`auth.mode` is public, so there is nothing to sign in to");
+    let contribution = crate::auth::mount::contribute(app);
+    if let Some(state) = contribution.state {
+        app.publish_auth_state(state);
     }
-
-    let origins = origins(&app.config.site_config);
-    match AuthState::new(config, &app.config.env, origins, Default::default()) {
-        Ok((state, diagnostics)) => {
-            let state = Arc::new(state.with_proxies(app.proxies.clone()));
-            // The endpoint table is one consumer of this state and the
-            // session layer is the other. Published here, from the single
-            // place it is built, so the layer cannot get a different one
-            // (RFC 1403, "One state, two consumers").
-            app.publish_auth_state(state.clone());
-            Mount::routes(crate::auth::routes::router(state)).with_diagnostics(diagnostics)
-        }
-        // Not E0803: the configuration is fine and the system has no
-        // randomness, which is a different failure from an invalid `auth`
-        // section. Borrowing a code that nearly fits is how a code stops
-        // meaning anything.
-        Err(error) => Mount::skipped(format!("authentication could not be started: {error}")),
-    }
+    contribution.routes
 }
 
 /// WP-28. `crate::org::mount` builds its own state and is still correct for
@@ -211,32 +184,6 @@ fn deploy(app: &Arc<AppState>) -> Mount {
     }
 }
 
-/// The origins a state-changing request may come from: the canonical origin
-/// and every alias (HOST-23, AUTH-09's CSRF check).
-fn origins(config: &serde_json::Value) -> Vec<String> {
-    let mut out = Vec::new();
-    if let Some(canonical) = config
-        .get("seo")
-        .and_then(|seo| seo.get("canonicalOrigin"))
-        .and_then(serde_json::Value::as_str)
-    {
-        out.push(canonical.trim_end_matches('/').to_owned());
-    }
-    if let Some(aliases) = config
-        .get("domains")
-        .and_then(|domains| domains.get("aliases"))
-        .and_then(serde_json::Value::as_array)
-    {
-        out.extend(
-            aliases
-                .iter()
-                .filter_map(serde_json::Value::as_str)
-                .map(|alias| alias.trim_end_matches('/').to_owned()),
-        );
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -247,23 +194,6 @@ mod tests {
         assert!(skipped.router.is_none() && skipped.skipped.is_some());
         let mounted = Mount::routes(Router::new());
         assert!(mounted.router.is_some() && mounted.skipped.is_none());
-    }
-
-    #[test]
-    fn the_origins_are_the_canonical_one_and_its_aliases() {
-        let config = serde_json::json!({
-            "seo": { "canonicalOrigin": "https://docs.acme.com/" },
-            "domains": { "aliases": ["https://acme.dev", "https://docs.acme.io/"] }
-        });
-        assert_eq!(
-            origins(&config),
-            [
-                "https://docs.acme.com",
-                "https://acme.dev",
-                "https://docs.acme.io"
-            ]
-        );
-        assert!(origins(&serde_json::json!({})).is_empty());
     }
 
     #[test]

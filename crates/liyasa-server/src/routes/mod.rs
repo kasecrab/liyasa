@@ -631,8 +631,18 @@ pub fn application(state: Arc<AppState>) -> Application {
             }),
         }
     }
-    // Outermost, after every merge, so a subtree route is counted, timed and
-    // traced like any other request. Anything wrapped later — the session
+    // The session layer wraps the FINISHED router: `with_session` outside,
+    // `guarded` inside, because a guard can only succeed if the extraction
+    // already ran — so it goes after every merge, not before. `auth_state` is
+    // `None` on a public site and on an `auth` section that did not parse, and
+    // AUTH-01 says a public site has no auth code path at all, the layer
+    // included.
+    if let Some(auth_state) = state.auth_state() {
+        router = crate::auth::layer::with_session(router, auth_state.clone());
+    }
+    // Outermost, after every merge and outside the session layer, so a
+    // subtree route is counted, timed and traced like any other request and
+    // the measurement includes whatever extraction costs. Anything wrapped later — the session
     // layer — still runs inside this, which is what makes its cost visible.
     let router = router.layer(middleware::from_fn_with_state(state.clone(), observe));
     // Readiness answers from the state, not from the router, so record it
