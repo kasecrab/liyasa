@@ -207,6 +207,66 @@ async fn a_subtree_route_is_counted_like_any_other_request() {
 }
 
 #[tokio::test]
+async fn the_org_subtree_mounts_from_the_state_application_published() {
+    // The role source is an input to the auth state, and `auth` is mounted
+    // before `org`, so the organization is built before the loop rather than
+    // inside it. Reordering `subtrees()` would also have worked and would
+    // have made the mount order load-bearing and silent — the class of defect
+    // RFC 1403 already records twice.
+    let (harness, _site) = Harness::serving("mount-org-state").await;
+
+    let published = harness
+        .state
+        .org_state()
+        .expect("`application` built and published the organization");
+
+    let org = harness
+        .mounted
+        .iter()
+        .find(|m| m.name == "org")
+        .expect("org is a registered subtree");
+    assert!(org.mounted, "org declined to mount: {:?}", org.skipped);
+
+    // Why publishing matters rather than each consumer calling `org::state`:
+    // it is a constructor, so a second call is a second organization. The
+    // role source must be built from `published`, never from a fresh call.
+    let second = liyasa_server::org::state(&harness.state);
+    assert!(
+        !Arc::ptr_eq(&second, &published),
+        "`org::state` returned the same object twice, so this test no longer \
+         proves anything — check what changed before deleting it"
+    );
+
+    // A behavioural round-trip — write through the published handle, read it
+    // back through the API — is not possible yet: every org write route is
+    // guarded and nothing inserts a `Principal`. When defect 65 closes, that
+    // assertion belongs here and is stronger than this one.
+}
+
+#[test]
+fn the_application_does_not_keep_its_own_state_alive() {
+    // `OrgState` holds an `Arc<AppState>` (`org/state.rs:38`), so publishing a
+    // strong handle to it on `AppState` is a cycle and neither ever drops —
+    // no panic, no status code, just a server's worth of state leaked per
+    // instance, and a test harness leaking a store handle per case.
+    // `AppState.org_state` is a `Weak` for that reason, and this is the
+    // assertion that fails if someone makes it strong.
+    let state = Arc::new(AppState::new(ServerConfig::default()));
+    let weak = Arc::downgrade(&state);
+    let application = routes::application(state);
+    assert!(
+        weak.upgrade().is_some(),
+        "the application is still holding the state it was built from"
+    );
+    drop(application);
+    assert!(
+        weak.upgrade().is_none(),
+        "the application outlived itself: something published a strong \
+         handle back to `AppState` and made a reference cycle"
+    );
+}
+
+#[tokio::test]
 async fn a_public_site_mounts_no_auth_routes_and_says_why() {
     // AUTH-01: a public site has no auth code path, and that includes routes
     // that answer "you are not signed in".

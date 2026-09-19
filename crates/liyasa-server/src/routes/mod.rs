@@ -130,6 +130,17 @@ pub struct AppState {
     /// request is anonymous. A `OnceLock` rather than a field because only
     /// the subtree knows whether there is one — a public site has none.
     auth_state: std::sync::OnceLock<Arc<crate::auth::state::AuthState>>,
+    /// Where the `org` subtree's state is published, for the same reason as
+    /// `auth_state`: the role source and the endpoint table must read one
+    /// organization, or a project created through the API is invisible to
+    /// authorization.
+    ///
+    /// `Weak`, unlike `auth_state`, because `OrgState` holds an
+    /// `Arc<AppState>` of its own (`org/state.rs:38`) — a strong handle here
+    /// would be a cycle and neither would ever drop. The subtree's router
+    /// owns the strong reference for as long as the server serves, which is
+    /// exactly the window a consumer needs it in.
+    org_state: std::sync::OnceLock<std::sync::Weak<crate::org::state::OrgState>>,
 }
 
 impl std::fmt::Debug for AppState {
@@ -159,6 +170,7 @@ impl AppState {
             mounted: std::sync::OnceLock::new(),
             self_arc: std::sync::OnceLock::new(),
             auth_state: std::sync::OnceLock::new(),
+            org_state: std::sync::OnceLock::new(),
             draining: AtomicBool::new(false),
             config,
         }
@@ -217,6 +229,19 @@ impl AppState {
     /// Called once by the `auth` subtree's adapter, before any request.
     pub(crate) fn publish_auth_state(&self, state: Arc<crate::auth::state::AuthState>) {
         let _ = self.auth_state.set(state);
+    }
+
+    /// The organization this instance serves, or `None` when none was built
+    /// (a collector) or the subtree that owned it has been dropped.
+    pub fn org_state(&self) -> Option<Arc<crate::org::state::OrgState>> {
+        self.org_state.get().and_then(std::sync::Weak::upgrade)
+    }
+
+    /// Called once by `application`, before the subtree loop, because the
+    /// role source needs the organization before the `auth` subtree is built
+    /// and the loop must not become order-dependent to arrange that.
+    pub(crate) fn publish_org_state(&self, state: &Arc<crate::org::state::OrgState>) {
+        let _ = self.org_state.set(Arc::downgrade(state));
     }
 
     pub fn draining(&self) -> bool {
@@ -548,6 +573,22 @@ pub struct Application {
 pub fn application(state: Arc<AppState>) -> Application {
     let mut router = router(state.clone());
     let mut mounted = Vec::new();
+    // Built before the loop, not inside it. The role source the `auth`
+    // subtree needs comes from here, and `auth` is mounted first — arranging
+    // that by reordering `subtrees()` would make the mount order load-bearing
+    // and silent, which is the class of defect RFC 1403 already records twice.
+    // A collector serves no subtree and needs no organization.
+    //
+    // This binding is the only strong handle until the subtree's router takes
+    // one, and `AppState` holds a `Weak`, so it must outlive the loop: drop it
+    // early and `org_state()` returns `None` and org silently does not mount.
+    // `mount.rs::the_router_the_binary_builds_serves_the_org_routes` is what
+    // catches that.
+    let _org_state = (!state.config.collector_only).then(|| {
+        let org = crate::org::state(&state);
+        state.publish_org_state(&org);
+        org
+    });
     let mut diagnostics = liyasa_core::diagnostics::Diagnostics::new();
 
     for subtree in mount::subtrees() {

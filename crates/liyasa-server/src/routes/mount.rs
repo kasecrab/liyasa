@@ -136,7 +136,7 @@ pub fn subtrees() -> &'static [Subtree] {
             // whether to buy.
             name: "org",
             permission: None,
-            mount: crate::org::mount,
+            mount: org,
         },
     ]
 }
@@ -183,6 +183,19 @@ fn auth(app: &Arc<AppState>) -> Mount {
         // section. Borrowing a code that nearly fits is how a code stops
         // meaning anything.
         Err(error) => Mount::skipped(format!("authentication could not be started: {error}")),
+    }
+}
+
+/// WP-28. `crate::org::mount` builds its own state and is still correct for
+/// anyone composing org alone; `application` cannot use it, because the role
+/// source and the endpoint table must read ONE organization (RFC 1403, "One
+/// state, two consumers"). So the state is built before the subtree loop and
+/// this mounts from it.
+fn org(app: &Arc<AppState>) -> Mount {
+    match app.org_state() {
+        Some(state) => crate::org::mount_from(state),
+        // Only reachable on a collector, which the loop skips before asking.
+        None => Mount::skipped("no organization was built for this instance"),
     }
 }
 
