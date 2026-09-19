@@ -372,9 +372,14 @@ async fn readiness_names_the_jobs_this_binary_cannot_run() {
         "nothing is queued yet: {clean}"
     );
 
+    // A name nothing will ever register. It used to be "assistant.retention",
+    // which stopped being orphaned the moment WP-18 registered it (defect 130)
+    // and took this assertion red with it. The fixture has to be a name no
+    // package can claim, or every future registration breaks this test for
+    // being correct.
     store
         .jobs_typed()
-        .enqueue(&Enqueue::new("assistant.retention", "day-1"))
+        .enqueue(&Enqueue::new("nobody.handles.this", "day-1"))
         .await
         .expect("a job");
     let body = liyasa_tests::server::body_json(harness.get("/_liyasa/ready").await).await;
@@ -385,7 +390,7 @@ async fn readiness_names_the_jobs_this_binary_cannot_run() {
         .filter_map(|v| v.as_str())
         .collect();
     assert!(
-        orphaned.contains(&"assistant.retention"),
+        orphaned.contains(&"nobody.handles.this"),
         "an operator asking why nothing is indexing must be told: {body}"
     );
     assert!(
