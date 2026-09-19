@@ -28,6 +28,28 @@ allow = [
   "Unicode-DFS-2016",
   "Zlib",
   "CC0-1.0",
+  # lettre's `builder` feature reaches quoted_printable, which encodes the MIME
+  # body of every mail Liyasa sends, under 0BSD — BSD Zero Clause. Allowed
+  # outright rather than scoped to the crate, which is the opposite of the
+  # libfuzzer-sys exception below, and for the reason that exception gives:
+  # libfuzzer-sys is scoped because no artifact ever contains it, and
+  # `cargo tree` never shows it. quoted_printable is in `cargo tree -e normal`
+  # and ships in the server binary, so this is the webpki-root-certs shape
+  # above, not that one. The discriminator is whether the code ships, not
+  # whether a crate can be named.
+  #
+  # 0BSD is ISC with the attribution clause deleted: 643 characters granting
+  # "permission to use, copy, modify, and/or distribute ... with or without
+  # fee", and no occurrence of retain, attribution, copyright notice or
+  # provided that. It imposes no condition at all, so a scoped exception would
+  # stop the next 0BSD crate for a review with no terms to review. MIT-0 and
+  # CC0-1.0 above are the same permission level and are already allowed
+  # outright; scoping this one would make the list say something it does not
+  # mean. cargo deny reports it OSI approved.
+  #
+  # Like CDLA-Permissive-2.0 below, this outruns NFR-15, whose list names
+  # neither. NFR-15 is still `specified` and is WP-32's to reconcile.
+  "0BSD",
   # reqwest's rustls stack reaches rustls-platform-verifier, which ships the
   # Mozilla root store as webpki-root-certs under CDLA-Permissive-2.0. A data
   # licence, not a software one, which is why cargo deny reports no OSI or FSF
