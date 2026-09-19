@@ -53,7 +53,10 @@ fn empty_document() -> Document {
 fn site() -> Vec<(Document, PageMeta)> {
     vec![
         (page("Rate limits"), meta("/guides/limits", "Rate limits")),
-        (page("Authentication"), meta("/guides/auth", "Authentication")),
+        (
+            page("Authentication"),
+            meta("/guides/auth", "Authentication"),
+        ),
     ]
 }
 
@@ -145,32 +148,69 @@ fn a_route_search_exclude_names_is_kept_out_too() {
 #[test]
 fn a_boost_rule_reaches_the_section_documents() {
     let owned = site();
-    let settings = SearchSettings {
+
+    // Both pages answer `limit`: /guides/limits by title and body, /guides/auth
+    // because its body says "rate limit" too. Without a boost the titled page
+    // wins. The assertion is that a boost REORDERS them — `<=` would have
+    // passed on a boost that did nothing at all, which is the whole failure
+    // this test exists to catch.
+    let order = |settings: &SearchSettings| -> Vec<String> {
+        let index = Index::from_built(build::index_site(&pages(&owned), settings).index);
+        let parsed = query::parse("limit", "en").expect("valid query");
+        index
+            .search(&parsed, &Context::default(), &SearchOptions::default())
+            .expect("searches")
+            .into_iter()
+            .map(|hit| hit.url)
+            .collect()
+    };
+
+    let plain = order(&SearchSettings::default());
+    let boosted = order(&SearchSettings {
         boost: vec![BoostRule {
             matches: "/guides/auth**".to_owned(),
-            factor: 4.0,
+            factor: 50.0,
+        }],
+        ..SearchSettings::default()
+    });
+
+    assert!(
+        plain
+            .first()
+            .is_some_and(|url| url.starts_with("/guides/limits")),
+        "the titled page wins on its own: {plain:?}"
+    );
+    assert!(
+        boosted
+            .first()
+            .is_some_and(|url| url.starts_with("/guides/auth")),
+        "a boost of 50 must put the boosted page first: {boosted:?}"
+    );
+}
+
+#[test]
+fn a_boost_of_one_changes_nothing() {
+    let owned = site();
+    let neutral = SearchSettings {
+        boost: vec![BoostRule {
+            matches: "/guides/auth**".to_owned(),
+            factor: 1.0,
         }],
         ..SearchSettings::default()
     };
 
-    let plain = build::index_site(&pages(&owned), &SearchSettings::default());
-    let boosted = build::index_site(&pages(&owned), &settings);
-
-    let rank = |built: build::SiteIndex, term: &str| -> usize {
-        let index = Index::from_built(built.index);
-        let parsed = query::parse(term, "en").expect("valid query");
+    let order = |settings: &SearchSettings| -> Vec<String> {
+        let index = Index::from_built(build::index_site(&pages(&owned), settings).index);
+        let parsed = query::parse("limit", "en").expect("valid query");
         index
             .search(&parsed, &Context::default(), &SearchOptions::default())
             .expect("searches")
-            .iter()
-            .position(|hit| hit.url.starts_with("/guides/auth"))
-            .unwrap_or(usize::MAX)
+            .into_iter()
+            .map(|hit| hit.url)
+            .collect()
     };
 
-    assert!(
-        rank(boosted, "limit") <= rank(plain, "limit"),
-        "a boost cannot demote the page it names"
-    );
+    assert_eq!(order(&SearchSettings::default()), order(&neutral));
 }
 
 #[test]
