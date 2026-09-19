@@ -552,14 +552,22 @@ impl Organization {
         self.deletion.as_ref()
     }
 
+    /// Asking again while a deletion is already scheduled changes nothing.
+    /// Restarting the clock on every request would let a workspace sit
+    /// permanently un-erasable while every call answered 202 (rule 17).
+    /// Cancelling first is a new decision and does restart it.
     pub fn request_deletion(&mut self, by: &str) -> &Deletion {
-        let now = self.clock.now_ms();
-        self.deletion = Some(Deletion {
-            requested_by: by.to_owned(),
-            requested_ms: now,
-            effective_ms: now.saturating_add(crate::auth::clock::millis(COOLING_OFF)),
-        });
-        self.deletion.as_ref().expect("just set")
+        if self.deletion.is_none() {
+            let now = self.clock.now_ms();
+            self.deletion = Some(Deletion {
+                requested_by: by.to_owned(),
+                requested_ms: now,
+                effective_ms: now.saturating_add(crate::auth::clock::millis(COOLING_OFF)),
+            });
+        }
+        self.deletion
+            .as_ref()
+            .expect("set above or already present")
     }
 
     pub fn cancel_deletion(&mut self) -> bool {
@@ -633,6 +641,59 @@ mod tests {
                 .region,
             Region::Apac
         );
+    }
+
+    #[test]
+    fn a_second_create_does_not_move_an_existing_project_s_region() {
+        // HOST-11 says the region is chosen at creation. Rule 17: immutability
+        // is invisible to a test that creates once. The failure this catches is
+        // a create that upserts — it would answer 201 and quietly relocate
+        // data that was collected under the first region's promise.
+        let mut org = org(Tier::Pro);
+        org.create_project("docs", "Docs", Some(Region::Eu))
+            .expect("a project");
+        let refused = org
+            .create_project("docs", "Docs Again", Some(Region::Us))
+            .expect_err("the slug is taken");
+        assert_eq!(refused.code.as_str(), "E0856");
+        assert_eq!(
+            org.project("docs").expect("the project").region,
+            Region::Eu,
+            "the first region stands"
+        );
+        assert_eq!(org.project("docs").expect("the project").title, "Docs");
+        assert_eq!(org.projects().count(), 1);
+    }
+
+    #[test]
+    fn asking_to_delete_twice_does_not_push_the_deadline_back() {
+        // Rule 17: the cooling-off period is a claim about state that
+        // survives, so the test that matters asks twice. A second request
+        // that restarted the clock would let a workspace sit permanently
+        // un-erasable while looking scheduled — every request answers 202 and
+        // the deletion never arrives.
+        let mut org = org(Tier::Pro);
+        let first = org.request_deletion("u1").effective_ms;
+        org.clock().advance(COOLING_OFF / 2);
+        assert_eq!(
+            org.request_deletion("u2").effective_ms,
+            first,
+            "the deadline is the one the first request set"
+        );
+        assert_eq!(
+            org.deletion().expect("a deletion").requested_by,
+            "u1",
+            "and so is the requester on the record"
+        );
+
+        org.clock()
+            .advance(COOLING_OFF / 2 + Duration::from_secs(1));
+        assert!(org.is_erasable(), "thirty days after the first request");
+
+        // Cancelling and asking again is a new decision and does restart it.
+        org.cancel_deletion();
+        assert!(org.request_deletion("u1").effective_ms > first);
+        assert!(!org.is_erasable());
     }
 
     #[test]
