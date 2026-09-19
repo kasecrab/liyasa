@@ -198,11 +198,20 @@ async fn a_timer_enqueues_one_row_however_many_replicas_fire_it() {
     // Three replicas, each firing its own timer for the same bucket. The
     // at-most-once guarantee is the store's unique index over live rows, not
     // anything the worker does (RFC 1404).
+    // The count is rows ADDED, so the first tick reports one and the two that
+    // find the row already there report none. Asserting it here because
+    // anything that logs or graphs this number would otherwise read three
+    // replicas as three pieces of work — failing in the direction that looks
+    // like more is happening than is.
+    let mut added = Vec::new();
     for _ in 0..3 {
-        work::fire_timers(&harness.state, &kinds)
-            .await
-            .expect("a tick");
+        added.push(
+            work::fire_timers(&harness.state, &kinds)
+                .await
+                .expect("a tick"),
+        );
     }
+    assert_eq!(added, [1, 0, 0], "three ticks, one row's worth of work");
     assert_eq!(
         store
             .jobs_typed()
@@ -247,10 +256,14 @@ async fn a_deployment_enqueues_what_packages_registered_for_it() {
     );
 
     // The same deployment announced twice is one re-index, because the build
-    // is the de-duplication key.
-    work::on_deployment(&harness.state, &kinds, &json!({ "buildId": "blake3:abc" }))
-        .await
-        .expect("the event");
+    // is the de-duplication key — and the second call reports adding nothing.
+    assert_eq!(
+        work::on_deployment(&harness.state, &kinds, &json!({ "buildId": "blake3:abc" }))
+            .await
+            .expect("the event"),
+        0,
+        "the same build announced twice is one piece of work"
+    );
     assert_eq!(
         store
             .jobs_typed()

@@ -208,8 +208,16 @@ pub async fn fire_timers(state: &Arc<AppState>, kinds: &[JobKind]) -> Result<usi
             continue;
         };
         if let Some(enqueue) = build(state) {
-            store.jobs_typed().enqueue(&enqueue).await?;
-            queued += 1;
+            // Rows added, not calls made. Every replica's timer fires for the
+            // same bucket and the store's unique index collapses them to one
+            // row, so counting the call would report three ticks as three
+            // pieces of work when one exists.
+            if matches!(
+                store.jobs_typed().enqueue(&enqueue).await?,
+                liyasa_store::jobs::Enqueued::Queued(_)
+            ) {
+                queued += 1;
+            }
         }
     }
     Ok(queued)
@@ -230,8 +238,14 @@ pub async fn on_deployment(
             continue;
         };
         if let Some(enqueue) = build(state, event) {
-            store.jobs_typed().enqueue(&enqueue).await?;
-            queued += 1;
+            // Rows added, not calls made: the same deployment announced twice
+            // is one piece of work, because the build is the key.
+            if matches!(
+                store.jobs_typed().enqueue(&enqueue).await?,
+                liyasa_store::jobs::Enqueued::Queued(_)
+            ) {
+                queued += 1;
+            }
         }
     }
     Ok(queued)
