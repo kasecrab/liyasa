@@ -157,11 +157,66 @@ fn an_unnarrowed_run_does_not_warn_about_narrowing() {
     assert!(!outcome.all().contains("W0023"), "{}", outcome.all());
 }
 
+// --- --refresh and --allow-commands ---------------------------------------
+
+#[test]
+fn refresh_with_nothing_declared_is_a_clean_run() {
+    let project = site("ver-refresh-empty");
+    let outcome = Run::new(["verify", "--only", "facts", "--refresh"])
+        .cwd(project.path())
+        .output();
+    assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
+}
+
+/// HOST-08: an offline run says the sources were not re-read rather than
+/// reporting a check that did not happen as a pass.
+#[test]
+fn offline_refuses_to_refresh() {
+    let project = Dir::new("ver-refresh-offline");
+    project.write(
+        "liyasa.json",
+        r#"{"name":"Acme docs","verify":{"sources":{"prices":{"kind":"url","url":"https://127.0.0.1:9/prices.json","facts":{"plan.pro":"/pro"}}}}}"#,
+    );
+    project.write(
+        "index.md",
+        "---\ntitle: Home\ndescription: The home page.\n---\n\n# Home\n",
+    );
+
+    let outcome = Run::new(["verify", "--refresh", "--offline"])
+        .cwd(project.path())
+        .output();
+    assert!(outcome.all().contains("offline"), "{}", outcome.all());
+}
+
+/// A source that cannot be reached is reported. The address is loopback, so
+/// the refusal comes from the policy and nothing leaves the machine.
+#[test]
+fn a_source_that_cannot_be_read_is_reported() {
+    let project = Dir::new("ver-refresh-unreachable");
+    project.write(
+        "liyasa.json",
+        r#"{"name":"Acme docs","verify":{"sources":{"prices":{"kind":"url","url":"https://127.0.0.1:9/prices.json","facts":{"plan.pro":"/pro"}}}}}"#,
+    );
+    project.write(
+        "index.md",
+        "---\ntitle: Home\ndescription: The home page.\n---\n\n# Home\n",
+    );
+
+    let outcome = Run::new(["verify", "--refresh"])
+        .cwd(project.path())
+        .output();
+    assert!(
+        outcome.all().contains("prices"),
+        "the source is not named: {}",
+        outcome.all()
+    );
+}
+
 #[test]
 fn the_flags_are_in_the_help() {
     let outcome = Run::new(["verify", "--help"]).output();
     assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
-    for flag in ["--refresh", "--no-cache", "--changed"] {
+    for flag in ["--refresh", "--no-cache", "--changed", "--allow-commands"] {
         assert!(outcome.stdout.contains(flag), "{}", outcome.stdout);
     }
 }

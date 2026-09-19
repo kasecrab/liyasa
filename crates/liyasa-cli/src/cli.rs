@@ -348,6 +348,9 @@ pub struct Verify {
     /// Re-read every truth source before checking.
     #[arg(long)]
     pub refresh: bool,
+    /// Let a `command` truth source run on this machine (VER-25).
+    #[arg(long)]
+    pub allow_commands: bool,
     /// Ignore cached check results.
     #[arg(long)]
     pub no_cache: bool,

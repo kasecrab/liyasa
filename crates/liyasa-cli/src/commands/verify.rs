@@ -12,6 +12,7 @@ use std::path::Path;
 use liyasa_core::Diagnostics;
 use liyasa_core::diagnostics::{Diagnostic, code};
 use liyasa_core::source_map::SourceMap;
+use liyasa_verify::sources::RefreshReport;
 
 use crate::Exit;
 use crate::cli::{BrokenLinks, CheckClass, Global, Verify};
@@ -46,8 +47,38 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
         failed |= external.broken > 0;
         out.extend(external.diagnostics);
     }
+    // VER-22: before checking, not only when `facts` is among the classes —
+    // the flag says "re-read every truth source", and a source feeds more than
+    // the fact checks.
+    match refresh(global, args, &built) {
+        Ok(Some(report)) => {
+            failed |= report.has_errors();
+            if !global.quiet && format == crate::cli::Format::Text {
+                println!(
+                    "refreshed {} source{}{}",
+                    report.refreshed.len(),
+                    if report.refreshed.len() == 1 { "" } else { "s" },
+                    if report.reused.is_empty() {
+                        String::new()
+                    } else {
+                        format!(
+                            ", reused {} from the last production snapshot",
+                            report.reused.len()
+                        )
+                    }
+                );
+            }
+            out.extend(report.diagnostics);
+        }
+        Ok(None) => {}
+        Err(diagnostic) => {
+            ctx::report(global, format, *diagnostic);
+            built.discard();
+            return Exit::Errors;
+        }
+    }
     for class in &classes {
-        if let Some(note) = unavailable(*class) {
+        if let Some(note) = unavailable(*class, args.refresh) {
             out.push(note);
         }
     }
@@ -82,6 +113,104 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
     let exit = report(global, format, &out, &built.sources, failed);
     built.discard();
     exit
+}
+
+/// VER-22's CLI half: `--refresh` re-reads every declared truth source before
+/// the checks run, and reports what it could not read.
+///
+/// `None` when the flag was not given. The snapshot log is in memory, so every
+/// source is due on every run — which is what "re-read every truth source"
+/// means, and is why the schedule that `verify.sources.refresh` describes is
+/// the server's rather than this.
+fn refresh(
+    global: &Global,
+    args: &Verify,
+    built: &Built,
+) -> Result<Option<RefreshReport>, ctx::Failed> {
+    use liyasa_verify::core::config::VerifyConfig;
+    use liyasa_verify::sources::kinds::fact_source_policy;
+    use liyasa_verify::sources::{DeclaredSource, Refresher, SnapshotLog, SourceSet};
+
+    if !args.refresh {
+        return Ok(None);
+    }
+
+    let config = crate::net::config_value(&built.project.config);
+    let (settings, _) =
+        VerifyConfig::from_value(config.get("verify").unwrap_or(&serde_json::Value::Null));
+    let (declared, mut problems) = SourceSet::parse(
+        config
+            .pointer("/verify/sources")
+            .unwrap_or(&serde_json::Value::Null),
+    );
+    if declared.is_empty() {
+        let mut report = RefreshReport::default();
+        report.diagnostics.append(&mut problems);
+        return Ok(Some(report));
+    }
+
+    if global.offline {
+        let mut report = RefreshReport::default();
+        report.diagnostics.append(&mut problems);
+        report.diagnostics.push(Diagnostic::new(
+            code::W0019,
+            "`facts` did not run: `--offline` refuses to re-read a truth source",
+        ));
+        return Ok(Some(report));
+    }
+
+    let network = crate::net::Network::for_project(&config)?;
+    // VER-03: the local sandbox is "not a sandbox" and is accepted only on a
+    // developer machine. `--allow-commands` is the person saying so; without
+    // it there is no sandbox and a `command` source is refused rather than
+    // run.
+    let sandbox = args
+        .allow_commands
+        .then(liyasa_verify::runners::sandbox::LocalSandbox::default);
+    let trust = build_trust(&built.project.root, &settings.sources.trusted_branches);
+    let vfs: std::sync::Arc<dyn liyasa_core::vfs::Vfs> =
+        std::sync::Arc::new(liyasa_config::vfs::OsVfs::new(&built.project.root));
+
+    let sources: Vec<DeclaredSource> = declared
+        .iter()
+        .map(|spec| {
+            DeclaredSource::new(spec.clone())
+                .with_vfs(std::sync::Arc::clone(&vfs))
+                .with_allow_list(settings.sources.commands.allow.clone())
+                .with_http_policy(fact_source_policy())
+                .with_build_trust(trust)
+        })
+        .collect();
+
+    let log = SnapshotLog::new();
+    let refresher = Refresher::new(&log, trust, "liyasa verify --refresh");
+    let mut report = network.block_on(
+        refresher.refresh(
+            &sources,
+            network.client(),
+            sandbox
+                .as_ref()
+                .map(|local| local as &dyn liyasa_core::verify::Sandbox),
+            std::time::SystemTime::now(),
+        ),
+    );
+    report.diagnostics.append(&mut problems);
+    Ok(Some(report))
+}
+
+/// VER-25's rule, as much of it as the CLI can decide. RFC 0913.
+///
+/// A person at their own keyboard already has the credentials and a shell, so
+/// a local run is trusted. Under CI the rule applies, by branch: whether a
+/// pull request came from a fork lives with the git provider, not in the
+/// checkout, and the server is where that half is enforced.
+fn build_trust(root: &Path, trusted: &[String]) -> liyasa_verify::sources::BuildTrust {
+    use liyasa_verify::sources::BuildTrust;
+    if std::env::var_os("CI").is_none() {
+        return BuildTrust::Trusted;
+    }
+    let branch = git(root, &["rev-parse", "--abbrev-ref", "HEAD"]).unwrap_or_default();
+    BuildTrust::of(branch.trim(), false, trusted)
 }
 
 /// `--changed <ref>`: the report, narrowed to pages that differ from `ref`,
@@ -348,9 +477,18 @@ fn reconstruct(
     sources
 }
 
-fn unavailable(class: CheckClass) -> Option<Diagnostic> {
+fn unavailable(class: CheckClass, refreshed: bool) -> Option<Diagnostic> {
     let reason = match class {
         CheckClass::Links => return None,
+        // A refresh reads every source and reports what it could not read.
+        // What is still missing is the other half: checking a fact's value
+        // against the pages that interpolate it.
+        CheckClass::Facts if refreshed => {
+            "fact sources were re-read; checking their values against the pages that use them needs the verification orchestrator"
+        }
+        // The orchestrator is the binding constraint: no sandboxed runner
+        // exists, so installing a container changes nothing here yet.
+        // TODO(rfc-0908).
         CheckClass::Code => {
             "code runners need the verification orchestrator, which this build does not have; a container sandbox is needed too, but only once it does"
         }
