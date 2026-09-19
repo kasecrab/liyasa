@@ -21,7 +21,7 @@ use http::{Request, StatusCode, header};
 use liyasa_server::auth::clock::Clock;
 use liyasa_server::auth::config::{AuthConfig, ManagedConfig, Mode};
 use liyasa_server::auth::mail::{MailConfig, Security, SmtpConfig, SmtpMail};
-use liyasa_server::auth::state::{AuthState, Mail};
+use liyasa_server::auth::state::{AuthState, Mail, Unsent};
 use tower::ServiceExt as _;
 
 const ORIGIN: &str = "https://docs.acme.com";
@@ -81,16 +81,39 @@ impl Inbox {
     }
 }
 
+impl Inbox {
+    /// Takes the formatted bytes rather than the message, so this file does
+    /// not need a `lettre` dependency of its own to name the type.
+    fn keep(&self, formatted: Vec<u8>) {
+        self.messages
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(String::from_utf8_lossy(&formatted).into_owned());
+    }
+}
+
 impl Mail for Inbox {
     fn send_link(&self, address: &str, token: &str) {
         let message = self
             .sender
             .message(address, token)
             .expect("the address reached the sender intact");
-        self.messages
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .push(String::from_utf8_lossy(&message.formatted()).into_owned());
+        self.keep(message.formatted());
+    }
+
+    /// The notification path. Recorded the same way and reported as sent,
+    /// because there is no relay here and the point is what was composed.
+    fn send<'a>(
+        &'a self,
+        address: &'a str,
+        subject: &'a str,
+        body: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Unsent>> + Send + 'a>> {
+        Box::pin(async move {
+            let message = self.sender.compose(address, subject, body)?;
+            self.keep(message.formatted());
+            Ok(())
+        })
     }
 }
 
