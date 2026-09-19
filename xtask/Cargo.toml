@@ -12,6 +12,8 @@ description = "Repository tasks: schema generation, the conformance corpus harne
 workspace = true
 
 [dev-dependencies]
+serde_json.workspace = true    # the notices tests build a `cargo metadata` document to drive the reader
+toml.workspace = true          # the lint tests build manifests to drive both branches of the check
 zeroize.workspace = true
 
 [dependencies]
@@ -24,3 +26,4 @@ pulldown-cmark.workspace = true # candidate (d)
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+toml.workspace = true          # deny.toml and the §34.11 asset inventory, for the NFR-15 licence gate

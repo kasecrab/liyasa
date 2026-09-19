@@ -1,0 +1,139 @@
+# Third-party assets, transcribed from PRD §34.11.
+#
+# Crates are `cargo deny`'s business; this file is everything else that reaches
+# a reader — fonts, icon sets, grammars, themes, dictionaries, the companion's
+# runtimes. NFR-15 asks that every bundled non-crate asset be listed with its
+# licence and that a new one outside the allow list fail CI, which is what
+# `cargo run -p xtask -- licences` checks against this file.
+#
+# `bundled = true` means the file ships in the binary, the theme, or the built
+# site. `paths` are repository-relative and may be empty: several rows below
+# are specified assets that are not in the tree yet, and a row with no paths
+# says what its licence will have to be when it arrives rather than pretending
+# it is here. `notice` is a licence text that ships beside the asset because
+# its terms require one.
+#
+# Font Awesome Pro has a row in §34.11 and none here on purpose: the table lists
+# it to record that it is user-supplied and never bundled, so there is nothing
+# for this gate to allow.
+
+[[asset]]
+name = "Inter (variable)"
+source = "rsms/inter"
+licence = "OFL-1.1"
+bundled = true
+paths = ["crates/liyasa-theme/assets/fonts/inter-variable.woff2"]
+notice = "crates/liyasa-theme/assets/fonts/Inter-LICENSE.txt"
+
+[[asset]]
+name = "JetBrains Mono (variable)"
+source = "JetBrains/JetBrainsMono"
+licence = "OFL-1.1"
+bundled = true
+paths = ["crates/liyasa-theme/assets/fonts/jetbrains-mono-variable.woff2"]
+notice = "crates/liyasa-theme/assets/fonts/JetBrainsMono-LICENSE.txt"
+
+[[asset]]
+name = "Lucide icons"
+source = "lucide-icons/lucide"
+licence = "ISC"
+bundled = true
+
+[[asset]]
+name = "Phosphor icons"
+source = "phosphor-icons"
+licence = "MIT"
+bundled = true
+
+[[asset]]
+name = "Tabler icons"
+source = "tabler/tabler-icons"
+licence = "MIT"
+bundled = true
+
+# Three licences over one download: the icons are CC BY 4.0, the fonts OFL 1.1
+# and the CSS MIT. The attribution CC BY 4.0 requires is a comment in the
+# generated CSS and an entry on the licence page.
+[[asset]]
+name = "Font Awesome Free"
+source = "FortAwesome/Font-Awesome"
+licence = "CC-BY-4.0 AND OFL-1.1 AND MIT"
+bundled = true
+
+# The Shiki set is the catalogue, not the licence: each grammar is audited on
+# the way in and one whose terms forbid redistribution is excluded and
+# documented as user-installable.
+[[asset]]
+name = "TextMate grammars (audited subset)"
+source = "per-language upstream repositories, catalogued by shikijs"
+licence = "MIT AND BSD-3-Clause AND Apache-2.0"
+bundled = true
+
+[[asset]]
+name = "Shiki themes (audited subset)"
+source = "shikijs/textmate-grammars-themes"
+licence = "MIT"
+bundled = true
+
+[[asset]]
+name = "Mermaid"
+source = "mermaid-js/mermaid"
+licence = "MIT"
+bundled = true
+
+[[asset]]
+name = "KaTeX fonts and CSS"
+source = "KaTeX/KaTeX"
+licence = "MIT"
+bundled = true
+
+[[asset]]
+name = "Snowball stemmers"
+source = "snowballstem, through tantivy"
+licence = "BSD-3-Clause"
+bundled = true
+
+[[asset]]
+name = "Emoji shortcode table"
+source = "github/gemoji"
+licence = "MIT"
+bundled = true
+
+[[asset]]
+name = "Country and region names"
+source = "Unicode CLDR"
+licence = "Unicode-3.0"
+bundled = true
+
+[[asset]]
+name = "AI agent user-agent list"
+source = "Liyasa-maintained"
+licence = "Apache-2.0"
+bundled = true
+
+# Downloaded on demand behind the `cjk-dict` feature, never shipped. IPADIC and
+# CC BY-SA 3.0 are allowed here and nowhere else: NFR-15 admits them "for
+# on-demand CJK dictionaries only, never for bundled assets", so this row going
+# `bundled = true` is a licence violation and the gate says so.
+[[asset]]
+name = "Lindera dictionaries"
+source = "lindera-morphology/lindera"
+licence = "IPADIC AND BSD-3-Clause AND Apache-2.0 AND CC-BY-SA-3.0"
+bundled = false
+
+# MPL-2.0 is file-level copyleft and NFR-15 admits it for unmodified use. The
+# companion ships axe-core as it comes, so the condition holds.
+[[asset]]
+name = "axe-core"
+source = "dequelabs/axe-core"
+licence = "MPL-2.0"
+bundled = false
+
+# Fetched by `liyasa companion install` and pinned by digest in `liyasa.lock`.
+# Chromium's own third-party notices travel with the download; BSD-3-Clause is
+# the project's licence, which is what this gate can speak about.
+[[asset]]
+name = "Playwright-managed Chromium"
+source = "the Chromium project, via Playwright"
+licence = "BSD-3-Clause"
+bundled = false

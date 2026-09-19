@@ -4,7 +4,10 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use xtask::spike::engines;
-use xtask::{conformance, corpus, corpus_import, corpus_seed, flags, parity, pins, schemas};
+use xtask::{
+    conformance, corpus, corpus_import, corpus_seed, flags, licences, notices, parity, pins,
+    schemas,
+};
 
 const USAGE: &str = "\
 usage: cargo run -p xtask -- <command>
@@ -14,6 +17,14 @@ usage: cargo run -p xtask -- <command>
 
   flags
       Report prose naming a flag the CLI does not define.
+
+  licences
+      Check deny.toml against NFR-15's allow list and every bundled asset
+      against xtask/assets.toml.
+
+  notices
+      Regenerate THIRD_PARTY_LICENSES.md from the resolved dependency graph
+      and xtask/assets.toml. Commit the diff.
 
   pins [--update]
       Check, or re-derive, tests/pins/*.txt. Run --update after fixing a flag
@@ -63,6 +74,8 @@ fn dispatch(args: &[String]) -> Result<(), String> {
             schemas::run(&dir, args.iter().any(|a| a == "--check"))
         }
         Some("flags") => flags::run(&repo_root()),
+        Some("licences") => licences::run(&repo_root()),
+        Some("notices") => notices::run(&repo_root()),
         Some("pins") => pins::run(&repo_root(), args.iter().any(|a| a == "--update")),
         Some("conformance") => {
             let dir = positional(args).ok_or("conformance needs a directory")?;

@@ -5,6 +5,7 @@
 mod conformance_kits;
 mod corpus;
 mod flags;
+mod licences;
 mod pins;
 mod schemas;
 mod span_composition;

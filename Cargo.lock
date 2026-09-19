@@ -2544,6 +2544,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "liyasa-benches"
+version = "0.1.0"
+dependencies = [
+ "liyasa-build",
+ "liyasa-config",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "liyasa-build"
 version = "0.1.0"
 dependencies = [
@@ -5892,6 +5902,7 @@ dependencies = [
  "schemars 1.2.2",
  "serde",
  "serde_json",
+ "toml",
  "zeroize",
 ]
 
