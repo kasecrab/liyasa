@@ -300,26 +300,37 @@ impl SmtpMail {
     /// The message. Separate from sending so a test can read what would go out
     /// without a server to send it to.
     pub fn message(&self, address: &str, token: &str) -> Result<Message, Unusable> {
-        let to: Mailbox = address
-            .parse()
-            .map_err(|_| Unusable::Address("the reader's address", address.to_owned()))?;
         let link = self.link(token);
-        let mut builder = Message::builder()
-            .from(self.from.clone())
-            .to(to)
-            .subject("Your sign-in link");
-        if let Some(reply_to) = &self.reply_to {
-            builder = builder.reply_to(reply_to.clone());
-        }
-        builder
-            .body(format!(
+        self.compose(
+            address,
+            "Your sign-in link",
+            &format!(
                 "Open this link to sign in:\n\n{link}\n\n\
                  It is good for 15 minutes and only in the browser that asked \
                  for it — if your mail app opens links somewhere else, the page \
                  will say so and offer you a new one.\n\n\
                  If you did not ask to sign in, nothing has happened and you \
                  can ignore this.\n"
-            ))
+            ),
+        )
+    }
+
+    /// One envelope for every message this sender produces, so `from`,
+    /// `replyTo` and address validation cannot differ between a sign-in link
+    /// and a notification.
+    pub fn compose(&self, address: &str, subject: &str, body: &str) -> Result<Message, Unusable> {
+        let to: Mailbox = address
+            .parse()
+            .map_err(|_| Unusable::Address("the recipient's address", address.to_owned()))?;
+        let mut builder = Message::builder()
+            .from(self.from.clone())
+            .to(to)
+            .subject(subject);
+        if let Some(reply_to) = &self.reply_to {
+            builder = builder.reply_to(reply_to.clone());
+        }
+        builder
+            .body(body.to_owned())
             .map_err(|error| Unusable::Message(error.to_string()))
     }
 
@@ -360,6 +371,36 @@ impl crate::auth::state::Mail for SmtpMail {
                 tracing::warn!(target: "liyasa_server", %error, "a sign-in link could not be sent");
             }
         });
+    }
+
+    fn send<'a>(
+        &'a self,
+        address: &'a str,
+        subject: &'a str,
+        body: &'a str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<(), crate::auth::state::Unsent>> + Send + 'a>,
+    > {
+        Box::pin(async move {
+            let message = self.compose(address, subject, body)?;
+            self.transport
+                .send(message)
+                .await
+                .map(|_| ())
+                .map_err(|error| crate::auth::state::Unsent::Transport(error.to_string()))
+        })
+    }
+}
+
+impl From<Unusable> for crate::auth::state::Unsent {
+    fn from(error: Unusable) -> Self {
+        use crate::auth::state::Unsent;
+        match error {
+            Unusable::Address(_, address) => Unsent::Address(address),
+            Unusable::Message(detail) => Unsent::Message(detail),
+            Unusable::Transport(detail) => Unsent::Transport(detail),
+            Unusable::HalfACredential => Unsent::Transport(Unusable::HalfACredential.to_string()),
+        }
     }
 }
 
@@ -734,6 +775,75 @@ mod sender_tests {
             .expect("builds")
         );
         assert!(!shown.contains("hunter2"), "{shown}");
+    }
+
+    #[tokio::test]
+    async fn a_notification_carries_the_subject_and_body_it_was_given() {
+        let config = config(Security::Starttls, None);
+        let sent = body(
+            &sender(&config)
+                .compose("ops@example.com", "Deployment finished", "docs v3 is live")
+                .expect("a valid address composes"),
+        );
+        assert!(sent.contains("Subject: Deployment finished"), "{sent}");
+        assert!(sent.contains("docs v3 is live"), "{sent}");
+    }
+
+    /// The envelope is shared with the sign-in link, so `from` and `replyTo`
+    /// cannot drift between the two kinds of message.
+    #[tokio::test]
+    async fn a_notification_and_a_sign_in_link_come_from_the_same_address() {
+        let mut config = config(Security::Starttls, None);
+        config.reply_to = Some("support@example.com".to_owned());
+        let sender = sender(&config);
+        let link = body(&sender.message("reader@example.com", "t").expect("builds"));
+        let note = body(&sender.compose("ops@example.com", "s", "b").expect("builds"));
+        for header in [
+            "From: Docs <docs@example.com>",
+            "Reply-To: support@example.com",
+        ] {
+            assert!(link.contains(header), "{link}");
+            assert!(note.contains(header), "{note}");
+        }
+    }
+
+    /// `send` is awaited and reports, which is the whole difference from
+    /// `send_link`. A host that cannot resolve proves it waited for an answer
+    /// rather than spawning and returning.
+    #[tokio::test]
+    async fn send_waits_for_the_relay_and_reports_what_happened() {
+        use crate::auth::state::Mail as _;
+        let mut config = config(Security::Starttls, None);
+        config.smtp.host = "smtp.invalid".to_owned();
+        let outcome = sender(&config)
+            .send("ops@example.com", "Deployment finished", "docs v3 is live")
+            .await;
+        assert!(
+            matches!(outcome, Err(crate::auth::state::Unsent::Transport(_))),
+            "{outcome:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn send_reports_a_malformed_address_rather_than_panicking() {
+        use crate::auth::state::Mail as _;
+        let config = config(Security::Starttls, None);
+        let outcome = sender(&config).send("not an address", "s", "b").await;
+        assert!(
+            matches!(outcome, Err(crate::auth::state::Unsent::Address(_))),
+            "{outcome:?}"
+        );
+    }
+
+    /// A no-op that reported success is how a caller comes to believe a
+    /// notification was delivered.
+    #[tokio::test]
+    async fn an_unconfigured_sender_reports_failure_rather_than_success() {
+        use crate::auth::state::{Mail as _, NoMail, Unsent};
+        assert_eq!(
+            NoMail.send("ops@example.com", "s", "b").await,
+            Err(Unsent::NotConfigured)
+        );
     }
 
     /// AUTH-09: the endpoint answers identically whether or not the address is

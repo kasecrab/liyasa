@@ -6,7 +6,9 @@
 //! would — the token exchange and sending a magic link — are traits the caller
 //! supplies, which is also what makes the whole table testable in process.
 
+use std::future::Future;
 use std::num::NonZeroUsize;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use liyasa_core::diagnostics::Diagnostics;
@@ -27,10 +29,56 @@ use crate::routes::client_ip::TrustedProxies;
 /// How many renderings the server's variant LRU holds (§6.6.3 item 5).
 pub const DEFAULT_VARIANT_CAPACITY: usize = 1_024;
 
-/// Sending a magic link. A deployment supplies an SMTP or provider client;
-/// a test supplies one that records.
+/// Sending mail. A deployment supplies an SMTP or provider client; a test
+/// supplies one that records.
+///
+/// **The two methods have opposite await semantics and that is deliberate.**
+/// [`send_link`](Mail::send_link) returns immediately and reports nothing,
+/// because AUTH-09 requires `POST /_liyasa/auth/magic` to answer identically
+/// whether or not the address is known — a link is only minted for an address
+/// that can sign in, so awaiting the send would make the response slower
+/// exactly when the address exists, which is a timing oracle for the thing the
+/// identical response exists to hide. The same reasoning forbids letting the
+/// outcome out by another door: a metric labelled by success or failure, or a
+/// retry queue whose depth an attacker could probe, reintroduces the oracle one
+/// layer out.
+///
+/// [`send`](Mail::send) is under no such constraint. A notification is sent to
+/// an address the organization already chose, so nothing is revealed by taking
+/// longer or by saying what happened — and an operator does want to know
+/// whether a deployment notification went out. It is awaited and returns a
+/// `Result`.
+///
+/// Do not "tidy" these into one shape.
 pub trait Mail: std::fmt::Debug + Send + Sync {
+    /// A sign-in link. Never awaited; see the trait documentation.
     fn send_link(&self, address: &str, token: &str);
+
+    /// An ordinary message, awaited, with the outcome reported.
+    ///
+    /// The return type is written out rather than `async fn` because this
+    /// trait is used as `dyn Mail` and an `async fn` in a trait is not
+    /// dyn-compatible. `async-trait` would read better and has no row in the
+    /// PRD's dependency table.
+    fn send<'a>(
+        &'a self,
+        address: &'a str,
+        subject: &'a str,
+        body: &'a str,
+    ) -> Pin<Box<dyn Future<Output = Result<(), Unsent>> + Send + 'a>>;
+}
+
+/// Why a message did not go out.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum Unsent {
+    #[error("no mail sender is configured; see the `mail` section")]
+    NotConfigured,
+    #[error("`{0}` is not an email address")]
+    Address(String),
+    #[error("the message could not be built: {0}")]
+    Message(String),
+    #[error("the relay refused the message: {0}")]
+    Transport(String),
 }
 
 /// A deployment with no mail configured. The link is minted and nothing
@@ -44,6 +92,21 @@ impl Mail for NoMail {
             target: "liyasa_server",
             "a magic link was requested and no mail sender is configured"
         );
+    }
+
+    /// An error rather than `Ok(())`. A no-op that reports success is how a
+    /// caller comes to believe a notification was delivered.
+    fn send<'a>(
+        &'a self,
+        _address: &'a str,
+        _subject: &'a str,
+        _body: &'a str,
+    ) -> Pin<Box<dyn Future<Output = Result<(), Unsent>> + Send + 'a>> {
+        tracing::warn!(
+            target: "liyasa_server",
+            "a message was requested and no mail sender is configured"
+        );
+        Box::pin(std::future::ready(Err(Unsent::NotConfigured)))
     }
 }
 
