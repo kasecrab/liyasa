@@ -237,6 +237,19 @@ impl AppState {
         self.org_state.get().and_then(std::sync::Weak::upgrade)
     }
 
+    /// Who may do what, according to organization membership (ORG-02,
+    /// RFC 2802). `None` on an instance with no organization, which is the
+    /// safe direction: `apply_roles` leaves every principal as it found it
+    /// and nobody is elevated.
+    ///
+    /// Built from the published organization rather than from a fresh
+    /// `org::state`, so the source answers about the same members the API
+    /// writes to. A second organization here would mean a member added
+    /// through the API never receives a grant, silently.
+    pub fn role_source(&self) -> Option<Arc<dyn crate::auth::layer::Roles>> {
+        self.org_state().map(crate::org::role_source)
+    }
+
     /// Called once by `application`, before the subtree loop, because the
     /// role source needs the organization before the `auth` subtree is built
     /// and the loop must not become order-dependent to arrange that.

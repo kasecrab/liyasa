@@ -12,6 +12,8 @@ use std::sync::Arc;
 use axum::body::Body;
 use http::Request;
 use http::StatusCode;
+use liyasa_server::auth::roles::{Grant, Role};
+use liyasa_server::org::model::Member;
 use liyasa_server::routes::mount::Mount;
 use liyasa_server::routes::{self, AppState, ServerConfig};
 use liyasa_tests::server::{Harness, Setup, body_json, body_text, expect_status, header};
@@ -325,6 +327,49 @@ async fn the_application_extracts_a_session_before_the_guards_run() {
         "a signed-in caller is still arriving anonymous: the session layer is \
          not mounted, or not over the state the endpoints use"
     );
+}
+
+#[tokio::test]
+async fn the_role_source_answers_about_the_organization_the_api_writes_to() {
+    // The last piece of defect 65 that belongs to this package. `AppState`
+    // hands out a role source built from the PUBLISHED organization, not from
+    // a fresh `org::state`, so a member added through the API is a member the
+    // authorization path can see. A second organization here would mean a
+    // grant that silently never arrives.
+    let (harness, _site) = Harness::serving("mount-role-source").await;
+
+    let source = harness
+        .state
+        .role_source()
+        .expect("an instance with an organization has a role source");
+    assert!(
+        source.grant_for("nobody@example.com").is_none(),
+        "an empty membership table elevates nobody"
+    );
+
+    // Written through the published handle, read through the role source.
+    // These are one object or this assertion fails.
+    harness
+        .state
+        .org_state()
+        .expect("the organization is published")
+        .write()
+        .org
+        .add_member(Member::new(
+            "u-1",
+            "editor@example.com",
+            Grant::role(Role::Editor),
+        ))
+        .expect("the member is added");
+
+    let grant = source
+        .grant_for("editor@example.com")
+        .expect("the role source reads the organization the API writes to");
+    assert_eq!(grant.role, Role::Editor);
+
+    // Nothing above changes an HTTP answer yet: `contribute` does not call
+    // `with_roles`, so `AuthState.roles` is still `None` and every reader is
+    // still `Reader`. Those are WP-15's three lines, and they land after this.
 }
 
 #[tokio::test]
