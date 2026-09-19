@@ -63,6 +63,24 @@ fn rewrite_map_handles_markers_shorter_than_the_directive() {
     assert_eq!(map.to_expanded(24), 30);
 }
 
+/// The discriminating input for the underflow WP-03 escalated: a map whose
+/// first entry starts above zero, queried below it. No other test reaches the
+/// `else` arm with a non-empty map, because every map in the suite starts at
+/// offset 0 — WP-03 worked around the bug by always emitting an entry there.
+///
+/// Below the first rewritten line nothing has changed length yet, so expanded
+/// and rewritten are the same offset. Getting this wrong is quiet: in release
+/// `to_expanded(9)` used to double-wrap to 1, a small plausible offset nothing
+/// downstream can tell from a real one.
+#[test]
+fn a_map_that_does_not_start_at_zero_is_the_identity_below_its_first_entry() {
+    let map = RewriteMap(vec![(10, 8)]);
+    assert_eq!(map.to_expanded(9), 9);
+    assert_eq!(map.to_expanded(0), 0);
+    // The entry itself still applies from its own line start onward.
+    assert_eq!(map.to_expanded(10), 2);
+}
+
 #[test]
 fn an_empty_rewrite_map_is_the_identity() {
     assert_eq!(RewriteMap::default().to_expanded(42), 42);

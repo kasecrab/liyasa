@@ -93,7 +93,12 @@ impl RewriteMap {
         let at = self
             .0
             .partition_point(|(line_start, _)| *line_start <= rewritten);
-        let Some((line_start, delta)) = self.0.get(at.saturating_sub(1)) else {
+        // `checked_sub`, not `saturating_sub`: an offset below the first entry
+        // gives `at == 0`, and saturating back to 0 would index the first entry
+        // and subtract a larger `line_start` from a smaller offset. That made
+        // the `else` below unreachable for a non-empty map. `SpanMap::origin_at`
+        // above has always done it this way.
+        let Some((line_start, delta)) = at.checked_sub(1).and_then(|i| self.0.get(i)) else {
             return rewritten;
         };
         let expanded_line_start = line_start.saturating_add_signed(-delta);
