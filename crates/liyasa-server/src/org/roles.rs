@@ -80,6 +80,36 @@ impl MembershipRoles {
     /// OIDC `sub` is not an address, and a magic link knows only an address,
     /// so a source that matched one of them would work for half the sign-in
     /// paths and silently fail for the other half.
+    ///
+    /// **Two sign-in paths this cannot follow, and neither is fixable here.**
+    /// `Roles::grant_for` receives a subject and nothing else — not the
+    /// `Principal` — so a source cannot look at `via`, at `data`, or at
+    /// anything but the one string it is handed. Read on `wp/15-auth-domains`,
+    /// which is where all four paths live:
+    ///
+    /// * **Magic link.** `Reader::principal` sets the subject to
+    ///   `address_hash`, a per-instance salted hash of the address (AUTH-05
+    ///   keeps only the hash). It is neither an id nor an address, so no
+    ///   member row can name it and a magic-link reader can never hold a
+    ///   dashboard role.
+    /// * **Shared site password.** `auth/routes.rs` builds
+    ///   `Principal::new(format!("password:{env}"))` — one subject for
+    ///   everyone who knows the password, identifying a *mode* rather than a
+    ///   person. Nobody can be told apart, so nobody can be given a role.
+    ///
+    /// The second one used to be worse than "cannot match": a member row
+    /// created with id `password:<env>` would have handed its grant to every
+    /// reader who knew the site password. **WP-15 closed that on
+    /// 2026-09-19** by having the flow declare itself — `Principal::shared`
+    /// is true for the password flow and `apply_roles` returns early on it,
+    /// so the question is not asked rather than answered carefully.
+    ///
+    /// No guard was written here, deliberately, and that is still the right
+    /// call: matching a `"password:"` prefix would have coupled this file to
+    /// another package's string format and would have stopped matching,
+    /// silently, the day it changed — a guard that can rot without saying so
+    /// buys the illusion of protection. The fix belonged where the subject is
+    /// minted, and that is where it went (RFC 2802 §2b).
     pub fn grant_for(&self, subject: &str) -> Option<Grant> {
         let inner = self.state.read();
         if let Some(member) = inner.org.member(subject) {
