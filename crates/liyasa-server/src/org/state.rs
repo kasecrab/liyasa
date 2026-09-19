@@ -5,7 +5,7 @@
 //! consequences are written down there rather than discovered later — a second
 //! replica sees none of this, and a restart loses the audit log.
 
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak};
 
 use crate::auth::clock::Clock;
 use crate::routes::AppState;
@@ -35,7 +35,16 @@ pub struct OrgState {
     /// The server this subtree is part of, for the client address an audit
     /// entry records and for the trusted-proxy rules that decide whether a
     /// forwarded header may be believed at all.
-    app: Option<Arc<AppState>>,
+    ///
+    /// `Weak`, and it has to be. Once the role source is wired the references
+    /// form a ring: `AppState` holds `AuthState`, which holds the
+    /// `Arc<dyn Roles>`, which is a `MembershipRoles` holding this
+    /// `OrgState`. A strong link back closes it, and a cycle of `Arc`s never
+    /// drops — no panic and no failing assertion, just the whole server
+    /// state, the bundle and the store handle leaked for the life of the
+    /// process, and one leak per harness in the test suite. `AppState`
+    /// already keeps `self_arc` weak for the same reason.
+    app: Option<Weak<AppState>>,
 }
 
 impl OrgState {
@@ -60,13 +69,16 @@ impl OrgState {
         }
     }
 
-    pub fn with_app(mut self, app: Arc<AppState>) -> Self {
-        self.app = Some(app);
+    pub fn with_app(mut self, app: &Arc<AppState>) -> Self {
+        self.app = Some(Arc::downgrade(app));
         self
     }
 
-    pub fn app(&self) -> Option<&Arc<AppState>> {
-        self.app.as_ref()
+    /// `None` once the server it belongs to has been dropped, which in
+    /// practice means during teardown. A caller that gets `None` should do
+    /// whatever it does without a server rather than treat it as a failure.
+    pub fn app(&self) -> Option<Arc<AppState>> {
+        self.app.as_ref().and_then(Weak::upgrade)
     }
 
     pub fn clock(&self) -> &Clock {
@@ -104,7 +116,7 @@ impl OrgState {
             .unwrap_or(app.config.site.as_str());
         let mut settings = Settings::new(name);
         settings.default_region = Region::default();
-        OrgState::new(&app.config.site, settings, Plan::unlimited()).with_app(app.clone())
+        OrgState::new(&app.config.site, settings, Plan::unlimited()).with_app(app)
     }
 }
 
@@ -143,6 +155,31 @@ mod tests {
             ..ServerConfig::default()
         }));
         assert_eq!(OrgState::from_app(&app).read().org.settings.name, "acme");
+    }
+
+    #[test]
+    fn the_organization_does_not_keep_the_server_alive() {
+        // Once the role source is wired the references form a ring:
+        // AppState -> AuthState -> Arc<dyn Roles> -> OrgState -> AppState.
+        // A strong link here closes it and nothing in the ring ever drops.
+        // Falsified before it was trusted: making `app` an `Arc` again fails
+        // this with the weak reference still upgrading.
+        let app = Arc::new(AppState::new(ServerConfig {
+            site: "acme".to_owned(),
+            ..ServerConfig::default()
+        }));
+        let watch = Arc::downgrade(&app);
+        let state = OrgState::from_app(&app);
+        assert!(state.app().is_some(), "and it can still reach it meanwhile");
+
+        drop(app);
+        assert!(
+            watch.upgrade().is_none(),
+            "the organization outlived the server it belongs to"
+        );
+        // The organization is still usable; it simply has no server to ask.
+        assert!(state.app().is_none());
+        assert_eq!(state.read().org.id, "acme");
     }
 
     #[test]
