@@ -41,20 +41,9 @@ const UNCALLED_TODAY: &[(&str, &str)] = &[
          nobody.",
     ),
     (
-        "spawn_trace_export",
-        "DEFECT (HOST-05): the span export loop has never executed. No caller, \
-         no test. Being wired in this package.",
-    ),
-    (
         "with_limiter",
         "deliberate: a test-only builder. `main` configures pools through \
          `state.limiter.configure` instead, so there is nothing to replace.",
-    ),
-    (
-        "with_tracer",
-        "DEFECT (HOST-05): the binary never enables tracing, so every served \
-         instance runs the `Tracer::disabled()` from `AppState::new`. Being \
-         wired in this package.",
     ),
 ];
 
@@ -293,14 +282,20 @@ fn every_pinned_entry_carries_a_reason_somebody_wrote() {
 #[test]
 fn a_test_only_caller_does_not_count_as_a_caller() {
     // The property the whole ratchet rests on, and the one that would have
-    // caught HOST-05. `with_tracer` is called by tests/server/host_05.rs and
-    // by nothing else; if this ever passes, the source filter has stopped
+    // caught HOST-05: an acceptance test calling something is not the product
+    // calling it. `with_limiter` is called by tests/src/server.rs and by
+    // nothing else, so if this ever fails the source filter has stopped
     // excluding tests and the ratchet is worthless.
+    //
+    // It used to name `with_tracer`, which was a defect rather than a
+    // deliberate test-only builder. That entry left the list when the binary
+    // started enabling the tracer, which is what an entry leaving is supposed
+    // to mean.
     let source = production_source();
     assert!(
-        !has_production_caller(&source, "with_tracer"),
-        "`with_tracer` reads as called from production, which is either the \
-         fix landing (delete its row and this assertion together) or the \
-         filter breaking"
+        !has_production_caller(&source, "with_limiter"),
+        "`with_limiter` reads as called from production, so either it gained a \
+         real caller — delete its row and pick another test-only function for \
+         this assertion — or the filter is broken"
     );
 }

@@ -37,6 +37,7 @@ OPTIONS:
     --collector-only      accept analytics events and serve no site (ANA-09)
     --origin <origin>     an origin the collector accepts events for; repeatable
     --collect-site <name> a site the collector accepts events for; repeatable
+    --otlp-endpoint <url> send traces to an OTLP/HTTP collector (HOST-05)
     --offline             make no outbound request of any kind (HOST-08)
     --json-logs           write logs as JSON lines (the default under systemd)
     -h, --help            print this
@@ -55,6 +56,7 @@ struct Options {
     collector_only: bool,
     origins: Vec<String>,
     collect_sites: Vec<String>,
+    otlp_endpoint: Option<String>,
     offline: bool,
     json_logs: bool,
 }
@@ -99,6 +101,7 @@ fn parse(args: &[String]) -> Result<Command, String> {
             "--tls-key" => options.tls_key = Some(value(&mut index)?.into()),
             "--origin" => options.origins.push(value(&mut index)?),
             "--collect-site" => options.collect_sites.push(value(&mut index)?),
+            "--otlp-endpoint" => options.otlp_endpoint = Some(value(&mut index)?),
             "--name" => name = Some(value(&mut index)?),
             "--state" => state = Some(value(&mut index)?),
             "--collector-only" => options.collector_only = true,
@@ -314,6 +317,34 @@ fn parse_duration(text: &str) -> Option<Duration> {
     })
 }
 
+/// Where traces go, or why they go nowhere (HOST-05).
+///
+/// `None` is the normal case and is not a failure: an instance with no
+/// collector configured does not trace. Offline overrides the flag rather
+/// than failing on it — HOST-08 says an offline instance makes no outbound
+/// request of any kind, and a flag in a script is a weaker statement than
+/// the mode the operator chose.
+fn trace_collector(
+    options: &Options,
+    offline: bool,
+) -> Result<Option<liyasa_core::net::Url>, String> {
+    let Some(endpoint) = options.otlp_endpoint.as_deref() else {
+        return Ok(None);
+    };
+    if offline {
+        tracing::warn!(
+            target: "liyasa_server",
+            endpoint,
+            "--otlp-endpoint is set and this instance is offline, so no traces will be sent"
+        );
+        return Ok(None);
+    }
+    endpoint
+        .parse::<liyasa_core::net::Url>()
+        .map(Some)
+        .map_err(|e| format!("--otlp-endpoint is not a url: {e}"))
+}
+
 async fn open_store(options: &Options, ingest: IngestQueue) -> Result<Arc<SqliteStore>, String> {
     let key = master_key()?;
     SqliteStore::open(&options.db(), key, ingest)
@@ -331,9 +362,13 @@ async fn run_serve(options: Options) -> Result<(), String> {
     let ingest = IngestQueue::new(100_000, 5_000);
     let store = open_store(&options, ingest.clone()).await?;
 
+    let collector = trace_collector(&options, offline)?;
     let mut state = AppState::new(config)
         .with_proxies(proxies)
         .with_ingest(ingest.clone());
+    if collector.is_some() {
+        state = state.with_tracer(Arc::new(routes::telemetry::Tracer::new("liyasa", true)));
+    }
     for (pool, limit) in limits {
         use liyasa_core::server::RateLimiter as _;
         state.limiter.configure(pool, limit);
@@ -380,11 +415,25 @@ async fn run_serve(options: Options) -> Result<(), String> {
     runtime.spawn_worker(routes::work::kinds()).await;
     if !offline {
         match liyasa_net::Client::new(liyasa_net::ClientOptions::default()) {
-            Ok(client) => runtime.spawn_webhooks(Arc::new(client)),
+            Ok(client) => {
+                let client = Arc::new(client);
+                runtime.spawn_webhooks(client.clone());
+                // HOST-05. The tracer is only enabled when there is somewhere
+                // to send spans, so this is the other half of the same
+                // decision and shares the same client.
+                if let Some(endpoint) = collector {
+                    tracing::info!(
+                        target: "liyasa_server",
+                        %endpoint,
+                        "exporting traces"
+                    );
+                    runtime.spawn_trace_export(client, endpoint);
+                }
+            }
             Err(error) => tracing::warn!(
                 target: "liyasa_server",
                 %error,
-                "no outbound client: webhooks will not be delivered"
+                "no outbound client: webhooks will not be delivered, and no traces will be sent"
             ),
         }
     }
@@ -669,6 +718,72 @@ fn main() -> ExitCode {
         Err(error) => {
             eprintln!("liyasa-server: {error}");
             ExitCode::FAILURE
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn options(endpoint: Option<&str>) -> Options {
+        Options {
+            otlp_endpoint: endpoint.map(str::to_owned),
+            ..Options::default()
+        }
+    }
+
+    #[test]
+    fn no_endpoint_means_no_tracing_and_that_is_not_an_error() {
+        assert!(matches!(trace_collector(&options(None), false), Ok(None)));
+    }
+
+    #[test]
+    fn an_endpoint_is_where_the_spans_go() {
+        let collector = trace_collector(&options(Some("http://127.0.0.1:4318/v1/traces")), false)
+            .expect("a valid url parses");
+        assert_eq!(
+            collector.map(|url| url.to_string()).as_deref(),
+            Some("http://127.0.0.1:4318/v1/traces")
+        );
+    }
+
+    #[test]
+    fn offline_beats_the_flag() {
+        // HOST-08: an offline instance makes no outbound request of any kind.
+        // The flag is a line in a script; `offline` is the mode the operator
+        // chose, so it wins — and says so rather than silently dropping it.
+        assert!(matches!(
+            trace_collector(&options(Some("http://127.0.0.1:4318/v1/traces")), true),
+            Ok(None)
+        ));
+    }
+
+    #[test]
+    fn a_collector_that_is_not_a_url_stops_the_server_starting() {
+        // Not a warning. An operator who asked for traces and got a silent
+        // no-op learns about it during the incident they wanted them for.
+        let error = trace_collector(&options(Some("not a url")), false)
+            .expect_err("a malformed endpoint is a startup failure");
+        assert!(error.contains("--otlp-endpoint"), "{error}");
+    }
+
+    #[test]
+    fn the_flag_parses() {
+        let args: Vec<String> = [
+            "serve",
+            "--otlp-endpoint",
+            "http://collector:4318/v1/traces",
+        ]
+        .iter()
+        .map(|s| (*s).to_owned())
+        .collect();
+        match parse(&args).expect("the arguments parse") {
+            Command::Serve(options) => assert_eq!(
+                options.otlp_endpoint.as_deref(),
+                Some("http://collector:4318/v1/traces")
+            ),
+            _ => panic!("`serve` is the command"),
         }
     }
 }
