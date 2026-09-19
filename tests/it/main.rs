@@ -8,6 +8,8 @@ mod auth_13_cache_key;
 mod auth_session_layer;
 #[path = "../server/auth_05_magic.rs"]
 mod auth_05_magic;
+#[path = "../server/auth_03_jwt_return.rs"]
+mod auth_03_jwt_return;
 #[path = "../server/auth_13_cdn.rs"]
 mod auth_13_cdn;
 #[path = "../server/auth_14_bot_protection.rs"]

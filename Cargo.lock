@@ -2868,6 +2868,7 @@ dependencies = [
  "liyasa-theme",
  "liyasa-verify",
  "liyasa-wasm",
+ "ring",
  "serde_json",
  "tokio",
  "tower",
