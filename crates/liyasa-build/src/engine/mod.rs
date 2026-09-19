@@ -498,7 +498,15 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
                 .as_ref()
                 .map(|document| liyasa_search::build::IndexPage {
                     document,
-                    meta: page_meta(page, outcome, &navigations, settings_locale, build_clock_ms),
+                    // Cloned per page: `filter_map` needs `FnMut`, and a
+                    // locale is a short string beside tokenizing the page.
+                    meta: page_meta(
+                        page,
+                        outcome,
+                        &navigations,
+                        settings_locale.clone(),
+                        build_clock_ms,
+                    ),
                     indexed: page.indexing.search,
                 })
         })
