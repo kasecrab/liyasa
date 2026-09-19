@@ -1,0 +1,67 @@
+name: platforms
+
+# NFR-41: Linux (glibc and musl, x86_64 and aarch64), macOS 13+, Windows 10+
+# for the CLI, with the server on Windows best effort.
+#
+# `cargo check`, not `cargo test`: a target Liyasa cannot run its suite on —
+# every one of these but the host — would otherwise need an emulator per job to
+# prove nothing the host has not already proved. What this catches is a
+# dependency that does not exist off Linux, a `cfg` that forgot a platform, and
+# a path assumption in a build script.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/platforms.yml"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  check:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            musl: true
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            musl: true
+          # macOS 13 is the floor the requirement names, and the 13 runner is
+          # the only one that proves the floor rather than the current release.
+          - runner: macos-13
+            target: x86_64-apple-darwin
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+          # "Windows 10+ (CLI; server on Windows is best effort)", so the
+          # Windows job builds the CLI and what it needs, and nothing else.
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            packages: "-p liyasa-cli"
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      # musl links through the gnu driver, which needs the cross linker even
+      # for the host architecture.
+      - if: matrix.musl
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: cargo check ${{ matrix.packages || '--workspace' }} --all-targets --target ${{ matrix.target }}
