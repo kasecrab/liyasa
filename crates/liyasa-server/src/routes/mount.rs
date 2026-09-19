@@ -111,9 +111,8 @@ impl Mount {
 
 /// Every subtree, in mount order. One line per package (RFC 1403).
 ///
-/// WP-19 adds `Subtree { name: "mcp", mount: crate::mcp::mount }` and WP-28
-/// `Subtree { name: "org", mount: crate::org::mount }` once those modules
-/// exist.
+/// WP-19 adds `Subtree { name: "mcp", mount: crate::mcp::mount }` once that
+/// module exists.
 pub fn subtrees() -> &'static [Subtree] {
     &[
         Subtree {
@@ -128,6 +127,16 @@ pub fn subtrees() -> &'static [Subtree] {
             name: "deploy",
             permission: None,
             mount: deploy,
+        },
+        Subtree {
+            // Four route groups with three different answers to "who may",
+            // so `org::routes::TABLE` applies the permissions with this
+            // module's own `guarded`. A permission here would double-gate
+            // HOST-10's public SLA, which is published for people deciding
+            // whether to buy.
+            name: "org",
+            permission: None,
+            mount: crate::org::mount,
         },
     ]
 }

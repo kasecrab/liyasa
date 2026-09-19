@@ -79,6 +79,38 @@ async fn the_router_the_binary_builds_serves_the_auth_routes() {
 }
 
 #[tokio::test]
+async fn the_router_the_binary_builds_serves_the_org_routes() {
+    // WP-28's subtree was complete and unreachable: `org::routes::router`
+    // guards its own groups, but nothing registered it, so every org route
+    // answered 404 rather than 401. A 404 and a guard are opposite facts with
+    // one status code between them, so this asserts the two statuses rather
+    // than `!= NOT_FOUND`.
+    let (harness, _site) = Harness::serving("mount-org").await;
+
+    let org = harness
+        .mounted
+        .iter()
+        .find(|m| m.name == "org")
+        .expect("org is a registered subtree");
+    assert!(org.mounted, "org declined to mount: {:?}", org.skipped);
+
+    // HOST-10 publishes the service levels for people deciding whether to
+    // buy, so a subtree-level permission here would be a regression.
+    expect_status(harness.get("/_liyasa/api/v1/org/slo").await, StatusCode::OK);
+
+    // Guarded today means 401 for everyone, because nothing inserts a
+    // `Principal`. That is defect 65 and not this subtree's bug; what this
+    // pins is that the guard is the thing answering.
+    for path in [
+        "/_liyasa/api/v1/org",
+        "/_liyasa/api/v1/org/members",
+        "/_liyasa/api/v1/org/audit",
+    ] {
+        expect_status(harness.get(path).await, StatusCode::UNAUTHORIZED);
+    }
+}
+
+#[tokio::test]
 async fn a_public_site_mounts_no_auth_routes_and_says_why() {
     // AUTH-01: a public site has no auth code path, and that includes routes
     // that answer "you are not signed in".
@@ -146,6 +178,7 @@ async fn readiness_reports_what_was_mounted() {
     let names: Vec<&str> = subtrees.iter().filter_map(|s| s["name"].as_str()).collect();
     assert!(names.contains(&"auth"), "{body}");
     assert!(names.contains(&"deploy"), "{body}");
+    assert!(names.contains(&"org"), "{body}");
     let auth = subtrees
         .iter()
         .find(|s| s["name"] == "auth")
@@ -174,6 +207,7 @@ async fn every_registered_subtree_is_asked_exactly_once() {
     );
     assert!(names.contains(&"auth"));
     assert!(names.contains(&"deploy"));
+    assert!(names.contains(&"org"));
 
     let state = Arc::new(AppState::new(ServerConfig::default()));
     let application = routes::application(state);
@@ -241,13 +275,15 @@ async fn a_guarded_subtree_tells_an_anonymous_caller_to_sign_in() {
 
 #[test]
 fn a_subtree_that_declares_no_permission_is_saying_something_deliberate() {
-    // Both of today's subtrees are ungated on purpose: signing in cannot
-    // require being signed in, and deploy authorizes per handler against the
-    // request's actor. A future entry that leaves this `None` by accident is
-    // the failure this test exists to make someone argue with.
+    // Each of today's subtrees is ungated on purpose: signing in cannot
+    // require being signed in, deploy authorizes per handler against the
+    // request's actor, and org applies three different permissions to four
+    // route groups in `org::routes::TABLE`, one of which is HOST-10's public
+    // SLA. A future entry that leaves this `None` by accident is the failure
+    // this test exists to make someone argue with.
     for subtree in routes::mount::subtrees() {
         match subtree.name {
-            "auth" | "deploy" => assert!(
+            "auth" | "deploy" | "org" => assert!(
                 subtree.permission.is_none(),
                 "`{}` gained a permission; if that is intended, say why here",
                 subtree.name
