@@ -694,6 +694,26 @@ pub fn router(state: Arc<AppState>) -> Router {
             )
             .route("/_liyasa/feedback/summary", get(feedback::summary))
             .route("/_liyasa/feedback/{id}", patch(feedback::set_status))
+            // REST-11's status convention, agreed with WP-28 and recorded in
+            // RFC 2802 "The standing operator grant, and one status code":
+            //
+            //   an endpoint whose success CAN carry information answers 200,
+            //   always; an endpoint whose success is genuinely
+            //   information-free answers 204.
+            //
+            // It is a property of the endpoint, decided once, not of the data
+            // in a particular request — a status that varies with the data
+            // surprises clients, so an endpoint that sometimes has something
+            // to report answers 200 with a null field when it does not.
+            //
+            // So `webhooks::unsubscribe` is 204 and org's member removal is
+            // 200: removing a member can report a standing operator grant
+            // that the removal does not revoke, which is information, so that
+            // endpoint fails the 204 precondition permanently rather than per
+            // request. `deployments::delete` has the same shape unresolved —
+            // deleting a deployment leaves the build it pointed at — and the
+            // day that is worth reporting it moves to 200 under this rule
+            // without renegotiating it.
             .route("/_liyasa/api/v1/content", get(content))
             .route("/_liyasa/api/v1/jobs", get(jobs::list))
             .route("/_liyasa/api/v1/jobs/{id}", get(jobs::get))
