@@ -5,7 +5,7 @@
 //! index gains little from the extra granularity. Prose and code are separated
 //! here, once, so both indexes weigh a fence the same way (SRC-03).
 
-use liyasa_core::document::{Block, BlockKind, Document, Inline, Node, PropValue};
+use liyasa_core::document::{Block, BlockKind, Document, Inline, Node, PropValue, Props};
 
 use crate::doc::{PageMeta, SectionDocument};
 
@@ -114,6 +114,38 @@ impl Open {
     }
 }
 
+/// Whether a component withholds its children from somebody.
+///
+/// The index is one artefact for every reader, so a block that is not shown to
+/// everybody is indexed for nobody. `liyasa-components` applies these gates at
+/// render time through `Shared`; `index_site` hands the whole Rendered AST to
+/// the extractor instead, so the component gate never runs and this walk is
+/// the only thing between a `:::visibility{groups=["admin"]}` block and a
+/// snippet any anonymous reader can search.
+///
+/// Keyed on the prop names rather than the component name. `liyasa-components`
+/// recognises `visibility` and `region` by name in its own ctx-free walk
+/// (`text.rs`, TODO(rfc-0401)), which is exact for the two components that
+/// exist today and silently admits the third one somebody adds. These names
+/// are reserved for gating by the component schemas, so any component
+/// declaring one withholds its children from someone by declaring it.
+///
+/// Over-excluding is the safe direction and the cost is small: a block gated
+/// by `versions` or `locales` is not secret, but it is also not representable
+/// in a section whose facets are the page's, so indexing it would let a v1
+/// reader match v2 prose in a section labelled v1.
+fn gates(props: &Props) -> bool {
+    const GATES: [&str; 6] = ["groups", "regions", "locales", "versions", "only", "except"];
+    GATES.iter().any(|name| match props.get(name) {
+        Some(PropValue::List(items)) => !items.is_empty(),
+        Some(PropValue::Str(text)) => !text.is_empty(),
+        // An expression the build could not resolve is a gate whose answer is
+        // unknown, and an unknown gate is one that did not hold (RFC 0401).
+        Some(PropValue::Expr(_)) => true,
+        _ => false,
+    })
+}
+
 /// An accumulator that inserts one space between pieces and nowhere else, so
 /// two paragraphs never run their words together and a snippet offset means
 /// what it says.
@@ -165,6 +197,12 @@ fn collect_block(block: &Block, body: &mut Text, code: &mut Text) {
         // rather than content; none of them belong in a search snippet.
         BlockKind::HtmlBlock { .. } | BlockKind::Math { .. } | BlockKind::LogicMarker { .. } => {}
         BlockKind::Component { props, slots, .. } => {
+            // A gated block's contents belong to some readers and the index
+            // belongs to all of them, so its children, its slots and its own
+            // prop values are all withheld (SRC-12).
+            if gates(props) {
+                return;
+            }
             for value in props.0.values() {
                 collect_prop(value, body);
             }

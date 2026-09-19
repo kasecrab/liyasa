@@ -174,3 +174,159 @@ fn the_tantivy_index_holds_no_reader_value() {
     assert!(checked > 0, "the index wrote something to assert against");
     let _ = std::fs::remove_dir_all(&directory);
 }
+
+/// SRC-12 at block level: a gated block's text must not reach the one index
+/// every reader queries.
+///
+/// Found by WP-06 while wiring the call site, and it is the third door onto
+/// the leak WP-04 closed. Template gating (`{% if reader.groups %}`) is
+/// resolved before parse, so the AST differs per variant and the build's
+/// `Variant::default()` capture handles it. Component gating
+/// (`:::visibility{groups=[...]}`) does NOT: the children stay in the AST for
+/// every variant including the anonymous one, because WP-04's gate runs in
+/// `liyasa-components` at render time, through `Shared`. `index_site` hands
+/// the whole document to the extractor rather than rendering it, so the
+/// component gate never runs — and `index_site` is the one place a single
+/// artefact is built for every reader.
+///
+/// `liyasa-components/src/text.rs:71` carries a doc comment about this exact
+/// leak being closed once already for `render_text`. This is the same leak on
+/// the other walk.
+mod gated_blocks {
+    use liyasa_core::document::{PropValue, Props};
+    use liyasa_core::ids::{Locale, Route};
+    use liyasa_search::doc::PageMeta;
+    use liyasa_search::section;
+
+    use crate::support::{component, document, heading, para};
+
+    const SECRET: &str = "Raise a limit from the admin console at slash internal.";
+
+    fn props(key: &str, values: &[&str]) -> Props {
+        let mut map = std::collections::BTreeMap::new();
+        map.insert(
+            key.to_owned(),
+            PropValue::List(
+                values
+                    .iter()
+                    .map(|value| PropValue::Str((*value).to_owned()))
+                    .collect(),
+            ),
+        );
+        Props(map)
+    }
+
+    fn meta() -> PageMeta {
+        PageMeta::new(
+            Route::new("/guides/limits"),
+            "Rate limits",
+            Locale::new("en"),
+        )
+    }
+
+    fn indexed_text(children: Vec<liyasa_core::document::Node>) -> String {
+        let document = document(children);
+        section::extract(&document, &meta())
+            .iter()
+            .map(|section| format!("{} {} {}", section.title, section.section, section.body))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    #[test]
+    fn a_group_gated_block_is_not_indexed() {
+        let text = indexed_text(vec![
+            heading(1, "", "Rate limits"),
+            para("Every API key has a rate limit."),
+            component(
+                "visibility",
+                props("groups", &["admin"]),
+                vec![para(SECRET)],
+            ),
+        ]);
+
+        assert!(
+            text.contains("Every API key"),
+            "the ungated prose is still indexed: {text}"
+        );
+        assert!(
+            !text.contains("admin console"),
+            "a `:::visibility{{groups}}` block's text reached the shared index: {text}"
+        );
+    }
+
+    #[test]
+    fn the_group_names_themselves_are_not_indexed() {
+        let text = indexed_text(vec![
+            heading(1, "", "Rate limits"),
+            component(
+                "visibility",
+                props("groups", &["acme-staff"]),
+                vec![para(SECRET)],
+            ),
+        ]);
+        assert!(
+            !text.contains("acme-staff"),
+            "the gate's own prop value is a customer's group name: {text}"
+        );
+    }
+
+    #[test]
+    fn a_region_gated_block_is_not_indexed() {
+        let text = indexed_text(vec![
+            heading(1, "", "Rate limits"),
+            component("region", props("only", &["eu"]), vec![para(SECRET)]),
+        ]);
+        assert!(!text.contains("admin console"), "{text}");
+    }
+
+    #[test]
+    fn a_gate_under_another_component_is_still_a_gate() {
+        // The card walks its children as plain blocks; the gate is one level
+        // down. This is the shape `text.rs` names: "the card's own `text`
+        // walks its children as plain blocks and never dispatches".
+        let text = indexed_text(vec![
+            heading(1, "", "Rate limits"),
+            component(
+                "card",
+                Props::default(),
+                vec![component(
+                    "visibility",
+                    props("groups", &["admin"]),
+                    vec![para(SECRET)],
+                )],
+            ),
+        ]);
+        assert!(!text.contains("admin console"), "{text}");
+    }
+
+    #[test]
+    fn an_ungated_component_still_contributes_its_children() {
+        let text = indexed_text(vec![
+            heading(1, "", "Rate limits"),
+            component(
+                "card",
+                Props::default(),
+                vec![para("Burst traffic is smoothed over ten seconds.")],
+            ),
+        ]);
+        assert!(
+            text.contains("Burst traffic"),
+            "only a gate withholds children, not every component: {text}"
+        );
+    }
+
+    #[test]
+    fn an_empty_gate_declaration_gates_nothing() {
+        // `gate::any_of` treats an empty declaration as no gate; so must this.
+        let text = indexed_text(vec![
+            heading(1, "", "Rate limits"),
+            component(
+                "visibility",
+                props("groups", &[]),
+                vec![para("Burst traffic is smoothed over ten seconds.")],
+            ),
+        ]);
+        assert!(text.contains("Burst traffic"), "{text}");
+    }
+}
