@@ -526,6 +526,38 @@ mod tests {
     }
 
     #[test]
+    fn rolling_over_repeatedly_does_not_compound_past_the_cap() {
+        // Rule 17: the claim is about state that survives a period, so the
+        // test that matters runs it more than once. A carry that compounded
+        // would pass the single-period test above and drift upward forever.
+        let mut ledger = Ledger::new(Some(1_000));
+        for period in 0..5 {
+            assert_eq!(
+                ledger.granted(),
+                Some(if period == 0 { 1_000 } else { 1_500 }),
+                "period {period}"
+            );
+            assert!(
+                ledger.granted().expect("a pool") <= 1_500,
+                "period {period} is past one and a half pools"
+            );
+            ledger = ledger.next_period();
+        }
+    }
+
+    #[test]
+    fn a_period_that_spent_everything_carries_nothing_into_the_next() {
+        let mut ledger = Ledger::new(Some(100));
+        for _ in 0..100 {
+            ledger.charge(Spend::AssistantAnswer, "docs", Access::Managed);
+        }
+        assert_eq!(ledger.rollover(), 0);
+        let next = ledger.next_period();
+        assert_eq!(next.granted(), Some(100), "the pool, and nothing carried");
+        assert_eq!(next.spent(), 0);
+    }
+
+    #[test]
     fn a_top_up_does_not_roll_over_and_the_alerts_rearm() {
         // A top-up raises what the alerts are a percentage of, which is the
         // point of buying one: sixty answers against a hundred-credit pool is
