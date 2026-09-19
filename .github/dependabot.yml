@@ -1,0 +1,37 @@
+# NFR-13 asks for dependencies that are minimal and audited. `cargo deny` is the
+# gate; this is the thing that keeps the gate from being a snapshot of the day
+# the lock file was written.
+#
+# Monthly and grouped rather than weekly and per-crate: a 297-crate lock file
+# updated one pull request at a time is a queue nobody reads, and an unread
+# queue is how a security update sits for a month behind forty patch bumps.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      # Patch and minor together: these are the ones `cargo deny` and the suite
+      # can judge on their own.
+      routine:
+        update-types: ["minor", "patch"]
+    # A major bump is a decision, not an update, and each one gets its own
+    # pull request to be read on its own terms.
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: monthly
+    groups:
+      routine:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

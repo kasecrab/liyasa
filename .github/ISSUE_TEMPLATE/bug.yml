@@ -1,0 +1,41 @@
+name: Bug report
+description: Something Liyasa does that it should not.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A security problem does not belong here — see SECURITY.md for the
+        private channel.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: What was running
+      options:
+        - liyasa build
+        - liyasa dev
+        - the server
+        - the editor
+        - something else
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: The smallest thing that shows it
+      description: A page, a config, or a command. Paste it rather than describing it.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened
+      description: If there is a diagnostic code, quote it — `E0706` and the like.
+    validations:
+      required: true

@@ -1,0 +1,49 @@
+name: RFC — a change that breaks something
+description: Propose a change to a config key, a default, rendered output, or a command-line surface.
+title: "RFC: "
+labels: ["rfc", "breaking"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a change that makes a page, a configuration or a command behave
+        differently than it did on the last release. An ordinary feature or fix
+        does not need this template.
+  - type: textarea
+    id: change
+    attributes:
+      label: The change
+      description: What would be different, concretely. Name the key, the flag, or the element.
+    validations:
+      required: true
+  - type: textarea
+    id: breaks
+    attributes:
+      label: Who it breaks
+      description: >
+        What stops working, and how somebody finds out — a build error, a
+        warning, a page that renders differently and says nothing.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it is worth breaking them
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Including the one where nothing changes, and what that costs.
+    validations:
+      required: true
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration
+      description: >
+        What an existing site does about it, and whether a deprecation warning
+        can carry that text. Deprecations warn for at least two minor releases.
+    validations:
+      required: true
