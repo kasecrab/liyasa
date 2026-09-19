@@ -167,7 +167,20 @@ fn scan_frontmatter(
         Ok((value, typed)) => (Some(Frontmatter { span, value, typed }), block_end),
         Err(diagnostic) => {
             diagnostics.push(*diagnostic);
-            (None, block_end)
+            // The value did not parse; the bytes are still front matter. This
+            // returned `None` with an advanced `block_end`, so the segments
+            // began after a block nothing owned and `serialize_source` dropped
+            // it: an author who saved a page with one key the schema disliked
+            // lost every key and both fences. `body_start` disagreed with the
+            // segments for the same reason.
+            (
+                Some(Frontmatter {
+                    span,
+                    value: serde_json::Value::Null,
+                    typed: FrontmatterFields::default(),
+                }),
+                block_end,
+            )
         }
     }
 }
@@ -920,6 +933,36 @@ mod tests {
 
     /// The tag scan walks a byte at a time, so it stands on a continuation
     /// byte of every multi-byte character it passes. Slicing there panicked.
+    /// A parse error leaves the block owned, so the spans still tile the file
+    /// and `body_start` still agrees with the first segment.
+    #[test]
+    fn unparseable_front_matter_keeps_its_span() {
+        let text = "---\nid: not-a-ulid\ntitle: Limits\n---\n\nbody\n";
+        let (document, diagnostics) = document(text);
+        assert_eq!(codes(&diagnostics), ["E0102"]);
+        let front = document
+            .frontmatter
+            .as_ref()
+            .expect("the bytes still belong to the front matter");
+        assert_eq!(
+            at(text, front.span),
+            "---\nid: not-a-ulid\ntitle: Limits\n---\n"
+        );
+        assert!(
+            front.value.is_null(),
+            "nothing parsed, so there is no value"
+        );
+        assert_eq!(
+            front.typed,
+            liyasa_core::frontmatter::FrontmatterFields::default()
+        );
+        assert_eq!(
+            body_start(&document),
+            document.segments[0].span().start,
+            "the body starts where the first segment does"
+        );
+    }
+
     #[test]
     fn a_tag_may_hold_a_multibyte_character() {
         for text in [
@@ -1063,9 +1106,13 @@ mod tests {
     fn invalid_front_matter_is_reported_and_the_body_still_scans() {
         let text = "---\ntitle: [unclosed\n---\n\nbody\n";
         let (document, diagnostics) = document(text);
-        assert!(document.frontmatter.is_none());
         assert_eq!(codes(&diagnostics), ["E0101"]);
         assert_eq!(at(text, document.segments[0].span()), "\nbody\n");
+        // This asserted `is_none()` until the round trip showed what that
+        // cost: the block is reported *and* kept, because the diagnostic is
+        // about the value and the bytes are still front matter.
+        let front = document.frontmatter.as_ref().expect("the block is kept");
+        assert_eq!(at(text, front.span), "---\ntitle: [unclosed\n---\n");
     }
 
     #[test]

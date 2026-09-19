@@ -44,6 +44,8 @@ mod tests {
             "",
             "# Title\n\nbody\n",
             "---\ntitle: A\n---\n\nbody\n",
+            // Front matter the YAML reader rejects is still front matter.
+            "---\nid: not-a-ulid\ntitle: Limits\n---\n\nbody\n",
             "```bash\necho {{ x }}\n```\n",
             ":::note\nbody\n:::\n",
             "{% for row in rows %}\n- {{ row }}\n{% endfor %}\n",
@@ -51,6 +53,19 @@ mod tests {
         ] {
             assert_eq!(round_trip(text), text);
         }
+    }
+
+    /// The diagnostic is about one value; the deletion was of everything
+    /// around it, and nothing reported that.
+    #[test]
+    fn a_page_whose_front_matter_does_not_parse_keeps_it() {
+        let text = "---\nid: not-a-ulid\ntitle: Limits\n---\n\nbody\n";
+        let (document, diagnostics) = scan::scan(text, SourceId(0));
+        assert!(
+            diagnostics.iter().any(|d| d.code.as_str() == "E0102"),
+            "the fixture is supposed to be unparseable YAML"
+        );
+        assert_eq!(serialize_source(text, &document, &[]), text);
     }
 
     #[test]
