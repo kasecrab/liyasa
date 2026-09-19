@@ -397,3 +397,55 @@ async fn readiness_names_the_jobs_this_binary_cannot_run() {
         "{body}"
     );
 }
+
+#[tokio::test]
+async fn releasing_an_unhandled_job_leaves_another_workers_leases_alone() {
+    // `Jobs::release` is by worker, so an unhandled job used to hand back
+    // every row that worker held. Harmless only while the loop holds one at a
+    // time, which made the `break` load-bearing without saying so (WP-16).
+    // `release_one` is scoped to the id; this is the input that tells the two
+    // apart.
+    let (harness, _site) = Harness::serving("worker-release-scope").await;
+    let store = harness.state.store.clone().expect("a store");
+    let held = store
+        .jobs_typed()
+        .enqueue(&Enqueue::new("test.counting", "held"))
+        .await
+        .expect("a job")
+        .id();
+
+    // Claim it BEFORE the unhandled job exists, so which row this takes does
+    // not depend on the claim order of two rows with the same priority.
+    let first = store
+        .jobs_typed()
+        .claim("replica-a", Duration::from_secs(600))
+        .await
+        .expect("a claim")
+        .expect("a job");
+    assert_eq!(first.id, held);
+
+    store
+        .jobs_typed()
+        .enqueue(&Enqueue::new("some.newer.package", "one"))
+        .await
+        .expect("a job");
+
+    // The same worker then meets a job it has no handler for.
+    let kinds: [work::JobKind; 0] = [];
+    work::run_once(&harness.state, &kinds, "replica-a")
+        .await
+        .expect("a pass");
+
+    let still_held = store
+        .jobs_typed()
+        .get(&held)
+        .await
+        .expect("a read")
+        .expect("the job");
+    assert_eq!(
+        still_held.state,
+        JobState::Leased,
+        "an unrelated in-flight job must not be re-queued underneath its handler"
+    );
+    assert_eq!(still_held.worker.as_deref(), Some("replica-a"));
+}
