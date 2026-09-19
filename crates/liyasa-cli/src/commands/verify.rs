@@ -6,6 +6,9 @@
 //! orchestrator and the sandbox, and a run says which classes did not run
 //! rather than counting them as passing.
 
+use std::collections::BTreeSet;
+use std::path::Path;
+
 use liyasa_core::Diagnostics;
 use liyasa_core::diagnostics::{Diagnostic, code};
 use liyasa_core::source_map::SourceMap;
@@ -31,7 +34,7 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
         args.only.clone()
     };
 
-    let Some(built) = build_site(global, format) else {
+    let Some(built) = build_site(global, format, args.no_cache) else {
         return Exit::Errors;
     };
 
@@ -49,14 +52,135 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
         }
     }
 
+    if let Some(reference) = &args.changed {
+        match changed_since(&built.project.root, reference) {
+            Ok(files) => {
+                let (kept, unplaceable) = only_in(&out, &files, &built.sources);
+                out = kept;
+                if unplaceable > 0 {
+                    out.push(
+                        Diagnostic::new(
+                            code::W0023,
+                            format!(
+                                "{unplaceable} problem{} could not be narrowed to a page and {} shown anyway",
+                                if unplaceable == 1 { "" } else { "s" },
+                                if unplaceable == 1 { "is" } else { "are" },
+                            ),
+                        )
+                        .help("The message names the route. A link diagnostic carries no span yet."),
+                    );
+                }
+            }
+            Err(diagnostic) => {
+                ctx::report(global, format, *diagnostic);
+                built.discard();
+                return Exit::Errors;
+            }
+        }
+    }
+
     let exit = report(global, format, &out, &built.sources, failed);
     built.discard();
     exit
 }
 
+/// `--changed <ref>`: the report, narrowed to pages that differ from `ref`,
+/// and how many problems could not be placed on a page at all.
+///
+/// The build is still a whole-site build — the engine takes no page set, and
+/// giving it one is WP-06's call — so this narrows what is reported rather
+/// than what is done.
+///
+/// An unplaceable problem is kept. `links.rs::report` builds `E0401`, `E0402`
+/// and `E0403` with no span, so a broken link has no page even in principle
+/// here — including a broken link on the page the person *did* change.
+/// Dropping those would hide exactly what they asked to see, so they are
+/// shown and counted, and the count becomes `W0023`.
+fn only_in(
+    diagnostics: &Diagnostics,
+    files: &BTreeSet<String>,
+    sources: &SourceMap,
+) -> (Diagnostics, usize) {
+    let mut kept = Diagnostics::new();
+    let mut unplaceable = 0;
+    for diagnostic in diagnostics.iter() {
+        match crate::diag::location(diagnostic.span, sources) {
+            None => {
+                unplaceable += 1;
+                kept.push(diagnostic.clone());
+            }
+            Some(at) if files.contains(&at.file) => kept.push(diagnostic.clone()),
+            Some(_) => {}
+        }
+    }
+    (kept, unplaceable)
+}
+
+/// Every path that differs from `reference`, relative to the project root.
+///
+/// Both halves of "changed" count: what git reports against the reference, and
+/// what is not in git at all. A page added this morning and not yet committed
+/// is the most likely thing a person running this wants checked.
+fn changed_since(root: &Path, reference: &str) -> Result<BTreeSet<String>, ctx::Failed> {
+    if !git(root, &["rev-parse", "--verify", "--quiet", reference])
+        .is_some_and(|out| !out.is_empty())
+    {
+        return Err(Box::new(
+            Diagnostic::new(
+                code::E0022,
+                format!("`{reference}` is not a reference this repository has"),
+            )
+            .help("Run `git rev-parse --verify <ref>` to see what resolves, or drop `--changed`."),
+        ));
+    }
+
+    // The project may sit below the repository root, and git reports paths
+    // from the root. `--show-prefix` is how much to take off the front.
+    let prefix = git(root, &["rev-parse", "--show-prefix"]).unwrap_or_default();
+    let prefix = prefix.trim();
+
+    let mut out = BTreeSet::new();
+    for arguments in [
+        vec!["diff", "--name-only", reference, "--"],
+        vec!["ls-files", "--others", "--exclude-standard"],
+    ] {
+        let Some(listing) = git(root, &arguments) else {
+            continue;
+        };
+        for line in listing.lines().map(str::trim).filter(|l| !l.is_empty()) {
+            match line.strip_prefix(prefix) {
+                Some(relative) if !prefix.is_empty() => out.insert(relative.to_owned()),
+                _ if prefix.is_empty() => out.insert(line.to_owned()),
+                // Outside this project, inside the same repository.
+                _ => false,
+            };
+        }
+    }
+    Ok(out)
+}
+
+/// `git` in `root`, or `None` when it is not on PATH, this is not a
+/// repository, or the command failed.
+fn git(root: &Path, arguments: &[&str]) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(arguments)
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
 pub fn links(global: &Global, args: &BrokenLinks) -> Exit {
     let format = global.resolve(args.format);
-    let Some(built) = build_site(global, format) else {
+    // `broken-links` has no `--no-cache`: it is always cold, for RFC 0904's
+    // reason and because a link run nobody can trust is worth nothing.
+    let Some(built) = build_site(global, format, true) else {
         return Exit::Errors;
     };
 
@@ -152,7 +276,13 @@ impl Built {
     }
 }
 
-fn build_site(global: &Global, format: crate::cli::Format) -> Option<Built> {
+/// RFC 0904: a warm build does not replay the diagnostics a cached page
+/// produced, so `verify` cannot use one and every run is cold. `--no-cache`
+/// asks for exactly that, and is read below so that the day 0904 is fixed the
+/// flag is what decides, rather than this constant.
+const COLD_UNTIL_RFC_0904: bool = true;
+
+fn build_site(global: &Global, format: crate::cli::Format, no_cache: bool) -> Option<Built> {
     let cwd = ctx::cwd();
     let project = match ctx::locate(global, &cwd) {
         Ok(project) => project,
@@ -167,7 +297,7 @@ fn build_site(global: &Global, format: crate::cli::Format) -> Option<Built> {
     let scratch = project.root.join(".liyasa/verify");
     let options = liyasa_build::engine::Options {
         output: Some(scratch.clone()),
-        clean: true,
+        clean: no_cache || COLD_UNTIL_RFC_0904,
         ..liyasa_build::engine::Options::default()
     };
     let report = liyasa_build::engine::build(&vfs, &git, &project.root, &options);
@@ -221,9 +351,6 @@ fn reconstruct(
 fn unavailable(class: CheckClass) -> Option<Diagnostic> {
     let reason = match class {
         CheckClass::Links => return None,
-        // The orchestrator is the binding constraint: no sandboxed runner
-        // exists, so installing a container changes nothing here yet.
-        // TODO(rfc-0908).
         CheckClass::Code => {
             "code runners need the verification orchestrator, which this build does not have; a container sandbox is needed too, but only once it does"
         }

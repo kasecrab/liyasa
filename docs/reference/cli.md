@@ -304,6 +304,7 @@ Run the verification checks
 
 | Flag | Value | Default | Environment | What it does |
 |---|---|---|---|---|
+| `--allow-commands` | — | — | — | Let a `command` truth source run on this machine |
 | `--changed` | `<REF>` | — | — | Only pages that changed since this git reference |
 | `--format` | `<FORMAT>` | `text` | — | — |
 | `--no-cache` | — | — | — | Ignore cached check results |

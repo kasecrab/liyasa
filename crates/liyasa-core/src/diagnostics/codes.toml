@@ -253,3 +253,5 @@ W0727 = { severity = "warning", crate = "liyasa-build", title = "A translation w
 W0137 = { severity = "warning", crate = "liyasa-config", title = "An `auth.operators` entry names a subject this `auth.mode` can never issue" }
 W0138 = { severity = "warning", crate = "liyasa-config", title = "Magic-link sign-in is configured and `mail` is not, so no link can be sent" }
 W0139 = { severity = "warning", crate = "liyasa-config", title = "A configured operator holds their role whatever the membership table says, and removing them from the organization does not revoke it" }
+E0022 = { severity = "error", crate = "liyasa-cli", title = "Git reference not found, or this directory is not a git repository" }
+W0023 = { severity = "warning", crate = "liyasa-cli", title = "`--changed` could not narrow every problem; some carry no location" }

@@ -40,6 +40,8 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0019`](/errors/W0019) | Warning | A verification check class could not run in this build |
 | [`W0020`](/errors/W0020) | Warning | Form control has no accessible name |
 | [`E0021`](/errors/E0021) | Error | A network request failed (policy, DNS, TLS, timeout, or the host) |
+| [`E0022`](/errors/E0022) | Error | Git reference not found, or this directory is not a git repository |
+| [`W0023`](/errors/W0023) | Warning | `--changed` could not narrow every problem; some carry no location |
 
 ## Configuration
 
