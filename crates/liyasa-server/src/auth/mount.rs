@@ -587,6 +587,46 @@ mod tests {
         );
     }
 
+    /// A `contains("mail.from")` cannot see that the rest of the sentence is
+    /// broken. WP-28 shipped a user-visible string with thirty spaces in the
+    /// middle of it through a green gate on exactly that assertion: a Rust
+    /// line-continuation written through a Python heredoc lost its backslash,
+    /// so the source indentation ended up inside the literal. Nothing in the
+    /// toolchain objects — it is valid Rust, `cargo fmt` leaves it alone and
+    /// clippy has no opinion. The only detector is looking at the whole
+    /// string, so this looks at every E0816 message rather than at any one of
+    /// them.
+    #[test]
+    fn no_diagnostic_carries_collapsed_indentation() {
+        let sites = [
+            serde_json::json!({ "auth": { "mode": "managed" },
+                                "mail": { "from": "docs at example.com",
+                                          "smtp": { "host": "smtp.example.com" } },
+                                "seo": { "canonicalOrigin": "https://docs.acme.com" } }),
+            serde_json::json!({ "auth": { "mode": "managed" },
+                                "mail": { "from": "docs@example.com",
+                                          "smtp": { "host": "smtp.example.com" } } }),
+            serde_json::json!({ "auth": { "mode": "managed" }, "mail": { "nonsense": true } }),
+            serde_json::json!({ "auth": { "mode": "managed" },
+                                "mail": { "from": "docs@example.com",
+                                          "smtp": { "host": "h", "username": "u",
+                                                    "password": "secret:smtp" } },
+                                "seo": { "canonicalOrigin": "https://docs.acme.com" } }),
+        ];
+        let mut seen = 0;
+        for site in sites {
+            for raised in contribute(&app(site)).routes.diagnostics.iter() {
+                seen += 1;
+                assert!(
+                    !raised.message.contains("  "),
+                    "a run of spaces in a message means a lost line continuation: {:?}",
+                    raised.message
+                );
+            }
+        }
+        assert_eq!(seen, 4, "each of the four sites raises exactly one");
+    }
+
     #[test]
     fn the_origins_are_the_canonical_one_and_its_aliases() {
         let config = serde_json::json!({
