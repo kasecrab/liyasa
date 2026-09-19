@@ -37,6 +37,14 @@ fn run(case: &Case) -> Vec<String> {
 
 /// The corpus is regenerated rather than committed, so a checkout without it
 /// says so once instead of failing every case.
+///
+/// Every other test here loops over what this returns, so when it returns
+/// nothing they all loop over nothing and report `ok`. That is a pass which
+/// asserts nothing, and it is indistinguishable in the output from a pass that
+/// checked 977 cases — WP-00 hit it and only noticed because the run was
+/// suspiciously fast. [`the_corpus_is_there_at_all`] is what makes the empty
+/// case visible; it is deliberately the only test here that fails on it, so
+/// one clear failure names the cause instead of three silent successes.
 fn corpus() -> Vec<Case> {
     match load() {
         Some(cases) if !cases.is_empty() => cases,
@@ -47,6 +55,18 @@ fn corpus() -> Vec<Case> {
             Vec::new()
         }
     }
+}
+
+/// The precondition every other test in this module rests on.
+#[test]
+fn the_corpus_is_there_at_all() {
+    let cases = load().unwrap_or_default();
+    assert!(
+        !cases.is_empty(),
+        "no corpus was found, so every case-driven test in this module passed \
+         without asserting anything. Point LIYASA_CORPUS at spec/markdown, or \
+         see spec/markdown/README.md to rebuild it."
+    );
 }
 
 /// Every case, whatever it asserts, must come back as a document.
