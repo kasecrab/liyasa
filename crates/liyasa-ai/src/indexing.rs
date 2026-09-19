@@ -15,17 +15,31 @@ use crate::exclude::{Environment, Excluded, PageFacts, exclusion};
 use crate::index::{ChunkKind, ChunkRecord, IndexError, VectorStore};
 use crate::reindex::{Delta, delta};
 
-/// The job the deployment enqueues. Named here so the server and this crate
-/// cannot disagree about it.
-pub const JOB_NAME: &str = "assistant.index";
+/// The job the deployment enqueues.
+///
+/// **This must equal `liyasa_server::deploy::queue::EMBED_JOB`**, which is what
+/// `queue_embedding` actually enqueues after a deploy. The two constants are
+/// duplicated across a crate boundary that cannot be closed in either direction
+/// — `liyasa-server` depends on this crate, so the name cannot live only there,
+/// and `queue_embedding` is WP-16's — so the equality is pinned by a test in
+/// `tests/` rather than by the type system. A rename on either side orphans the
+/// job: it is warned about at startup and in readiness, and never fails.
+pub const JOB_NAME: &str = "assistant.embed";
 
+/// What the deploy queue puts on the row.
+///
+/// The field names are `queue_embedding`'s, not this crate's preference: it
+/// sends `{ "buildId": ..., "project": ... }` and nothing else. `deployment`
+/// reads that `buildId`, and `routes` defaults to empty because a fresh build
+/// does not know which routes changed — and empty already means "the whole
+/// site", which is the correct pass for a deploy.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobPayload {
     pub project: String,
+    #[serde(rename = "buildId", alias = "deployment")]
     pub deployment: String,
-    /// The routes this deployment changed. Empty means the whole site, which is
-    /// what a first publish and a re-index both send.
+    #[serde(default)]
     pub routes: Vec<Route>,
 }
 

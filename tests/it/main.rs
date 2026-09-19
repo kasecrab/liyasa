@@ -168,3 +168,5 @@ mod host_07_worker;
 mod dashboard_read_ratchet;
 #[path = "../server/ast_10_tools.rs"]
 mod ast_10_tools;
+#[path = "../server/ast_01_embed_job.rs"]
+mod ast_01_embed_job;

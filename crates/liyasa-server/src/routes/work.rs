@@ -69,8 +69,28 @@ impl std::fmt::Debug for JobKind {
 /// WP-16's build job registers with `Trigger::Caller` because its deploy queue
 /// already enqueues it, and its retention sweep with `Trigger::Scheduled`;
 /// WP-18's index build and retention sweep are the same two shapes.
+///
+/// Append your entry; never rewrite the list. This file is on path-guard's
+/// shared list and is `merge=union` in `.gitattributes`, which is what makes
+/// one-line-per-package work when two packages register in the same window.
 pub fn kinds() -> &'static [JobKind] {
-    &[]
+    &[
+        // WP-18. The name is `deploy::queue::EMBED_JOB` rather than a literal
+        // or `liyasa_ai`'s copy: `queue_embedding` is what actually enqueues
+        // this row, so the enqueuer owns the spelling. `Trigger::Caller` for
+        // the same reason — a `DeploymentSucceeded` trigger would enqueue a
+        // second row (RFC 1404, corrected).
+        JobKind {
+            name: crate::deploy::queue::EMBED_JOB,
+            trigger: Trigger::Caller,
+            run: crate::assistant::run_index,
+        },
+        JobKind {
+            name: crate::assistant::RETENTION_JOB,
+            trigger: Trigger::Scheduled(crate::assistant::retention_due),
+            run: crate::assistant::run_sweep,
+        },
+    ]
 }
 
 /// Names claimed with no handler, logged once per process rather than once per

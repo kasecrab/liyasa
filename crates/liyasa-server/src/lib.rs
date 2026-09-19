@@ -4,6 +4,7 @@
 //! `pub mod` and `pub use` lines; do not rewrite the file. WP-14 contributes
 //! `routes`; WP-16 contributes `deploy`.
 
+pub mod assistant;
 pub mod deploy;
 pub mod routes;
 
