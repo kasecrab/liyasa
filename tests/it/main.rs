@@ -94,6 +94,8 @@ mod nfr_70;
 mod nojs;
 #[path = "../build/src_05_index_written.rs"]
 mod src_05_index_written;
+#[path = "../build/src_05_index_warm.rs"]
+mod src_05_index_warm;
 #[path = "../build/rx_02_assets.rs"]
 mod rx_02_assets;
 #[path = "../build/rx_110_csp.rs"]
