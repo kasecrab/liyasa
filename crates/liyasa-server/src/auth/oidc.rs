@@ -284,6 +284,7 @@ impl Flow {
                 .map(str::to_owned),
             data: BTreeMap::new(),
             grant: None,
+            shared: false,
             role: crate::auth::roles::Role::Reader,
             via: "oidc".to_owned(),
         })

@@ -46,6 +46,20 @@ pub struct Principal {
     /// Which flow authenticated them, for the introspection endpoint.
     #[serde(default)]
     pub via: String,
+    /// Whether this subject names **one person**.
+    ///
+    /// `false` for a flow where everyone who authenticates arrives as the same
+    /// subject — the shared site password of AUTH-02, where the subject is
+    /// `password:<env>` for every reader who knows it. Such a reader is
+    /// legitimately signed in and may read private pages; what they are not is
+    /// somebody a role can be granted to.
+    ///
+    /// A role source must never resolve a shared subject. A member row created
+    /// with id `password:production` would otherwise hand that member's grant
+    /// to every reader who knows the site password, turning the site password
+    /// into an admin password. Found by WP-28 reading all five sign-in paths.
+    #[serde(default)]
+    pub shared: bool,
 }
 
 impl Principal {
@@ -81,6 +95,13 @@ impl Principal {
 
     pub fn with_via(mut self, via: impl Into<String>) -> Self {
         self.via = via.into();
+        self
+    }
+
+    /// Marks a subject that everyone on this flow shares, so no role source
+    /// will resolve it.
+    pub fn shared(mut self) -> Self {
+        self.shared = true;
         self
     }
 

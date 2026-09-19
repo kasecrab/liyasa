@@ -244,7 +244,12 @@ async fn password(
     match state.passwords.check(&state.env, &address, &supplied) {
         Outcome::Correct => {
             state.passwords.upgrade(&state.env, &supplied);
-            let principal = Principal::new(format!("password:{}", state.env)).with_via("password");
+            // Everyone who knows the site password arrives as this one
+            // subject, so it names a flow rather than a person and no role
+            // source may resolve it (AUTH-02).
+            let principal = Principal::new(format!("password:{}", state.env))
+                .with_via("password")
+                .shared();
             sign_in(&state, principal, field(&form, "returnTo").as_deref())
         }
         Outcome::Wrong => {
