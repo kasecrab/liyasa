@@ -26,6 +26,7 @@ pub mod model;
 pub mod notify;
 pub mod plan;
 pub mod region;
+pub mod roles;
 pub mod routes;
 pub mod slo;
 pub mod state;
@@ -48,5 +49,36 @@ use crate::routes::mount::Mount;
 /// Subtree { name: "org", permission: None, mount: crate::org::mount },
 /// ```
 pub fn mount(app: &Arc<AppState>) -> Mount {
-    Mount::routes(routes::router(Arc::new(state::OrgState::from_app(app))))
+    mount_from(state(app))
+}
+
+/// The organization this instance serves, built from what `AppState` already
+/// holds and nothing else (RFC 2800: there is no `organization` config key and
+/// this package will not invent one).
+///
+/// Call this **once** per server. Everything that needs the organization —
+/// the router, the role source — takes the same `Arc`, because two of them
+/// are two organizations: a project created through one is invisible to the
+/// other, and a role source built over the second would never see the members
+/// the first has. That is WP-15's two-`AuthState` trap in another crate, and
+/// it fails the same silent way.
+pub fn state(app: &Arc<AppState>) -> Arc<state::OrgState> {
+    Arc::new(state::OrgState::from_app(app))
+}
+
+/// The subtree over an organization somebody else built. This is the one to
+/// use from `routes::application` once the role source is wired, because the
+/// role source needs the same `Arc` (RFC 2802).
+pub fn mount_from(state: Arc<state::OrgState>) -> Mount {
+    Mount::routes(routes::router(state))
+}
+
+/// Organization membership as `auth::layer::Roles`, over the same
+/// organization the subtree serves (defect 65, RFC 2802).
+///
+/// Returns the concrete type rather than `Arc<dyn Roles>` because
+/// `auth::layer` is not on `main` yet; `AuthState::with_roles` takes the trait
+/// object, and the three-line `impl` that makes this coerce lands with WP-15.
+pub fn role_source(state: Arc<state::OrgState>) -> Arc<roles::MembershipRoles> {
+    Arc::new(roles::MembershipRoles::new(state))
 }
