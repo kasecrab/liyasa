@@ -31,6 +31,7 @@ pub mod jwks;
 pub mod jwt;
 pub mod layer;
 pub mod magic;
+pub mod mail;
 pub mod mount;
 pub mod oidc;
 pub mod password;
