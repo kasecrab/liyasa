@@ -200,6 +200,14 @@ fn apply_roles(state: &AuthState, mut principal: Principal) -> Principal {
     principal
 }
 
+/// What [`apply_roles`] would do to this principal. Exists so a test in another
+/// module can assert the shared-subject refusal without `apply_roles` becoming
+/// public, which would invite a caller that skips the layer.
+#[cfg(test)]
+pub fn principal_for_test(state: &AuthState, principal: Principal) -> Principal {
+    apply_roles(state, principal)
+}
+
 /// The middleware. Inserts a [`Principal`] when there is one and gets out of
 /// the way when there is not.
 pub async fn extract(

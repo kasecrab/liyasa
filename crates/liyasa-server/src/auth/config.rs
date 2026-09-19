@@ -12,6 +12,8 @@
 use std::time::Duration;
 
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
+
+use crate::auth::roles::Role;
 use serde::{Deserialize, Serialize};
 
 /// OWASP's floor, which `auth.password.argon2` may raise and never lower
@@ -264,6 +266,27 @@ pub struct PreviewConfig {
     pub protection: PreviewProtection,
 }
 
+/// One entry of `auth.operators` (WP-01's key, RFC 0109).
+///
+/// The bootstrap. Organization membership cannot create its own first member —
+/// adding one needs `SettingsWrite`, and holding `SettingsWrite` needs a
+/// membership row nobody can create yet — so this is the only path to a role
+/// above [`Role::Reader`] that does not itself require one.
+///
+/// Keyed on the **subject a sign-in issues**, not on an address. Of the five
+/// sign-in paths, magic link cannot name an operator at all because its
+/// subject is a per-instance salted hash; the shared password has no per-person
+/// subject and is refused by [`Principal::shared`](crate::auth::session::Principal);
+/// and JWT and OIDC carry whatever the provider puts in `sub`, which is an
+/// address only if the provider happens to use one. WP-01's `W0137` warns at
+/// validate time about entries that can never match — a hint, not the guard.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Operator {
+    pub subject: String,
+    pub role: Role,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AuthConfig {
@@ -283,6 +306,10 @@ pub struct AuthConfig {
     pub logout: LogoutConfig,
     #[serde(default)]
     pub preview: PreviewConfig,
+    /// Absent elevates nobody, which is the safe direction and is why there is
+    /// no default beyond the empty list.
+    #[serde(default)]
+    pub operators: Vec<Operator>,
 }
 
 impl AuthConfig {
@@ -392,6 +419,28 @@ impl AuthConfig {
             }
         }
         diagnostics
+    }
+
+    /// The operators, as a role source. `None` when the key is absent or
+    /// empty, so a caller cannot accidentally chain a source that elevates
+    /// nobody and believe it did something.
+    ///
+    /// A later entry for the same subject does not overwrite an earlier one:
+    /// the list is applied in order and the first wins, matching
+    /// [`Chain`](crate::auth::layer::Chain), so one file cannot mean two
+    /// things depending on which end you read from.
+    pub fn operator_roles(&self) -> Option<crate::auth::layer::StaticRoles> {
+        if self.operators.is_empty() {
+            return None;
+        }
+        let mut source = crate::auth::layer::StaticRoles::new();
+        let mut seen = std::collections::BTreeSet::new();
+        for operator in &self.operators {
+            if seen.insert(operator.subject.as_str()) {
+                source = source.role(&operator.subject, operator.role);
+            }
+        }
+        Some(source)
     }
 
     /// The effective Argon2id parameters: never below the NFR-12 floor, so a

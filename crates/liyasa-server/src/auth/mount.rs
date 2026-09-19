@@ -69,6 +69,16 @@ pub fn contribute(app: &Arc<AppState>) -> Contribution {
     match AuthState::new(config, &app.config.env, origins, Default::default()) {
         Ok((state, diagnostics)) => {
             let mut state = state.with_proxies(app.proxies.clone());
+            // `auth.operators` is the bootstrap: the only path to a role above
+            // `Reader` that does not already require one. It goes **first** in
+            // the chain deliberately — it is a break-glass credential and must
+            // work whatever the membership table says, which is the same
+            // reason it survives a member being reduced or removed. WP-14's
+            // `role_source` accessor supplies membership behind it once it
+            // lands; until then this is the whole chain.
+            if let Some(operators) = state.config.operator_roles() {
+                state = state.with_roles(Arc::new(operators));
+            }
             // HOST-08: an offline instance makes no outbound request of any
             // kind, so it gets no client and `jwks_source` falls back to
             // `NoSource` rather than a client that would refuse per request.
@@ -315,6 +325,86 @@ mod tests {
             format!("{:?}", state.jwks_source()).contains("NoSource"),
             "nothing to fetch from"
         );
+    }
+
+    /// The bootstrap, end to end through `contribute`: a subject named in
+    /// `auth.operators` holds the role the key gives them.
+    #[test]
+    fn a_configured_operator_is_elevated_by_the_state_the_layer_reads() {
+        use crate::auth::roles::{Permission, Role};
+
+        let state = contribute(&app(serde_json::json!({
+            "auth": {
+                "mode": "password",
+                "operators": [{ "subject": "ana", "role": "owner" }]
+            }
+        })))
+        .state
+        .expect("a state");
+
+        let roles = state.roles.as_ref().expect("a role source");
+        let grant = roles.grant_for("ana").expect("ana is an operator");
+        assert_eq!(grant.role, Role::Owner);
+        assert!(
+            grant.allows(Permission::SettingsWrite),
+            "enough to add the first member"
+        );
+        assert!(roles.grant_for("somebody-else").is_none());
+    }
+
+    /// Absent elevates nobody, and says so by having no source at all rather
+    /// than an empty one that looks configured.
+    #[test]
+    fn no_operators_means_no_role_source() {
+        let state = contribute(&app(serde_json::json!({
+            "auth": { "mode": "password" }
+        })))
+        .state
+        .expect("a state");
+        assert!(state.roles.is_none());
+
+        let empty = contribute(&app(serde_json::json!({
+            "auth": { "mode": "password", "operators": [] }
+        })))
+        .state
+        .expect("a state");
+        assert!(empty.roles.is_none());
+    }
+
+    /// A shared subject is refused by the layer whatever the key says. The
+    /// operator key cannot be used to hand the site password an admin role,
+    /// which is defect 95 approached from the configuration side.
+    #[test]
+    fn naming_the_shared_password_subject_as_an_operator_elevates_nobody() {
+        use crate::auth::session::Principal;
+
+        let state = contribute(&app(serde_json::json!({
+            "auth": {
+                "mode": "password",
+                "operators": [{ "subject": "password:production", "role": "owner" }]
+            }
+        })))
+        .state
+        .expect("a state");
+
+        // The source will answer for the string...
+        assert!(
+            state
+                .roles
+                .as_ref()
+                .expect("a source")
+                .grant_for("password:production")
+                .is_some()
+        );
+        // ...and the layer never asks it for a shared principal.
+        let shared = crate::auth::layer::principal_for_test(
+            &state,
+            Principal::new("password:production")
+                .with_via("password")
+                .shared(),
+        );
+        assert_eq!(shared.role, crate::auth::roles::Role::Reader);
+        assert!(shared.grant.is_none());
     }
 
     #[test]
