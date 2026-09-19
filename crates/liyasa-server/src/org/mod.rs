@@ -76,9 +76,11 @@ pub fn mount_from(state: Arc<state::OrgState>) -> Mount {
 /// Organization membership as `auth::layer::Roles`, over the same
 /// organization the subtree serves (defect 65, RFC 2802).
 ///
-/// Returns the concrete type rather than `Arc<dyn Roles>` because
-/// `auth::layer` is not on `main` yet; `AuthState::with_roles` takes the trait
-/// object, and the three-line `impl` that makes this coerce lands with WP-15.
-pub fn role_source(state: Arc<state::OrgState>) -> Arc<roles::MembershipRoles> {
+/// This is what `AuthState::with_roles` takes, so the call site is
+/// `auth_state.with_roles(app.role_source())` with no coercion of its own.
+/// It is not the whole role source an instance needs: an empty membership
+/// table elevates nobody, so a deployment also wants a `StaticRoles` for its
+/// operator, and `auth::layer::Chain` is what holds both.
+pub fn role_source(state: Arc<state::OrgState>) -> Arc<dyn crate::auth::layer::Roles> {
     Arc::new(roles::MembershipRoles::new(state))
 }

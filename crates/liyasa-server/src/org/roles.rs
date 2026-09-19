@@ -19,21 +19,17 @@
 //! [`Grant`]. `org` depends on `auth` and not the other way round, so there is
 //! no cycle.
 //!
-//! **Why the trait is not implemented in this file yet.** `auth::layer` is on
-//! `wp/15-auth-domains` and not on `main`. Everything here compiles and is
-//! tested without it; connecting it is three lines, which land in the same
-//! chain as WP-15 rather than ahead of it (RFC 2802):
+//! The trait is implemented below. It waited for `auth::layer` to reach
+//! `main`, which it did on 2026-09-19; the impl forwards to the inherent
+//! method, which was written with the trait's exact signature for that
+//! purpose (RFC 2802 §3).
 //!
-//! ```text
-//! impl crate::auth::layer::Roles for MembershipRoles {
-//!     fn grant_for(&self, subject: &str) -> Option<Grant> {
-//!         MembershipRoles::grant_for(self, subject)
-//!     }
-//! }
-//! ```
-//!
-//! [`MembershipRoles::grant_for`] already has that exact signature, so the
-//! impl forwards and nothing else moves.
+//! It takes the default `grant_for_principal`. Overriding it would let this
+//! source read `via` and `data`, which is the escape hatch WP-15 added after
+//! the subject-only signature foreclosed three things in a row — but
+//! membership keys on the subject and has nothing to ask the rest of the
+//! `Principal` for, and an override that ignored its argument would be
+//! noise.
 
 use std::sync::Arc;
 
@@ -120,6 +116,12 @@ impl MembershipRoles {
             .members()
             .find(|member| member.email.eq_ignore_ascii_case(subject))
             .map(|member| member.grant.clone())
+    }
+}
+
+impl crate::auth::layer::Roles for MembershipRoles {
+    fn grant_for(&self, subject: &str) -> Option<Grant> {
+        MembershipRoles::grant_for(self, subject)
     }
 }
 
@@ -219,6 +221,36 @@ mod tests {
         let state = state();
         state.write().org.add_member(member).expect("a seat");
         state
+    }
+
+    #[test]
+    fn the_role_source_drives_the_session_layer_as_a_trait_object() {
+        // The point of the whole exercise, and the first test that exercises
+        // it through `auth::layer` rather than through the inherent method:
+        // a member's grant reaches `apply_roles` and comes back on the
+        // principal.
+        use crate::auth::layer::Roles as _;
+        use crate::auth::session::Principal;
+
+        let state = with_member(Member::new(
+            "auth0|9f3",
+            "ana@acme.com",
+            Grant::role(Role::Admin),
+        ));
+        let source: Arc<dyn crate::auth::layer::Roles> = crate::org::role_source(state.clone());
+
+        assert_eq!(
+            source.grant_for("auth0|9f3").map(|g| g.role),
+            Some(Role::Admin)
+        );
+        // The defaulted method forwards, so a `Principal` resolves the same.
+        assert_eq!(
+            source
+                .grant_for_principal(&Principal::new("auth0|9f3"))
+                .map(|g| g.role),
+            Some(Role::Admin)
+        );
+        assert_eq!(source.grant_for_principal(&Principal::new("nobody")), None);
     }
 
     #[test]
