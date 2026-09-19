@@ -233,6 +233,7 @@ W0723 = { severity = "warning", crate = "liyasa-build", title = "Pages in a rese
 W0020 = { severity = "warning", crate = "liyasa-cli", title = "Form control has no accessible name" }
 E0814 = { severity = "error", crate = "liyasa-server", title = "Domain is claimed by another project" }
 E0815 = { severity = "error", crate = "liyasa-server", title = "Domain base path is not a subpath" }
+E0816 = { severity = "error", crate = "liyasa-server", title = "Mail is configured but unusable, so sign-in links cannot be sent" }
 W0136 = { severity = "warning", crate = "liyasa-config", title = "`seo.canonicalOrigin` already carries `build.basePath`, so every absolute URL doubles it" }
 E0021 = { severity = "error", crate = "liyasa-cli", title = "A network request failed (policy, DNS, TLS, timeout, or the host)" }
 E0637 = { severity = "error", crate = "liyasa-verify", title = "Staging credential could not be resolved; the request was not sent" }

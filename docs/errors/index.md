@@ -261,6 +261,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0813`](/errors/W0813) | Warning | Bot-protection interference observed during a sustained agent-readiness scan |
 | [`E0814`](/errors/E0814) | Error | Domain is claimed by another project |
 | [`E0815`](/errors/E0815) | Error | Domain base path is not a subpath |
+| [`E0816`](/errors/E0816) | Error | Mail is configured but unusable, so sign-in links cannot be sent |
 | [`E0850`](/errors/E0850) | Error | Plan quota is spent and the metered feature is paused for this period |
 | [`E0851`](/errors/E0851) | Error | This plan's seat limit is reached |
 | [`E0852`](/errors/E0852) | Error | AI credits are spent and overage is turned off |

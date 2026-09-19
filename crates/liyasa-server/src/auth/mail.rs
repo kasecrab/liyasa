@@ -1,10 +1,8 @@
 //! The `mail` section of `liyasa.json`, and resolving the password it points at
 //! (AUTH-05, AUTH-09; WP-01's key).
 //!
-//! The transport itself is not here yet — `lettre` cannot be added until
-//! `deny.toml` allows `0BSD` for `quoted_printable`, which is WP-00's file.
-//! What is here is everything that does not depend on it: reading the key, and
-//! turning `smtp.password` from a *reference* into a secret.
+//! Reading the key, turning `smtp.password` from a *reference* into a secret,
+//! and the SMTP transport that sends the link.
 //!
 //! **The password in the file is never the password.** The schema's pattern
 //! admits only `secret:<name>` and `env:<VAR>`, because `liyasa.json` is
@@ -23,6 +21,9 @@
 //! but a metric labelled by outcome, or a retry that moves a queue depth an
 //! attacker can probe, reintroduces the oracle one layer out.
 
+use lettre::message::Mailbox;
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use liyasa_core::diagnostics::{Diagnostic, code};
 use liyasa_core::verify::SecretSource;
 use serde::{Deserialize, Serialize};
@@ -89,7 +90,7 @@ impl MailConfig {
                 .map(Some)
                 .map_err(|error| {
                     Diagnostic::new(
-                        code::E0803,
+                        code::E0816,
                         format!("`mail` is not a valid mail configuration: {error}"),
                     )
                     .help("every key under `mail` is listed in `schemas/liyasa.schema.json`")
@@ -210,6 +211,171 @@ fn redact(text: &str) -> String {
     }
 }
 
+/// The SMTP sender (AUTH-05, AUTH-09).
+///
+/// **`send_link` does not await the send, and that is a security property
+/// rather than a performance one.** AUTH-09 requires
+/// `POST /_liyasa/auth/magic` to answer identically whether or not the address
+/// is known. A link is only minted for an address that can sign in, so
+/// awaiting the send would make the response slower exactly when the address
+/// exists — a timing oracle for the thing the identical response exists to
+/// hide. The send is spawned and the handler returns at the same speed either
+/// way.
+///
+/// The same reasoning forbids letting the outcome out by another door: the
+/// failure path logs and does nothing else. A metric labelled by success or
+/// failure, or a retry queue whose depth an attacker could probe, would
+/// reintroduce the oracle one layer out.
+pub struct SmtpMail {
+    transport: AsyncSmtpTransport<Tokio1Executor>,
+    from: Mailbox,
+    reply_to: Option<Mailbox>,
+    /// Where the link points. The reader has to arrive back at this site.
+    origin: String,
+}
+
+impl std::fmt::Debug for SmtpMail {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SmtpMail")
+            .field("from", &self.from.to_string())
+            .field("origin", &self.origin)
+            .finish_non_exhaustive()
+    }
+}
+
+impl SmtpMail {
+    /// Builds a transport from the configuration, with the password already
+    /// resolved by [`MailConfig::password`].
+    pub fn new(
+        config: &MailConfig,
+        password: Option<Zeroizing<String>>,
+        origin: &str,
+    ) -> Result<Self, Unusable> {
+        let from: Mailbox = config
+            .from
+            .parse()
+            .map_err(|_| Unusable::Address("mail.from", config.from.clone()))?;
+        let reply_to = config
+            .reply_to
+            .as_deref()
+            .map(|address| {
+                address
+                    .parse::<Mailbox>()
+                    .map_err(|_| Unusable::Address("mail.replyTo", address.to_owned()))
+            })
+            .transpose()?;
+
+        let host = config.smtp.host.as_str();
+        let builder = match config.smtp.security {
+            Security::Tls => AsyncSmtpTransport::<Tokio1Executor>::relay(host)
+                .map_err(|error| Unusable::Transport(error.to_string()))?,
+            Security::Starttls => AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(host)
+                .map_err(|error| Unusable::Transport(error.to_string()))?,
+            // The schema's own description limits this to a loopback or
+            // private-network relay. Nothing here can enforce that, so it is
+            // said where an operator chooses it rather than checked here.
+            Security::None => AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(host),
+        };
+
+        let builder = builder.port(config.smtp.port());
+        let builder = match (&config.smtp.username, password) {
+            (Some(username), Some(password)) => {
+                builder.credentials(Credentials::new(username.clone(), password.to_string()))
+            }
+            // A username with no password, or a password with no username, is
+            // half a credential: sending it would authenticate as nobody and
+            // the failure would look like a server problem.
+            (Some(_), None) | (None, Some(_)) => return Err(Unusable::HalfACredential),
+            (None, None) => builder,
+        };
+
+        Ok(Self {
+            transport: builder.build(),
+            from,
+            reply_to,
+            origin: origin.trim_end_matches('/').to_owned(),
+        })
+    }
+
+    /// The message. Separate from sending so a test can read what would go out
+    /// without a server to send it to.
+    pub fn message(&self, address: &str, token: &str) -> Result<Message, Unusable> {
+        let to: Mailbox = address
+            .parse()
+            .map_err(|_| Unusable::Address("the reader's address", address.to_owned()))?;
+        let link = self.link(token);
+        let mut builder = Message::builder()
+            .from(self.from.clone())
+            .to(to)
+            .subject("Your sign-in link");
+        if let Some(reply_to) = &self.reply_to {
+            builder = builder.reply_to(reply_to.clone());
+        }
+        builder
+            .body(format!(
+                "Open this link to sign in:\n\n{link}\n\n\
+                 It is good for 15 minutes and only in the browser that asked \
+                 for it — if your mail app opens links somewhere else, the page \
+                 will say so and offer you a new one.\n\n\
+                 If you did not ask to sign in, nothing has happened and you \
+                 can ignore this.\n"
+            ))
+            .map_err(|error| Unusable::Message(error.to_string()))
+    }
+
+    fn link(&self, token: &str) -> String {
+        format!("{}/_liyasa/auth/magic/{token}", self.origin)
+    }
+}
+
+impl crate::auth::state::Mail for SmtpMail {
+    fn send_link(&self, address: &str, token: &str) {
+        let message = match self.message(address, token) {
+            Ok(message) => message,
+            Err(error) => {
+                tracing::warn!(target: "liyasa_server", %error, "a sign-in link could not be built");
+                return;
+            }
+        };
+        // Spawned rather than awaited: see the type's documentation. The
+        // handler must return at the same speed whether or not there was
+        // anything to send.
+        //
+        // `tokio::spawn` panics with no runtime, and this is on a path that
+        // reaches user input, so ask rather than assume. In the server there
+        // is always one; a caller outside a runtime gets a log line instead of
+        // a panicking sign-in endpoint.
+        let Ok(runtime) = tokio::runtime::Handle::try_current() else {
+            tracing::warn!(
+                target: "liyasa_server",
+                "a sign-in link could not be sent: no runtime to send it on"
+            );
+            return;
+        };
+        let transport = self.transport.clone();
+        runtime.spawn(async move {
+            if let Err(error) = transport.send(message).await {
+                // Logged and nothing else. The reader is told the same thing
+                // either way, by design.
+                tracing::warn!(target: "liyasa_server", %error, "a sign-in link could not be sent");
+            }
+        });
+    }
+}
+
+/// Why a configured mail block cannot produce a sender.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum Unusable {
+    #[error("`{0}` is `{1}`, which is not an email address")]
+    Address(&'static str, String),
+    #[error("the SMTP transport could not be built: {0}")]
+    Transport(String),
+    #[error("`mail.smtp` has a username without a password or a password without a username")]
+    HalfACredential,
+    #[error("the message could not be built: {0}")]
+    Message(String),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,7 +439,7 @@ mod tests {
             "smpt": { "host": "x" }
         })))
         .expect_err("a typo is refused");
-        assert_eq!(error.code, code::E0803);
+        assert_eq!(error.code, code::E0816);
     }
 
     #[test]
@@ -422,5 +588,179 @@ mod tests {
         // `<name>` in the message is the placeholder in `secret:<name>`, not
         // anything the operator wrote. Asserting on the absence of "name"
         // would have failed against correct output — which it did.
+    }
+}
+
+#[cfg(test)]
+mod sender_tests {
+    use super::*;
+    use crate::auth::state::Mail as _;
+
+    fn config(security: Security, username: Option<&str>) -> MailConfig {
+        MailConfig {
+            from: "Docs <docs@example.com>".to_owned(),
+            reply_to: None,
+            smtp: SmtpConfig {
+                host: "smtp.example.com".to_owned(),
+                port: None,
+                security,
+                username: username.map(str::to_owned),
+                password: None,
+            },
+        }
+    }
+
+    fn sender(config: &MailConfig) -> SmtpMail {
+        SmtpMail::new(
+            config,
+            config
+                .smtp
+                .username
+                .as_ref()
+                .map(|_| Zeroizing::new("pw".to_owned())),
+            "https://docs.example.com",
+        )
+        .expect("a well-formed configuration builds a sender")
+    }
+
+    fn body(message: &Message) -> String {
+        String::from_utf8(message.formatted()).expect("the message is UTF-8")
+    }
+
+    #[test]
+    fn the_link_points_at_this_site_and_carries_the_token() {
+        let config = config(Security::Starttls, None);
+        let sent = body(
+            &sender(&config)
+                .message("reader@example.com", "abc123")
+                .expect("a valid address builds a message"),
+        );
+        assert!(
+            sent.contains("https://docs.example.com/_liyasa/auth/magic/abc123"),
+            "the reader has to be able to click back to this site: {sent}"
+        );
+    }
+
+    /// The origin is configured, so a trailing slash is one typo away from
+    /// `https://docs.example.com//_liyasa/...`, which some proxies redirect
+    /// and some reject.
+    #[test]
+    fn a_trailing_slash_on_the_origin_does_not_double_in_the_link() {
+        let config = config(Security::Starttls, None);
+        let with_slash = SmtpMail::new(&config, None, "https://docs.example.com/").expect("builds");
+        assert!(
+            body(
+                &with_slash
+                    .message("reader@example.com", "t")
+                    .expect("builds")
+            )
+            .contains("https://docs.example.com/_liyasa/auth/magic/t")
+        );
+    }
+
+    #[test]
+    fn a_reply_to_reaches_the_message_when_one_is_configured() {
+        let mut config = config(Security::Starttls, None);
+        config.reply_to = Some("support@example.com".to_owned());
+        let sent = body(
+            &sender(&config)
+                .message("reader@example.com", "t")
+                .expect("builds"),
+        );
+        assert!(sent.contains("Reply-To: support@example.com"), "{sent}");
+    }
+
+    /// The address comes from a request body. A malformed one has to be an
+    /// error value rather than a panic: `unwrap` on user input is not
+    /// acceptable, and this is user input at its most direct.
+    #[test]
+    fn a_malformed_reader_address_is_an_error_rather_than_a_panic() {
+        let config = config(Security::Starttls, None);
+        let outcome = sender(&config).message("not an address", "t");
+        assert!(
+            matches!(outcome, Err(Unusable::Address(_, _))),
+            "{outcome:?}"
+        );
+    }
+
+    #[test]
+    fn a_malformed_from_is_refused_when_the_sender_is_built_rather_than_per_message() {
+        let mut config = config(Security::Starttls, None);
+        config.from = "docs at example.com".to_owned();
+        assert!(matches!(
+            SmtpMail::new(&config, None, "https://docs.example.com"),
+            Err(Unusable::Address("mail.from", _))
+        ));
+    }
+
+    /// Half a credential authenticates as nobody, and the relay's refusal
+    /// arrives at the far end of a spawned send where nobody sees it.
+    #[test]
+    fn a_username_without_a_password_is_refused_rather_than_sent_as_half_a_credential() {
+        let config = config(Security::Starttls, Some("docs"));
+        assert_eq!(
+            SmtpMail::new(&config, None, "https://docs.example.com")
+                .expect_err("half a credential"),
+            Unusable::HalfACredential
+        );
+    }
+
+    #[test]
+    fn a_password_without_a_username_is_refused_the_same_way() {
+        let config = config(Security::Starttls, None);
+        assert_eq!(
+            SmtpMail::new(
+                &config,
+                Some(Zeroizing::new("pw".to_owned())),
+                "https://docs.example.com"
+            )
+            .expect_err("half a credential"),
+            Unusable::HalfACredential
+        );
+    }
+
+    /// `Debug` on the sender is reachable from `AuthState`'s derived one, and
+    /// `AuthState` is printed on a configuration failure.
+    #[test]
+    fn debug_does_not_print_the_password() {
+        let config = config(Security::Starttls, Some("docs"));
+        let shown = format!(
+            "{:?}",
+            SmtpMail::new(
+                &config,
+                Some(Zeroizing::new("hunter2".to_owned())),
+                "https://docs.example.com"
+            )
+            .expect("builds")
+        );
+        assert!(!shown.contains("hunter2"), "{shown}");
+    }
+
+    /// AUTH-09: the endpoint answers identically whether or not the address is
+    /// known, so the send cannot be awaited in the handler. This asserts the
+    /// shape that makes that true — `send_link` returns without a runtime to
+    /// spawn onto being required to have *finished* anything — by calling it
+    /// against a host that does not resolve and observing that it returns.
+    #[tokio::test]
+    async fn send_link_returns_without_waiting_for_the_relay() {
+        let mut config = config(Security::Starttls, None);
+        config.smtp.host = "smtp.invalid".to_owned();
+        let sender = sender(&config);
+        let started = std::time::Instant::now();
+        sender.send_link("reader@example.com", "t");
+        assert!(
+            started.elapsed() < std::time::Duration::from_millis(100),
+            "send_link waited for the relay: {:?}",
+            started.elapsed()
+        );
+    }
+
+    /// The same, for the branch that cannot even build a message. An early
+    /// return there is just as much a timing signal as an awaited send: it is
+    /// the *fast* path, and the address it is fast for is a malformed one.
+    #[tokio::test]
+    async fn send_link_swallows_a_malformed_address_rather_than_panicking() {
+        let config = config(Security::Starttls, None);
+        sender(&config).send_link("not an address", "t");
     }
 }
