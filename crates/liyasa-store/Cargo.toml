@@ -23,7 +23,7 @@ sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 aes-gcm = { workspace = true, features = ["aes", "alloc"] }
 # Already in the graph (ring, ulid); the secret store's nonces and the daily
 # analytics salt need cryptographic randomness (RFC 1401).
-getrandom = { version = "0.3", default-features = false }
+getrandom = { version = "0.4", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
