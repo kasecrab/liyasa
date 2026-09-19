@@ -35,6 +35,14 @@ pub struct Principal {
     pub data: BTreeMap<String, serde_json::Value>,
     #[serde(default)]
     pub role: Role,
+    /// The whole grant, when a role source supplied one (defect 65).
+    ///
+    /// `role` is the built-in half and is what `routes::mount::guarded` asks,
+    /// because a `Principal` predates composed roles. A `Grant` can also carry
+    /// custom roles, which one `Role` cannot express — so it rides along here
+    /// and [`Principal::allows`] is the question that reads both.
+    #[serde(default)]
+    pub grant: Option<crate::auth::roles::Grant>,
     /// Which flow authenticated them, for the introspection endpoint.
     #[serde(default)]
     pub via: String,
@@ -60,6 +68,15 @@ impl Principal {
     pub fn with_role(mut self, role: Role) -> Self {
         self.role = role;
         self
+    }
+
+    /// Whether this reader holds a permission, from the whole grant when there
+    /// is one and from the built-in role when there is not.
+    pub fn allows(&self, permission: crate::auth::roles::Permission) -> bool {
+        match &self.grant {
+            Some(grant) => grant.allows(permission),
+            None => self.role.permissions().contains(&permission),
+        }
     }
 
     pub fn with_via(mut self, via: impl Into<String>) -> Self {

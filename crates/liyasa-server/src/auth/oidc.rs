@@ -283,6 +283,7 @@ impl Flow {
                 .and_then(|v| v.as_str())
                 .map(str::to_owned),
             data: BTreeMap::new(),
+            grant: None,
             role: crate::auth::roles::Role::Reader,
             via: "oidc".to_owned(),
         })

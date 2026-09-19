@@ -158,6 +158,7 @@ impl Verified {
             region: config.region_claim.as_ref().and_then(|c| string(c)),
             locale: config.locale_claim.as_ref().and_then(|c| string(c)),
             data,
+            grant: None,
             role: crate::auth::roles::Role::Reader,
             via: "jwt".to_owned(),
         }

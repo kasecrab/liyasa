@@ -64,6 +64,7 @@ impl Record {
             region: None,
             locale: None,
             data: BTreeMap::new(),
+            grant: None,
             role: crate::auth::roles::Role::Reader,
             via: match self.kind {
                 Kind::Personal => "pat".to_owned(),

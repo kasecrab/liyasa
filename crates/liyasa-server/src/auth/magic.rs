@@ -54,6 +54,7 @@ impl Reader {
                 "name".to_owned(),
                 serde_json::Value::String(self.display_name.clone()),
             )]),
+            grant: None,
             role: crate::auth::roles::Role::Reader,
             via: "managed".to_owned(),
         }
