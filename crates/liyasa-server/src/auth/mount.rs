@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use liyasa_core::diagnostics::Diagnostics;
+use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 
 use crate::auth::config::AuthConfig;
 use crate::auth::state::AuthState;
@@ -67,8 +67,19 @@ pub fn contribute(app: &Arc<AppState>) -> Contribution {
 
     let origins = origins(&app.config.site_config);
     match AuthState::new(config, &app.config.env, origins, Default::default()) {
-        Ok((state, diagnostics)) => {
+        Ok((state, mut diagnostics)) => {
             let mut state = state.with_proxies(app.proxies.clone());
+            // AUTH-05: the magic-link sender. A block that cannot work is a
+            // diagnostic rather than a log line, because AUTH-09 makes the
+            // endpoint answer identically whether or not a link was sent — so
+            // an operator watching the site cannot tell that none arrive.
+            match mail(app, state.origins.first().map(String::as_str)) {
+                Ok(Some(mail)) => state = state.with_mail(mail),
+                // No `mail` block. `NoMail` says so per attempt; nothing is
+                // wrong with the configuration, it just does not send.
+                Ok(None) => {}
+                Err(diagnostic) => diagnostics.push(diagnostic),
+            }
             // The role chain, assembled here because this is the only place
             // that can see both halves: `AppState::role_source` has no
             // `AuthConfig` and so cannot see `auth.operators`, and
@@ -148,6 +159,42 @@ pub fn contribute(app: &Arc<AppState>) -> Contribution {
 /// and so the two cannot drift.
 pub fn mount(app: &Arc<AppState>) -> Mount {
     contribute(app).routes
+}
+
+/// The SMTP sender, when the site configures one.
+///
+/// `Ok(None)` is a site with no `mail` block: links are still minted and
+/// [`NoMail`](crate::auth::state::NoMail) reports that nothing carried them.
+/// `Err` is a block that exists and cannot work, which is E0816.
+fn mail(
+    app: &Arc<AppState>,
+    origin: Option<&str>,
+) -> Result<Option<Arc<dyn crate::auth::state::Mail>>, Diagnostic> {
+    use crate::auth::mail::{MailConfig, SmtpMail};
+
+    let Some(config) = MailConfig::from_site_config(&app.config.site_config)? else {
+        return Ok(None);
+    };
+    // A link in an email cannot be relative: there is no page for the mail
+    // client to resolve it against.
+    let Some(origin) = origin else {
+        return Err(Diagnostic::new(
+            code::E0816,
+            "`mail` is configured and `seo.canonicalOrigin` is not, so a sign-in link \
+             would have nowhere to point"
+                .to_owned(),
+        ));
+    };
+    let secrets = app
+        .store
+        .as_deref()
+        .map(|store| store.secrets_typed() as &dyn liyasa_core::verify::SecretSource);
+    let password = config
+        .password(secrets)
+        .map_err(|error| Diagnostic::new(code::E0816, error.to_string()))?;
+    SmtpMail::new(&config, password, origin)
+        .map(|mail| Some(Arc::new(mail) as Arc<dyn crate::auth::state::Mail>))
+        .map_err(|error| Diagnostic::new(code::E0816, error.to_string()))
 }
 
 /// One outbound client for this instance's identity-provider traffic.
@@ -423,6 +470,121 @@ mod tests {
         );
         assert_eq!(shared.role, crate::auth::roles::Role::Reader);
         assert!(shared.grant.is_none());
+    }
+
+    fn with_mail(mail: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({
+            "auth": { "mode": "managed" },
+            "seo": { "canonicalOrigin": "https://docs.acme.com" },
+            "mail": mail
+        })
+    }
+
+    /// AUTH-05: a configured block reaches the state the magic-link handler
+    /// reads. Without this the link is minted and `NoMail` drops it, which
+    /// looks from outside exactly like a working sign-in.
+    #[test]
+    fn a_configured_mail_block_becomes_the_sender_the_handler_uses() {
+        let contribution = contribute(&app(with_mail(serde_json::json!({
+            "from": "Docs <docs@example.com>",
+            "smtp": { "host": "smtp.example.com" }
+        }))));
+        assert!(
+            !contribution
+                .routes
+                .diagnostics
+                .iter()
+                .any(|d| d.code == code::E0816),
+            "a valid block raises nothing"
+        );
+        let state = contribution.state.expect("a state");
+        assert!(
+            state.mail.is_some(),
+            "the handler has something to send with"
+        );
+    }
+
+    #[test]
+    fn no_mail_block_is_not_an_error_and_leaves_the_sender_unset() {
+        let contribution = contribute(&app(serde_json::json!({
+            "auth": { "mode": "managed" }
+        })));
+        let state = contribution.state.expect("a state");
+        assert!(state.mail.is_none());
+        assert!(
+            !contribution
+                .routes
+                .diagnostics
+                .iter()
+                .any(|d| d.code == code::E0816)
+        );
+    }
+
+    /// The failure nothing else can show. AUTH-09 makes the endpoint answer
+    /// identically whether or not a link went out, so a block that cannot send
+    /// is invisible from the site: it has to be a diagnostic at startup.
+    #[test]
+    fn a_mail_block_that_cannot_send_is_a_diagnostic_rather_than_a_silent_nothing() {
+        let contribution = contribute(&app(with_mail(serde_json::json!({
+            "from": "docs at example.com",
+            "smtp": { "host": "smtp.example.com" }
+        }))));
+        let raised = contribution
+            .routes
+            .diagnostics
+            .iter()
+            .find(|d| d.code == code::E0816)
+            .expect("a mail block that cannot send is reported");
+        assert!(raised.message.contains("mail.from"), "{}", raised.message);
+        assert!(
+            contribution.state.expect("a state").mail.is_none(),
+            "a sender that could not be built is absent, not a broken one"
+        );
+    }
+
+    #[test]
+    fn a_secret_reference_with_no_secret_store_is_reported_rather_than_read_as_no_password() {
+        let contribution = contribute(&app(with_mail(serde_json::json!({
+            "from": "docs@example.com",
+            "smtp": {
+                "host": "smtp.example.com",
+                "username": "docs",
+                "password": "secret:smtp"
+            }
+        }))));
+        let raised = contribution
+            .routes
+            .diagnostics
+            .iter()
+            .find(|d| d.code == code::E0816)
+            .expect("an unresolvable reference is reported");
+        assert!(
+            raised.message.contains("no secret store"),
+            "{}",
+            raised.message
+        );
+    }
+
+    /// A link in an email has no page to resolve a relative URL against, so a
+    /// site that configures mail and no canonical origin would send links
+    /// nobody can click.
+    #[test]
+    fn mail_without_a_canonical_origin_is_refused_rather_than_sending_a_relative_link() {
+        let contribution = contribute(&app(serde_json::json!({
+            "auth": { "mode": "managed" },
+            "mail": { "from": "docs@example.com", "smtp": { "host": "smtp.example.com" } }
+        })));
+        let raised = contribution
+            .routes
+            .diagnostics
+            .iter()
+            .find(|d| d.code == code::E0816)
+            .expect("no origin is reported");
+        assert!(
+            raised.message.contains("canonicalOrigin"),
+            "{}",
+            raised.message
+        );
     }
 
     #[test]
