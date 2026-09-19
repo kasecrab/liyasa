@@ -193,7 +193,10 @@ async fn a_trace_reaches_a_collector_in_the_otlp_shape() {
             .with_bundle(harness.state.bundle.clone().expect("a bundle"))
             .with_tracer(tracer.clone()),
     );
-    let router = liyasa_server::routes::router(state.clone());
+    // `application`, not `router`: `observe` wraps the finished application
+    // so that subtree routes are traced too, so a router fragment carries no
+    // tracing at all (RFC 1403).
+    let router = liyasa_server::routes::application(state.clone()).router;
 
     // A request that continues a trace started at the edge.
     let request = Request::builder()
@@ -250,7 +253,7 @@ async fn the_server_answers_over_a_real_socket() {
 
     let runtime = Runtime::new(harness.state.clone());
     let stopper = runtime.stopper();
-    let router = liyasa_server::routes::router(harness.state.clone());
+    let router = liyasa_server::routes::application(harness.state.clone()).router;
     let serving = tokio::spawn(runtime.serve(listener, router));
 
     let client = liyasa_net::Client::new(liyasa_net::ClientOptions::default()).expect("a client");

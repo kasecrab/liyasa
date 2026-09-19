@@ -14,7 +14,7 @@ use http::Request;
 use http::StatusCode;
 use liyasa_server::routes::mount::Mount;
 use liyasa_server::routes::{self, AppState, ServerConfig};
-use liyasa_tests::server::{Harness, Setup, body_json, expect_status, header};
+use liyasa_tests::server::{Harness, Setup, body_json, body_text, expect_status, header};
 use serde_json::json;
 
 /// A configuration with auth turned on, so the auth subtree has something to
@@ -170,6 +170,40 @@ async fn the_auth_subtree_publishes_the_state_its_endpoints_use() {
         .sessions
         .resolve(&id)
         .expect("the session the endpoint minted is in the published state's table");
+}
+
+#[tokio::test]
+async fn a_subtree_route_is_counted_like_any_other_request() {
+    // `observe` wraps the router, and the subtrees are merged after it, so a
+    // request to a subtree route was invisible to metrics and to tracing: no
+    // `liyasa_http_requests_total`, no duration sample, no `traceparent` on
+    // the response. An operator watching the dashboard's own API would have
+    // seen a server with no traffic on it. WP-15 spotted the ordering while
+    // reading `application` for somewhere to put the session layer.
+    let (harness, _site) = Harness::serving("mount-observe").await;
+
+    let before = body_text(harness.get("/_liyasa/metrics").await).await;
+    let response = harness.get("/_liyasa/api/v1/builds").await;
+    assert_ne!(
+        response.status(),
+        StatusCode::NOT_FOUND,
+        "the deploy subtree must be mounted for this to measure anything"
+    );
+    let after = body_text(harness.get("/_liyasa/metrics").await).await;
+
+    let count = |text: &str| {
+        text.lines()
+            .filter(|line| line.starts_with("liyasa_http_requests_total"))
+            .count()
+    };
+    assert!(
+        count(&after) > count(&before) || after != before,
+        "a request to a subtree route left no trace in the metrics"
+    );
+    assert!(
+        after.contains("class=\"api\""),
+        "the subtree request was not classified: {after}"
+    );
 }
 
 #[tokio::test]

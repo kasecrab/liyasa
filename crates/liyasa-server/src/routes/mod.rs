@@ -590,6 +590,10 @@ pub fn application(state: Arc<AppState>) -> Application {
             }),
         }
     }
+    // Outermost, after every merge, so a subtree route is counted, timed and
+    // traced like any other request. Anything wrapped later — the session
+    // layer — still runs inside this, which is what makes its cost visible.
+    let router = router.layer(middleware::from_fn_with_state(state.clone(), observe));
     // Readiness answers from the state, not from the router, so record it
     // before the first request can ask.
     let _ = state.mounted.set(mounted.clone());
@@ -662,9 +666,12 @@ pub fn router(state: Arc<AppState>) -> Router {
         });
     }
 
-    router
-        .layer(middleware::from_fn_with_state(state.clone(), observe))
-        .with_state(state)
+    // `observe` is NOT applied here. It wraps the finished application, after
+    // every subtree is merged, because a layer added here would miss all of
+    // them (RFC 1403). A test that drives this function directly is measuring
+    // one package's handlers and gets no metrics, which is correct: metrics
+    // are a property of the server, not of a router fragment.
+    router.with_state(state)
 }
 
 #[cfg(test)]
