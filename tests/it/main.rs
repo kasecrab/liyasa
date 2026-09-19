@@ -128,6 +128,8 @@ mod ver_02_06_rust;
 mod ver_02_1_shell;
 #[path = "../verify/ver_03_isolation.rs"]
 mod ver_03_isolation;
+#[path = "../server/no_caller_ratchet.rs"]
+mod no_caller_ratchet;
 #[path = "../server/mount.rs"]
 mod mount;
 #[path = "../server/org_28.rs"]
