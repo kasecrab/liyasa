@@ -2552,6 +2552,7 @@ dependencies = [
  "liyasa-config",
  "liyasa-core",
  "liyasa-markdown",
+ "liyasa-search",
  "liyasa-theme",
  "minijinja",
  "notify",

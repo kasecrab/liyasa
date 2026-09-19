@@ -476,6 +476,40 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     }
     phase.mark("write_pages");
 
+    // 8. The search index (SRC-01, RFC 0705). `index_site` is pure: it decides
+    // what is indexed and returns the files, and writing them is this call
+    // site's. It always returns a manifest, including for a site with nothing
+    // indexable — writing it unconditionally is what makes the CLI's `E0016`
+    // mean "no index" rather than "no index or nothing worth indexing".
+    let settings_locale = liyasa_core::ids::Locale::new(settings.locale.clone());
+    // SRC-03's recency tie-break reads milliseconds, and the build clock is the
+    // only time in the output (§6.6.2 rule 1).
+    let build_clock_ms = u64::try_from(clock::unix_seconds(resolved.clock))
+        .ok()
+        .map(|seconds| seconds.saturating_mul(1_000));
+    let search_settings = liyasa_search::build::settings_from_config(&load.value);
+    let offered: Vec<liyasa_search::build::IndexPage<'_>> = tree
+        .pages
+        .iter()
+        .zip(pages.iter())
+        .filter_map(|(page, outcome)| {
+            outcome
+                .document
+                .as_ref()
+                .map(|document| liyasa_search::build::IndexPage {
+                    document,
+                    meta: page_meta(page, outcome, &navigations, settings_locale, build_clock_ms),
+                    indexed: page.indexing.search,
+                })
+        })
+        .collect();
+    let search_index = liyasa_search::build::index_site(&offered, &search_settings);
+    for (path, bytes) in search_index.output_files() {
+        write_file(&output, &path, bytes, &mut report, &mut outputs);
+    }
+    report.diagnostics.extend(search_index.diagnostics);
+    phase.mark("search_index");
+
     // 8a. What `hosting` needs and the manifest does not carry (RFC 1200):
     // the routes rendered in frame mode, and the hosts content loads media
     // from.
@@ -830,6 +864,9 @@ struct Outcome {
     changelog: Vec<crate::changelog::Entry>,
     /// Remote hosts this page loads images and media from (CM-35, RX-110).
     hosts: ContentHosts,
+    /// The anonymous render the search index is built from (RFC 0705); `None`
+    /// if the page failed to render.
+    document: Option<liyasa_core::document::Document>,
     cache_hits: usize,
     cache_misses: usize,
     /// How long this page spent expanding and rendering, for the build-wide
@@ -873,6 +910,7 @@ fn render_pages(
                     referenced: Vec::new(),
                     changelog: Vec::new(),
                     hosts: ContentHosts::default(),
+                    document: None,
                     cache_hits: 0,
                     cache_misses: 0,
                     spent: Duration::ZERO,
@@ -953,6 +991,20 @@ fn render_pages(
                     link_fingerprint,
                 ],
             );
+            // The rendered AST the search index is built from (RFC 0705). It is
+            // kept for the same reason the Markdown twin is: a warm build
+            // renders nothing, and an index rebuilt from nothing is an empty
+            // index rather than an unchanged one.
+            let document_key = crate::cache::key(
+                "page_document",
+                &[
+                    page.fingerprint,
+                    config_fingerprint,
+                    navigation_fingerprint,
+                    snippets_fingerprint,
+                    link_fingerprint,
+                ],
+            );
             let mut markdown = cache
                 .get(&markdown_key)
                 .and_then(|bytes| String::from_utf8(bytes.to_vec()).ok())
@@ -970,6 +1022,9 @@ fn render_pages(
                 .get(&hosts_key)
                 .and_then(|bytes| serde_json::from_slice(&bytes).ok())
                 .unwrap_or_default();
+            let mut document: Option<liyasa_core::document::Document> = cache
+                .get(&document_key)
+                .and_then(|bytes| serde_json::from_slice(&bytes).ok());
             // Kept apart from `diagnostics`, which already holds the scan's:
             // those are recomputed every build, and storing them too would
             // report each of them twice on a warm one.
@@ -1060,6 +1115,15 @@ fn render_pages(
                                     .unwrap_or_default();
                                 hosts = content_hosts(&page_render);
                             }
+                            // Only the default variant's render reaches the
+                            // search index (SRC-12). The index is one artefact
+                            // for the whole site, so a populated variant's AST
+                            // here would index one reader's gated blocks for
+                            // everyone — the anonymous rule of §6.6.4, at the
+                            // one door the component gate does not cover.
+                            if document.is_none() && variant == Variant::default() {
+                                document = page_render.document.clone();
+                            }
                             let navigation =
                                 navigations.get(&page.version).cloned().unwrap_or_default();
                             let html = theme::page_html(
@@ -1120,7 +1184,16 @@ fn render_pages(
                     .map(|document| crate::changelog::from_page(&page.route, document))
                     .unwrap_or_default();
                 hosts = content_hosts(&page_render);
+                document = page_render.document.clone();
                 recorded = true;
+            }
+            // A page whose variant set holds no default — a dynamic page ships
+            // only its first (§6.6.3 item 4) — never passed the capture above,
+            // so the anonymous render it is indexed from is made here rather
+            // than taken from a variant that admits more than everyone sees.
+            if document.is_none() {
+                let context = template_context(settings, build_options, page, &Variant::default());
+                document = render::page(sources, &source, &context, &options).document;
             }
             if recorded {
                 // One entry per diagnostic: every variant of a page raises the
@@ -1170,6 +1243,20 @@ fn render_pages(
                 }
             }
 
+            // Outside the `recorded` block on purpose: a page whose document
+            // came from the anonymous fallback above never set `recorded`, and
+            // without this it would re-render for the index on every build.
+            if let Some(encoded) = document
+                .as_ref()
+                .and_then(|document| serde_json::to_vec(document).ok())
+            {
+                let _ = cache.put(
+                    &document_key,
+                    liyasa_core::vfs::Bytes::from(encoded),
+                    &[page.fingerprint, config_fingerprint],
+                );
+            }
+
             diagnostics.extend(render_diagnostics);
 
             Outcome {
@@ -1182,6 +1269,7 @@ fn render_pages(
                 referenced,
                 changelog,
                 hosts,
+                document,
                 cache_hits: hits,
                 cache_misses: misses,
                 spent,
@@ -1855,6 +1943,74 @@ fn write_meta(root: &Path, relative: &str, bytes: &[u8], report: &mut Report) {
 /// report from two different output directories still compares equal.
 ///
 /// A file whose bytes the last build already wrote is left alone.
+/// The facets one page contributes to the search index (RFC 0705).
+///
+/// Every field but the route, the title and the locale defaults, so a facet
+/// this build cannot answer is absent rather than wrong.
+fn page_meta(
+    page: &tree::Page,
+    outcome: &Outcome,
+    navigations: &BTreeMap<Option<liyasa_core::ids::Version>, liyasa_theme::nav::Navigation>,
+    locale: liyasa_core::ids::Locale,
+    updated: Option<u64>,
+) -> liyasa_search::doc::PageMeta {
+    let title = page
+        .front
+        .title
+        .clone()
+        .unwrap_or_else(|| page.route.as_str().to_owned());
+    let locale = page.front.locales.first().cloned().unwrap_or(locale);
+    let navigation = navigations.get(&page.version);
+    let mut meta = liyasa_search::doc::PageMeta::new(page.route.clone(), title, locale);
+    if let Some(navigation) = navigation {
+        meta.breadcrumb = navigation
+            .trail(page.route.as_str())
+            .into_iter()
+            .map(|crumb| crumb.title)
+            .collect();
+        meta.tab = tab_of(navigation, page.route.as_str());
+    }
+    meta.version = page.version.clone();
+    meta.kind = if page.front.openapi.is_some() {
+        liyasa_search::doc::DocKind::Endpoint
+    } else if !outcome.changelog.is_empty() {
+        liyasa_search::doc::DocKind::Changelog
+    } else {
+        liyasa_search::doc::DocKind::Page
+    };
+    meta.keywords = page.front.keywords.clone();
+    meta.groups = page.front.groups.clone();
+    meta.regions = page
+        .front
+        .regions
+        .as_ref()
+        .and_then(|gate| gate.only.clone())
+        .unwrap_or_default();
+    meta.updated = updated;
+    meta
+}
+
+/// The tab a route sits under, if the navigation has named tabs. A site with no
+/// tabs has one unnamed tab, which is not a facet worth filtering on.
+fn tab_of(navigation: &liyasa_theme::nav::Navigation, route: &str) -> Option<String> {
+    navigation
+        .tabs
+        .iter()
+        .find(|tab| {
+            !tab.title.is_empty()
+                && tab
+                    .groups
+                    .iter()
+                    .flat_map(|group| group.items.iter())
+                    .any(|item| holds_route(item, route))
+        })
+        .map(|tab| tab.title.clone())
+}
+
+fn holds_route(item: &liyasa_theme::nav::Item, route: &str) -> bool {
+    item.route == route || item.children.iter().any(|child| holds_route(child, route))
+}
+
 fn write_file(
     root: &Path,
     relative: &str,
