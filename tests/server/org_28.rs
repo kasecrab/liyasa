@@ -583,6 +583,80 @@ async fn a_project_role_overrides_the_organization_role() {
 }
 
 #[tokio::test]
+async fn a_project_override_that_reduces_a_role_is_enforced_where_the_guard_cannot_see_it() {
+    // ORG-02 and RFC 2802. The subtree guard asks one permission for the
+    // whole subtree and has no project in scope, so a member reduced on one
+    // project passes it. The refusal has to come from the handler, and the
+    // failing input is the member who is an editor everywhere and a viewer
+    // here — not the member who has no access at all.
+    let state = state_with(Tier::Pro);
+    routes::add_member(
+        &state,
+        Member::new("u1", "ana@acme.com", Grant::role(Role::Admin))
+            .with_override("secret", Grant::role(Role::Viewer)),
+    )
+    .expect("a seat");
+    let admin = as_role(&state, Role::Admin);
+    for slug in ["docs", "secret"] {
+        let (status, _) = send(
+            &admin,
+            "POST",
+            "/_liyasa/api/v1/org/projects",
+            Some(json!({ "slug": slug })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+    }
+
+    // The subtree guard lets both through: the organization grant carries
+    // SettingsWrite and that is all it can ask.
+    let (status, _) = send(&admin, "DELETE", "/_liyasa/api/v1/org/projects/docs", None).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    let (status, body) = send(
+        &admin,
+        "DELETE",
+        "/_liyasa/api/v1/org/projects/secret",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(body["project"], "secret");
+    assert!(
+        state.read().org.project("secret").is_some(),
+        "a refused delete leaves the project alone"
+    );
+}
+
+#[tokio::test]
+async fn an_operator_with_no_membership_row_is_not_vetoed_by_the_project_check() {
+    // The escape hatch. `StaticRoles` elevates somebody the member list has
+    // never heard of, and that is the only way the first member gets added on
+    // a fresh instance. A project check that read "not a member" as "no"
+    // would lock them out of doing it.
+    let state = state_with(Tier::Pro);
+    let operator = as_role(&state, Role::Admin);
+    let (status, _) = send(
+        &operator,
+        "POST",
+        "/_liyasa/api/v1/org/projects",
+        Some(json!({ "slug": "docs" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(state.read().org.members().count(), 0);
+
+    let (status, _) = send(
+        &operator,
+        "DELETE",
+        "/_liyasa/api/v1/org/projects/docs",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
 async fn deleting_the_workspace_waits_and_can_be_undone_and_exports_meanwhile() {
     // ORG-03.
     let state = state_with(Tier::Pro);

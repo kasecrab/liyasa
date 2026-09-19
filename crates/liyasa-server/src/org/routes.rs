@@ -42,6 +42,7 @@ use super::model::{CredentialKind, InviteKind, Member, Settings};
 use super::notify::{self, Channel, Endpoints, Event, Preferences, Subscriber};
 use super::plan::{Plan, Resource, Tier};
 use super::region::Region;
+use super::roles::in_project;
 use super::state::OrgState;
 
 const PREFIX: &str = "/_liyasa/api/v1/org";
@@ -219,6 +220,37 @@ fn origin_of(state: &OrgState, parts: &Parts) -> Origin {
         origin = origin.with_user_agent(agent);
     }
     origin
+}
+
+/// ORG-02, which neither the subtree guard nor `auth::layer::Roles` can see:
+/// both decide on a subject and a permission with no project in scope, so a
+/// member reduced to a smaller role on one project passes them both. A handler
+/// that names a project asks here as well (RFC 2802).
+///
+/// A request with no `Principal` did not come through the guard — every group
+/// but the public one is wrapped by `mount::guarded`, which refuses before a
+/// handler runs — so there is nothing here to decide.
+fn refuse_outside_project(
+    state: &OrgState,
+    parts: &Parts,
+    project: &str,
+    permission: Permission,
+) -> Option<Response> {
+    let principal = parts.extensions.get::<Principal>()?;
+    // A veto, not a grant: somebody with no membership row — an operator from
+    // `StaticRoles` — is not refused here, because membership has nothing to
+    // say about them and the subtree guard already decided they may.
+    if !in_project(state, &principal.subject, project, permission).is_refusal() {
+        return None;
+    }
+    Some(
+        Problem::new(StatusCode::FORBIDDEN, "Not permitted on this project")
+            .detail(format!(
+                "this role carries `{permission:?}` across the organization and not on `{project}`"
+            ))
+            .extension("project", json!(project))
+            .into_response(),
+    )
 }
 
 fn query_of(parts: &Parts) -> BTreeMap<String, String> {
@@ -594,6 +626,10 @@ async fn remove_project(
     request: Request,
 ) -> Response {
     let (parts, _) = request.into_parts();
+    if let Some(refusal) = refuse_outside_project(&state, &parts, &slug, Permission::SettingsWrite)
+    {
+        return refusal;
+    }
     let actor = actor_of(&parts);
     let origin = origin_of(&state, &parts);
 
@@ -723,6 +759,12 @@ async fn set_role(
         Err(problem) => return problem.into_response(),
     };
     let project = field(&body, "project").map(str::to_owned);
+    if let Some(project) = &project
+        && let Some(refusal) =
+            refuse_outside_project(&state, &parts, project, Permission::SettingsWrite)
+    {
+        return refusal;
+    }
     let actor = actor_of(&parts);
     let origin = origin_of(&state, &parts);
 
