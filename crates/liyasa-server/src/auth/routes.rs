@@ -142,6 +142,14 @@ async fn login(State(state): State<Arc<AuthState>>, Query(params): Query<LoginPa
                 return Problem::new(StatusCode::SERVICE_UNAVAILABLE, "No provider configured")
                     .into_response();
             };
+            // Discovery is lazy: `contribute` is not async, and a provider
+            // that was down at startup would otherwise leave sign-in broken
+            // until a restart. The first reader after it recovers pays for it.
+            if let Err(error) = state.discover_if_needed().await {
+                return Problem::new(StatusCode::SERVICE_UNAVAILABLE, "No provider endpoints")
+                    .detail(error)
+                    .into_response();
+            }
             match flow.begin(return_to) {
                 Ok(started) => {
                     let mut response = redirect_to(&started.authorize_url);

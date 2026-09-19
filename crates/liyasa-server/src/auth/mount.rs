@@ -68,7 +68,33 @@ pub fn contribute(app: &Arc<AppState>) -> Contribution {
     let origins = origins(&app.config.site_config);
     match AuthState::new(config, &app.config.env, origins, Default::default()) {
         Ok((state, diagnostics)) => {
-            let state = Arc::new(state.with_proxies(app.proxies.clone()));
+            let mut state = state.with_proxies(app.proxies.clone());
+            // HOST-08: an offline instance makes no outbound request of any
+            // kind, so it gets no client and `jwks_source` falls back to
+            // `NoSource` rather than a client that would refuse per request.
+            if !app.config.offline
+                && let Some(http) = http_client()
+            {
+                state = state.with_http(http.clone());
+                // AUTH-04: the token exchange. No client secret, because the
+                // schema has no key for one — `auth.oidc` is `issuer`,
+                // `clientId`, `scopes`, `groupsClaim` and nothing else. This
+                // is a public client, which is exactly why PKCE is mandatory
+                // rather than optional here.
+                if let Some(client_id) = state.config.oidc.client_id.clone() {
+                    let redirect_uri = format!(
+                        "{}/_liyasa/auth/callback",
+                        state.origins.first().map(String::as_str).unwrap_or("")
+                    );
+                    state = state.with_exchange(Arc::new(crate::auth::fetch::HttpExchange::new(
+                        http,
+                        &client_id,
+                        None,
+                        &redirect_uri,
+                    )));
+                }
+            }
+            let state = Arc::new(state);
             Contribution {
                 routes: Mount::routes(crate::auth::routes::router(state.clone()))
                     .with_diagnostics(diagnostics),
@@ -94,6 +120,25 @@ pub fn contribute(app: &Arc<AppState>) -> Contribution {
 /// and so the two cannot drift.
 pub fn mount(app: &Arc<AppState>) -> Mount {
     contribute(app).routes
+}
+
+/// One outbound client for this instance's identity-provider traffic.
+///
+/// `None` when the client cannot be built, which leaves `jwks_source` on
+/// `NoSource` and the exchange unset — sign-in then fails with a reason rather
+/// than the server failing to start.
+fn http_client() -> Option<Arc<dyn liyasa_core::net::HttpClient>> {
+    match liyasa_net::client::Client::new(liyasa_net::client::ClientOptions::default()) {
+        Ok(client) => Some(Arc::new(client)),
+        Err(error) => {
+            tracing::warn!(
+                target: "liyasa_server",
+                %error,
+                "no outbound client; JWKS fetches and the OIDC token exchange are unavailable"
+            );
+            None
+        }
+    }
 }
 
 /// The origins a state-changing request may come from: the canonical origin
@@ -195,6 +240,80 @@ mod tests {
         assert_eq!(
             mount(&app(site.clone())).router.is_some(),
             contribute(&app(site)).routes.router.is_some()
+        );
+    }
+
+    /// The point of this packet: the fetchers must be *reached*, not merely
+    /// exist. Before this, `jwks_source` was always `NoSource` and `exchange`
+    /// was always `None`, so JWT mode could not fetch a key and an OIDC
+    /// callback could not exchange a code.
+    #[test]
+    fn an_instance_with_auth_configured_can_actually_fetch() {
+        let contribution = contribute(&app(serde_json::json!({
+            "auth": { "mode": "jwt", "jwt": { "jwksUrl": "https://idp.example/jwks" } }
+        })));
+        let state = contribution.state.expect("a state");
+        assert!(state.http.is_some(), "an online instance gets a client");
+        assert!(
+            !format!("{:?}", state.jwks_source()).contains("NoSource"),
+            "the JWKS source must be a real one when `jwksUrl` is set"
+        );
+    }
+
+    #[test]
+    fn an_oidc_instance_gets_an_exchange_and_a_redirect_uri_on_its_own_origin() {
+        let contribution = contribute(&app(serde_json::json!({
+            "auth": { "mode": "oidc", "oidc": {
+                "issuer": "https://idp.example", "clientId": "liyasa-docs"
+            }},
+            "seo": { "canonicalOrigin": "https://docs.acme.com" }
+        })));
+        let state = contribution.state.expect("a state");
+        assert!(state.exchange.is_some(), "AUTH-04 needs a token exchange");
+        // The redirect URI is on this site, and the client secret is absent
+        // because the schema has nowhere to put one — hence PKCE is not
+        // optional. `Debug` redacts it either way.
+        let shown = format!("{:?}", state.exchange.as_ref().expect("an exchange"));
+        assert!(
+            shown.contains("https://docs.acme.com/_liyasa/auth/callback"),
+            "{shown}"
+        );
+        assert!(shown.contains("client_secret: None"), "{shown}");
+    }
+
+    /// HOST-08: an offline instance makes no outbound request of any kind, so
+    /// it gets no client rather than a client that refuses per request.
+    #[test]
+    fn an_offline_instance_fetches_nothing() {
+        let mut config = ServerConfig {
+            site_config: Arc::new(serde_json::json!({
+                "auth": { "mode": "jwt", "jwt": { "jwksUrl": "https://idp.example/jwks" } }
+            })),
+            ..ServerConfig::default()
+        };
+        config.offline = true;
+        let state = contribute(&Arc::new(AppState::new(config)))
+            .state
+            .expect("a state");
+        assert!(state.http.is_none());
+        assert!(state.exchange.is_none());
+        assert!(
+            format!("{:?}", state.jwks_source()).contains("NoSource"),
+            "an offline instance resolves only what it was given"
+        );
+    }
+
+    #[test]
+    fn a_jwt_instance_with_no_jwks_url_falls_back_rather_than_pretending() {
+        let state = contribute(&app(serde_json::json!({
+            "auth": { "mode": "jwt" }
+        })))
+        .state
+        .expect("a state");
+        assert!(state.http.is_some(), "the client is still built");
+        assert!(
+            format!("{:?}", state.jwks_source()).contains("NoSource"),
+            "nothing to fetch from"
         );
     }
 

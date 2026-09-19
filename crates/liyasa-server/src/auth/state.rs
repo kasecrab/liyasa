@@ -47,7 +47,6 @@ impl Mail for NoMail {
     }
 }
 
-#[derive(Debug)]
 pub struct AuthState {
     pub config: AuthConfig,
     /// Which environment this instance serves; the password and the preview
@@ -65,12 +64,31 @@ pub struct AuthState {
     pub variants: VariantCache,
     pub oidc: Option<Flow>,
     pub exchange: Option<Arc<dyn Exchange>>,
+    /// The outbound client for JWKS fetches and the token exchange. `None` on
+    /// an offline instance, which fetches nothing (HOST-08).
+    pub http: Option<Arc<dyn liyasa_core::net::HttpClient>>,
     pub mail: Option<Arc<dyn Mail>>,
     pub proxies: TrustedProxies,
     /// Where a subject's role comes from (defect 65). `None` elevates nobody,
     /// which gates a dashboard shut rather than open.
     pub roles: Option<Arc<dyn crate::auth::layer::Roles>>,
     pub clock: Clock,
+}
+
+// `HttpClient` is not `Debug`, and this prints what identifies an instance
+// rather than everything it holds — several fields here are credentials or
+// live tables, and neither belongs in a log line.
+impl std::fmt::Debug for AuthState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuthState")
+            .field("mode", &self.config.mode)
+            .field("env", &self.env)
+            .field("origins", &self.origins)
+            .field("has_http", &self.http.is_some())
+            .field("has_roles", &self.roles.is_some())
+            .field("has_exchange", &self.exchange.is_some())
+            .finish_non_exhaustive()
+    }
 }
 
 impl AuthState {
@@ -111,6 +129,7 @@ impl AuthState {
             ),
             oidc,
             exchange: None,
+            http: None,
             mail: None,
             roles: None,
             proxies: TrustedProxies::default(),
@@ -125,6 +144,55 @@ impl AuthState {
     pub fn with_exchange(mut self, exchange: Arc<dyn Exchange>) -> Self {
         self.exchange = Some(exchange);
         self
+    }
+
+    pub fn with_http(mut self, http: Arc<dyn liyasa_core::net::HttpClient>) -> Self {
+        self.http = Some(http);
+        self
+    }
+
+    /// The JWKS source this instance fetches with, or [`jwks::NoSource`] when
+    /// it has no client or no `auth.jwt.jwksUrl` (HOST-08).
+    ///
+    /// Built per call rather than stored because it borrows nothing: the
+    /// caching, the refresh ceiling and the negative cache are all in
+    /// [`Jwks`](crate::auth::jwks::Jwks), which *is* stored, and a source that
+    /// cached as well would be a second expiry policy able to disagree with it.
+    pub fn jwks_source(&self) -> Box<dyn crate::auth::jwks::Source> {
+        let Some(http) = self.http.clone() else {
+            return Box::new(crate::auth::jwks::NoSource);
+        };
+        let Some(url) = self.config.jwt.jwks_url.as_deref() else {
+            return Box::new(crate::auth::jwks::NoSource);
+        };
+        match crate::auth::fetch::HttpJwks::new(http, url) {
+            Some(source) => Box::new(source),
+            None => Box::new(crate::auth::jwks::NoSource),
+        }
+    }
+
+    /// Fetches the OIDC provider's endpoints if they are not known yet.
+    ///
+    /// Lazy rather than at mount, for two reasons: `contribute` is not async,
+    /// and a provider that was down when this server started would otherwise
+    /// leave sign-in broken until a restart. Called from the login handler, so
+    /// the first reader after the provider recovers is the one who pays for it.
+    pub async fn discover_if_needed(&self) -> Result<(), String> {
+        let Some(flow) = self.oidc.as_ref() else {
+            return Err("this instance is not configured for OIDC".to_owned());
+        };
+        if flow.endpoints().is_some() {
+            return Ok(());
+        }
+        let Some(http) = self.http.as_ref() else {
+            return Err("an offline instance cannot discover a provider (HOST-08)".to_owned());
+        };
+        let Some(issuer) = self.config.oidc.issuer.as_deref() else {
+            return Err("`auth.oidc.issuer` is not set".to_owned());
+        };
+        let endpoints = crate::auth::fetch::discover(http.as_ref(), issuer).await?;
+        flow.install_endpoints(endpoints);
+        Ok(())
     }
 
     pub fn with_mail(mut self, mail: Arc<dyn Mail>) -> Self {

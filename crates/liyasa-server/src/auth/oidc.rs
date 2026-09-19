@@ -164,6 +164,13 @@ impl Flow {
         &self.clock
     }
 
+    /// Fills in the endpoints discovery found. Late rather than at
+    /// construction, because discovery is a network call and building a router
+    /// is not.
+    pub fn install_endpoints(&self, endpoints: Endpoints) {
+        *self.endpoints.write().unwrap_or_else(|e| e.into_inner()) = Some(endpoints);
+    }
+
     pub fn endpoints(&self) -> Option<Endpoints> {
         self.endpoints
             .read()
