@@ -24,6 +24,7 @@ pub mod config;
 pub mod cookie;
 pub mod csrf;
 pub mod dns;
+pub mod fetch;
 pub mod domains;
 pub mod groups;
 pub mod jwks;
