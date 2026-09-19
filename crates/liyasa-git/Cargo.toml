@@ -33,7 +33,7 @@ hmac = { version = "0.13", default-features = false }
 sha2 = { version = "0.11", default-features = false }
 # Base64url for the app JWT of GIT-01; already in the graph through sqlx and
 # instant-acme.
-base64 = { version = "0.22", default-features = false, features = ["alloc"] }
+base64 = { version = "0.23", default-features = false, features = ["alloc"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
