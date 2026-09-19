@@ -152,3 +152,68 @@ fn an_absent_schema_key_is_not_a_diagnostic() {
     );
     assert!(diagnostics.is_empty());
 }
+
+#[test]
+fn a_plaintext_smtp_password_is_refused_by_the_schema() {
+    let plaintext = r#"{ "name": "Acme", "mail": { "from": "docs@acme.dev",
+      "smtp": { "host": "smtp.acme.dev", "password": "hunter2" } } }"#;
+    assert_eq!(
+        codes(&check(plaintext)),
+        vec!["E0102"],
+        "a password written into `liyasa.json` is a validation error, not a convention"
+    );
+
+    for reference in ["secret:smtp-password", "env:SMTP_PASSWORD"] {
+        let config = format!(
+            r#"{{ "name": "Acme", "mail": {{ "from": "docs@acme.dev",
+              "smtp": {{ "host": "smtp.acme.dev", "password": "{reference}" }} }} }}"#
+        );
+        assert_eq!(codes(&check(&config)), Vec::<&str>::new(), "{reference}");
+    }
+}
+
+#[test]
+fn a_mail_block_that_could_not_send_is_refused() {
+    let no_sender = r#"{ "name": "Acme", "mail": { "smtp": { "host": "smtp.acme.dev" } } }"#;
+    assert_eq!(
+        codes(&check(no_sender)),
+        vec!["E0102"],
+        "`from` is required"
+    );
+
+    let no_transport = r#"{ "name": "Acme", "mail": { "from": "docs@acme.dev" } }"#;
+    assert_eq!(
+        codes(&check(no_transport)),
+        vec!["E0102"],
+        "`smtp` is required"
+    );
+
+    let no_host = r#"{ "name": "Acme", "mail": { "from": "docs@acme.dev", "smtp": {} } }"#;
+    assert_eq!(
+        codes(&check(no_host)),
+        vec!["E0102"],
+        "`smtp.host` is required"
+    );
+}
+
+#[test]
+fn an_operator_needs_both_a_subject_and_a_role() {
+    let bare = r#"{ "name": "Acme", "auth": { "mode": "oidc", "operators": ["ana"] } }"#;
+    assert_eq!(
+        codes(&check(bare)),
+        vec!["E0102"],
+        "a bare string would read as an address; an operator says which subject and which role"
+    );
+
+    let no_role = r#"{ "name": "Acme", "auth": { "mode": "oidc",
+      "operators": [{ "subject": "8f14e45fce" }] }}"#;
+    assert_eq!(codes(&check(no_role)), vec!["E0102"]);
+
+    let reader = r#"{ "name": "Acme", "auth": { "mode": "oidc",
+      "operators": [{ "subject": "8f14e45fce", "role": "reader" }] }}"#;
+    assert_eq!(
+        codes(&check(reader)),
+        vec!["E0102"],
+        "`reader` carries no permission at all, so granting it is a no-op the schema refuses"
+    );
+}

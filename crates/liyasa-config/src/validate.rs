@@ -47,6 +47,7 @@ pub fn validate(config: &Value, spans: &SpanIndex, context: &Context<'_>) -> Dia
     run.navigation();
     run.redirects();
     run.seo();
+    run.auth();
     run.diagnostics
 }
 
@@ -82,6 +83,108 @@ impl Run<'_> {
             )
             .help("remove `public: false`, or host the built site behind your own access control"),
             "/public",
+        );
+    }
+
+    /// CFG-96: an operator named in configuration has to be namable. The
+    /// subject a sign-in issues is not an address in three of the five paths,
+    /// and in two of them nothing the operator could write would ever match
+    /// (RFC 0109).
+    fn auth(&mut self) {
+        let mode = self
+            .config
+            .pointer("/auth/mode")
+            .and_then(Value::as_str)
+            .unwrap_or("public");
+        self.operators(mode);
+        self.mail(mode);
+    }
+
+    fn operators(&mut self, mode: &str) {
+        let Some(entries) = self
+            .config
+            .pointer("/auth/operators")
+            .and_then(Value::as_array)
+            .filter(|entries| !entries.is_empty())
+        else {
+            return;
+        };
+
+        match mode {
+            "password" => self.report(
+                Diagnostic::new(
+                    code::W0137,
+                    "`auth.mode` is `password`, where every reader carries the same subject, \
+                     so no operator can be told apart from any other reader",
+                )
+                .help(
+                    "name the operator under a mode that identifies people — `oidc`, `jwt`, \
+                     or a personal access token",
+                ),
+                "/auth/operators",
+            ),
+            "public" => self.report(
+                Diagnostic::new(
+                    code::W0137,
+                    "`auth.mode` is `public`, so no reader carries a subject and no operator \
+                     entry can match one",
+                )
+                .help("set `auth.mode` to the way this instance signs people in"),
+                "/auth/operators",
+            ),
+            _ => {}
+        }
+
+        for (index, entry) in entries.iter().enumerate() {
+            let Some(subject) = entry.get("subject").and_then(Value::as_str) else {
+                continue;
+            };
+            let at = format!("/auth/operators/{index}/subject");
+            if subject.starts_with("password:") {
+                self.report(
+                    Diagnostic::new(
+                        code::W0137,
+                        format!(
+                            "`{subject}` is the subject the shared site password issues, which \
+                             names a mode rather than a person; it elevates nobody"
+                        ),
+                    )
+                    .help("use the subject the operator's own sign-in carries"),
+                    &at,
+                );
+            } else if mode == "managed" && subject.contains('@') {
+                self.report(
+                    Diagnostic::new(
+                        code::W0137,
+                        format!(
+                            "`{subject}` is an address, and a magic-link reader's subject is a \
+                             per-instance salted hash of their address, never the address itself"
+                        ),
+                    )
+                    .help(
+                        "magic-link sign-in cannot name an operator; add one through a mode \
+                         that carries a stable subject",
+                    ),
+                    &at,
+                );
+            }
+        }
+    }
+
+    /// AUTH-09: a magic link that cannot be sent is worse than one refused,
+    /// because the request looks accepted.
+    fn mail(&mut self, mode: &str) {
+        if mode != "managed" || self.config.get("mail").is_some() {
+            return;
+        }
+        self.report(
+            Diagnostic::new(
+                code::W0138,
+                "`auth.mode` is `managed`, which signs people in by emailed link, and no `mail` \
+                 block says where to send it",
+            )
+            .help("add `mail.from` and `mail.smtp.host`, or sign people in another way"),
+            "/auth/mode",
         );
     }
 

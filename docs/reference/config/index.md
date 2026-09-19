@@ -43,6 +43,7 @@ Pointing `$schema` at the published URL is what gives you completion and inline 
 | [`locales`](/reference/config/locales) | Languages this site is published in (§7.11). |
 | [`localization`](/reference/config/localization) | Locale fallback and visitor routing (§7.11). |
 | [`logo`](/reference/config/logo) | The site logo, per colour scheme. Leave it out and a text logo is generated from `name`. |
+| [`mail`](/reference/config/mail) | How the instance sends mail. There is no default sender and no fallback transport: without this block the product sends nothing and says so, rather than accepting a request it cannot fulfil. Magic-link sign-in and the organization's email notifications are both unavailable until it is set. |
 | [`name`](/reference/config/name) | Site name. The only required key. |
 | [`navbar`](/reference/config/navbar) | Top navigation bar (§8.3). |
 | [`navigation`](/reference/config/navigation) | The navigation tree, a file that holds it, or an object carrying tree options (§8.4). |

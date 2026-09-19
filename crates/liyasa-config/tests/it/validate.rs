@@ -228,3 +228,74 @@ fn an_origin_that_already_carries_the_base_path_is_w0136() {
         r##"{ "name": "Acme", "seo": { "canonicalOrigin": "https://acme.github.io/docs" } }"##;
     assert_eq!(build(project_page, &[]), Vec::<String>::new());
 }
+
+const ORIGIN: &str = r#""seo": { "canonicalOrigin": "https://acme.dev" }"#;
+
+fn auth_config(auth: &str, extra: &str) -> String {
+    format!(r#"{{ "name": "Acme", {ORIGIN}, "auth": {auth}{extra} }}"#)
+}
+
+#[test]
+fn an_operator_under_a_mode_that_names_nobody_is_w0137() {
+    let password = auth_config(
+        r#"{ "mode": "password", "operators": [{ "subject": "ana", "role": "owner" }] }"#,
+        "",
+    );
+    assert_eq!(build(&password, &[]), ["W0137"]);
+
+    let public = auth_config(
+        r#"{ "mode": "public", "operators": [{ "subject": "ana", "role": "owner" }] }"#,
+        "",
+    );
+    assert_eq!(build(&public, &[]), ["W0137"]);
+
+    // The mode is the default when nothing says otherwise, and the default is
+    // public, so an operator with no mode is the same mistake.
+    let no_mode = auth_config(
+        r#"{ "operators": [{ "subject": "ana", "role": "owner" }] }"#,
+        "",
+    );
+    assert_eq!(build(&no_mode, &[]), ["W0137"]);
+}
+
+#[test]
+fn the_shared_password_subject_is_w0137_under_any_mode() {
+    let config = auth_config(
+        r#"{ "mode": "oidc", "operators": [{ "subject": "password:production", "role": "owner" }] }"#,
+        "",
+    );
+    let codes = build(&config, &[]);
+    assert_eq!(codes, ["W0137"]);
+}
+
+#[test]
+fn an_address_under_magic_link_sign_in_is_w0137() {
+    let config = auth_config(
+        r#"{ "mode": "managed", "operators": [{ "subject": "ana@acme.dev", "role": "owner" }] }"#,
+        r#", "mail": { "from": "docs@acme.dev", "smtp": { "host": "smtp.acme.dev" } }"#,
+    );
+    assert_eq!(build(&config, &[]), ["W0137"]);
+}
+
+#[test]
+fn a_subject_a_provider_really_issues_is_accepted() {
+    let config = auth_config(
+        r#"{ "mode": "oidc", "operators": [
+             { "subject": "8f14e45fce", "role": "owner" },
+             { "subject": "https://idp.acme.dev/users/42", "role": "admin" }] }"#,
+        "",
+    );
+    assert_eq!(build(&config, &[]), Vec::<String>::new());
+}
+
+#[test]
+fn magic_link_sign_in_with_nowhere_to_send_is_w0138() {
+    let without = auth_config(r#"{ "mode": "managed" }"#, "");
+    assert_eq!(build(&without, &[]), ["W0138"]);
+
+    let with = auth_config(
+        r#"{ "mode": "managed" }"#,
+        r#", "mail": { "from": "docs@acme.dev", "smtp": { "host": "smtp.acme.dev", "port": 587 } }"#,
+    );
+    assert_eq!(build(&with, &[]), Vec::<String>::new());
+}

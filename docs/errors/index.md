@@ -66,6 +66,8 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0134`](/errors/W0134) | Warning | Trust-plane section read from the deploy branch, not from the branch being built |
 | [`E0135`](/errors/E0135) | Error | Remote spec source is not one the deploy branch's config names |
 | [`W0136`](/errors/W0136) | Warning | `seo.canonicalOrigin` already carries `build.basePath`, so every absolute URL doubles it |
+| [`W0137`](/errors/W0137) | Warning | An `auth.operators` entry names a subject this `auth.mode` can never issue |
+| [`W0138`](/errors/W0138) | Warning | Magic-link sign-in is configured and `mail` is not, so no link can be sent |
 
 ## Templating and Source Document
 

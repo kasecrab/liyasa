@@ -28,6 +28,7 @@ Specified by CFG-96.
 | `auth.oidc.groupsClaim` | string | — | The claim a reader's access groups are read from. |
 | `auth.oidc.issuer` | string | — | The provider's issuer URL, from which its endpoints are discovered. |
 | `auth.oidc.scopes` | string[] | — | Scopes requested at sign-in; ask for the claims the site actually reads and no more. |
+| `auth.operators` | object[] | — | The operators an instance names in configuration, for the one job organization membership cannot do: an empty membership table elevates nobody, so on a fresh instance there is no one who can reach `settingsWrite` to add the first member. There is no default and no implicit operator; an absent or empty list elevates nobody, which is the safe direction. An entry here is a credential, not a membership row — removing somebody from the organization does not remove them from this list, and a configured grant cannot be lowered by the membership table. Review it as you would review a key. Under `mode: "password"` it can name nobody at all: every reader who knows the password carries one subject, so nobody can be told apart, and a dashboard role in that mode is not available to anyone. |
 | `auth.password.argon2.iterations` | integer | `3` | How many passes over that memory one hash makes. |
 | `auth.password.argon2.memoryKiB` | integer | `65536` | Memory one hash computation uses, in KiB. |
 | `auth.password.argon2.parallelism` | integer | `1` | How many lanes a hash computation runs in. |

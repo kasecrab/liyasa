@@ -250,3 +250,5 @@ W0724 = { severity = "warning", crate = "liyasa-build", title = "`regions.detect
 W0725 = { severity = "warning", crate = "liyasa-build", title = "A page, navigation node, block or availability matrix names a region `regions.list` does not declare" }
 W0726 = { severity = "warning", crate = "liyasa-build", title = "A `:::variation` directive names a variation or option `variations` does not declare" }
 W0727 = { severity = "warning", crate = "liyasa-build", title = "A translation was made from an older version of its source page" }
+W0137 = { severity = "warning", crate = "liyasa-config", title = "An `auth.operators` entry names a subject this `auth.mode` can never issue" }
+W0138 = { severity = "warning", crate = "liyasa-config", title = "Magic-link sign-in is configured and `mail` is not, so no link can be sent" }
