@@ -2687,7 +2687,7 @@ dependencies = [
 name = "liyasa-git"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "bytes",
  "hmac",
  "liyasa-core",
