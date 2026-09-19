@@ -241,6 +241,15 @@ impl Notification {
     }
 }
 
+/// Why an email delivery was skipped. `concat!` rather than a wrapped
+/// literal: a Rust line continuation inside this string was silently
+/// collapsed into a run of spaces once already, and the only thing that
+/// noticed was a human reading the file.
+pub const NO_MAIL_SENDER: &str = concat!(
+    "no mail sender is available on this instance; ",
+    "if a `mail` block is configured, its startup diagnostic says why it could not be used"
+);
+
 /// Whether this instance can send email at all.
 ///
 /// Not part of [`Endpoints`] on purpose. The sender lives on `AuthState`,
@@ -284,15 +293,21 @@ pub fn route(
                 }
             } else if mailer == Mailer::Absent {
                 // Email needs no per-organization endpoint, which used to mean
-                // it could never be skipped — so a site with no `mail` block
+                // it could never be skipped — so an instance that cannot send
                 // produced a delivery to an address nothing would ever send
                 // to. A reported skip and a silent drop are the same outcome
                 // for the reader and opposite outcomes for the operator.
+                //
+                // "Available", not "configured": two different states reach
+                // here identically. A site with no `mail` block has no sender,
+                // and a block that exists and cannot work raises E0816 at
+                // startup and also leaves the sender unset. Naming the block
+                // would be wrong in the second case, and the startup
+                // diagnostic is where the difference is recorded.
                 routed.skipped.push(Skipped {
                     user: subscriber.user.clone(),
                     channel,
-                    reason: "this instance has no mail sender configured; see the site's                              `mail` block"
-                        .to_owned(),
+                    reason: NO_MAIL_SENDER.to_owned(),
                 });
                 continue;
             } else {
@@ -410,10 +425,16 @@ mod tests {
         assert!(routed.deliveries.is_empty());
         assert_eq!(routed.skipped.len(), 1);
         assert_eq!(routed.skipped[0].channel, Channel::Email);
+        let reason = &routed.skipped[0].reason;
+        assert_eq!(reason, NO_MAIL_SENDER);
         assert!(
-            routed.skipped[0].reason.contains("mail"),
-            "the reason must name what to configure: {}",
-            routed.skipped[0].reason
+            !reason.contains("  "),
+            "a wrapped literal collapsed into spaces once already: {reason:?}"
+        );
+        assert!(
+            !reason.contains("has no `mail` block"),
+            "two states reach here identically, no block and a block that raised E0816, \
+             so the reason must not claim which: {reason}"
         );
 
         // The same instance still delivers on a channel that has an endpoint,
