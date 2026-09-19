@@ -115,7 +115,8 @@ pub async fn trigger(
         &input.branch,
         &input.commit,
     )
-    .with_trigger(Trigger::Manual);
+    .with_trigger(Trigger::Manual)
+    .in_workspace(binding.workspace.clone());
     if let Some(message) = input.message {
         request = request.with_message(message);
     }

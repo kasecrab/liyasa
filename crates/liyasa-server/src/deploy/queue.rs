@@ -144,6 +144,11 @@ pub struct BuildRequest {
     /// makes a server-side build incremental (GIT-20).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_from: Option<String>,
+    /// Where the source tree is. The handler sees only `AppState` and this
+    /// row, so the side that knows where a project lives resolves the path
+    /// once and sends it along (RFC 1608).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace: Option<String>,
 }
 
 impl BuildRequest {
@@ -168,7 +173,16 @@ impl BuildRequest {
             pull_request: None,
             base_commit: None,
             cache_from: None,
+            workspace: None,
         }
+    }
+
+    /// Where the worker builds (RFC 1608). Without one the job is `Skipped`
+    /// rather than failed: no workspace is a missing configuration, not a
+    /// fault.
+    pub fn in_workspace(mut self, workspace: Option<String>) -> Self {
+        self.workspace = workspace;
+        self
     }
 
     /// What `verify --changed` is given, and what the artifact cache is warmed
@@ -231,6 +245,7 @@ impl BuildRequest {
             "pullRequest": self.pull_request,
             "baseCommit": self.base_commit,
             "cacheFrom": self.cache_from,
+            "workspace": self.workspace,
         })
     }
 

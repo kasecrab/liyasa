@@ -16,6 +16,7 @@ pub mod routes;
 pub mod rollback;
 pub mod service;
 pub mod untrusted;
+pub mod worker;
 
 pub use environment::{Environment, EnvironmentKind, Protection};
 pub use hosts::{Paved, PublishPlan};
@@ -26,3 +27,4 @@ pub use rollback::{Actor, Rollback, RollbackError};
 pub use routes::router;
 pub use service::{Binding, DeployState, Hooks};
 pub use untrusted::{Reason, Sandbox};
+pub use worker::run_build;

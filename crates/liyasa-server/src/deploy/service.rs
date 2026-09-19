@@ -32,6 +32,10 @@ pub struct Binding {
     pub trusted_branches: Vec<String>,
     /// Where previews for this project are served.
     pub preview_domain: String,
+    /// The source tree the worker builds, when this installation has one on
+    /// disk (RFC 1608). `None` leaves a queued build `Skipped` with a reason
+    /// rather than failed.
+    pub workspace: Option<String>,
     pub environments: Vec<Environment>,
 }
 
@@ -64,6 +68,11 @@ impl Binding {
 
     pub fn with_preview_domain(mut self, domain: impl Into<String>) -> Self {
         self.preview_domain = domain.into();
+        self
+    }
+
+    pub fn with_workspace(mut self, workspace: impl Into<String>) -> Self {
+        self.workspace = Some(workspace.into());
         self
     }
 

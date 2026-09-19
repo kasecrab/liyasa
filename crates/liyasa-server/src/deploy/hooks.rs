@@ -144,7 +144,8 @@ async fn on_push(state: &DeployState, event: &Event, push: &Push) -> Response {
         &push.head,
     )
     .with_trigger(Trigger::Push)
-    .incremental_from(push.before.clone(), cache_from);
+    .incremental_from(push.before.clone(), cache_from)
+    .in_workspace(binding.workspace.clone());
     if reason.untrusted() && environment.kind != EnvironmentKind::Production {
         request = request.untrusted();
     }
@@ -182,7 +183,8 @@ async fn on_pull_request(state: &DeployState, event: &Event, pull: &PullRequestE
         &pull.head_sha,
     )
     .with_trigger(Trigger::PullRequest)
-    .for_pull_request(pull.number);
+    .for_pull_request(pull.number)
+    .in_workspace(binding.workspace.clone());
     if reason.untrusted() {
         request = request.untrusted();
     }
