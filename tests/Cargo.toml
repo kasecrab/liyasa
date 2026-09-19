@@ -44,6 +44,9 @@ liyasa-store = { path = "../crates/liyasa-store", version = "0.1.0" }
 # test drives instead of a network.
 liyasa-git = { path = "../crates/liyasa-git", version = "0.1.0", features = ["testing"] }
 liyasa-net = { path = "../crates/liyasa-net", version = "0.1.0" }
+# WP-14: AST-10's acceptance tests drive the server's `Tools` implementation,
+# whose trait and types are this crate's.
+liyasa-ai = { path = "../crates/liyasa-ai", version = "0.1.0" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "net", "io-util"] }
 axum = { workspace = true, features = ["http1", "json", "query", "tokio"] }
 tower = { workspace = true, features = ["util"] }

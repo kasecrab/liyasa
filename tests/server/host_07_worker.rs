@@ -201,7 +201,7 @@ async fn a_timer_enqueues_one_row_however_many_replicas_fire_it() {
     }
     let kinds = [work::JobKind {
         name: "test.sweep",
-        trigger: Trigger::Every(Duration::from_secs(86_400), daily),
+        trigger: Trigger::Scheduled(daily),
         run: counting,
     }];
 

@@ -19,6 +19,10 @@ liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
 liyasa-config = { path = "../liyasa-config", version = "0.1.0" }
 liyasa-build = { path = "../liyasa-build", version = "0.1.0" }
 liyasa-net = { path = "../liyasa-net", version = "0.1.0" }
+# AST-10: this crate supplies the assistant's read-only tools. The trait's doc
+# comment says "What the server supplies", and §34.7 already has the server
+# depending on ai.
+liyasa-ai = { path = "../liyasa-ai", version = "0.1.0" }
 # The output scrubber of §30.2.4, which analytics free text and feedback go
 # through; §34.7 already has the server depending on verify.
 liyasa-verify = { path = "../liyasa-verify", version = "0.1.0" }

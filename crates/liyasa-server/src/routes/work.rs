@@ -40,10 +40,16 @@ pub enum Trigger {
     Caller,
     /// After a deployment succeeds. `None` means this deployment needs none.
     DeploymentSucceeded(fn(&Arc<AppState>, &Value) -> Option<Enqueue>),
-    /// On an interval. The function returns the row to enqueue, whose key must
-    /// be the interval's bucket so that every replica firing its own timer
-    /// still produces one row.
-    Every(Duration, fn(&Arc<AppState>) -> Option<Enqueue>),
+    /// On a schedule the builder owns. Called on every tick; it returns the
+    /// row to enqueue when the job is due and `None` when it is not.
+    ///
+    /// There is deliberately no interval here. The de-duplication key does
+    /// the work — a key that is the schedule's current bucket means every
+    /// replica may fire and exactly one row exists — so an interval field
+    /// would be read by nothing, and a schedule that lives in configuration
+    /// (`verify.links.schedule` is a `DurationSetting`, VER-51) could not be
+    /// expressed as a constant anyway.
+    Scheduled(fn(&Arc<AppState>) -> Option<Enqueue>),
 }
 
 pub struct JobKind {
@@ -60,9 +66,9 @@ impl std::fmt::Debug for JobKind {
 
 /// Every job kind, in no particular order. One line per package (RFC 1404).
 ///
-/// WP-18 adds the index build and the retention sweep when `liyasa-ai` lands;
 /// WP-16's build job registers with `Trigger::Caller` because its deploy queue
-/// already enqueues it; WP-13's verification schedule is an `Every`.
+/// already enqueues it, and its retention sweep with `Trigger::Scheduled`;
+/// WP-18's index build and retention sweep are the same two shapes.
 pub fn kinds() -> &'static [JobKind] {
     &[]
 }
@@ -117,7 +123,14 @@ pub async fn run_up_to(
             // Release rather than fail: the package that owns it may be
             // merging right now, and failing it through its attempts because
             // this binary is older would be a self-inflicted outage.
-            jobs.release(worker).await?;
+            //
+            // Scoped to this job. `release` is by worker and would re-queue
+            // everything else this worker holds, which is harmless only while
+            // exactly one job is held at a time — a property of this loop
+            // that a later change could remove without noticing (WP-16).
+            jobs.release_one(&job.id).await?;
+            // Nothing else is claimable that this binary can run: `claim`
+            // orders by priority and would hand back the same row.
             break;
         };
 
@@ -174,7 +187,7 @@ pub async fn fire_timers(state: &Arc<AppState>, kinds: &[JobKind]) -> Result<usi
     };
     let mut queued = 0;
     for kind in kinds {
-        let Trigger::Every(_, build) = &kind.trigger else {
+        let Trigger::Scheduled(build) = &kind.trigger else {
             continue;
         };
         if let Some(enqueue) = build(state) {

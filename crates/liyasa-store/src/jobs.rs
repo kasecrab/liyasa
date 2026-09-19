@@ -354,6 +354,25 @@ impl Jobs {
         }
     }
 
+    /// Hands one job back, without touching anything else this worker holds.
+    ///
+    /// `release` is by worker and would re-queue every job that worker has in
+    /// flight, which is only safe while a worker holds one at a time. A caller
+    /// that puts a single job down wants this.
+    pub async fn release_one(&self, id: &JobId) -> Result<(), StoreError> {
+        sqlx::query(
+            "UPDATE job SET state = 'queued', lease_until = NULL, worker = NULL, \
+             attempts = CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END, \
+             updated_at = ?, version = version + 1 WHERE id = ? AND state = 'leased'",
+        )
+        .bind(now_ms())
+        .bind(id.to_string())
+        .execute(&self.pool)
+        .await
+        .map_err(sql_error)?;
+        Ok(())
+    }
+
     /// NFR-31: a draining replica hands its leases back so another replica
     /// claims them without waiting for the leases to expire.
     pub async fn release(&self, worker: &str) -> Result<u64, StoreError> {

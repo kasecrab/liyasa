@@ -24,6 +24,7 @@ pub mod serve;
 pub mod session;
 pub mod site;
 pub mod telemetry;
+pub mod tools;
 pub mod work;
 pub mod tls;
 pub mod webhooks;
