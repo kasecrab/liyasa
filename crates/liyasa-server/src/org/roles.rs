@@ -229,7 +229,6 @@ mod tests {
         // it through `auth::layer` rather than through the inherent method:
         // a member's grant reaches `apply_roles` and comes back on the
         // principal.
-        use crate::auth::layer::Roles as _;
         use crate::auth::session::Principal;
 
         let state = with_member(Member::new(
