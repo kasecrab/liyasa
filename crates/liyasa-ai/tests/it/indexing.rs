@@ -268,13 +268,20 @@ fn a_preview_deployment_indexes_nothing_unless_it_was_turned_on() {
 
 #[test]
 fn the_job_payload_round_trips_under_the_name_the_server_enqueues() {
-    assert_eq!(JOB_NAME, "assistant.index");
+    // The value the deploy queue enqueues. Pinned against
+    // liyasa_server::deploy::queue::EMBED_JOB in tests/, which is the only
+    // place that can see both crates.
+    assert_eq!(JOB_NAME, "assistant.embed");
     let payload = JobPayload {
         project: "p_1".to_owned(),
         deployment: "d_1".to_owned(),
         routes: vec![Route::new("/guides/auth")],
     };
     let json = serde_json::to_value(&payload).expect("serialize");
+    assert_eq!(
+        json["buildId"], "d_1",
+        "the wire name is the queue's, not ours"
+    );
     assert_eq!(json["routes"][0], "/guides/auth");
     assert_eq!(
         serde_json::from_value::<JobPayload>(json).expect("deserialize"),

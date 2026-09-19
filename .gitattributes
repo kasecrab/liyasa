@@ -55,6 +55,7 @@ crates/*/tests/it/main.rs merge=union
 # markdown, verify and server are all named in CLAUDE.md as crates with several
 # owners, so this recurs for every pair of them. Structural, not bad luck.
 crates/*/src/lib.rs merge=union
+crates/liyasa-server/src/routes/work.rs merge=union
 
 *.png binary
 *.jpg binary

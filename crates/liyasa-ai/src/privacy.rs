@@ -145,6 +145,21 @@ pub fn expired(row: &StoredExchange, now_ms: u64, config: &PrivacyConfig) -> boo
     now_ms.saturating_sub(row.at) >= window
 }
 
+/// The timestamp at or before which a row has expired, for a store that
+/// filters in SQL rather than loading the table.
+///
+/// Must agree with [`expired`] for every input, and the two disagree easily:
+/// the obvious `now - window` says a row timestamped in the FUTURE — clock
+/// skew — survives, while `expired` with `retentionDays: 0` says it does not.
+/// `0` means "keep nothing", so `u64::MAX` is the honest cutoff and the two
+/// agree everywhere. `cutoff_agrees_with_expired_across_the_edges` pins it.
+pub fn cutoff(now_ms: u64, config: &PrivacyConfig) -> u64 {
+    if config.retention_days == 0 {
+        return u64::MAX;
+    }
+    now_ms.saturating_sub(u64::from(config.retention_days).saturating_mul(MS_PER_DAY))
+}
+
 /// The rows to delete at `now_ms`.
 pub fn sweep<'a>(
     rows: &'a [StoredExchange],
@@ -262,6 +277,37 @@ mod tests {
         assert!(!expired(&row, eighty_nine, &config));
         let ninety = row.at + 90 * MS_PER_DAY;
         assert!(expired(&row, ninety, &config));
+    }
+
+    #[test]
+    fn cutoff_agrees_with_expired_across_the_edges() {
+        let a = answer("x");
+        let now = 1_000 * MS_PER_DAY;
+        for days in [0u32, 1, 90, 365] {
+            let config = PrivacyConfig {
+                retention_days: days,
+                ..PrivacyConfig::default()
+            };
+            let boundary = now.saturating_sub(u64::from(days) * MS_PER_DAY);
+            for at in [
+                0,
+                boundary.saturating_sub(1),
+                boundary,
+                boundary + 1,
+                now,
+                // Clock skew: a row stamped in the future.
+                now + MS_PER_DAY,
+            ] {
+                let mut e = exchange("q", &a);
+                e.at = at;
+                let row = store(&e, &config).expect("storage is on");
+                assert_eq!(
+                    expired(&row, now, &config),
+                    row.at <= cutoff(now, &config),
+                    "days={days} at={at} now={now}"
+                );
+            }
+        }
     }
 
     #[test]

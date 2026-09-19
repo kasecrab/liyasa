@@ -66,17 +66,14 @@ impl std::fmt::Debug for JobKind {
 
 /// Every job kind, in no particular order. One line per package (RFC 1404).
 ///
-/// Expected, and owed by the packages that own the handlers:
+/// Still owed by the packages that own the handlers:
 ///
 /// ```text
 /// deploy.build      WP-16, `Trigger::Caller` — its deploy queue enqueues it
 /// deploy.retention  WP-16, `Trigger::Scheduled`
-/// assistant.embed   WP-18, `Trigger::Caller` — renamed from `assistant.index`,
-///                   which nothing ever enqueued
-/// assistant.sweep   WP-18, `Trigger::Scheduled`
 /// ```
 ///
-/// Those four are a comment rather than a pinned list in a test ON PURPOSE,
+/// Those two are a comment rather than a pinned list in a test ON PURPOSE,
 /// and the next person here will want to "strengthen" them into one. Do not.
 /// A pin makes this package's test assert a claim about another package's
 /// naming, so it fails when WP-16 registers `build.run` instead — reddening
@@ -86,8 +83,34 @@ impl std::fmt::Debug for JobKind {
 /// The absence is already reported where it belongs: [`report`] logs at warn
 /// when nothing is registered, and `/_liyasa/ready` names the kinds nobody can
 /// run. Those tell an operator; the defect ledger tells the fleet.
+///
+/// Append your entry; never rewrite the list. This file is on path-guard's
+/// shared list and is `merge=union` in `.gitattributes`, which is what makes
+/// one-line-per-package work when two packages register in the same window.
+/// Before you register a name, grep for it — a name used as an orphan fixture
+/// stops being orphaned the moment you claim it:
+///
+/// ```text
+/// git grep -n 'your.job.name' -- tests/ crates/*/tests/
+/// ```
 pub fn kinds() -> &'static [JobKind] {
-    &[]
+    &[
+        // WP-18. The name is `deploy::queue::EMBED_JOB` rather than a literal
+        // or `liyasa_ai`'s copy: `queue_embedding` is what actually enqueues
+        // this row, so the enqueuer owns the spelling. `Trigger::Caller` for
+        // the same reason — a `DeploymentSucceeded` trigger would enqueue a
+        // second row (RFC 1404, corrected).
+        JobKind {
+            name: crate::deploy::queue::EMBED_JOB,
+            trigger: Trigger::Caller,
+            run: crate::assistant::run_index,
+        },
+        JobKind {
+            name: crate::assistant::RETENTION_JOB,
+            trigger: Trigger::Scheduled(crate::assistant::retention_due),
+            run: crate::assistant::run_sweep,
+        },
+    ]
 }
 
 /// Names claimed with no handler, logged once per process rather than once per

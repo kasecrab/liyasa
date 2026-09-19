@@ -21,6 +21,7 @@ pub mod exclude;
 pub mod index;
 pub mod indexing;
 pub mod insights;
+pub mod jobs;
 pub mod openapi_doc;
 pub mod privacy;
 pub mod prompt;
