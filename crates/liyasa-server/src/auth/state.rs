@@ -67,6 +67,9 @@ pub struct AuthState {
     pub exchange: Option<Arc<dyn Exchange>>,
     pub mail: Option<Arc<dyn Mail>>,
     pub proxies: TrustedProxies,
+    /// Where a subject's role comes from (defect 65). `None` elevates nobody,
+    /// which gates a dashboard shut rather than open.
+    pub roles: Option<Arc<dyn crate::auth::layer::Roles>>,
     pub clock: Clock,
 }
 
@@ -109,6 +112,7 @@ impl AuthState {
             oidc,
             exchange: None,
             mail: None,
+            roles: None,
             proxies: TrustedProxies::default(),
             env: env.to_owned(),
             origins,
@@ -125,6 +129,11 @@ impl AuthState {
 
     pub fn with_mail(mut self, mail: Arc<dyn Mail>) -> Self {
         self.mail = Some(mail);
+        self
+    }
+
+    pub fn with_roles(mut self, roles: Arc<dyn crate::auth::layer::Roles>) -> Self {
+        self.roles = Some(roles);
         self
     }
 
