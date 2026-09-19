@@ -7,11 +7,18 @@
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
+use std::time::Duration;
 
 use liyasa_core::ids::{BuildId, ProjectId};
 use liyasa_core::net::BoxFut;
 use liyasa_core::store::{Page, StoreError};
 use liyasa_store::SqliteStore;
+
+/// The job a scheduled sweep runs under (RFC 1404).
+pub const JOB_NAME: &str = "deploy.retention";
+
+/// How often the sweep runs.
+pub const EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// The default of GIT-23: the last fifty production builds.
 pub const DEFAULT_PRODUCTION: usize = 50;
@@ -196,6 +203,81 @@ impl Retention {
     }
 }
 
+/// Whether the sweep is due, and the row to enqueue if so (RFC 1404's
+/// `Trigger::Scheduled`).
+///
+/// There is no interval parameter and no last-run timestamp. The key *is* the
+/// schedule: it is the current day, and `(name, key)` is uniquely indexed over
+/// live rows, so every replica may call this on every tick and exactly one row
+/// exists for the day. Asking "has it run today" would be a second source of
+/// truth that can disagree with the index.
+pub fn daily(state: &Arc<crate::routes::AppState>) -> Option<liyasa_store::Enqueue> {
+    state.store.as_ref()?;
+    Some(enqueue_for(liyasa_store::now_ms()))
+}
+
+/// The row a sweep for `now_ms` is queued as. Split out so the key is
+/// testable without a store.
+pub fn enqueue_for(now_ms: i64) -> liyasa_store::Enqueue {
+    let day = now_ms / EVERY.as_millis() as i64;
+    liyasa_store::Enqueue {
+        priority: super::queue::Class::Reindex.priority(),
+        project: None,
+        payload: serde_json::json!({ "day": day }),
+        max_attempts: 3,
+        lease: Duration::from_secs(10 * 60),
+        ..liyasa_store::Enqueue::new(JOB_NAME, day.to_string())
+    }
+}
+
+/// Runs one retention sweep across every project and environment (GIT-23).
+///
+/// Returns `Skipped` rather than `Failed` when there is no store: an instance
+/// with nothing to sweep has not failed to sweep it.
+pub async fn run_sweep(
+    state: &Arc<crate::routes::AppState>,
+    _job: &liyasa_store::records::JobRecord,
+) -> super::worker::Done {
+    let Some(store) = state.store.clone() else {
+        return super::worker::Done::Skipped(
+            "this instance has no store, so there are no bundles to sweep".to_owned(),
+        );
+    };
+    let retention = Retention::new(store.clone());
+    let deployments = match store.deployments_typed().list(None, None).await {
+        Ok(rows) => rows,
+        Err(error) => {
+            return super::worker::Done::Failed(format!(
+                "the deployment list could not be read: {error}"
+            ));
+        }
+    };
+
+    // Sweep every (project, environment) that has ever been deployed. A
+    // project with no deployment has no bundle an environment points at, so
+    // there is nothing the policy would protect and nothing to remove.
+    let mut seen: BTreeSet<(String, String)> = BTreeSet::new();
+    let mut removed = 0usize;
+    for record in deployments {
+        if !seen.insert((record.project.to_string(), record.env.clone())) {
+            continue;
+        }
+        match retention.sweep(&record.project, &record.env).await {
+            Ok(gone) => removed += gone.len(),
+            Err(error) => {
+                return super::worker::Done::Failed(format!(
+                    "sweeping `{}` failed: {error}",
+                    record.env
+                ));
+            }
+        }
+    }
+    super::worker::Done::Ok(serde_json::json!({
+        "environments": seen.len(),
+        "bundlesRemoved": removed,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use liyasa_core::ids::Fingerprint;
@@ -268,6 +350,34 @@ mod tests {
     fn fewer_builds_than_the_policy_keeps_removes_nothing() {
         let candidates = vec![build("a", 1), build("b", 2)];
         assert!(expired(&candidates, &BTreeSet::new(), DEFAULT_PRODUCTION).is_empty());
+    }
+
+    #[test]
+    fn every_tick_of_the_same_day_asks_for_the_same_row() {
+        // Rule 17 again: the interesting case is the second call. The key is
+        // what makes three replicas produce one row, so two ticks within a day
+        // must agree on it and two ticks either side of a boundary must not.
+        let day = EVERY.as_millis() as i64;
+        let morning = enqueue_for(day * 20_000 + 60_000);
+        let evening = enqueue_for(day * 20_000 + day - 1);
+        let tomorrow = enqueue_for(day * 20_001);
+
+        assert_eq!(morning.key, evening.key, "one row per day, not per tick");
+        assert_ne!(
+            evening.key, tomorrow.key,
+            "and a new one when the day turns"
+        );
+        assert_eq!(morning.name, JOB_NAME);
+        assert_eq!(
+            morning.priority,
+            super::super::queue::Class::Reindex.priority(),
+            "a sweep never outranks a build"
+        );
+    }
+
+    #[test]
+    fn the_sweep_is_queued_with_no_project_because_it_crosses_all_of_them() {
+        assert_eq!(enqueue_for(0).project, None);
     }
 
     #[test]

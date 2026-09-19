@@ -18,13 +18,12 @@ use std::sync::Arc;
 
 use liyasa_build::engine::{self, Options, Report};
 use liyasa_core::diagnostics::Severity;
-use liyasa_core::ids::{BuildId, ProjectId};
+use liyasa_core::ids::{BuildId, JobId, ProjectId};
 use liyasa_core::store::BuildStatus;
 use liyasa_store::records::{BuildRecord, JobRecord};
 use serde_json::{Value, json};
 
 use super::queue::{BuildOutcome, Class};
-use super::untrusted::Sandbox;
 use crate::routes::AppState;
 
 /// What a handler did. Mirrors `routes::work::Outcome` (RFC 1404) without
@@ -88,10 +87,19 @@ impl Plan {
 
 /// The build's environment, decided before the build runs (GIT-31).
 ///
+/// This applies the environment half of [`super::untrusted::Sandbox`] and not
+/// the rest. `trust_plane_ref`, `refresh_sources`, `run_command_sources` and
+/// `allow_credentialed_runners` are decided and recorded by `untrusted` and
+/// enforced by the verification machinery, which the build engine does not
+/// call from here; GIT-31 stays `partial` until it does.
+///
 /// An untrusted build gets the allow-listed map and nothing else, so
 /// `{{ env("GITHUB_TOKEN") }}` renders undefined by construction rather than
 /// by a filter someone has to remember to apply.
-pub fn environment_for(plan: &Plan, ambient: &BTreeMap<String, String>) -> BTreeMap<String, String> {
+pub fn environment_for(
+    plan: &Plan,
+    ambient: &BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
     match plan.untrusted {
         true => super::untrusted::keep_only(ambient.iter()),
         false => ambient.clone(),
@@ -125,17 +133,63 @@ pub fn tally(report: &Report) -> (u32, u32) {
     (count(Severity::Error), count(Severity::Warning))
 }
 
-/// Builds `plan` and returns what it produced.
+/// Where a project's finished bundles live, one directory per build.
 ///
-/// Split from [`run`] so a test can drive a real build without a store.
-pub fn build(plan: &Plan, root: &Path, ambient: &BTreeMap<String, String>) -> Report {
+/// Not the project's own `build.output`. GIT-41 says a rollback is a pointer
+/// change *because bundles are immutable and content-addressed*; if every
+/// build wrote to one directory the pointer could move and the bytes it names
+/// would be gone, and GIT-23's retention sweep would delete the directory the
+/// live deployment is serving from. One directory per build is what makes both
+/// rows true rather than a detail of where files go.
+pub fn bundles_dir(root: &Path) -> PathBuf {
+    root.join(".liyasa").join("bundles")
+}
+
+/// Where a build writes before its id is known. Keyed by the job rather than
+/// the build, because the build id is what the build produces.
+pub fn staging_dir(root: &Path, job: &JobId) -> PathBuf {
+    root.join(".liyasa").join("staging").join(job.to_string())
+}
+
+/// Moves a finished build's output to its content-addressed home and returns
+/// where it landed.
+///
+/// A destination that already exists is not an error and not a collision: the
+/// build id is a digest of everything that went into the build, so the same id
+/// is the same bytes. The staging copy is dropped and the existing bundle is
+/// used, which is the content-addressing doing its job.
+pub fn settle(staging: &Path, bundles: &Path, build: &BuildId) -> std::io::Result<PathBuf> {
+    let home = bundles.join(build.to_string());
+    if home.exists() {
+        std::fs::remove_dir_all(staging)?;
+        return Ok(home);
+    }
+    std::fs::create_dir_all(bundles)?;
+    std::fs::rename(staging, &home)?;
+    Ok(home)
+}
+
+/// Builds `plan` into `output` and returns what it produced.
+///
+/// `output` is explicit rather than left to the project's `build.output`: the
+/// caller has to know where the bytes went in order to record it, and a
+/// `BuildRecord` pointing at a guessed path is a rollback that cannot work.
+///
+/// Split from [`run_build`] so a test can drive a real build without a store.
+pub fn build(
+    plan: &Plan,
+    root: &Path,
+    output: &Path,
+    ambient: &BTreeMap<String, String>,
+) -> Report {
     let environment = environment_for(plan, ambient);
-    let options = options_for(plan, environment);
+    let mut options = options_for(plan, environment);
+    options.output = Some(output.to_path_buf());
     // TODO(rfc-1601): `NoGit` until a git implementation lands. The build
     // clock then falls back to its own last rule, which is what W0707 already
     // describes for a project with no repository.
     engine::build(
-        &liyasa_core::vfs::StdVfs::new(root),
+        &liyasa_config::vfs::OsVfs::new(root),
         &liyasa_build::git::NoGit,
         root,
         &options,
@@ -163,12 +217,31 @@ pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
     }
 
     let ambient: BTreeMap<String, String> = std::env::vars().collect();
+    let staging = staging_dir(&root, &job.id);
+    // A retry of this job finds its own half-finished output; the attempt that
+    // failed is not evidence about the one starting now.
+    let _ = std::fs::remove_dir_all(&staging);
+    if let Some(parent) = staging.parent()
+        && let Err(error) = std::fs::create_dir_all(parent)
+    {
+        return Done::Failed(format!(
+            "`{}` could not be created: {error}",
+            parent.display()
+        ));
+    }
+
     let plan_for_build = plan.clone();
     let root_for_build = root.clone();
+    let staging_for_build = staging.clone();
     // The build is CPU-bound and synchronous; running it on the async worker's
     // thread would stall every other job on this replica for its duration.
     let report = match tokio::task::spawn_blocking(move || {
-        build(&plan_for_build, &root_for_build, &ambient)
+        build(
+            &plan_for_build,
+            &root_for_build,
+            &staging_for_build,
+            &ambient,
+        )
     })
     .await
     {
@@ -177,17 +250,52 @@ pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
     };
 
     let (errors, warnings) = tally(&report);
-    let Some(build_id) = report.build_id else {
+    let failed = report.failed(false);
+
+    // Only a build that succeeded becomes a bundle. A failed one's output is
+    // discarded rather than settled: it would occupy a retained slot, and a
+    // half-written site under a content-addressed name is the one thing a
+    // rollback target must never be. Every path from here that does not settle
+    // drops the staging directory, or a failing build leaks a site-sized
+    // directory per attempt.
+    let discard = || {
+        if let Err(error) = std::fs::remove_dir_all(&staging) {
+            tracing::warn!(
+                target: "liyasa_server",
+                path = %staging.display(),
+                %error,
+                "a failed build's staging directory could not be removed"
+            );
+        }
+    };
+
+    let Some(build_id) = report.build_id.filter(|_| !failed) else {
+        discard();
+        // GIT-21: a failed deploy fires its webhook too. A subscriber that
+        // only ever hears about successes cannot tell a failure from silence.
+        state.notify_webhook(
+            "deployment.failed",
+            &json!({
+                "project": plan.project.to_string(),
+                "env": plan.env,
+                "commit": plan.commit,
+                "branch": plan.branch,
+                "errors": errors,
+                "warnings": warnings,
+            }),
+        );
         return Done::Failed(format!(
-            "the build produced no bundle: {errors} error(s), {warnings} warning(s)"
+            "the build reported {errors} error(s) and {warnings} warning(s)"
         ));
     };
-    let dist = root.join("dist").to_string_lossy().into_owned();
-    let failed = report.failed(false);
-    let status = match failed {
-        true => BuildStatus::Failed,
-        false => BuildStatus::Succeeded,
+    let dist = match settle(&staging, &bundles_dir(&root), &build_id) {
+        Ok(home) => home.to_string_lossy().into_owned(),
+        Err(error) => {
+            discard();
+            return Done::Failed(format!("the bundle could not be placed: {error}"));
+        }
     };
+    let status = BuildStatus::Succeeded;
 
     let now = liyasa_store::now_ms();
     if let Err(error) = store
@@ -221,13 +329,6 @@ pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
         "cacheHits": report.cache_hits,
     });
 
-    if failed {
-        state.notify_webhook("deployment.failed", &body);
-        return Done::Failed(format!(
-            "the build reported {errors} error(s) and {warnings} warning(s)"
-        ));
-    }
-
     // The pointer moves first and the embedding is queued after, never the
     // other way round (GIT-20, AST-01).
     if plan.deploys()
@@ -236,7 +337,9 @@ pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
             .point(&plan.project, &plan.env, &build_id)
             .await
     {
-        return Done::Failed(format!("the deployment pointer could not be moved: {error}"));
+        return Done::Failed(format!(
+            "the deployment pointer could not be moved: {error}"
+        ));
     }
 
     let embedding = super::queue::DeployQueue::new(store)
@@ -325,8 +428,8 @@ mod tests {
 
     #[test]
     fn an_incremental_build_is_not_a_clean_one() {
-        let request = request().incremental_from(Some("old".to_owned()), Some("blake3:aa".to_owned()));
-        let plan = Plan::of(&job_from(&request)).expect("a readable payload");
+        let warm = request().incremental_from(Some("old".to_owned()), Some("blake3:aa".to_owned()));
+        let plan = Plan::of(&job_from(&warm)).expect("a readable payload");
         assert_eq!(plan.cache_from.as_deref(), Some("blake3:aa"));
         let options = options_for(&plan, BTreeMap::new());
         assert!(
@@ -340,8 +443,8 @@ mod tests {
 
     #[test]
     fn a_preview_build_never_moves_a_pointer() {
-        let request = request().for_pull_request(7);
-        let plan = Plan::of(&job_from(&request)).expect("a readable payload");
+        let pull = request().for_pull_request(7);
+        let plan = Plan::of(&job_from(&pull)).expect("a readable payload");
         assert!(
             !plan.deploys(),
             "a pull-request build is served from its own host"
@@ -401,7 +504,10 @@ mod tests {
 
         let trusted = Plan::of(&job_from(&request())).expect("a readable payload");
         let options = options_for(&trusted, environment_for(&trusted, &ambient));
-        assert_eq!(options.env_value("GITHUB_TOKEN").as_deref(), Some("ghs_secret"));
+        assert_eq!(
+            options.env_value("GITHUB_TOKEN").as_deref(),
+            Some("ghs_secret")
+        );
     }
 
     #[test]
@@ -419,6 +525,83 @@ mod tests {
         let mut job = job_from(&preview);
         job.priority = Class::Preview.priority();
         assert_eq!(class_of(&job), Class::Preview);
+    }
+
+    /// Rule 17: the test that matters here is the one that runs it twice.
+    ///
+    /// A single build cannot distinguish "each build gets its own directory"
+    /// from "every build overwrites one directory", which is how defect 74
+    /// passed nine tests. The input that tells them apart is a second build.
+    #[test]
+    fn a_second_build_does_not_replace_the_first_ones_bundle() {
+        let root = std::env::temp_dir().join(format!("liyasa-settle-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let bundles = bundles_dir(&root);
+
+        let first = placeholder_build_id("one");
+        let second = placeholder_build_id("two");
+        assert_ne!(first, second);
+
+        let mut homes = Vec::new();
+        for (build, marker) in [(first, "first"), (second, "second")] {
+            let staging = staging_dir(&root, &JobId(ulid::Ulid::from_bytes([9; 16])));
+            std::fs::create_dir_all(&staging).expect("a staging directory");
+            std::fs::write(staging.join("index.html"), marker).expect("a built page");
+            homes.push(settle(&staging, &bundles, &build).expect("the bundle settles"));
+        }
+
+        assert_ne!(homes[0], homes[1], "two builds, two directories");
+        assert_eq!(
+            std::fs::read_to_string(homes[0].join("index.html")).expect("the first bundle"),
+            "first",
+            "the first build's bytes must survive the second, or a rollback to it serves the wrong site"
+        );
+        assert_eq!(
+            std::fs::read_to_string(homes[1].join("index.html")).expect("the second bundle"),
+            "second"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn rebuilding_the_same_content_reuses_the_bundle_it_already_has() {
+        let root = std::env::temp_dir().join(format!("liyasa-settle-same-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let bundles = bundles_dir(&root);
+        let build = placeholder_build_id("same");
+
+        let staging = staging_dir(&root, &JobId(ulid::Ulid::from_bytes([1; 16])));
+        std::fs::create_dir_all(&staging).expect("a staging directory");
+        std::fs::write(staging.join("index.html"), "bytes").expect("a built page");
+        let first = settle(&staging, &bundles, &build).expect("the bundle settles");
+
+        // The same build id is the same bytes, by construction: it is a digest
+        // of everything that went into the build. A second arrival is the
+        // content-addressing working, not a collision.
+        let again = staging_dir(&root, &JobId(ulid::Ulid::from_bytes([2; 16])));
+        std::fs::create_dir_all(&again).expect("a staging directory");
+        std::fs::write(again.join("index.html"), "bytes").expect("a built page");
+        let second = settle(&again, &bundles, &build).expect("the bundle settles");
+
+        assert_eq!(first, second);
+        assert!(!again.exists(), "the redundant staging copy is dropped");
+        assert_eq!(
+            std::fs::read_dir(&bundles)
+                .expect("the bundle store")
+                .count(),
+            1
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_bundle_never_lands_in_the_projects_own_output_directory() {
+        // The bug defect 74 was: writing to `root/dist` means the project's
+        // configured output and the immutable bundle store are the same place.
+        let root = std::path::Path::new("/srv/site");
+        let home = bundles_dir(root).join(placeholder_build_id("x").to_string());
+        assert!(home.starts_with("/srv/site/.liyasa/bundles"), "{home:?}");
+        assert_ne!(home, root.join("dist"));
     }
 
     #[test]

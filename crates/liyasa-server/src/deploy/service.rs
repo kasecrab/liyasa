@@ -53,6 +53,7 @@ impl Binding {
             root: String::new(),
             trusted_branches: Vec::new(),
             preview_domain: "preview.localhost".to_owned(),
+            workspace: None,
         }
     }
 
