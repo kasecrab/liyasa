@@ -57,10 +57,8 @@ pub trait PageSource: Send + Sync {
     /// A route that was ASKED FOR and is not returned is one the deployment
     /// removed, and its rows are withdrawn. That is why this returns the pages
     /// rather than taking a callback: the absence is information.
-    fn pages<'a>(
-        &'a self,
-        routes: &'a [Route],
-    ) -> BoxFut<'a, Result<Vec<IndexablePage>, JobError>>;
+    fn pages<'a>(&'a self, routes: &'a [Route])
+    -> BoxFut<'a, Result<Vec<IndexablePage>, JobError>>;
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -110,13 +108,15 @@ impl IndexJob<'_> {
             };
             match records_for(&input, self.env, self.config, &self.options) {
                 Ok(records) => {
-                    self.apply(&page.context.route, records, &mut report).await?;
+                    self.apply(&page.context.route, records, &mut report)
+                        .await?;
                 }
                 Err(reason) => {
                     // A page that STOPS being indexable has to lose its rows.
                     // Leaving them is the failure this branch exists for: the
                     // page disappears from the site and keeps answering.
-                    self.apply(&page.context.route, Vec::new(), &mut report).await?;
+                    self.apply(&page.context.route, Vec::new(), &mut report)
+                        .await?;
                     report.excluded.push((page.context.route.clone(), reason));
                 }
             }

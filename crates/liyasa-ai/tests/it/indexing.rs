@@ -278,7 +278,10 @@ fn the_job_payload_round_trips_under_the_name_the_server_enqueues() {
         routes: vec![Route::new("/guides/auth")],
     };
     let json = serde_json::to_value(&payload).expect("serialize");
-    assert_eq!(json["buildId"], "d_1", "the wire name is the queue's, not ours");
+    assert_eq!(
+        json["buildId"], "d_1",
+        "the wire name is the queue's, not ours"
+    );
     assert_eq!(json["routes"][0], "/guides/auth");
     assert_eq!(
         serde_json::from_value::<JobPayload>(json).expect("deserialize"),
