@@ -171,6 +171,11 @@ fn auth(app: &Arc<AppState>) -> Mount {
     match AuthState::new(config, &app.config.env, origins, Default::default()) {
         Ok((state, diagnostics)) => {
             let state = Arc::new(state.with_proxies(app.proxies.clone()));
+            // The endpoint table is one consumer of this state and the
+            // session layer is the other. Published here, from the single
+            // place it is built, so the layer cannot get a different one
+            // (RFC 1403, "One state, two consumers").
+            app.publish_auth_state(state.clone());
             Mount::routes(crate::auth::routes::router(state)).with_diagnostics(diagnostics)
         }
         // Not E0803: the configuration is fine and the system has no

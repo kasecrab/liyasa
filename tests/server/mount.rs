@@ -9,10 +9,12 @@
 
 use std::sync::Arc;
 
+use axum::body::Body;
+use http::Request;
 use http::StatusCode;
 use liyasa_server::routes::mount::Mount;
 use liyasa_server::routes::{self, AppState, ServerConfig};
-use liyasa_tests::server::{Harness, Setup, body_json, expect_status};
+use liyasa_tests::server::{Harness, Setup, body_json, expect_status, header};
 use serde_json::json;
 
 /// A configuration with auth turned on, so the auth subtree has something to
@@ -108,6 +110,66 @@ async fn the_router_the_binary_builds_serves_the_org_routes() {
     ] {
         expect_status(harness.get(path).await, StatusCode::UNAUTHORIZED);
     }
+}
+
+#[tokio::test]
+async fn the_auth_subtree_publishes_the_state_its_endpoints_use() {
+    // RFC 1403, "One state, two consumers". The session layer is the second
+    // consumer of `AuthState` and it must get THE object the endpoints were
+    // built from. Two instances is the defect with no status code: sign-in
+    // answers 200 and sets a cookie, and every later request resolves it
+    // against the other `Sessions` table and arrives anonymous.
+    //
+    // Both directions are asserted, because one alone passes with two states
+    // that happen to be configured alike.
+    let (harness, _site) = Harness::new(Setup {
+        site_config: Some(with_password_auth()),
+        ..Setup::new("mount-auth-state")
+    })
+    .await;
+
+    let published = harness
+        .state
+        .auth_state()
+        .expect("the auth subtree mounted, so it published its state")
+        .clone();
+
+    // Direction one: a write through the published handle is visible to the
+    // endpoints. With a second state the sign-in below answers 401, because
+    // the endpoints' own `Passwords` never received this.
+    published
+        .passwords
+        .rotate(&published.env, "correct horse battery staple")
+        .expect("the password hashes");
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/_liyasa/auth/password")
+        .header("origin", "https://docs.acme.com")
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(Body::from("password=correct+horse+battery+staple"))
+        .expect("a well-formed request");
+    let response = harness.send(request).await;
+    assert_ne!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "the endpoint did not see the password set through the published state"
+    );
+
+    // Direction two: the session the endpoint minted resolves through the
+    // published handle. With a second state this is the anonymous-forever
+    // failure exactly.
+    let cookie = header(&response, "set-cookie").expect("signing in sets a session cookie");
+    let id = cookie
+        .split(';')
+        .next()
+        .and_then(|pair| pair.split_once('='))
+        .map(|(_, value)| value.to_owned())
+        .expect("the cookie has a value");
+    published
+        .sessions
+        .resolve(&id)
+        .expect("the session the endpoint minted is in the published state's table");
 }
 
 #[tokio::test]

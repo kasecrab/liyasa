@@ -121,6 +121,15 @@ pub struct AppState {
     /// (RFC 1404). Weak so the state does not hold itself alive; written once,
     /// by `application`.
     self_arc: std::sync::OnceLock<std::sync::Weak<AppState>>,
+    /// Where the `auth` subtree publishes the state its endpoints were built
+    /// from, so a second consumer gets THAT object rather than building a
+    /// second one (RFC 1403, "One state, two consumers"). The session layer
+    /// is the second consumer: two `AuthState`s means two `Sessions` tables,
+    /// a cookie minted by `POST /_liyasa/auth/password` that resolves against
+    /// neither, and a server where sign-in appears to work and every later
+    /// request is anonymous. A `OnceLock` rather than a field because only
+    /// the subtree knows whether there is one — a public site has none.
+    auth_state: std::sync::OnceLock<Arc<crate::auth::state::AuthState>>,
 }
 
 impl std::fmt::Debug for AppState {
@@ -149,6 +158,7 @@ impl AppState {
             started: Instant::now(),
             mounted: std::sync::OnceLock::new(),
             self_arc: std::sync::OnceLock::new(),
+            auth_state: std::sync::OnceLock::new(),
             draining: AtomicBool::new(false),
             config,
         }
@@ -195,6 +205,18 @@ impl AppState {
     /// which is the case in a test that builds a router by hand.
     pub fn mounted(&self) -> &[MountRecord] {
         self.mounted.get().map(Vec::as_slice).unwrap_or_default()
+    }
+
+    /// The state the `auth` subtree built, or `None` on a site that mounted no
+    /// auth. Anything that needs authentication state — the session layer
+    /// above all — takes it from here and never constructs its own.
+    pub fn auth_state(&self) -> Option<&Arc<crate::auth::state::AuthState>> {
+        self.auth_state.get()
+    }
+
+    /// Called once by the `auth` subtree's adapter, before any request.
+    pub(crate) fn publish_auth_state(&self, state: Arc<crate::auth::state::AuthState>) {
+        let _ = self.auth_state.set(state);
     }
 
     pub fn draining(&self) -> bool {
