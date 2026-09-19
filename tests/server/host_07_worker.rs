@@ -384,9 +384,12 @@ async fn readiness_names_the_jobs_this_binary_cannot_run() {
         "nothing is queued yet: {clean}"
     );
 
+    // `ORPHAN` for the same reason the fixture above uses it: this one was
+    // "assistant.retention" until WP-18 registered it (defect 130), which took
+    // the assertion red for the code being right.
     store
         .jobs_typed()
-        .enqueue(&Enqueue::new("assistant.retention", "day-1"))
+        .enqueue(&Enqueue::new(ORPHAN, "day-1"))
         .await
         .expect("a job");
     let body = liyasa_tests::server::body_json(harness.get("/_liyasa/ready").await).await;
@@ -397,7 +400,7 @@ async fn readiness_names_the_jobs_this_binary_cannot_run() {
         .filter_map(|v| v.as_str())
         .collect();
     assert!(
-        orphaned.contains(&"assistant.retention"),
+        orphaned.contains(&ORPHAN),
         "an operator asking why nothing is indexing must be told: {body}"
     );
     assert!(
