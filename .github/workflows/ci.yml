@@ -23,7 +23,30 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets --all-features
-      - run: cargo test --workspace --all-features
+      # `liyasa-markdown`'s corpus tests assert that a corpus exists, because a
+      # suite looping over zero cases reports `ok` without checking anything
+      # and is indistinguishable from one that checked 977. `spec/markdown` is
+      # never committed, so without this the guard is red on every run — which
+      # it was, from 2026-09-17 to 2026-09-20. The answer is to give CI a
+      # corpus rather than to soften the guard: an env var that switches it off
+      # re-opens exactly the false-green it was written to close. Same fetch
+      # and import as the `corpus` job below, whose cases have an external
+      # source of truth.
+      - name: Fetch the upstream suites
+        run: |
+          curl -sSfLo spec.json "https://spec.commonmark.org/${COMMONMARK_VERSION}/spec.json"
+          curl -sSfLo gfm.txt "https://raw.githubusercontent.com/github/cmark-gfm/${GFM_SPEC_REF}/test/spec.txt"
+      - run: |
+          cargo run -p xtask -- corpus import \
+            --commonmark spec.json --commonmark-version "${COMMONMARK_VERSION}" \
+            --gfm gfm.txt --out corpus
+      # `--no-fail-fast` because `cargo test` stops at the first failing
+      # target: `liyasa-markdown` failing hid every crate ordered after it, so
+      # a 3072-line log of a red run did not mention `liyasa-tests` once and
+      # said nothing about whether the day's new tests passed.
+      - run: cargo test --workspace --all-features --no-fail-fast
+        env:
+          LIYASA_CORPUS: corpus
 
   # §6.2: liyasa-core and the other author-facing crates must compile to
   # wasm32, because the editor renders its preview from the same code.
