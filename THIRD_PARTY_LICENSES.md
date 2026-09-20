@@ -36,7 +36,7 @@ The licences Liyasa accepts are a fixed list, enforced by `cargo deny check lice
 
 ## Crates
 
-570 packages in the resolved graph, this workspace's own excluded. The graph is resolved for every target and feature, so a crate here may not be in any particular build.
+575 packages in the resolved graph, this workspace's own excluded. The graph is resolved for every target and feature, so a crate here may not be in any particular build.
 
 | Crate | Version | Licence |
 |---|---|---|
@@ -166,6 +166,7 @@ The licences Liyasa accepts are a fixed list, enforced by `cargo deny check lice
 | ed25519 | 3.0.0 | Apache-2.0 OR MIT |
 | ed25519-dalek | 3.0.0 | BSD-3-Clause |
 | either | 1.18.0 | MIT OR Apache-2.0 |
+| email-encoding | 0.4.2 | MIT OR Apache-2.0 |
 | email_address | 0.2.9 | MIT |
 | emojis | 0.8.2 | (MIT OR Apache-2.0) AND Unicode-3.0 |
 | entities | 1.0.1 | MIT |
@@ -277,6 +278,7 @@ The licences Liyasa accepts are a fixed list, enforced by `cargo deny check lice
 | kqueue | 1.2.1 | MIT |
 | kqueue-sys | 1.1.2 | MIT |
 | lazy_static | 1.5.0 | MIT OR Apache-2.0 |
+| lettre | 0.11.23 | MIT |
 | levenshtein_automata | 0.2.1 | MIT |
 | libc | 0.2.189 | MIT OR Apache-2.0 |
 | libsqlite3-sys | 0.37.0 | MIT |
@@ -308,6 +310,7 @@ The licences Liyasa accepts are a fixed list, enforced by `cargo deny check lice
 | murmurhash32 | 0.3.1 | MIT |
 | ndk-context | 0.1.1 | MIT OR Apache-2.0 |
 | nom | 7.1.3 | MIT |
+| nom | 8.0.0 | MIT |
 | notify | 8.2.0 | CC0-1.0 |
 | notify-debouncer-full | 0.6.0 | MIT OR Apache-2.0 |
 | notify-types | 2.1.0 | MIT OR Apache-2.0 |
@@ -377,6 +380,7 @@ The licences Liyasa accepts are a fixed list, enforced by `cargo deny check lice
 | pxfm | 0.1.30 | BSD-3-Clause OR Apache-2.0 |
 | quick-error | 2.0.1 | MIT/Apache-2.0 |
 | quote | 1.0.47 | MIT OR Apache-2.0 |
+| quoted_printable | 0.5.2 | 0BSD |
 | r-efi | 5.3.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later |
 | r-efi | 6.0.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later |
 | rand | 0.10.2 | MIT OR Apache-2.0 |
@@ -559,6 +563,7 @@ The licences Liyasa accepts are a fixed list, enforced by `cargo deny check lice
 | web-sys | 0.3.105 | MIT OR Apache-2.0 |
 | web-time | 1.1.0 | MIT OR Apache-2.0 |
 | webpki-root-certs | 1.0.9 | CDLA-Permissive-2.0 |
+| webpki-roots | 1.0.9 | CDLA-Permissive-2.0 |
 | widestring | 1.2.1 | MIT OR Apache-2.0 |
 | winapi | 0.3.9 | MIT/Apache-2.0 |
 | winapi-i686-pc-windows-gnu | 0.4.0 | MIT/Apache-2.0 |
