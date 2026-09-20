@@ -357,11 +357,20 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         tree.pages.iter().map(|page| page.version.clone()).collect();
     version_keys.sort();
     version_keys.dedup();
+    // Every route's navigation ancestors, merged across versions. A route
+    // carries its own version prefix, so two versions cannot claim the same
+    // one; `or_insert` rather than `insert` keeps the first if that ever stops
+    // being true, which fails toward the earlier version's restriction rather
+    // than toward none.
+    let mut ancestors: BTreeMap<Route, Vec<crate::manifest::AccessLevel>> = BTreeMap::new();
     for version in version_keys {
         let resolved = crate::nav::resolve(&load.value, &tree, &declared, version.as_ref());
         report
             .diagnostics
             .extend(not_already_said(&resolved.diagnostics, &config_codes));
+        for (route, chain) in resolved.access {
+            ancestors.entry(route).or_insert(chain);
+        }
         navigations.insert(version, resolved.navigation);
     }
     let all_routes: BTreeSet<Route> = tree.pages.iter().map(|page| page.route.clone()).collect();
@@ -465,6 +474,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
             hidden: outcome.hidden,
             dynamic: outcome.dynamic,
             variants: entries,
+            access: access_chain(&ancestors, &tree, &outcome.route),
         });
     }
     report.pages = pages.len();
@@ -1343,6 +1353,36 @@ fn template_context(
         },
         tracking: true,
     }
+}
+
+/// A page's whole access chain: the navigation ancestors that restricted it,
+/// root-first, and then the page's own level (AUTH-07, AUTH-10, §7.6).
+///
+/// The page's level is ALWAYS last and ALWAYS present, even when the page
+/// declares nothing. `decide` reads the `access: public` flag off
+/// `chain.last()`, so dropping an empty page level — the obvious way to keep
+/// the manifest small — makes an ancestor's flag be read as the page's.
+/// Ancestor levels that declare nothing are already absent: `nav::level_of`
+/// emits none for an empty `groups`.
+///
+/// A page the navigation never names has no ancestors and gets a one-element
+/// chain. That is correct — "subtree" in the schema means the navigation
+/// subtree, not the URL prefix — and it means a page under `/internal/` that
+/// nobody listed is public.
+fn access_chain(
+    ancestors: &BTreeMap<Route, Vec<crate::manifest::AccessLevel>>,
+    tree: &tree::Tree,
+    route: &Route,
+) -> Vec<crate::manifest::AccessLevel> {
+    let mut chain = ancestors.get(route).cloned().unwrap_or_default();
+    chain.push(match tree.page(route) {
+        Some(page) => crate::manifest::AccessLevel::new(
+            page.front.groups.iter().cloned(),
+            page.front.access == Some(liyasa_core::frontmatter::Access::Public),
+        ),
+        None => crate::manifest::AccessLevel::new([], false),
+    });
+    chain
 }
 
 /// The build-wide template budget of §6.6, with the slowest pages named.

@@ -221,6 +221,7 @@ pub(crate) mod fixture {
                 path,
                 hash: Fingerprint::of(route),
             }],
+            access: vec![crate::manifest::AccessLevel::new([], false)],
         }
     }
 

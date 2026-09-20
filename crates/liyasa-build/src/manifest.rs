@@ -43,6 +43,55 @@ pub struct RouteEntry {
     /// Rendered per request rather than written as files (§6.6.4).
     pub dynamic: bool,
     pub variants: Vec<VariantEntry>,
+    /// Who may see this page: the navigation ancestors that declared a
+    /// restriction, root-first, and then the page itself as the last element
+    /// (AUTH-07, AUTH-10, §7.6).
+    ///
+    /// The server has no navigation tree — the hierarchy exists only in the
+    /// config, at build time — so the chain is resolved here and carried
+    /// across. Without it `liyasa_server::auth::groups::decide` has no input
+    /// and every restricted page serves to everyone.
+    ///
+    /// The last element is ALWAYS the page's own level, present even when it
+    /// declares nothing, because `decide` reads the `access: public` flag off
+    /// `chain.last()`. Ancestors that declare nothing are omitted; `decide`
+    /// skips them anyway.
+    pub access: Vec<AccessLevel>,
+}
+
+/// One level of a page's access chain.
+///
+/// Within a level any one group is enough; across levels every level that
+/// declares groups must be satisfied. That is why this is a list and not a
+/// single set — flattening `[staff]` and `[sre, oncall]` into one set turns
+/// `staff AND (sre OR oncall)` into `staff OR sre OR oncall` (RFC 1503).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessLevel {
+    /// `groups:` on the navigation node or in the page's front matter. Empty
+    /// means this level places no restriction of its own.
+    pub groups: Vec<String>,
+    /// `access: public` (§7.6). Only a page sets this; a navigation node has
+    /// no such key, so an ancestor's flag is always false.
+    pub public: bool,
+}
+
+impl AccessLevel {
+    /// Sorts and deduplicates as it builds: the manifest is part of the output
+    /// a determinism check diffs, so two builds of one input must produce the
+    /// same bytes here (§6.6.2 rule 5).
+    pub fn new(groups: impl IntoIterator<Item = String>, public: bool) -> Self {
+        let mut groups: Vec<String> = groups.into_iter().collect();
+        groups.sort();
+        groups.dedup();
+        Self { groups, public }
+    }
+
+    /// Places no restriction, so `decide` would skip it. An ancestor like this
+    /// is left out of the chain; the page's own level is kept regardless.
+    pub fn is_open(&self) -> bool {
+        self.groups.is_empty() && !self.public
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,6 +143,13 @@ impl Manifest {
         self.routes.sort_by(|a, b| a.route.cmp(&b.route));
         for route in &mut self.routes {
             route.variants.sort_by(|a, b| a.key.cmp(&b.key));
+            // The groups within a level sort; the levels themselves do NOT.
+            // Their order is the access semantics — root-first, page last —
+            // and `decide` reads the page's `public` flag off the last one.
+            for level in &mut route.access {
+                level.groups.sort();
+                level.groups.dedup();
+            }
         }
         self.assets.sort_by(|a, b| a.source.cmp(&b.source));
         self.images.sort_by(|a, b| a.source.cmp(&b.source));
@@ -162,6 +218,12 @@ mod tests {
                             hash: Fingerprint::of("a"),
                         },
                     ],
+                    // A navigation ancestor restricts it, and the page itself
+                    // declares nothing — the shape the `access` docs describe.
+                    access: vec![
+                        AccessLevel::new(["staff".to_owned()], false),
+                        AccessLevel::new([], false),
+                    ],
                 },
                 RouteEntry {
                     route: Route::new("/"),
@@ -170,6 +232,7 @@ mod tests {
                     hidden: false,
                     dynamic: false,
                     variants: Vec::new(),
+                    access: vec![AccessLevel::new([], false)],
                 },
             ],
             assets: Vec::new(),

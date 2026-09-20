@@ -7,19 +7,24 @@
 //! all gets one built from its own directories. Hidden pages never appear
 //! (CM-80).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use liyasa_core::ids::{Route, Version};
 use liyasa_theme::nav::{Breadcrumbs, Choice, Group, Item, Navigation, Tab};
 use serde_json::Value;
 
+use crate::manifest::AccessLevel;
 use crate::tree::Tree;
 use crate::versions::Versions;
 
 #[derive(Debug)]
 pub struct Resolved {
     pub navigation: Navigation,
+    /// Each route's ANCESTOR access levels, root-first (AUTH-07, §7.6). The
+    /// page's own level is not here: the engine appends it from front matter,
+    /// because a page the navigation never names still has one.
+    pub access: BTreeMap<Route, Vec<AccessLevel>>,
     pub diagnostics: Diagnostics,
 }
 
@@ -34,11 +39,22 @@ pub fn resolve(
     version: Option<&Version>,
 ) -> Resolved {
     let mut diagnostics = Diagnostics::new();
-    let pages: Vec<&crate::tree::Page> = tree
+    // Two page sets, and the difference is load-bearing. `Indexing::navigation`
+    // is `!hidden` (tree.rs:87), so the sidebar list leaves out every
+    // `hidden: true` page — but a hidden page is still routable, and if the
+    // access walk resolved against the sidebar list a hidden page named inside
+    // a restricted group would match nothing, inherit no ancestor, and serve
+    // to everyone. Hiding a page from the sidebar would be a way to make it
+    // public. Access resolves against every page this version has.
+    let versioned: Vec<&crate::tree::Page> = tree
         .pages
         .iter()
         .filter(|page| page.version.as_ref() == version)
+        .collect();
+    let pages: Vec<&crate::tree::Page> = versioned
+        .iter()
         .filter(|page| page.indexing.navigation)
+        .copied()
         .collect();
 
     let node = config.get("navigation");
@@ -112,6 +128,9 @@ pub fn resolve(
         }
     }
 
+    let mut access = BTreeMap::new();
+    access_of(&declared, &versioned, &[], &mut access);
+
     let navigation = Navigation {
         tabs,
         versions: version_choices(versions, tree, version),
@@ -120,6 +139,7 @@ pub fn resolve(
     };
     Resolved {
         navigation,
+        access,
         diagnostics,
     }
 }
@@ -275,11 +295,7 @@ fn item_of(
         // elsewhere; an unknown shape is simply skipped.
         return None;
     };
-    let wanted = normalize(reference);
-    match pages
-        .iter()
-        .find(|page| page.route.as_str() == wanted || page.path.as_str() == reference.as_str())
-    {
+    match find_page(reference, pages) {
         Some(page) => Some(item(page)),
         None => {
             diagnostics.push(
@@ -329,6 +345,96 @@ fn title_of_section(section: &str) -> String {
     match chars.next() {
         Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
         None => spaced,
+    }
+}
+
+/// The page a string navigation node names, by route or by source path.
+///
+/// Shared with [`item_of`] so the renderer and the access walk cannot resolve
+/// the same reference to different pages.
+fn find_page<'a>(reference: &str, pages: &[&'a crate::tree::Page]) -> Option<&'a crate::tree::Page> {
+    let wanted = normalize(reference);
+    pages
+        .iter()
+        .find(|page| page.route.as_str() == wanted || page.path.as_str() == reference)
+        .copied()
+}
+
+/// The `groups:` a navigation node declares (§8.4). Only `group`, `directory`
+/// and `tab` nodes may carry the key; a node that declares none adds no level.
+fn level_of(node: &Value) -> Option<AccessLevel> {
+    let groups: Vec<String> = node
+        .get("groups")
+        .and_then(Value::as_array)
+        .map(|list| {
+            list.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    match groups.is_empty() {
+        true => None,
+        // A navigation node has no `access` key, so `public` is always false
+        // here; only a page can set it.
+        false => Some(AccessLevel::new(groups, false)),
+    }
+}
+
+/// Every route the navigation reaches, with the levels its ANCESTORS declared,
+/// root-first. The page's own level is not included — the engine appends that
+/// from front matter, because a page outside the navigation still has one.
+///
+/// This walks the same JSON the renderer does, as a separate pass, and it is
+/// deliberately more thorough. [`item_of`] returns `None` for anything that is
+/// not a string, so a group nested inside another group's `pages` never
+/// renders — and if this mirrored that, a page inside a nested group would
+/// inherit no ancestor and would serve to everyone despite sitting under a
+/// restricted group. A subtree missing from the sidebar is cosmetic; a subtree
+/// missing its restriction is a hole. So this recurses through every shape
+/// that can hold children, including the twelve node kinds the renderer
+/// ignores entirely.
+///
+/// A route named twice keeps the chain of its first occurrence in document
+/// order, which is what the renderer would show first. Two different chains
+/// for one route is a configuration the spec does not describe.
+fn access_of(
+    nodes: &[Value],
+    pages: &[&crate::tree::Page],
+    chain: &[AccessLevel],
+    out: &mut BTreeMap<Route, Vec<AccessLevel>>,
+) {
+    for node in nodes {
+        match node {
+            Value::String(reference) => {
+                if let Some(page) = find_page(reference, pages) {
+                    out.entry(page.route.clone())
+                        .or_insert_with(|| chain.to_vec());
+                }
+            }
+            Value::Object(map) => {
+                let mut next = chain.to_vec();
+                next.extend(level_of(node));
+                if let Some(directory) = map.get("directory").and_then(Value::as_str) {
+                    let prefix = format!("/{}", directory.trim_matches('/'));
+                    for page in pages.iter().filter(|page| {
+                        page.route.as_str() == prefix
+                            || page.route.as_str().starts_with(&format!("{prefix}/"))
+                    }) {
+                        out.entry(page.route.clone())
+                            .or_insert_with(|| next.clone());
+                    }
+                }
+                // `pages` on group, tab, product, version and language nodes;
+                // `items` on menu and dropdown.
+                for key in ["pages", "items"] {
+                    if let Some(children) = map.get(key).and_then(Value::as_array) {
+                        access_of(children, pages, &next, out);
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }
 
