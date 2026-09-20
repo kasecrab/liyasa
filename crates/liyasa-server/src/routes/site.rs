@@ -164,7 +164,12 @@ fn is_fresh(request: &http::HeaderMap, tag: &str, modified: Option<SystemTime>) 
 /// Resolves and serves one request path against the bundle.
 pub fn serve(bundle: &Bundle, path: &str, request: &http::HeaderMap) -> Page {
     let accept = request.get(header::ACCEPT).and_then(|v| v.to_str().ok());
-    serve_target(bundle, path, bundle.resolve(path, prefers_markdown(accept)), request)
+    serve_target(
+        bundle,
+        path,
+        bundle.resolve(path, prefers_markdown(accept)),
+        request,
+    )
 }
 
 /// Serves a target the caller has already resolved.

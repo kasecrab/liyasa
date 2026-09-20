@@ -293,6 +293,16 @@ pub fn prefers_markdown(accept: Option<&str>) -> bool {
     }
 }
 
+/// One manifest level as the access module's own type. They are separate
+/// types on purpose: `liyasa-build` cannot depend on `liyasa-server`, so the
+/// serialized shape and the decision's input cannot be one struct.
+fn declared_of(level: &manifest::AccessLevel) -> Declared {
+    Declared {
+        groups: level.groups.iter().cloned().collect(),
+        public: level.public,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use liyasa_build::manifest::{AccessLevel, RouteEntry, VariantEntry};
@@ -418,11 +428,19 @@ mod tests {
             "satisfies the page and not the ancestor"
         );
         assert_eq!(
-            decide(SiteDefault::Public, &chain, Some(&reader(&["staff", "oncall"]))),
+            decide(
+                SiteDefault::Public,
+                &chain,
+                Some(&reader(&["staff", "oncall"]))
+            ),
             Decision::Allow
         );
         assert_eq!(
-            decide(SiteDefault::Public, &chain, Some(&reader(&["staff", "sre"]))),
+            decide(
+                SiteDefault::Public,
+                &chain,
+                Some(&reader(&["staff", "sre"]))
+            ),
             Decision::Allow
         );
     }
@@ -543,15 +561,5 @@ mod tests {
     fn a_bundle_path_cannot_climb_out_of_the_bundle() {
         let bundle = bundle("");
         assert!(bundle.read("../../etc/passwd").is_err());
-    }
-}
-
-/// One manifest level as the access module's own type. They are separate
-/// types on purpose: `liyasa-build` cannot depend on `liyasa-server`, so the
-/// serialized shape and the decision's input cannot be one struct.
-fn declared_of(level: &manifest::AccessLevel) -> Declared {
-    Declared {
-        groups: level.groups.iter().cloned().collect(),
-        public: level.public,
     }
 }

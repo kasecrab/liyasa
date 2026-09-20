@@ -352,7 +352,10 @@ fn title_of_section(section: &str) -> String {
 ///
 /// Shared with [`item_of`] so the renderer and the access walk cannot resolve
 /// the same reference to different pages.
-fn find_page<'a>(reference: &str, pages: &[&'a crate::tree::Page]) -> Option<&'a crate::tree::Page> {
+fn find_page<'a>(
+    reference: &str,
+    pages: &[&'a crate::tree::Page],
+) -> Option<&'a crate::tree::Page> {
     let wanted = normalize(reference);
     pages
         .iter()
