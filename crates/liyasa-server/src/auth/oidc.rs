@@ -331,7 +331,7 @@ pub fn safe_return_to(path: &str) -> String {
 
 /// Percent-encoding for a query parameter value. Only the unreserved set of
 /// RFC 3986 passes through unescaped.
-fn escape(value: &str) -> String {
+pub(crate) fn escape(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for byte in value.bytes() {
         match byte {

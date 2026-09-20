@@ -46,7 +46,7 @@ pub mod variant;
 
 pub use config::{AuthConfig, Mode};
 pub use domains::{Domain, Registry as DomainRegistry};
-pub use groups::{Decision, Declared, SiteDefault};
+pub use groups::{Decision, Declared, SiteDefault, decide, filter};
 pub use layer::{Chain, Roles, StaticRoles, with_session};
 pub use roles::{Grant, Permission, Role};
 pub use routes::router;

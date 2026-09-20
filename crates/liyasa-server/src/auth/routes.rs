@@ -179,6 +179,19 @@ async fn login(State(state): State<Arc<AuthState>>, Query(params): Query<LoginPa
     }
 }
 
+/// `GET /_liyasa/auth/login` carrying the page the reader was trying to read.
+///
+/// For a caller that has decided a reader needs a session. The path goes
+/// through [`oidc::safe_return_to`] first: it is attacker-influenced — it is
+/// the request path — and an open redirect on a login endpoint is what makes
+/// a phishing link look legitimate.
+pub fn login_url(return_to: &str) -> String {
+    format!(
+        "/_liyasa/auth/login?returnTo={}",
+        oidc::escape(&oidc::safe_return_to(return_to))
+    )
+}
+
 fn redirect_to(url: &str) -> Response {
     match http::HeaderValue::from_str(url) {
         Ok(value) => (StatusCode::SEE_OTHER, [(header::LOCATION, value)]).into_response(),

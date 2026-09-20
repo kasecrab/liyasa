@@ -44,6 +44,8 @@ use liyasa_store::{IngestQueue, SqliteStore};
 use liyasa_verify::core::scrub::Scrubber;
 use serde_json::{Value, json};
 
+use crate::auth::{self, session::Principal};
+
 use api::Idempotency;
 use bundle::Bundle;
 use client_ip::TrustedProxies;
@@ -526,6 +528,7 @@ async fn finish(
 pub async fn content(
     State(state): State<Arc<AppState>>,
     axum::extract::Query(params): axum::extract::Query<ContentParams>,
+    request: axum::extract::Request,
 ) -> Response {
     let Some(bundle) = state.bundle.clone() else {
         return Problem::new(StatusCode::SERVICE_UNAVAILABLE, "No deployment")
@@ -535,9 +538,64 @@ pub async fn content(
     let Some(path) = params.path else {
         return Problem::bad_request("`path` is required").into_response();
     };
+    // REST-04 hands back a page's Markdown, so it is the same disclosure as
+    // the page route and answers to the same decision. It differs only in
+    // what `SignIn` becomes: a programmatic client cannot follow a login
+    // redirect, so a private site answers 401 where a browser gets a 303.
+    let site = site_default(&state);
+    match auth::decide(
+        site,
+        &bundle.access_chain(&path),
+        request.extensions().get::<Principal>(),
+    ) {
+        auth::Decision::Allow => {}
+        auth::Decision::Deny => return Problem::not_found("page").into_response(),
+        auth::Decision::SignIn => {
+            return match site {
+                auth::SiteDefault::Public => Problem::not_found("page").into_response(),
+                auth::SiteDefault::Private => {
+                    Problem::new(StatusCode::UNAUTHORIZED, "Sign in required")
+                        .detail("this site serves nothing without a session")
+                        .into_response()
+                }
+            };
+        }
+    }
     match site::content(&bundle, &path) {
         Some(body) => api::Json(body).into_response(),
         None => Problem::not_found("page").into_response(),
+    }
+}
+
+/// The site default this request is served under (AUTH-01, AUTH-40).
+///
+/// A site with no `auth` subtree mounted has no sessions to have, so it is
+/// public. That is the default a bare `liyasa serve` gets.
+fn site_default(state: &AppState) -> auth::SiteDefault {
+    state
+        .auth_state()
+        .map(|auth| auth.site_default())
+        .unwrap_or(auth::SiteDefault::Public)
+}
+
+/// What a `SignIn` becomes on a page route.
+///
+/// On a PUBLIC site a restricted page must be indistinguishable from one that
+/// does not exist, so it is a 404: redirecting to a login flow would confirm
+/// the page is there, which is exactly what the schema's "served as if it did
+/// not exist" rules out — and the login route answers 404 on a public site
+/// anyway (`auth/routes.rs:134`).
+///
+/// On a PRIVATE site there is nothing to conceal, the site is known private,
+/// and answering 404 everywhere would leave a reader who has not signed in
+/// with no way to discover that they can. So it redirects, and comes back.
+fn sign_in(site: auth::SiteDefault, bundle: &bundle::Bundle, path: &str) -> Response {
+    if site == auth::SiteDefault::Public {
+        return site::not_found(bundle, path).into_response();
+    }
+    match http::HeaderValue::from_str(&crate::auth::routes::login_url(path)) {
+        Ok(value) => (StatusCode::SEE_OTHER, [(http::header::LOCATION, value)]).into_response(),
+        Err(_) => site::not_found(bundle, path).into_response(),
     }
 }
 
@@ -554,7 +612,30 @@ pub async fn page(State(state): State<Arc<AppState>>, request: axum::extract::Re
             .into_response();
     };
     let path = request.uri().path().to_owned();
-    site::serve(&bundle, &path, request.headers()).into_response()
+    let accept = request
+        .headers()
+        .get(http::header::ACCEPT)
+        .and_then(|value| value.to_str().ok());
+    // Resolved once. The access chain is keyed on the canonical route, which
+    // only resolution produces, and resolving a second time inside `serve`
+    // would let the route that was authorised and the route that is served
+    // drift apart.
+    let target = bundle.resolve(&path, bundle::prefers_markdown(accept));
+    if let bundle::Target::Page { route, .. } = &target {
+        let site = site_default(&state);
+        match auth::decide(
+            site,
+            &bundle.access_chain(route),
+            request.extensions().get::<Principal>(),
+        ) {
+            auth::Decision::Allow => {}
+            // 404 rather than 403: a 403 confirms the page exists, and
+            // AUTH-10 is that a reader sees only what their groups allow.
+            auth::Decision::Deny => return site::not_found(&bundle, &path).into_response(),
+            auth::Decision::SignIn => return sign_in(site, &bundle, &path),
+        }
+    }
+    site::serve_target(&bundle, &path, target, request.headers()).into_response()
 }
 
 /// What one subtree contributed, for the startup log and for readiness.

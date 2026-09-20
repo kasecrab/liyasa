@@ -13,6 +13,8 @@ use liyasa_build::hosting::{self, Rules};
 use liyasa_build::manifest::{self, AssetEntry, Manifest, RouteEntry};
 use liyasa_build::redirects::ManifestEntry as RedirectEntry;
 
+use crate::auth::groups::Declared;
+
 pub const HTML_TYPE: &str = "text/html; charset=utf-8";
 pub const MARKDOWN_TYPE: &str = hosting::headers::MARKDOWN_TYPE;
 
@@ -156,6 +158,21 @@ impl Bundle {
         self.routes.get(&normalize(route))
     }
 
+    /// Who may see this route (AUTH-07, AUTH-10, §7.6), as
+    /// [`crate::auth::groups::decide`] wants it: navigation ancestors
+    /// root-first, then the page's own level.
+    ///
+    /// The build resolves the chain, because the hierarchy it comes from is
+    /// the config's `navigation` tree and the server never sees that. A route
+    /// the manifest does not know returns an empty chain, which `decide`
+    /// reads as unrestricted — correct, because there is no page there and
+    /// the caller has already resolved it to `NotFound`.
+    pub fn access_chain(&self, route: &str) -> Vec<Declared> {
+        self.route(route)
+            .map(|entry| entry.access.iter().map(declared_of).collect())
+            .unwrap_or_default()
+    }
+
     /// What `path` resolves to for a client that did or did not ask for
     /// Markdown. `wants_markdown` is the parsed `Accept` header.
     pub fn resolve(&self, path: &str, wants_markdown: bool) -> Target {
@@ -278,10 +295,11 @@ pub fn prefers_markdown(accept: Option<&str>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use liyasa_build::manifest::{RouteEntry, VariantEntry};
+    use liyasa_build::manifest::{AccessLevel, RouteEntry, VariantEntry};
     use liyasa_core::ids::{BuildId, Fingerprint, Route};
 
     use super::*;
+    use crate::auth::session::Principal;
 
     fn route(path: &str) -> RouteEntry {
         RouteEntry {
@@ -295,6 +313,18 @@ mod tests {
                 path: format!("{}/index.html", path.trim_end_matches('/')),
                 hash: Fingerprint::of(path),
             }],
+            access: vec![AccessLevel::new([], false)],
+        }
+    }
+
+    /// The same page behind a navigation ancestor and its own declaration.
+    fn restricted(path: &str, ancestor: &[&str], own: &[&str]) -> RouteEntry {
+        RouteEntry {
+            access: vec![
+                AccessLevel::new(ancestor.iter().map(|g| (*g).to_owned()), false),
+                AccessLevel::new(own.iter().map(|g| (*g).to_owned()), false),
+            ],
+            ..route(path)
         }
     }
 
@@ -319,6 +349,82 @@ mod tests {
             inputs: Default::default(),
         };
         Bundle::new(PathBuf::from("/nonexistent"), manifest, Rules::default())
+    }
+
+    fn restricted_bundle() -> Bundle {
+        let manifest = Manifest {
+            build_id: BuildId(Fingerprint::of("build")),
+            liyasa_version: "0.1.0".to_owned(),
+            built_at: 0,
+            base_path: String::new(),
+            routes: vec![
+                route("/"),
+                restricted("/internal/failover", &["staff"], &["sre", "oncall"]),
+            ],
+            assets: Vec::new(),
+            images: Vec::new(),
+            redirects: Vec::new(),
+            inputs: Default::default(),
+        };
+        Bundle::new(PathBuf::from("/nonexistent"), manifest, Rules::default())
+    }
+
+    #[test]
+    fn the_access_chain_keeps_the_manifest_order() {
+        let bundle = restricted_bundle();
+        let chain = bundle.access_chain("/internal/failover");
+        assert_eq!(chain.len(), 2, "the ancestor and the page itself");
+        assert_eq!(
+            chain[0].groups.iter().cloned().collect::<Vec<_>>(),
+            ["staff"],
+            "the ancestor comes first"
+        );
+        assert_eq!(
+            chain[1].groups.iter().cloned().collect::<Vec<_>>(),
+            ["oncall", "sre"],
+            "the page's own level is last"
+        );
+
+        // A page that restricts nothing still carries its own level, because
+        // `decide` reads `access: public` off `chain.last()` — drop it and an
+        // ancestor's flag is read as the page's.
+        assert_eq!(bundle.access_chain("/").len(), 1);
+        assert!(bundle.access_chain("/nope").is_empty());
+    }
+
+    #[test]
+    fn a_chain_from_the_manifest_means_all_levels_and_any_group() {
+        use crate::auth::groups::{Decision, SiteDefault, decide};
+
+        let bundle = restricted_bundle();
+        let chain = bundle.access_chain("/internal/failover");
+        let reader = |groups: &[&str]| Principal {
+            groups: groups.iter().map(|g| (*g).to_owned()).collect(),
+            ..Principal::default()
+        };
+
+        // `staff` AND (`sre` OR `oncall`). If the two levels were ever
+        // flattened into one set this would read `staff` OR `sre` OR
+        // `oncall`, and the two Deny cases below would come back Allow.
+        assert_eq!(decide(SiteDefault::Public, &chain, None), Decision::SignIn);
+        assert_eq!(
+            decide(SiteDefault::Public, &chain, Some(&reader(&["staff"]))),
+            Decision::Deny,
+            "satisfies the ancestor and neither of the page's own groups"
+        );
+        assert_eq!(
+            decide(SiteDefault::Public, &chain, Some(&reader(&["sre"]))),
+            Decision::Deny,
+            "satisfies the page and not the ancestor"
+        );
+        assert_eq!(
+            decide(SiteDefault::Public, &chain, Some(&reader(&["staff", "oncall"]))),
+            Decision::Allow
+        );
+        assert_eq!(
+            decide(SiteDefault::Public, &chain, Some(&reader(&["staff", "sre"]))),
+            Decision::Allow
+        );
     }
 
     #[test]
@@ -437,5 +543,15 @@ mod tests {
     fn a_bundle_path_cannot_climb_out_of_the_bundle() {
         let bundle = bundle("");
         assert!(bundle.read("../../etc/passwd").is_err());
+    }
+}
+
+/// One manifest level as the access module's own type. They are separate
+/// types on purpose: `liyasa-build` cannot depend on `liyasa-server`, so the
+/// serialized shape and the decision's input cannot be one struct.
+fn declared_of(level: &manifest::AccessLevel) -> Declared {
+    Declared {
+        groups: level.groups.iter().cloned().collect(),
+        public: level.public,
     }
 }

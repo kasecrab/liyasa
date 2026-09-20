@@ -164,7 +164,22 @@ fn is_fresh(request: &http::HeaderMap, tag: &str, modified: Option<SystemTime>) 
 /// Resolves and serves one request path against the bundle.
 pub fn serve(bundle: &Bundle, path: &str, request: &http::HeaderMap) -> Page {
     let accept = request.get(header::ACCEPT).and_then(|v| v.to_str().ok());
-    match bundle.resolve(path, prefers_markdown(accept)) {
+    serve_target(bundle, path, bundle.resolve(path, prefers_markdown(accept)), request)
+}
+
+/// Serves a target the caller has already resolved.
+///
+/// The access decision needs the canonical route, which only resolution
+/// produces, and it has to happen before any bytes are read. So the caller
+/// resolves once, decides, and hands the target here — rather than resolving
+/// a second time and risking the two answers drifting apart.
+pub fn serve_target(
+    bundle: &Bundle,
+    path: &str,
+    target: Target,
+    request: &http::HeaderMap,
+) -> Page {
+    match target {
         Target::Redirect { location, status } => Page {
             status: StatusCode::from_u16(status).unwrap_or(StatusCode::FOUND),
             body: Vec::new(),
