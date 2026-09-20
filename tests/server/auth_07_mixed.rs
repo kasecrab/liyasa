@@ -262,6 +262,23 @@ async fn a_public_site_hides_a_restricted_page_rather_than_refusing_it() {
         StatusCode::OK,
         "a session in the right group"
     );
+
+    // AUTH-07 names the Markdown twin explicitly: it is the same page, so it
+    // is the same answer. `/x.md` and `/x/index.md` both resolve to a
+    // `Target::Page`, and the decision is taken on the target rather than on
+    // the URL, so neither spelling is a way around it.
+    for path in ["/partners/pricing.md", "/partners/pricing/index.md"] {
+        assert_eq!(
+            get_as(&harness, path, None).await.status(),
+            StatusCode::NOT_FOUND,
+            "{path} anonymous"
+        );
+        assert_eq!(
+            get_as(&harness, path, Some(&["partner"])).await.status(),
+            StatusCode::OK,
+            "{path} in the right group"
+        );
+    }
 }
 
 #[tokio::test]
