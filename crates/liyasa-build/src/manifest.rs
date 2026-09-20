@@ -258,6 +258,52 @@ mod tests {
     }
 
     #[test]
+    fn a_manifest_without_an_access_chain_is_not_a_manifest() {
+        // `access` is deliberately not `#[serde(default)]`. A defaulted empty
+        // chain parses cleanly and then serves every restricted page to
+        // everyone, so a bundle from before the field existed has to fail
+        // loudly rather than fail open. Nothing legitimate produces one.
+        let mut value: serde_json::Value =
+            serde_json::from_str(&manifest().sorted().to_json()).expect("the manifest is JSON");
+        for route in value["routes"].as_array_mut().expect("routes") {
+            route.as_object_mut().expect("an object").remove("access");
+        }
+        assert!(
+            Manifest::parse(&value.to_string()).is_none(),
+            "a manifest with no access chain must not parse"
+        );
+    }
+
+    #[test]
+    fn sorting_orders_the_groups_within_a_level_and_never_the_levels() {
+        let mut manifest = manifest();
+        // Built by hand rather than through `AccessLevel::new`, which sorts:
+        // the point is what `sorted()` does to a manifest assembled anywhere
+        // else, since that is what the determinism check diffs.
+        manifest.routes[0].access = vec![
+            AccessLevel {
+                groups: vec!["sre".to_owned(), "admin".to_owned()],
+                public: false,
+            },
+            AccessLevel {
+                groups: vec!["zeta".to_owned(), "alpha".to_owned()],
+                public: false,
+            },
+        ];
+        let sorted = manifest.sorted();
+        let entry = sorted
+            .route(&Route::new("/guides/install"))
+            .expect("the route survived sorting");
+        assert_eq!(entry.access[0].groups, ["admin", "sre"]);
+        assert_eq!(
+            entry.access[1].groups,
+            ["alpha", "zeta"],
+            "the levels keep their order — it is the access semantics, and \
+             `decide` reads the page's own flag off the last one"
+        );
+    }
+
+    #[test]
     fn the_build_id_covers_the_inputs_the_clock_and_the_lockfile() {
         let mut inputs = BTreeMap::new();
         inputs.insert("index.md".to_owned(), Fingerprint::of("one"));

@@ -14,6 +14,8 @@ mod auth_03_jwt_return;
 mod auth_13_cdn;
 #[path = "../server/auth_14_bot_protection.rs"]
 mod auth_14_bot_protection;
+#[path = "../server/auth_07_mixed.rs"]
+mod auth_07_mixed;
 #[path = "../build/auth_01.rs"]
 mod auth_01;
 #[path = "../config/cfg_01.rs"]
