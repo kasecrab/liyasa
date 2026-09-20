@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use liyasa_build::hosting::{self, Rules};
-use liyasa_build::manifest::{self, AssetEntry, Manifest, RouteEntry};
+use liyasa_build::manifest::{self, AssetEntry, Manifest, RouteEntry, ServedFile};
 use liyasa_build::redirects::ManifestEntry as RedirectEntry;
 
 use crate::auth::groups::Declared;
@@ -63,6 +63,9 @@ pub struct Bundle {
     rules: Rules,
     routes: HashMap<String, RouteEntry>,
     assets: HashMap<String, AssetEntry>,
+    /// Theme CSS and JS, the agent surfaces, the search index — keyed by the
+    /// request path they answer to (defect 145).
+    served: HashMap<String, ServedFile>,
     redirects: Vec<RedirectEntry>,
 }
 
@@ -112,12 +115,26 @@ impl Bundle {
             .iter()
             .map(|asset| (without_base(&asset.url), asset.clone()))
             .collect();
+        // `served` records paths under `dist/` rather than URLs, so unlike
+        // the assets these carry no base path to strip — `strip_base` has
+        // already run by the time one is looked up.
+        let served = manifest
+            .served
+            .iter()
+            .map(|file| {
+                (
+                    format!("/{}", file.path.trim_start_matches('/')),
+                    file.clone(),
+                )
+            })
+            .collect();
         Self {
             redirects: manifest.redirects.clone(),
             root,
             rules,
             routes,
             assets,
+            served,
             manifest,
         }
     }
@@ -193,6 +210,15 @@ impl Bundle {
             return Target::Asset {
                 path: asset.path.clone(),
                 content_type: asset.content_type.clone(),
+            };
+        }
+        // Ahead of the `.md` twin, because `skill.md` is a served file and not
+        // a page's Markdown: reaching the twin branch first would strip the
+        // suffix and look for a route called `/skill`.
+        if let Some(file) = self.served.get(&path) {
+            return Target::Asset {
+                path: file.path.clone(),
+                content_type: file.content_type.clone(),
             };
         }
 
@@ -356,6 +382,7 @@ mod tests {
                 destination: "/guides/install".to_owned(),
                 status: 301,
             }],
+            served: Vec::new(),
             inputs: Default::default(),
         };
         Bundle::new(PathBuf::from("/nonexistent"), manifest, Rules::default())
@@ -374,6 +401,7 @@ mod tests {
             assets: Vec::new(),
             images: Vec::new(),
             redirects: Vec::new(),
+            served: Vec::new(),
             inputs: Default::default(),
         };
         Bundle::new(PathBuf::from("/nonexistent"), manifest, Rules::default())

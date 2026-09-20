@@ -6,12 +6,12 @@ use std::process::ExitCode;
 use xtask::spike::engines;
 // The repository lints read the CLI's clap tree and do not build for wasm;
 // the wasm binary exists only so `parity` can run `conformance` through it.
-#[cfg(not(target_family = "wasm"))]
-use xtask::{flags, pins};
 use xtask::{
     conformance, corpus, corpus_import, corpus_seed, licences, lints, notices, parity, schemas,
     workflows,
 };
+#[cfg(not(target_family = "wasm"))]
+use xtask::{flags, pins};
 
 const USAGE: &str = "\
 usage: cargo run -p xtask -- <command>

@@ -27,8 +27,85 @@ pub struct Manifest {
     pub assets: Vec<AssetEntry>,
     pub images: Vec<ImageEntry>,
     pub redirects: Vec<RedirectEntry>,
+    /// Files the build wrote that the server must serve as-is: the theme's
+    /// CSS and JS, the agent surfaces, the search index (defect 145).
+    ///
+    /// `Bundle` indexes the manifest and nothing else, so anything absent
+    /// from it is unreachable through `liyasa serve` however plainly it sits
+    /// in `dist/`. Before this existed every page the server returned was
+    /// unstyled, because `_liyasa/theme.<hash>.css` is written by the theme
+    /// pipeline rather than from an `assets/` source directory and so never
+    /// became an `AssetEntry`.
+    pub served: Vec<ServedFile>,
     /// What the build ID was computed over, so a rebuild can say what moved.
     pub inputs: BTreeMap<String, Fingerprint>,
+}
+
+/// A file served byte for byte from `dist/`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServedFile {
+    /// Path under `dist/`, no leading slash — the spelling `write_file`
+    /// records and `Bundle::read` expects.
+    pub path: String,
+    pub content_type: String,
+}
+
+/// Whether a written file belongs in [`Manifest::served`].
+///
+/// **An allow list, and deliberately not "everything the build wrote except
+/// the pages".** The build knows every path it wrote, so the short version of
+/// defect 145's fix is to record that list — and it is a security regression,
+/// because the list holds every page's rendered `index.html` and `.md`.
+/// Serving those by file path walks straight past `groups::decide`, which is
+/// taken on a `Target::Page` resolved from the route table: a reader would
+/// fetch `/partners/pricing/index.html` and receive a page their groups
+/// forbid.
+///
+/// So the rule names what is static rather than what is not a page. A new
+/// kind of build output is unreachable until it is added here, which is the
+/// right way round for a boundary: forgetting to add one costs a 404, and
+/// forgetting to exclude one costs a leak.
+pub fn is_servable(path: &str) -> bool {
+    /// Whole subtrees that never contain a page.
+    const DIRECTORIES: &[&str] = &["_liyasa/", "search-index/", ".well-known/"];
+    /// Named files at the root. `404.html` is not here: it is served as the
+    /// body of a 404 rather than at its own path, and `liyasa-manifest.json`,
+    /// `_headers`, `vercel.json` and `.nojekyll` are the server's own index
+    /// and the host's configuration.
+    const FILES: &[&str] = &[
+        "llms.txt",
+        "llms-full.txt",
+        "skill.md",
+        "sitemap.xml",
+        "robots.txt",
+        "favicon.ico",
+    ];
+    let path = path.trim_start_matches('/');
+    DIRECTORIES.iter().any(|dir| path.starts_with(dir)) || FILES.contains(&path)
+}
+
+/// The content type a served file answers with.
+///
+/// `assets::content_type` is the table for what an author puts in `assets/` —
+/// images, fonts, archives — and it has no `css`, `js`, `xml` or `md` because
+/// those are not asset types. These are build OUTPUT, so they get their own
+/// mapping rather than widening that table, which would also change the
+/// disposition and caching rules an authored file of the same extension gets.
+/// Without this the theme's stylesheet served as `application/octet-stream`
+/// and every browser ignored it, which looks exactly like the 404 it
+/// replaced.
+pub fn served_content_type(path: &str) -> String {
+    let extension = path.rsplit('.').next().unwrap_or_default();
+    match extension {
+        "css" => "text/css; charset=utf-8".to_owned(),
+        "js" | "mjs" => "text/javascript; charset=utf-8".to_owned(),
+        "map" => "application/json".to_owned(),
+        "xml" => "application/xml; charset=utf-8".to_owned(),
+        "md" => crate::hosting::headers::MARKDOWN_TYPE.to_owned(),
+        "wasm" => "application/wasm".to_owned(),
+        _ => crate::assets::content_type(extension).to_owned(),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -159,6 +236,7 @@ impl Manifest {
                 .sort_by_key(|entry| (entry.width, entry.format));
         }
         self.redirects.sort_by(|a, b| a.source.cmp(&b.source));
+        self.served.sort_by(|a, b| a.path.cmp(&b.path));
         self
     }
 
@@ -238,6 +316,7 @@ mod tests {
             assets: Vec::new(),
             images: Vec::new(),
             redirects: Vec::new(),
+            served: Vec::new(),
             inputs: BTreeMap::new(),
         }
     }

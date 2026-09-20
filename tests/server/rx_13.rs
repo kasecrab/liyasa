@@ -226,3 +226,82 @@ async fn a_page_s_content_is_readable_by_path() {
         StatusCode::BAD_REQUEST,
     );
 }
+
+/// Defect 145: the server indexes the manifest and nothing else, so a file the
+/// build wrote but never recorded is unreachable however plainly it sits in
+/// `dist/`. Every page the server returned was unstyled because of it.
+#[tokio::test]
+async fn the_stylesheet_a_page_links_to_is_actually_served() {
+    let (harness, _site) = Harness::serving("rx13-stylesheet").await;
+    let html = body_text(harness.get("/").await).await;
+
+    // Taken from the page rather than written down: the filename carries a
+    // content hash, and a test that hardcoded one would pass while serving
+    // something the page does not ask for.
+    let href = html
+        .split("href=\"")
+        .skip(1)
+        .filter_map(|rest| rest.split('"').next())
+        .find(|value| value.starts_with("/_liyasa/") && value.ends_with(".css"))
+        .map(str::to_owned)
+        .expect("the page links a theme stylesheet");
+
+    let response = expect_status(harness.get(&href).await, StatusCode::OK);
+    assert_eq!(
+        header(&response, "content-type"),
+        Some("text/css; charset=utf-8"),
+        "{href}"
+    );
+    assert!(!body_bytes(response).await.is_empty(), "{href} is empty");
+}
+
+#[tokio::test]
+async fn the_agent_surfaces_are_reachable_through_the_server() {
+    // They were reachable on a static host and 404 under `liyasa serve`,
+    // because every test of them read the file off disk instead of asking for
+    // it. AUTH-07 requires `llms.txt` to follow the page rules, which it
+    // cannot do while it does not exist.
+    //
+    // The content type is asserted with the status because getting it wrong
+    // is indistinguishable from the 404 in a browser: the theme's stylesheet
+    // served as `application/octet-stream` for the first cut of this fix and
+    // was ignored exactly as if it had never arrived.
+    let (harness, _site) = Harness::serving("rx13-agents").await;
+    for (path, content_type) in [
+        ("/llms.txt", "text/plain; charset=utf-8"),
+        ("/llms-full.txt", "text/plain; charset=utf-8"),
+        ("/sitemap.xml", "application/xml; charset=utf-8"),
+        ("/skill.md", "text/markdown; charset=utf-8"),
+    ] {
+        let response = harness.get(path).await;
+        assert_eq!(response.status(), StatusCode::OK, "{path}");
+        assert_eq!(
+            header(&response, "content-type"),
+            Some(content_type),
+            "{path}"
+        );
+        assert!(!body_bytes(response).await.is_empty(), "{path} is empty");
+    }
+}
+
+#[tokio::test]
+async fn a_pages_rendered_file_is_not_reachable_by_its_path() {
+    // The security property behind `manifest::is_servable` being an allow
+    // list. The build knows every file it wrote, so the short fix for defect
+    // 145 is to serve that list — and it holds each page's rendered
+    // `index.html`, which would then be fetchable by file path, straight past
+    // the access decision taken on a resolved route.
+    let (harness, _site) = Harness::serving("rx13-not-by-path").await;
+    for path in [
+        "/index.html",
+        "/guides/install/index.html",
+        "/liyasa-manifest.json",
+        "/_headers",
+    ] {
+        assert_eq!(
+            harness.get(path).await.status(),
+            StatusCode::NOT_FOUND,
+            "{path} must not be reachable as a file"
+        );
+    }
+}

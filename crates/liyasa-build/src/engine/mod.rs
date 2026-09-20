@@ -694,6 +694,21 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         .extend(not_already_said(&redirect_diagnostics, &config_codes));
 
     // 11. The manifest.
+    //
+    // Everything written so far that the server has to hand back as-is. Built
+    // from `report.written`, which `write_file` appends to, so a new output
+    // only has to satisfy `manifest::is_servable` to become reachable — and a
+    // page never does, which is the point (defect 145).
+    let served: Vec<manifest::ServedFile> = report
+        .written
+        .iter()
+        .filter(|path| manifest::is_servable(path))
+        .map(|path| (path.clone(), manifest::served_content_type(path)))
+        .collect::<BTreeMap<String, String>>()
+        .into_iter()
+        .map(|(path, content_type)| manifest::ServedFile { path, content_type })
+        .collect();
+
     let built = Manifest {
         build_id,
         liyasa_version: crate::cache::VERSION.to_owned(),
@@ -703,6 +718,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         assets: asset_entries,
         images: image_entries,
         redirects: table.manifest_entries(),
+        served,
         inputs,
     }
     .sorted();

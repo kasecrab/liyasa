@@ -239,6 +239,7 @@ pub(crate) mod fixture {
                 destination: "/guides/install".to_owned(),
                 status: 301,
             }],
+            served: Vec::new(),
             inputs: BTreeMap::new(),
         }
         .sorted()
