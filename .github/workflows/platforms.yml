@@ -40,9 +40,21 @@ jobs:
           - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
             musl: true
-          # macOS 13 is the floor the requirement names, and the 13 runner is
-          # the only one that proves the floor rather than the current release.
-          - runner: macos-13
+          # This job is `cargo check --target`, so the runner's own
+          # architecture does not have to match the target — the same reason
+          # the musl and aarch64 targets build on x86_64 Linux. It was pinned
+          # to `macos-13` to pit the check against the oldest macOS the
+          # requirement names, but GitHub has retired that image: the job then
+          # queues for a runner that will never come, and a queued job reports
+          # an empty conclusion, which reads as passing. This push's sat
+          # queued while the other six passed, and the dependabot run before
+          # it had been waiting 16h18m.
+          #
+          # What was lost is small and was never much: a `cargo check` on a
+          # newer runner proves the x86_64 Darwin target still compiles, which
+          # is all the other cross-targets prove. It never proved the macOS 13
+          # floor at runtime, because nothing here runs.
+          - runner: macos-latest
             target: x86_64-apple-darwin
           - runner: macos-latest
             target: aarch64-apple-darwin
