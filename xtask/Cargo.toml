@@ -19,7 +19,6 @@ zeroize.workspace = true
 [dependencies]
 comrak.workspace = true       # candidate (a) and (b), PRD §7.5.2
 clap.workspace = true         # the real flag set, read from the command tree itself
-liyasa-cli = { path = "../crates/liyasa-cli", version = "0.1.0" }
 liyasa-core = { path = "../crates/liyasa-core", version = "0.1.0", features = ["conformance"] }
 markdown.workspace = true     # candidate (c)
 pulldown-cmark.workspace = true # candidate (d)
@@ -27,3 +26,20 @@ schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true          # deny.toml and the §34.11 asset inventory, for the NFR-15 licence gate
+
+# `parity` builds xtask itself for wasm32-wasip1 so the corpus runs through the
+# same code the editor previews with, which means every xtask dependency has to
+# compile for wasm. `liyasa-cli` gained a runtime and an HTTP client on
+# 2026-09-17 (49820c4) and with them reqwest, hickory and tokio, whose own
+# build script rejects wasm: "Only features sync,macros,io-util,rt,time are
+# supported on wasm." That turned the parity job red the same day and it stayed
+# red for three days, reported as a native-versus-WebAssembly divergence
+# because that is what the job is called — it never got as far as comparing
+# anything.
+#
+# xtask needs the CLI in exactly one place, `flags.rs`, which reads the clap
+# command tree to find prose naming a flag that does not exist. That is a
+# repository lint and has no business in a wasm build, so it is native-only and
+# the `flags` command does not exist there.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+liyasa-cli = { path = "../crates/liyasa-cli", version = "0.1.0" }

@@ -4,9 +4,13 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use xtask::spike::engines;
+// The repository lints read the CLI's clap tree and do not build for wasm;
+// the wasm binary exists only so `parity` can run `conformance` through it.
+#[cfg(not(target_family = "wasm"))]
+use xtask::{flags, pins};
 use xtask::{
-    conformance, corpus, corpus_import, corpus_seed, flags, licences, lints, notices, parity, pins,
-    schemas, workflows,
+    conformance, corpus, corpus_import, corpus_seed, licences, lints, notices, parity, schemas,
+    workflows,
 };
 
 const USAGE: &str = "\
@@ -81,11 +85,13 @@ fn dispatch(args: &[String]) -> Result<(), String> {
                 flag(args, "--dir").map_or_else(|| repo_root().join("schemas"), PathBuf::from);
             schemas::run(&dir, args.iter().any(|a| a == "--check"))
         }
+        #[cfg(not(target_family = "wasm"))]
         Some("flags") => flags::run(&repo_root()),
         Some("licences") => licences::run(&repo_root()),
         Some("lints") => lints::run(&repo_root()),
         Some("notices") => notices::run(&repo_root()),
         Some("workflows") => workflows::run(&repo_root()),
+        #[cfg(not(target_family = "wasm"))]
         Some("pins") => pins::run(&repo_root(), args.iter().any(|a| a == "--update")),
         Some("conformance") => {
             let dir = positional(args).ok_or("conformance needs a directory")?;
