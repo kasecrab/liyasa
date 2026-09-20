@@ -44,6 +44,18 @@ jobs:
       # Chromium it is built on.
       - run: npx playwright install --with-deps chromium firefox webkit msedge
         working-directory: web
+      # Build the reference site as its own step. `webServer.command` is
+      # `npm run site && npm run serve`, and `npm run site` is a cargo build of
+      # `liyasa-tests` — so Playwright's `webServer.timeout` was being asked to
+      # cover a cold Rust build inside its three minutes. It did not: on
+      # 2026-09-20 the job failed at exactly 180s having printed nothing,
+      # because Playwright swallows the server's output, and the run before it
+      # the same. Built here the compile has the job's 45 minutes, a broken
+      # build reports as a broken build rather than as a server that never came
+      # up, and `npm run site` inside `webServer` then finds a warm target and
+      # returns at once.
+      - run: npm run site
+        working-directory: web
       - run: npm run e2e
         working-directory: web
       - uses: actions/upload-artifact@v4

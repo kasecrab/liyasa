@@ -62,6 +62,12 @@ export default defineConfig({
     command: "npm run site && npm run serve",
     url: BASE_URL,
     reuseExistingServer: !process.env["CI"],
-    timeout: 180_000,
+    // `npm run site` is a cargo build, so this budget covers compiling as well
+    // as starting a server. CI builds the site in its own step first and so
+    // only pays the warm path here, but a cache miss still has to fit: three
+    // minutes did not, and the failure reads as "the server never came up"
+    // with no output, because Playwright does not surface the command's stdout
+    // on a timeout.
+    timeout: process.env["CI"] ? 900_000 : 180_000,
   },
 });
