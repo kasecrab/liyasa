@@ -40,13 +40,29 @@ jobs:
           cargo run -p xtask -- corpus import \
             --commonmark spec.json --commonmark-version "${COMMONMARK_VERSION}" \
             --gfm gfm.txt --out corpus
+      # `liyasa-wasm`'s budget test reads `cargo tree --target
+      # wasm32-unknown-unknown --offline`, and its own comment promises
+      # "metadata only: no compilation, no network". Nothing else in this job
+      # touches that target, so wasm-only crates — `web-time` is the one that
+      # bit — are never in the runner's registry cache and the offline
+      # resolution fails with "failed to download". It passes on a developer
+      # machine that has built for wasm at any point, which is why it looked
+      # like a CI-only fault. Fetching here keeps the test's no-network
+      # promise intact rather than relaxing it.
+      - run: cargo fetch --target wasm32-unknown-unknown
       # `--no-fail-fast` because `cargo test` stops at the first failing
       # target: `liyasa-markdown` failing hid every crate ordered after it, so
       # a 3072-line log of a red run did not mention `liyasa-tests` once and
       # said nothing about whether the day's new tests passed.
       - run: cargo test --workspace --all-features --no-fail-fast
         env:
-          LIYASA_CORPUS: corpus
+          # Absolute. `locate()` does `PathBuf::from(var)` and `is_dir()`, and a
+          # cargo test binary runs with its CRATE root as the working
+          # directory, not the workspace root — so a relative `corpus` looks
+          # for `crates/liyasa-markdown/corpus` and silently finds nothing.
+          # The local check that proved this fix works used an absolute path,
+          # which is why it passed there and failed here.
+          LIYASA_CORPUS: ${{ github.workspace }}/corpus
 
   # §6.2: liyasa-core and the other author-facing crates must compile to
   # wasm32, because the editor renders its preview from the same code.
