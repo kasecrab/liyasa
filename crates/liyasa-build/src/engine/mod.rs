@@ -665,6 +665,24 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     phase.mark("agent_surfaces");
     let _ = surfaces_written;
 
+    // 8d. The downloadable specs (API-50). The first thing `liyasa-openapi`
+    // has ever contributed to a build: before this the crate was reachable
+    // only from `liyasa validate` and the assistant, so a site that declared
+    // `openapi` had its config checked and produced nothing (defect 151).
+    let (spec_documents, spec_diagnostics) = crate::openapi::documents(vfs, &load.value);
+    report
+        .diagnostics
+        .extend(not_already_said(&spec_diagnostics, &config_codes));
+    for document in &spec_documents {
+        write_file(
+            &output,
+            &document.path,
+            document.body.as_bytes(),
+            &mut report,
+            &mut outputs,
+        );
+    }
+
     // 8d. The sitemap: every route CM-80 lets into it.
     if !settings.canonical_origin.is_empty() {
         let entries: Vec<crate::sitemap::Entry> = tree

@@ -19,6 +19,7 @@ pub mod links;
 pub mod manifest;
 pub mod media;
 pub mod nav;
+pub mod openapi;
 pub mod pool;
 pub mod redirects;
 pub mod render;

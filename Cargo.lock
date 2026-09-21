@@ -2599,6 +2599,7 @@ dependencies = [
  "liyasa-config",
  "liyasa-core",
  "liyasa-markdown",
+ "liyasa-openapi",
  "liyasa-search",
  "liyasa-theme",
  "minijinja",

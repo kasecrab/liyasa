@@ -16,6 +16,8 @@ mod auth_13_cdn;
 mod auth_14_bot_protection;
 #[path = "../server/auth_07_mixed.rs"]
 mod auth_07_mixed;
+#[path = "../server/api_50_download.rs"]
+mod api_50_download;
 #[path = "../build/auth_01.rs"]
 mod auth_01;
 #[path = "../config/cfg_01.rs"]

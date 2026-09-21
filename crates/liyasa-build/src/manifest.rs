@@ -126,6 +126,11 @@ impl ListingEntry {
 pub fn is_servable(path: &str) -> bool {
     /// Whole subtrees that never contain a page.
     ///
+    /// `openapi/` holds the processed spec documents, written for
+    /// `Audience::public()` precisely so that serving them to anyone is
+    /// right (API-50). Per-reader filtering of a spec is API-52 and would
+    /// have to happen at request time, not by handing over this file.
+    ///
     /// `search-index/` is deliberately NOT here. The index holds the text of
     /// every indexed page, restricted ones included, in binary shards that
     /// cannot be filtered per reader the way a listing can — and nothing
@@ -133,7 +138,7 @@ pub fn is_servable(path: &str) -> bool {
     /// route (defect 146). Serving it would be a leak in exchange for no
     /// feature. When the search endpoint exists it answers with filtered
     /// results rather than handing over the index.
-    const DIRECTORIES: &[&str] = &["_liyasa/", ".well-known/"];
+    const DIRECTORIES: &[&str] = &["_liyasa/", ".well-known/", "openapi/"];
     /// Named files at the root. `404.html` is not here: it is served as the
     /// body of a 404 rather than at its own path, and `liyasa-manifest.json`,
     /// `_headers`, `vercel.json` and `.nojekyll` are the server's own index
