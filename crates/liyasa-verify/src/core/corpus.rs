@@ -74,13 +74,31 @@ impl Case {
 /// `<prep>/wt/wp-NN/crates/liyasa-verify` with the corpus at
 /// `<prep>/spec/markdown`.
 pub fn root() -> Option<PathBuf> {
-    if let Ok(path) = std::env::var("LIYASA_CORPUS") {
-        let path = PathBuf::from(path);
-        return path.is_dir().then_some(path);
-    }
-    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let candidate = manifest.join("../../../../spec/markdown");
-    candidate.is_dir().then_some(candidate)
+    let candidate = match std::env::var("LIYASA_CORPUS") {
+        Ok(path) => PathBuf::from(path),
+        Err(_) => Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../spec/markdown"),
+    };
+    holds_verification_cases(&candidate).then_some(candidate)
+}
+
+/// Whether a corpus root holds THIS crate's cases.
+///
+/// `LIYASA_CORPUS` names the corpus root, and two crates read it for
+/// different things: `liyasa-markdown` wants the conformance cases, this
+/// crate wants the `ver-*` verification cases that sit beside them in
+/// `spec/markdown`. CI imports only the upstream CommonMark and GFM suites,
+/// because those are the half with an external source of truth — a complete
+/// corpus for one reader and an empty one for the other. So "the directory
+/// exists" is not evidence that this crate's cases are in it, and taking it
+/// as evidence turned four no-ops into four hard failures the day CI started
+/// setting the variable.
+fn holds_verification_cases(root: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        entry.path().is_dir() && entry.file_name().to_string_lossy().starts_with("ver-")
+    })
 }
 
 /// Where the third-party Vale style packages are, or `None` when this checkout
