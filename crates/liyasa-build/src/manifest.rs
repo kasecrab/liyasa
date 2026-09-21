@@ -49,6 +49,58 @@ pub struct ServedFile {
     /// records and `Bundle::read` expects.
     pub path: String,
     pub content_type: String,
+    /// For a listing — `llms.txt`, `llms-full.txt`, `sitemap.xml` — which
+    /// route occupies which bytes, so the server can drop the entries a
+    /// reader may not see (AUTH-10). Empty for a file that lists nothing.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub entries: Vec<ListingEntry>,
+}
+
+/// One route's bytes inside a listing.
+///
+/// The generator emits these as it writes the body, so the offsets cannot
+/// drift from the text: a change to a heading level or a separator moves both
+/// together. The alternative was three parsers in the server — `llms.txt` is
+/// lines, `llms-full.txt` is sections, `sitemap.xml` is blocks — each of them
+/// silently wrong the day its generator changed, and silent wrongness is the
+/// failure mode this project keeps paying for.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListingEntry {
+    /// The route this span lists, or `None` for structural text — a section
+    /// heading — which survives only if something under it does. Without that
+    /// distinction, filtering every page out of a restricted section leaves
+    /// `## Internal` standing on its own, which still names the section.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub route: Option<String>,
+    /// The section a span belongs to. A heading and the pages beneath it share
+    /// one, and that is how a heading knows whether it has been emptied.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section: Option<String>,
+    /// Byte offsets into the file, `start..end`, half open. Bytes outside
+    /// every span — the preamble, the closing tag — are always kept.
+    pub start: usize,
+    pub end: usize,
+}
+
+impl ListingEntry {
+    pub fn page(route: &str, section: Option<&str>, start: usize, end: usize) -> Self {
+        Self {
+            route: Some(route.to_owned()),
+            section: section.map(str::to_owned),
+            start,
+            end,
+        }
+    }
+
+    pub fn heading(section: &str, start: usize, end: usize) -> Self {
+        Self {
+            route: None,
+            section: Some(section.to_owned()),
+            start,
+            end,
+        }
+    }
 }
 
 /// Whether a written file belongs in [`Manifest::served`].

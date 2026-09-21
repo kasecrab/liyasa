@@ -11,6 +11,8 @@ use axum::response::{IntoResponse, Response};
 use http::{HeaderName, HeaderValue, StatusCode, header};
 use liyasa_build::hosting::headers as host_headers;
 
+use liyasa_build::manifest::ListingEntry;
+
 use super::bundle::{Bundle, Target, prefers_markdown};
 use super::httpdate;
 
@@ -227,6 +229,100 @@ pub fn serve_target(
         },
         Target::NotFound => not_found(bundle, path),
     }
+}
+
+/// Serves a listing with the entries a reader may not see removed (AUTH-10).
+///
+/// The filtering happens BEFORE the response is built, not after, because
+/// `file_response` computes the entity tag over the bytes it is handed. Filter
+/// afterwards and every reader gets one tag for bodies that differ by reader,
+/// which is a cache that serves a partner's listing to an anonymous visitor.
+///
+/// A body that lost anything is marked `private`: it is reader-dependent, and
+/// a shared cache holding one reader's copy is the same disclosure by another
+/// route (AUTH-13).
+pub fn serve_listing(
+    bundle: &Bundle,
+    request_path: &str,
+    file: &str,
+    content_type: &str,
+    entries: &[ListingEntry],
+    allowed: &dyn Fn(&str) -> bool,
+    request: &http::HeaderMap,
+) -> Page {
+    let Ok(body) = bundle.read(file) else {
+        return not_found(bundle, request_path);
+    };
+    let filtered = filter_listing(&body, entries, allowed);
+    let dropped = filtered.len() != body.len();
+    let mut page = file_response(
+        bundle,
+        request_path,
+        file,
+        filtered,
+        Some(content_type),
+        false,
+        request,
+    );
+    if dropped {
+        page.headers
+            .retain(|(name, _)| name != header::CACHE_CONTROL);
+        page.headers
+            .extend(header("Cache-Control", "private, no-store"));
+    }
+    page
+}
+
+/// Keeps the spans a reader may see, and the bytes between spans.
+///
+/// A heading span carries no route and survives only if a page span in the
+/// same section does — otherwise filtering a restricted section empty would
+/// leave `## Internal` standing alone, still naming it. Bytes outside every
+/// span are structure — the preamble, the closing tag — and are always kept.
+pub fn filter_listing(
+    body: &[u8],
+    entries: &[ListingEntry],
+    allowed: &dyn Fn(&str) -> bool,
+) -> Vec<u8> {
+    let mut live_sections: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    for entry in entries {
+        if let (Some(route), Some(section)) = (&entry.route, &entry.section)
+            && allowed(route)
+        {
+            live_sections.insert(section);
+        }
+    }
+    let keep = |entry: &ListingEntry| -> bool {
+        match &entry.route {
+            Some(route) => allowed(route),
+            // A heading. Its section has to still hold something.
+            None => entry
+                .section
+                .as_deref()
+                .is_some_and(|section| live_sections.contains(section)),
+        }
+    };
+
+    let mut spans: Vec<&ListingEntry> = entries.iter().collect();
+    spans.sort_by_key(|entry| entry.start);
+    let mut out = Vec::with_capacity(body.len());
+    let mut cursor = 0usize;
+    for entry in spans {
+        let (start, end) = (entry.start.min(body.len()), entry.end.min(body.len()));
+        if start < cursor {
+            // Overlapping or out-of-order spans would drop the wrong bytes.
+            // A generator that produces them is a bug, and serving the body
+            // unfiltered would be a leak, so serve nothing of it.
+            return Vec::new();
+        }
+        out.extend_from_slice(&body[cursor..start]);
+        if keep(entry) {
+            out.extend_from_slice(&body[start..end]);
+        }
+        cursor = end;
+    }
+    out.extend_from_slice(&body[cursor.min(body.len())..]);
+    out
 }
 
 #[allow(clippy::too_many_arguments)]

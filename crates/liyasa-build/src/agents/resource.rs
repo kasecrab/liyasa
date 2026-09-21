@@ -21,6 +21,10 @@ pub struct Resource {
     /// Groups this resource is served to; empty is public.
     pub groups: Vec<String>,
     pub body: String,
+    /// For a listing, which route occupies which bytes of `body`, so the
+    /// server can drop what a reader may not see. Empty for a resource that
+    /// lists nothing.
+    pub entries: Vec<crate::manifest::ListingEntry>,
 }
 
 impl Resource {
@@ -30,7 +34,14 @@ impl Resource {
             media_type,
             groups: Vec::new(),
             body: body.into(),
+            entries: Vec::new(),
         }
+    }
+
+    #[must_use]
+    pub fn listing(mut self, entries: Vec<crate::manifest::ListingEntry>) -> Self {
+        self.entries = entries;
+        self
     }
 
     #[must_use]

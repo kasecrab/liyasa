@@ -21,10 +21,23 @@ pub struct Entry {
 /// slash; `clock_unix` dates a page that carries no date of its own, so two
 /// builds of the same content agree (§6.6.2 rule 1).
 pub fn render(entries: &[Entry], origin: &str, clock_unix: i64) -> String {
+    render_with_spans(entries, origin, clock_unix).0
+}
+
+/// The sitemap, and which route occupies which bytes of it, so the server can
+/// drop the routes a reader may not see (AUTH-10). The spans are recorded as
+/// the XML is written; recovering them afterwards would mean parsing this
+/// function's own output back.
+pub fn render_with_spans(
+    entries: &[Entry],
+    origin: &str,
+    clock_unix: i64,
+) -> (String, Vec<crate::manifest::ListingEntry>) {
     let origin = origin.trim_end_matches('/');
     let fallback = Timestamp { unix: clock_unix }.rfc_3339();
     let mut out = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     out.push_str("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
+    let mut spans = Vec::new();
     let mut sorted: Vec<&Entry> = entries.iter().collect();
     sorted.sort_by(|a, b| a.route.cmp(&b.route));
     for entry in sorted {
@@ -34,6 +47,7 @@ pub fn render(entries: &[Entry], origin: &str, clock_unix: i64) -> String {
             .and_then(Timestamp::parse_day)
             .map(Timestamp::rfc_3339)
             .unwrap_or_else(|| fallback.clone());
+        let start = out.len();
         out.push_str("  <url>\n");
         out.push_str(&format!(
             "    <loc>{}{}</loc>\n",
@@ -42,9 +56,15 @@ pub fn render(entries: &[Entry], origin: &str, clock_unix: i64) -> String {
         ));
         out.push_str(&format!("    <lastmod>{last_modified}</lastmod>\n"));
         out.push_str("  </url>\n");
+        spans.push(crate::manifest::ListingEntry::page(
+            entry.route.as_str(),
+            None,
+            start,
+            out.len(),
+        ));
     }
     out.push_str("</urlset>\n");
-    out
+    (out, spans)
 }
 
 fn escape(text: &str) -> String {

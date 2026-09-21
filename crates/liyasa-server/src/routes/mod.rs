@@ -635,6 +635,34 @@ pub async fn page(State(state): State<Arc<AppState>>, request: axum::extract::Re
             auth::Decision::SignIn => return sign_in(site, &bundle, &path),
         }
     }
+    // A listing carries other routes' names, so AUTH-10 makes it the same
+    // decision taken once per entry rather than once for the file. The spans
+    // come from the build: the server never parses `llms.txt` back.
+    if let bundle::Target::Asset {
+        path: file,
+        content_type,
+    } = &target
+    {
+        let stripped = bundle.strip_base(&path).unwrap_or_else(|| path.clone());
+        let entries = bundle.listing_entries(&stripped);
+        if !entries.is_empty() {
+            let site = site_default(&state);
+            let reader = request.extensions().get::<Principal>();
+            let allowed = |route: &str| {
+                auth::decide(site, &bundle.access_chain(route), reader) == auth::Decision::Allow
+            };
+            return site::serve_listing(
+                &bundle,
+                &path,
+                file,
+                content_type,
+                entries,
+                &allowed,
+                request.headers(),
+            )
+            .into_response();
+        }
+    }
     site::serve_target(&bundle, &path, target, request.headers()).into_response()
 }
 

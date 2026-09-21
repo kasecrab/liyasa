@@ -15,6 +15,7 @@ use crate::agents::continuation::Continuation;
 use crate::agents::markdown::discovery_directive;
 use crate::agents::resource::{self, Resource, Surfaces};
 use crate::agents::site::{PageRecord, SiteInput};
+use crate::manifest::ListingEntry;
 
 /// The ceiling the spec's `llms-txt-size` check applies to the root index.
 pub const INDEX_MAX_CHARS: usize = 50_000;
@@ -98,10 +99,10 @@ struct Section<'a> {
 }
 
 fn generated_index(site: &SiteInput, sections: &[Section<'_>], out: &mut Surfaces) {
-    let whole = index_body(site, &header(site), sections);
+    let (whole, spans) = index_body(site, &header(site), sections);
     if whole.chars().count() <= INDEX_MAX_CHARS || !site.agents.llms.split {
         out.resources
-            .push(Resource::new(ROOT_PATH, resource::PLAIN_TEXT, whole));
+            .push(Resource::new(ROOT_PATH, resource::PLAIN_TEXT, whole).listing(spans));
         return;
     }
     split_index(site, sections, out);
@@ -118,15 +119,39 @@ fn header(site: &SiteInput) -> String {
     out
 }
 
-fn index_body(site: &SiteInput, header: &str, sections: &[Section<'_>]) -> String {
+/// The body, and which route occupies which bytes of it (AUTH-10).
+///
+/// The spans are recorded here rather than recovered by parsing later,
+/// because a parser in the server would be a second reading of this
+/// function's output format and would go quietly wrong the first time a
+/// separator changed.
+fn index_body(
+    site: &SiteInput,
+    header: &str,
+    sections: &[Section<'_>],
+) -> (String, Vec<ListingEntry>) {
     let mut out = header.to_owned();
+    let mut spans = Vec::new();
     for section in sections {
+        let heading_start = out.len();
         let _ = write!(out, "\n## {}\n\n", section.title);
+        spans.push(ListingEntry::heading(
+            &section.title,
+            heading_start,
+            out.len(),
+        ));
         for page in &section.pages {
+            let start = out.len();
             out.push_str(&entry(site, page));
+            spans.push(ListingEntry::page(
+                page.route.as_str(),
+                Some(&section.title),
+                start,
+                out.len(),
+            ));
         }
     }
-    out
+    (out, spans)
 }
 
 /// One `llms.txt` line: an absolute `.md` link and a one-line description.
@@ -184,11 +209,8 @@ fn split_index(site: &SiteInput, sections: &[Section<'_>], out: &mut Surfaces) {
                 pages: s.pages.clone(),
             })
             .collect();
-        indexes.push(Resource::new(
-            path,
-            resource::PLAIN_TEXT,
-            index_body(site, &header, &owned),
-        ));
+        let (body, spans) = index_body(site, &header, &owned);
+        indexes.push(Resource::new(path, resource::PLAIN_TEXT, body).listing(spans));
     }
     out.resources
         .push(Resource::new(ROOT_PATH, resource::PLAIN_TEXT, root));
@@ -320,10 +342,10 @@ pub fn link_targets(body: &str) -> Vec<String> {
 fn full_text(site: &SiteInput, sections: &[Section<'_>], out: &mut Surfaces) {
     let pages = ordered_pages(sections);
     let cap = site.agents.llms.full_max_bytes.max(1) as usize;
-    let whole = concatenate(site, &pages);
+    let (whole, spans) = concatenate(site, &pages);
     if whole.len() <= cap || !site.agents.llms.split {
         out.resources
-            .push(Resource::new(FULL_PATH, resource::PLAIN_TEXT, whole));
+            .push(Resource::new(FULL_PATH, resource::PLAIN_TEXT, whole).listing(spans));
         return;
     }
     split_full_text(site, &pages, cap, out);
@@ -343,12 +365,20 @@ fn ordered_pages<'a>(sections: &[Section<'a>]) -> Vec<&'a PageRecord> {
     out
 }
 
-fn concatenate(site: &SiteInput, pages: &[&PageRecord]) -> String {
+fn concatenate(site: &SiteInput, pages: &[&PageRecord]) -> (String, Vec<ListingEntry>) {
     let mut out = String::new();
+    let mut spans = Vec::new();
     for page in pages {
+        let start = out.len();
         out.push_str(&full_entry(site, page));
+        spans.push(ListingEntry::page(
+            page.route.as_str(),
+            None,
+            start,
+            out.len(),
+        ));
     }
-    out
+    (out, spans)
 }
 
 /// One page inside the full text: its H1, its source URL, then its body.

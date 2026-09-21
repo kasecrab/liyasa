@@ -634,7 +634,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     // 8c. The agent surfaces (§11.7, §11.8, RX-03): Markdown routes,
     // `llms.txt`, the skill, the sitemap, robots, and the feeds. WP-10 owns
     // what they say; the engine owns which pages reach them (CM-80).
-    let surfaces_written = write_surfaces(
+    let (surfaces_written, mut listing_spans) = write_surfaces(
         &output,
         &tree,
         &pages,
@@ -659,7 +659,11 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
                 updated: page.front.updated.clone(),
             })
             .collect();
-        let xml = crate::sitemap::render(&entries, &settings.canonical_origin, report.clock_unix);
+        let (xml, spans) = crate::sitemap::render_with_spans(
+            &entries,
+            &settings.canonical_origin,
+            report.clock_unix,
+        );
         write_file(
             &output,
             crate::sitemap::FILE,
@@ -667,6 +671,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
             &mut report,
             &mut outputs,
         );
+        listing_spans.insert(crate::sitemap::FILE.to_owned(), spans);
     }
 
     // 9. Assets and the image tier.
@@ -706,7 +711,11 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         .map(|path| (path.clone(), manifest::served_content_type(path)))
         .collect::<BTreeMap<String, String>>()
         .into_iter()
-        .map(|(path, content_type)| manifest::ServedFile { path, content_type })
+        .map(|(path, content_type)| manifest::ServedFile {
+            entries: listing_spans.remove(&path).unwrap_or_default(),
+            path,
+            content_type,
+        })
         .collect();
 
     let built = Manifest {
@@ -1485,7 +1494,7 @@ fn write_surfaces(
     config_codes: &BTreeSet<&'static str>,
     report: &mut Report,
     outputs: &mut Outputs,
-) -> usize {
+) -> (usize, BTreeMap<String, Vec<manifest::ListingEntry>>) {
     let Some(origin) = crate::agents::site::CanonicalOrigin::parse_with_base_path(
         &settings.canonical_origin,
         &settings.base_path,
@@ -1502,13 +1511,14 @@ fn write_surfaces(
                 .help("set `seo.canonicalOrigin` to the site's production origin"),
             );
         }
-        return 0;
+        return (0, BTreeMap::new());
     };
 
     let default_version = settings
         .default_version()
         .map(|version| version.name.clone());
     let mut written = 0;
+    let mut spans: BTreeMap<String, Vec<manifest::ListingEntry>> = BTreeMap::new();
     for version in navigations.keys() {
         let records: Vec<crate::agents::site::PageRecord> = tree
             .pages
@@ -1588,10 +1598,13 @@ fn write_surfaces(
                 continue;
             }
             write_file(output, path, resource.body.as_bytes(), report, outputs);
+            if !resource.entries.is_empty() {
+                spans.insert(path.to_owned(), resource.entries.clone());
+            }
             written += 1;
         }
     }
-    written
+    (written, spans)
 }
 
 /// The `llms.txt` sections, which mirror the navigation groups (RX-70).

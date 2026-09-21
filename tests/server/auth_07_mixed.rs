@@ -381,3 +381,109 @@ async fn the_content_api_answers_the_same_decision() {
         "a programmatic client cannot follow a login redirect, so it is told"
     );
 }
+
+/// Reads a served body as text.
+async fn body_of(response: http::Response<Body>) -> String {
+    let bytes = axum::body::to_bytes(response.into_body(), 8 * 1024 * 1024)
+        .await
+        .expect("a complete body");
+    String::from_utf8_lossy(&bytes).into_owned()
+}
+
+#[tokio::test]
+async fn a_listing_names_only_what_the_reader_may_see() {
+    // AUTH-10: `llms.txt` filters the way the routes do. Until the server
+    // served these files at all they leaked nothing; serving them made the
+    // leak live, so the filter lands with the serving.
+    let dist = build_site("llms");
+
+    // The positive control. `!contains(...)` passes just as happily when the
+    // build never listed the route, so assert first that the file on disk
+    // does list it — otherwise this whole test could go green with the
+    // filter deleted.
+    let built = std::fs::read_to_string(dist.join("llms.txt")).expect("a built llms.txt");
+    for restricted in ["internal/overview", "partners/pricing"] {
+        assert!(
+            built.contains(restricted),
+            "the built llms.txt does not list {restricted}, so filtering it proves nothing:\n{built}"
+        );
+    }
+
+    let harness = harness("auth07-llms", dist, false).await;
+
+    let anonymous = body_of(get_as(&harness, "/llms.txt", None).await).await;
+    assert!(anonymous.contains("guides/install"), "{anonymous}");
+    for restricted in [
+        "internal/overview",
+        "internal/runbooks/failover",
+        "partners/pricing",
+    ] {
+        assert!(
+            !anonymous.contains(restricted),
+            "anonymous llms.txt names {restricted}:\n{anonymous}"
+        );
+    }
+    // The section heading goes with its last entry: a bare `## Internal`
+    // still names the section.
+    assert!(!anonymous.contains("## Internal"), "{anonymous}");
+
+    let partner = body_of(get_as(&harness, "/llms.txt", Some(&["partner"])).await).await;
+    assert!(partner.contains("partners/pricing"), "{partner}");
+    assert!(!partner.contains("internal/overview"), "{partner}");
+
+    let both =
+        body_of(get_as(&harness, "/llms.txt", Some(&["partner", "staff", "sre"])).await).await;
+    assert!(both.contains("internal/runbooks/failover"), "{both}");
+
+    // `llms-full.txt` carries each page's body, not just its title, so an
+    // unfiltered one hands over the whole restricted page. Its spans have no
+    // section — it has no headings to empty — which is the other shape the
+    // filter has to handle.
+    let full = body_of(get_as(&harness, "/llms-full.txt", None).await).await;
+    assert!(full.contains("guides/install"), "{full}");
+    assert!(!full.contains("partners/pricing"), "{full}");
+    let full_partner = body_of(get_as(&harness, "/llms-full.txt", Some(&["partner"])).await).await;
+    assert!(full_partner.contains("partners/pricing"), "{full_partner}");
+}
+
+#[tokio::test]
+async fn a_filtered_listing_is_never_shared_cache_material() {
+    let harness = harness("auth07-private-cache", build_site("privcache"), false).await;
+    let response = get_as(&harness, "/llms.txt", None).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let cache = response
+        .headers()
+        .get(header::CACHE_CONTROL)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    assert!(
+        cache.contains("private"),
+        "a body that differs per reader must not be shared-cacheable: {cache}"
+    );
+
+    // And the tag has to be over what was actually sent, or one reader's copy
+    // is revalidated into another's.
+    let anonymous = get_as(&harness, "/llms.txt", None).await;
+    let partner = get_as(&harness, "/llms.txt", Some(&["partner"])).await;
+    let tag = |r: &http::Response<Body>| {
+        r.headers()
+            .get(header::ETAG)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_owned()
+    };
+    assert_ne!(tag(&anonymous), tag(&partner), "one tag for two bodies");
+}
+
+#[tokio::test]
+async fn the_sitemap_drops_the_same_routes() {
+    let harness = harness("auth07-sitemap", build_site("sitemap"), false).await;
+    let anonymous = body_of(get_as(&harness, "/sitemap.xml", None).await).await;
+    assert!(anonymous.contains("/guides/install"), "{anonymous}");
+    assert!(!anonymous.contains("/partners/pricing"), "{anonymous}");
+    assert!(anonymous.trim_end().ends_with("</urlset>"), "{anonymous}");
+
+    let partner = body_of(get_as(&harness, "/sitemap.xml", Some(&["partner"])).await).await;
+    assert!(partner.contains("/partners/pricing"), "{partner}");
+}

@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use liyasa_build::hosting::{self, Rules};
-use liyasa_build::manifest::{self, AssetEntry, Manifest, RouteEntry, ServedFile};
+use liyasa_build::manifest::{self, AssetEntry, ListingEntry, Manifest, RouteEntry, ServedFile};
 use liyasa_build::redirects::ManifestEntry as RedirectEntry;
 
 use crate::auth::groups::Declared;
@@ -184,6 +184,17 @@ impl Bundle {
     /// the manifest does not know returns an empty chain, which `decide`
     /// reads as unrestricted — correct, because there is no page there and
     /// the caller has already resolved it to `NotFound`.
+    /// Which route occupies which bytes of a served listing, so the caller
+    /// can drop what a reader may not see. Empty for anything that is not a
+    /// listing — which is every served file except `llms.txt`,
+    /// `llms-full.txt` and `sitemap.xml`.
+    pub fn listing_entries(&self, path: &str) -> &[ListingEntry] {
+        self.served
+            .get(path)
+            .map(|file| file.entries.as_slice())
+            .unwrap_or_default()
+    }
+
     pub fn access_chain(&self, route: &str) -> Vec<Declared> {
         self.route(route)
             .map(|entry| entry.access.iter().map(declared_of).collect())
