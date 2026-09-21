@@ -22,8 +22,15 @@ impl Drop for Project {
     }
 }
 
-fn site() -> Project {
-    let root = std::env::temp_dir().join(format!("liyasa-src-05-warm-{}", std::process::id()));
+/// `name` discriminates the fixture, as every other build fixture in this
+/// directory does. Keyed on the process id alone, the two tests in this file
+/// shared one directory: under nextest that is invisible because each test is
+/// its own process, but `cargo test` runs them as threads in one, so
+/// `remove_dir_all` below ran while the other test was mid-build and the
+/// build reported "cannot read `liyasa.json`". CI runs `cargo test`.
+fn site(name: &str) -> Project {
+    let root =
+        std::env::temp_dir().join(format!("liyasa-src-05-warm-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(root.join("guides")).expect("a project directory");
     fs::write(
@@ -79,7 +86,7 @@ fn index_files(project: &Project) -> Vec<(String, Vec<u8>)> {
 
 #[test]
 fn a_warm_build_writes_the_same_index_as_a_cold_one() {
-    let project = site();
+    let project = site("warm");
 
     let cold = build(&project);
     assert!(!cold.failed(false), "{:?}", cold.diagnostics);
@@ -114,7 +121,7 @@ fn a_warm_build_writes_the_same_index_as_a_cold_one() {
 /// index".
 #[test]
 fn a_site_with_no_indexable_page_still_gets_a_manifest() {
-    let project = site();
+    let project = site("empty");
     fs::write(
         project.0.join("index.md"),
         "---\ntitle: Home\nhidden: true\n---\n# Home\n\nNot indexed.\n",
