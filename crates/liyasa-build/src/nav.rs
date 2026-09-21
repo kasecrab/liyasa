@@ -231,6 +231,7 @@ fn tab_of(node: &Value, pages: &[&crate::tree::Page], diagnostics: &mut Diagnost
         title,
         icon: node.get("icon").and_then(Value::as_str).map(str::to_owned),
         groups,
+        access: access_names(node),
         ..Tab::default()
     }
 }
@@ -257,6 +258,7 @@ fn group_of(node: &Value, pages: &[&crate::tree::Page], diagnostics: &mut Diagno
                     .collect()
             })
             .unwrap_or_default(),
+        access: access_names(node),
         ..Group::default()
     }
 }
@@ -281,6 +283,7 @@ fn directory_of(node: &Value, pages: &[&crate::tree::Page]) -> Vec<Group> {
         title: title_of_section(&prefix),
         expanded: true,
         items,
+        access: access_names(node),
         ..Group::default()
     }]
 }
@@ -321,6 +324,7 @@ fn item(page: &crate::tree::Page) -> Item {
         route: page.route.as_str().to_owned(),
         icon: page.front.icon.clone(),
         tag: page.front.tag.clone(),
+        access: page.front.groups.clone(),
         ..Item::default()
     }
 }
@@ -365,6 +369,19 @@ fn find_page<'a>(
 
 /// The `groups:` a navigation node declares (§8.4). Only `group`, `directory`
 /// and `tab` nodes may carry the key; a node that declares none adds no level.
+/// The `groups:` a node declares, as plain names.
+fn access_names(node: &Value) -> Vec<String> {
+    node.get("groups")
+        .and_then(Value::as_array)
+        .map(|list| {
+            list.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn level_of(node: &Value) -> Option<AccessLevel> {
     let groups: Vec<String> = node
         .get("groups")

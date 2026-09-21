@@ -373,6 +373,23 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         }
         navigations.insert(version, resolved.navigation);
     }
+    // The sidebar is baked into every page's HTML, so it cannot be filtered
+    // per reader the way `llms.txt` is, and making it a variant dimension
+    // does not fit either — `variants::subsets` is a powerset over
+    // `reads.groups` and `Caps::per_page` is 16, so four restricted sections
+    // would spend a page's whole budget before version and locale multiply
+    // it. The rendered sidebar therefore shows only what everyone may see.
+    // The surfaces keep the FULL navigation: `llms.txt` and the sitemap are
+    // filtered per reader at request time, so dropping entries here would
+    // take them away from the readers who are entitled to them. RFC 1507.
+    let sidebar_navigations: BTreeMap<
+        Option<liyasa_core::ids::Version>,
+        liyasa_theme::nav::Navigation,
+    > = navigations
+        .iter()
+        .map(|(version, navigation)| (version.clone(), navigation.public_only()))
+        .collect();
+
     let all_routes: BTreeSet<Route> = tree.pages.iter().map(|page| page.route.clone()).collect();
 
     // CM-35, CM-36: what a link or an image may resolve to. Cross-page heading
@@ -419,7 +436,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         &site,
         &cache,
         &assets_built,
-        &navigations,
+        &sidebar_navigations,
         options,
         &link_table,
         link_fingerprint,
@@ -588,7 +605,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
             hidden: false,
             draft: false,
         };
-        let navigation = navigations.get(&None).cloned().unwrap_or_default();
+        let navigation = sidebar_navigations.get(&None).cloned().unwrap_or_default();
         let mut stream_diagnostics = Diagnostics::new();
         let html = theme::page_html(
             theme::Shell {
@@ -671,7 +688,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
             &mut report,
             &mut outputs,
         );
-        listing_spans.insert(crate::sitemap::FILE.to_owned(), spans);
+        listing_spans.insert(crate::sitemap::FILE.to_owned(), (spans, Vec::new()));
     }
 
     // 9. Assets and the image tier.
@@ -711,10 +728,14 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         .map(|path| (path.clone(), manifest::served_content_type(path)))
         .collect::<BTreeMap<String, String>>()
         .into_iter()
-        .map(|(path, content_type)| manifest::ServedFile {
-            entries: listing_spans.remove(&path).unwrap_or_default(),
-            path,
-            content_type,
+        .map(|(path, content_type)| {
+            let (entries, groups) = listing_spans.remove(&path).unwrap_or_default();
+            manifest::ServedFile {
+                path,
+                content_type,
+                entries,
+                groups,
+            }
         })
         .collect();
 
@@ -1482,6 +1503,10 @@ fn with_download_rules(
     output
 }
 
+/// What the written surfaces contribute to `Manifest::served`, by path: the
+/// listing spans inside a file, and the groups the whole file is for.
+type SurfaceAccess = BTreeMap<String, (Vec<manifest::ListingEntry>, Vec<String>)>;
+
 /// Builds and writes every agent surface, one set per version (CM-92).
 #[allow(clippy::too_many_arguments)]
 fn write_surfaces(
@@ -1494,7 +1519,7 @@ fn write_surfaces(
     config_codes: &BTreeSet<&'static str>,
     report: &mut Report,
     outputs: &mut Outputs,
-) -> (usize, BTreeMap<String, Vec<manifest::ListingEntry>>) {
+) -> (usize, SurfaceAccess) {
     let Some(origin) = crate::agents::site::CanonicalOrigin::parse_with_base_path(
         &settings.canonical_origin,
         &settings.base_path,
@@ -1518,7 +1543,7 @@ fn write_surfaces(
         .default_version()
         .map(|version| version.name.clone());
     let mut written = 0;
-    let mut spans: BTreeMap<String, Vec<manifest::ListingEntry>> = BTreeMap::new();
+    let mut spans: SurfaceAccess = BTreeMap::new();
     for version in navigations.keys() {
         let records: Vec<crate::agents::site::PageRecord> = tree
             .pages
@@ -1598,8 +1623,11 @@ fn write_surfaces(
                 continue;
             }
             write_file(output, path, resource.body.as_bytes(), report, outputs);
-            if !resource.entries.is_empty() {
-                spans.insert(path.to_owned(), resource.entries.clone());
+            if !resource.entries.is_empty() || !resource.groups.is_empty() {
+                spans.insert(
+                    path.to_owned(),
+                    (resource.entries.clone(), resource.groups.clone()),
+                );
             }
             written += 1;
         }

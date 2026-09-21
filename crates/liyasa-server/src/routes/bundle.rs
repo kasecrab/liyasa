@@ -195,6 +195,21 @@ impl Bundle {
             .unwrap_or_default()
     }
 
+    /// Who a served file as a whole is for (RX-73). Empty is everyone.
+    ///
+    /// A restricted skill has nothing to filter inside it, so the decision is
+    /// taken on the file. Returned as a chain of one so the caller asks
+    /// `decide` the same question it asks of a page.
+    pub fn served_access(&self, path: &str) -> Vec<Declared> {
+        match self.served.get(path) {
+            Some(file) if !file.groups.is_empty() => vec![Declared {
+                groups: file.groups.iter().cloned().collect(),
+                public: false,
+            }],
+            _ => Vec::new(),
+        }
+    }
+
     pub fn access_chain(&self, route: &str) -> Vec<Declared> {
         self.route(route)
             .map(|entry| entry.access.iter().map(declared_of).collect())

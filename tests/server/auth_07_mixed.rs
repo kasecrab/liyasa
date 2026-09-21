@@ -487,3 +487,40 @@ async fn the_sitemap_drops_the_same_routes() {
     let partner = body_of(get_as(&harness, "/sitemap.xml", Some(&["partner"])).await).await;
     assert!(partner.contains("/partners/pricing"), "{partner}");
 }
+
+#[tokio::test]
+async fn the_sidebar_names_no_restricted_page() {
+    // C2. The sidebar is rendered into every page's HTML by a template, so it
+    // cannot carry byte spans the way `llms.txt` does and cannot become a
+    // variant dimension without a powerset of renders. It is built once,
+    // showing only what everyone may see (RFC 1507).
+    let dist = build_site("sidebar");
+
+    // The control: the navigation genuinely lists these, so their absence
+    // below is the filter working and not a fixture that never had them.
+    let manifest = std::fs::read_to_string(dist.join("liyasa-manifest.json")).expect("a manifest");
+    for restricted in ["/internal/overview", "/partners/pricing"] {
+        assert!(
+            manifest.contains(restricted),
+            "the build does not know {restricted}"
+        );
+    }
+
+    let harness = harness("auth07-sidebar", dist, false).await;
+    let html = body_of(get_as(&harness, "/", None).await).await;
+    assert!(
+        html.contains("/guides/install"),
+        "the sidebar lost a public page"
+    );
+    for restricted in [
+        "/internal/overview",
+        "/internal/runbooks/failover",
+        "/partners/pricing",
+    ] {
+        assert!(
+            !html.contains(restricted),
+            "the sidebar names {restricted}:\n{html}"
+        );
+    }
+    assert!(!html.contains(">Internal<"), "the section heading survives");
+}

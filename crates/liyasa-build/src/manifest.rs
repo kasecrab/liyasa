@@ -54,6 +54,11 @@ pub struct ServedFile {
     /// reader may not see (AUTH-10). Empty for a file that lists nothing.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub entries: Vec<ListingEntry>,
+    /// Groups this whole file is for; empty is everyone (RX-73). A skill
+    /// written for one group is a file, not a listing — there is nothing to
+    /// filter inside it, so the decision is taken on the file.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub groups: Vec<String>,
 }
 
 /// One route's bytes inside a listing.
@@ -120,7 +125,15 @@ impl ListingEntry {
 /// forgetting to exclude one costs a leak.
 pub fn is_servable(path: &str) -> bool {
     /// Whole subtrees that never contain a page.
-    const DIRECTORIES: &[&str] = &["_liyasa/", "search-index/", ".well-known/"];
+    ///
+    /// `search-index/` is deliberately NOT here. The index holds the text of
+    /// every indexed page, restricted ones included, in binary shards that
+    /// cannot be filtered per reader the way a listing can — and nothing
+    /// fetches it: there is no client-side search and no `/_liyasa/search`
+    /// route (defect 146). Serving it would be a leak in exchange for no
+    /// feature. When the search endpoint exists it answers with filtered
+    /// results rather than handing over the index.
+    const DIRECTORIES: &[&str] = &["_liyasa/", ".well-known/"];
     /// Named files at the root. `404.html` is not here: it is served as the
     /// body of a 404 rather than at its own path, and `liyasa-manifest.json`,
     /// `_headers`, `vercel.json` and `.nojekyll` are the server's own index

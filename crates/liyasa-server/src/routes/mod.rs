@@ -644,6 +644,17 @@ pub async fn page(State(state): State<Arc<AppState>>, request: axum::extract::Re
     } = &target
     {
         let stripped = bundle.strip_base(&path).unwrap_or_else(|| path.clone());
+        // A whole file written for one group — a restricted skill (RX-73).
+        // Nothing inside it to filter, so it is the page decision applied to
+        // the file, and a reader outside the group is told it is not there.
+        let whole = bundle.served_access(&stripped);
+        if !whole.is_empty() {
+            let site = site_default(&state);
+            let reader = request.extensions().get::<Principal>();
+            if auth::decide(site, &whole, reader) != auth::Decision::Allow {
+                return site::not_found(&bundle, &path).into_response();
+            }
+        }
         let entries = bundle.listing_entries(&stripped);
         if !entries.is_empty() {
             let site = site_default(&state);

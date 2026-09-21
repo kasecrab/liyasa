@@ -34,6 +34,10 @@ pub struct Tab {
     pub icon: Option<String>,
     pub icon_svg: Option<String>,
     pub groups: Vec<Group>,
+    /// Access groups this node declares (§8.4). Named `access` and not
+    /// `groups` because `groups` here already means the sidebar's own
+    /// grouping, which is about layout and not about who may read.
+    pub access: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +49,8 @@ pub struct Group {
     /// Collapsed groups still render their items; the sidebar module hides them.
     pub expanded: bool,
     pub items: Vec<Item>,
+    /// Access groups this node declares (§8.4).
+    pub access: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,6 +62,9 @@ pub struct Item {
     pub icon_svg: Option<String>,
     pub tag: Option<String>,
     pub children: Vec<Item>,
+    /// Access groups the PAGE declares in its front matter. A node's own
+    /// restriction lives on the [`Group`] or [`Tab`] above it.
+    pub access: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -90,6 +99,43 @@ pub struct Link {
 }
 
 impl Navigation {
+    /// The sidebar as a reader with no groups sees it: every node that
+    /// declares an access group, and every page that declares one, removed.
+    ///
+    /// The sidebar is baked into each page's HTML by a template, so it cannot
+    /// be filtered per reader the way `llms.txt` is — there are no byte
+    /// offsets to record out of a minijinja render. Making it a variant
+    /// dimension does not work either: `variants::subsets` is a powerset and
+    /// `Caps::per_page` is 16, so four restricted navigation sections would
+    /// spend a page's whole variant budget before version, locale and product
+    /// multiply it.
+    ///
+    /// So the built sidebar shows only what everyone may see. A reader who
+    /// can read a restricted section reaches it by URL, by search and by
+    /// `llms.txt`, all of which do filter per reader — the sidebar is the one
+    /// surface that under-serves them rather than over-serving anyone. See
+    /// RFC 1507 for the options and why this is the default.
+    #[must_use]
+    pub fn public_only(&self) -> Self {
+        let mut out = self.clone();
+        out.tabs.retain(|tab| tab.access.is_empty());
+        for tab in &mut out.tabs {
+            tab.groups.retain(|group| group.access.is_empty());
+            for group in &mut tab.groups {
+                group.items.retain(|item| item.access.is_empty());
+                for item in &mut group.items {
+                    item.children.retain(|child| child.access.is_empty());
+                }
+            }
+            // A group whose every item went is an empty heading naming a
+            // section the reader may not see.
+            tab.groups.retain(|group| !group.items.is_empty());
+        }
+        out.tabs
+            .retain(|tab| !tab.groups.is_empty() || self.tabs.len() == 1);
+        out
+    }
+
     pub fn with_tab(tab: Tab) -> Self {
         Self {
             tabs: vec![tab],
