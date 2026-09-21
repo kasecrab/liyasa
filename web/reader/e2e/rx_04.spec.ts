@@ -18,7 +18,11 @@ async function prefetched(page: import("@playwright/test").Page): Promise<string
 // on a desktop viewport, which is the other half of RX-04 and is its own test.
 const HOVER_ONLY = "/reference/cli";
 
-test("a link the reader hovers is prefetched", async ({ page }) => {
+test("a link the reader hovers is prefetched", async ({ page, browserName }) => {
+  // Speculative prefetch on hover is a progressive enhancement and WebKit does
+  // not perform it, so the request this asserts never appears there. The
+  // reader still navigates; it just does not get the head start.
+  test.skip(browserName === "webkit", "WebKit does not prefetch on hover");
   const requested: string[] = [];
   page.on("request", (request) => requested.push(new URL(request.url()).pathname));
 
@@ -81,7 +85,12 @@ test("the same page is prefetched once, however often it is hovered", async ({ p
   expect(links.filter((href) => href === "/guide/install")).toHaveLength(1);
 });
 
-test("the browser is told to transition between pages", async ({ page }) => {
+test("the browser is told to transition between pages", async ({ page, browserName }) => {
+  // Firefox does not implement `@view-transition`, so it does not parse the
+  // at-rule into `cssRules` and the declaration is invisible to this check.
+  // The stylesheet still carries it — what is missing is the engine support,
+  // and the transition degrades to an ordinary navigation.
+  test.skip(browserName === "firefox", "Firefox does not implement @view-transition");
   await page.goto(PAGE);
   const declared = await page.evaluate(() =>
     Array.from(document.adoptedStyleSheets).some((sheet) =>
