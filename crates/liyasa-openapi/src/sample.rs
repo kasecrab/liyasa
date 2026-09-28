@@ -4,7 +4,7 @@
 //! apart about which header an operation sends: the work of reading the
 //! operation happens once, here, and a template only decides how to spell it.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::config::{Auth, AuthMethod};
 use crate::example::{self, Fill, Side};
@@ -45,7 +45,7 @@ impl From<OptionsFill> for Fill {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum BodyKind {
     Json,
@@ -56,8 +56,8 @@ pub enum BodyKind {
 
 /// The body as both a string and a field list, because a template needs one or
 /// the other and never has to work the second out from the first.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Body {
     pub kind: BodyKind,
     pub media_type: String,
@@ -77,8 +77,8 @@ impl Body {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Field {
     pub name: String,
     pub value: String,
@@ -87,9 +87,20 @@ pub struct Field {
     pub file: bool,
 }
 
-/// One request, ready for a template.
-#[derive(Debug, Clone, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
+/// One request, ready for a template — and the playground proxy's envelope.
+///
+/// `Deserialize` is here because the proxy route (API-41) reads this type back
+/// rather than mirroring it. A second envelope would drift from the one the
+/// sixteen generators render, and a reader would then be debugging against a
+/// `curl` command that is not what the playground sent.
+///
+/// `deny_unknown_fields` because that direction crosses a trust boundary: the
+/// bytes arrive from a browser. A missing field is already an error — serde
+/// requires every field that has no `#[serde(default)]`, and the `Default` impl
+/// here is for constructing a request in Rust, not for filling holes in one that
+/// arrived.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Request {
     pub method: String,
     /// The server, with no trailing slash.
@@ -110,8 +121,8 @@ pub struct Request {
     pub operation_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Pair {
     pub name: String,
     pub value: String,

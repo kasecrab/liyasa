@@ -17,8 +17,7 @@ use liyasa_build::render::{self, Options};
 use liyasa_components::registry::Registry;
 use liyasa_core::conformance::fixtures::MemoryVfs;
 use liyasa_core::ids::Locale;
-use liyasa_core::markdown::{Expanded, SiteMeta, SpanMap};
-use liyasa_core::template::ExpansionRecord;
+use liyasa_core::markdown::{Expanded, ExpansionRecord, SiteMeta, SpanMap};
 use liyasa_openapi::build::{self, PageKind};
 use url::Url;
 

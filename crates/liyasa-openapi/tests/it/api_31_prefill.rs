@@ -178,3 +178,70 @@ fn x_code_samples_replaces_the_generated_set_rather_than_joining_it() {
         "nothing was generated alongside them"
     );
 }
+
+/// API-41: the proxy reads `sample::Request` back rather than mirroring it, so
+/// the round trip is part of the contract and these assertions are what WP-14
+/// builds its handler against.
+mod envelope {
+    use liyasa_openapi::sample::{BodyKind, Request};
+
+    use super::*;
+
+    fn built() -> Request {
+        let spec = support::spec(SPEC);
+        let operation = spec.by_operation_id("createWidget").expect("it is there");
+        Request::build(&spec, &operation, &Options::default())
+    }
+
+    #[test]
+    fn a_request_survives_the_round_trip_unchanged() {
+        let before = built();
+        let json = serde_json::to_string(&before).expect("it serializes");
+        let after: Request = serde_json::from_str(&json).expect("and reads back");
+
+        assert_eq!(after.method, before.method);
+        assert_eq!(after.url, before.url);
+        assert_eq!(
+            after.query.iter().map(|p| &p.name).collect::<Vec<_>>(),
+            before.query.iter().map(|p| &p.name).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            after.headers.len(),
+            before.headers.len(),
+            "every header the form set comes back"
+        );
+        let body = after.body.as_ref().expect("the body came back");
+        assert_eq!(body.kind, BodyKind::Json);
+        assert_eq!(body.text(), before.body.as_ref().expect("a body").text());
+    }
+
+    #[test]
+    fn an_envelope_missing_its_method_is_refused_rather_than_defaulted() {
+        // `Request` derives `Default` for constructing one in Rust. That must
+        // not make a truncated envelope deserialize to an empty method.
+        let error = serde_json::from_str::<Request>(r#"{"url": "https://example.com"}"#)
+            .expect_err("a missing field is an error");
+        assert!(
+            error.to_string().contains("method"),
+            "and it says which: {error}"
+        );
+    }
+
+    #[test]
+    fn an_envelope_carrying_a_field_we_do_not_know_is_refused() {
+        let complete = serde_json::to_value(built()).expect("it serializes");
+        let mut extra = complete.clone();
+        extra.as_object_mut().expect("an object").insert(
+            "upstream".to_owned(),
+            serde_json::json!("http://169.254.169.254"),
+        );
+
+        assert!(
+            serde_json::from_value::<Request>(complete).is_ok(),
+            "the complete envelope reads"
+        );
+        let error = serde_json::from_value::<Request>(extra)
+            .expect_err("an unknown field is refused at the door");
+        assert!(error.to_string().contains("upstream"), "{error}");
+    }
+}
