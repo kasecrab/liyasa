@@ -10,6 +10,7 @@ mod cli_06_verify;
 mod cli_06_verify_code;
 mod cli_07_links;
 mod cli_08_agents_urls;
+mod cli_14_migrate;
 mod cli_25_lsp;
 mod cli_26_update;
 mod cli_30_diagnostics;

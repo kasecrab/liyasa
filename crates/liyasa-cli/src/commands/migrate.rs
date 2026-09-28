@@ -31,12 +31,42 @@ pub fn run(global: &Global, args: &MigrateConfig) -> Exit {
         },
     );
     let printer = Printer::new(format, ctx::use_color(global));
-    if load.diagnostics.has_errors() {
+
+    // RFC 0110: a v0 config always fails to load, because a v0 config is not a
+    // v1 config — `E0102` for the schema itself and one more for every key
+    // whose shape changed, which is the list this command exists to fix. The
+    // gate is right for `build` and `validate` and wrong only here.
+    //
+    // `E0101` still refuses: a file that is not JSON leaves nothing to
+    // migrate.
+    let mut ignored = liyasa_core::Diagnostics::new();
+    let declared = liyasa_config::schema::declared_version(&load.value, &load.spans, &mut ignored);
+    let older =
+        declared.is_some_and(|version| version < liyasa_config::schema::CONFIG_SCHEMA_VERSION);
+    let unparseable = load
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == liyasa_core::diagnostics::code::E0101);
+    if unparseable || (load.diagnostics.has_errors() && !older) {
         printer.emit(&load.diagnostics, &sources);
         return Exit::Errors;
     }
 
-    let migrated = liyasa_config::migrate::migrate(&load.value, &load.spans);
+    // The migration reads the FILE, not the loaded view. `load` strips every
+    // key the v1 schema does not know (`schema::without`), which on a v0
+    // config is every key the migration exists to move: migrating `load.value`
+    // rewrote three keys of the twelve the library's own golden has, and
+    // turned `analytics.plausible` into an empty `integrations` object.
+    // Reading the file also keeps `--env` overlays out of the base config,
+    // which is what a caller means by migrating `liyasa.json` (RFC 0915).
+    let (raw, spans) = match raw_config(&project.config, &mut sources) {
+        Ok(parsed) => parsed,
+        Err(diagnostic) => {
+            printer.emit(&std::iter::once(*diagnostic).collect(), &sources);
+            return Exit::Errors;
+        }
+    };
+    let migrated = liyasa_config::migrate::migrate(&raw, &spans);
     if migrated.diagnostics.has_errors() {
         printer.emit(&migrated.diagnostics, &sources);
         return Exit::Errors;
@@ -95,4 +125,32 @@ pub fn run(global: &Global, args: &MigrateConfig) -> Exit {
     }
 
     Exit::Success
+}
+
+/// The config file as written, with its spans: the migration's input.
+fn raw_config(
+    path: &std::path::Path,
+    sources: &mut SourceMap,
+) -> Result<(serde_json::Value, liyasa_config::json::SpanIndex), Box<liyasa_core::Diagnostic>> {
+    let text = std::fs::read_to_string(path).map_err(|error| {
+        Box::new(liyasa_core::Diagnostic::new(
+            liyasa_core::diagnostics::code::E0002,
+            format!("`{}` could not be read: {error}", path.display()),
+        ))
+    })?;
+    let value = serde_json::from_str(&text).map_err(|error| {
+        Box::new(liyasa_core::Diagnostic::new(
+            liyasa_core::diagnostics::code::E0101,
+            format!("`{}` is not valid JSON: {error}", path.display()),
+        ))
+    })?;
+    let source = sources.intern(
+        VfsPath::new(path.file_name().map_or_else(
+            || liyasa_config::load::CONFIG_FILE.to_owned(),
+            |name| name.to_string_lossy().into_owned(),
+        )),
+        std::sync::Arc::from(text.as_str()),
+    );
+    let spans = liyasa_config::json::SpanIndex::scan(source, &text);
+    Ok((value, spans))
 }
