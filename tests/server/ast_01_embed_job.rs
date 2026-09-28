@@ -174,7 +174,22 @@ async fn the_sweep_timer_enqueues_one_row_per_day_across_replicas() {
     let second = work::fire_timers(&harness.state, work::kinds())
         .await
         .expect("a second replica's tick");
-    assert_eq!((first, second), (1, 0), "rows added, not ticks taken");
+    // The de-duplication property is "a second replica's tick adds no row",
+    // and that is what is asserted. The first tick's total is deliberately not
+    // pinned: `fire_timers` counts rows across every registered kind, so a
+    // total of 1 held only while this package owned the only `Scheduled`
+    // trigger. WP-16 registered `deploy.retention` on 2026-09-28 and the total
+    // became 2 — the assertion was true of the registry rather than of this
+    // sweep, which is what it exists to check. The exact count for this job is
+    // asserted below, filtered to its own name.
+    assert!(
+        first >= 1,
+        "the first tick must enqueue the sweep, or `second == 0` proves nothing"
+    );
+    assert_eq!(
+        second, 0,
+        "a second replica's tick adds no row for the same day bucket"
+    );
 
     let rows = store
         .jobs_typed()
