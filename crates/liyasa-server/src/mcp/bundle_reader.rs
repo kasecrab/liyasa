@@ -22,7 +22,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use crate::auth::groups::{self, Decision, Declared};
+use crate::auth::groups::{self, Decision, Declared, SiteDefault};
 use crate::routes::bundle::Bundle;
 
 use super::markdown::{self, Section};
@@ -157,21 +157,27 @@ impl BundleReader {
             .filter(move |page| self.decide(page, scope).is_allowed())
     }
 
+    /// Says the same thing the HTML route at the same URL says, which is what
+    /// `routes::sign_in` decides and why the two branches differ.
+    ///
+    /// On a PUBLIC site a restricted page must be indistinguishable from one
+    /// that does not exist, so `SignIn` is a miss: naming it would confirm
+    /// the page is there, and an agent is a much better enumerator of routes
+    /// than a person. On a PRIVATE site the site is known private and there
+    /// is nothing to conceal, so the agent is told a session would settle it
+    /// — otherwise an agent whose user could sign in has no way to find that
+    /// out.
     fn refuse(&self, page: &Page, scope: &Scope) -> Option<ToolFailure> {
+        let missing = || ToolFailure::NotFound(format!("no page at `{}`", page.route));
         match self.decide(page, scope) {
             Decision::Allow => None,
-            // Says the same thing the HTML route says at the same URL. AUTH-10
-            // requires omission from LISTINGS, which `visible` does; answering
-            // a direct fetch differently from the page route would tell an
-            // agent less than its own user's browser is told.
-            Decision::SignIn => Some(ToolFailure::Unavailable(format!(
-                "`{}` is restricted and this connection has no session",
-                page.route
-            ))),
-            Decision::Deny => Some(ToolFailure::NotFound(format!(
-                "no page at `{}`",
-                page.route
-            ))),
+            Decision::SignIn if scope.site == SiteDefault::Private => {
+                Some(ToolFailure::Unavailable(format!(
+                    "`{}` needs a signed-in reader and this connection has no session",
+                    page.route
+                )))
+            }
+            Decision::SignIn | Decision::Deny => Some(missing()),
         }
     }
 }

@@ -261,3 +261,4 @@ W0728 = { severity = "warning", crate = "liyasa-build", title = "A `theme/string
 E0638 = { severity = "error", crate = "liyasa-verify", title = "A `verify` fence names a file or snippet that could not be read" }
 W0729 = { severity = "warning", crate = "liyasa-build", title = "A page's region gate admits no region, so no reader reaches it and it is left out of search" }
 W0639 = { severity = "warning", crate = "liyasa-verify", title = "A page's `reviewed:` date is not a date Liyasa can read" }
+W0818 = { severity = "warning", crate = "liyasa-server", title = "A site route is shadowed by the MCP server endpoint" }
