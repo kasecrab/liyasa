@@ -11,11 +11,11 @@
 //! spec from the fence holds both (RFC 2103).
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use liyasa_core::diagnostics::{Diagnostic, code};
-use liyasa_core::ids::CheckId;
+use liyasa_core::ids::{CheckId, Fingerprint};
 use liyasa_core::net::BoxFut;
 use liyasa_core::verify::{
     CheckOutcome, CheckResult, CheckSpec, Expectation, Isolation, Runner, Sandbox, SandboxError,
@@ -24,6 +24,7 @@ use liyasa_core::verify::{
 use liyasa_core::vfs::{Bytes, VfsPath};
 
 use super::attrs::{BlockVerify, Mode};
+use super::cache::{self, ResultCache};
 use super::hidden;
 use super::image::Images;
 use super::lang::{Job, Language, Source};
@@ -65,8 +66,30 @@ impl Binding {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct Bindings(BTreeMap<CheckId, Binding>);
+/// Shared behind an `Arc` because a registry hands every runner the same table:
+/// `sandboxed_with` builds five or more runners and a caller that assembles one
+/// registry per page would otherwise deep-copy every fixture's bytes once per
+/// runner per page. Cloning this is a refcount bump; building it still costs
+/// what it costs.
+pub struct Bindings(Arc<BTreeMap<CheckId, Binding>>);
+
+impl Clone for Bindings {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+}
+
+impl std::fmt::Debug for Bindings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map().entries(self.0.iter()).finish()
+    }
+}
+
+impl Default for Bindings {
+    fn default() -> Self {
+        Self(Arc::new(BTreeMap::new()))
+    }
+}
 
 impl Bindings {
     pub fn new() -> Self {
@@ -74,7 +97,7 @@ impl Bindings {
     }
 
     pub fn set(&mut self, id: CheckId, binding: Binding) {
-        self.0.insert(id, binding);
+        Arc::make_mut(&mut self.0).insert(id, binding);
     }
 
     #[must_use]
@@ -86,6 +109,14 @@ impl Bindings {
     pub fn get(&self, id: &CheckId) -> Option<&Binding> {
         self.0.get(id)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 pub struct SandboxRunner {
@@ -93,6 +124,10 @@ pub struct SandboxRunner {
     images: Images,
     bindings: Bindings,
     hide_prefix: String,
+    /// VER-06. Shared rather than owned: one `liyasa verify` builds a runner
+    /// per language and the same snippet appears under several of them, so a
+    /// cache per runner would miss every time the language changed.
+    cache: Option<Arc<Mutex<ResultCache>>>,
 }
 
 impl SandboxRunner {
@@ -102,6 +137,7 @@ impl SandboxRunner {
             images,
             bindings: Bindings::new(),
             hide_prefix: hidden::DEFAULT_PREFIX.to_owned(),
+            cache: None,
         }
     }
 
@@ -114,6 +150,16 @@ impl SandboxRunner {
     #[must_use]
     pub fn with_hide_prefix(mut self, prefix: impl Into<String>) -> Self {
         self.hide_prefix = prefix.into();
+        self
+    }
+
+    /// VER-06's cache. A runner built without one re-runs every check, which
+    /// is what `liyasa verify --no-cache` asks for; passing a `ResultCache`
+    /// built by `ResultCache::disabled` has the same effect and lets one
+    /// caller decide for every runner it assembles.
+    #[must_use]
+    pub fn with_cache(mut self, cache: Arc<Mutex<ResultCache>>) -> Self {
+        self.cache = Some(cache);
         self
     }
 
@@ -151,42 +197,70 @@ impl SandboxRunner {
         }
     }
 
+    /// A hit, if the cache has one. The lock is taken and released here so it
+    /// is never held across the `await` that runs the check.
+    fn cached(&self, key: &Fingerprint) -> Option<CheckOutcome> {
+        let cache = self.cache.as_ref()?;
+        let guard = cache.lock().unwrap_or_else(|e| e.into_inner());
+        guard.get(key).map(|result| result.outcome.clone())
+    }
+
+    fn store(&self, key: Fingerprint, result: &CheckResult) {
+        if let Some(cache) = &self.cache {
+            let mut guard = cache.lock().unwrap_or_else(|e| e.into_inner());
+            guard.put(key, result.clone());
+        }
+    }
+
     fn claims(&self, lang: &str) -> bool {
         let lang = lang.trim().to_ascii_lowercase();
         self.language.languages().contains(&lang.as_str())
     }
 
+    /// The outcome, and the cache key it should be stored under once a
+    /// `CheckResult` exists. `None` means this outcome is not cacheable: a
+    /// skip is cheaper to redo than to look up, and an `Error` is the sandbox
+    /// failing rather than the block, so caching one would make the retry that
+    /// fixes it pointless (RFC 2104).
     async fn execute(
         &self,
         spec: &CheckSpec,
         sandbox: &dyn Sandbox,
         scrubber: &Scrubber,
-    ) -> CheckOutcome {
+    ) -> (CheckOutcome, Option<Fingerprint>) {
         let Some((lang, _)) = code_of(spec) else {
-            return skip(format!(
+            return uncached(skip(format!(
                 "the `{}` runner reads code blocks only",
                 self.language.id()
-            ));
+            )));
         };
         if !self.claims(lang) {
-            return skip(format!(
+            return uncached(skip(format!(
                 "the `{}` runner does not claim `{lang}`",
                 self.language.id()
-            ));
+            )));
         }
         let default = Binding::default();
         let binding = self.bindings.get(&spec.id).unwrap_or(&default);
         if let Mode::Skip(reason) = &binding.mode {
-            return skip(reason.reason());
+            return uncached(skip(reason.reason()));
         }
         let Some(source) = hidden::executed(&spec.input, &self.hide_prefix) else {
-            return skip("the block carries no source to run");
+            return uncached(skip("the block carries no source to run"));
         };
 
         let pin = match self.pin(lang) {
             Ok(pin) => pin,
-            Err(problem) => return CheckOutcome::Error(problem),
+            Err(problem) => return uncached(CheckOutcome::Error(problem)),
         };
+
+        // VER-06: the hash of the block, its setup, the image digest and the
+        // fixtures. Every input is in hand here and nowhere earlier, which is
+        // why the lookup sits after the pin rather than at the top.
+        let key = cache::key(spec, binding, &pin);
+        if let Some(hit) = self.cached(&key) {
+            return (hit, None);
+        }
         let job = match self.language.job(&Source {
             lang,
             code: &source,
@@ -195,7 +269,7 @@ impl SandboxRunner {
             attrs: &binding.attrs,
         }) {
             Ok(job) => job,
-            Err(problem) => return CheckOutcome::Error(problem),
+            Err(problem) => return uncached(CheckOutcome::Error(problem)),
         };
 
         let timeout = binding
@@ -207,30 +281,32 @@ impl SandboxRunner {
             .exec(sandbox_job(&pin, job, binding, timeout, network))
             .await;
         match output {
-            Ok(output) => assert_all(spec, binding, &output, scrubber),
-            Err(SandboxError::Timeout) => timed_out(timeout),
-            Err(SandboxError::Unavailable) => CheckOutcome::Error(
+            // Pass and Fail are about the block, so they cache. Everything
+            // below is about the machine.
+            Ok(output) => (assert_all(spec, binding, &output, scrubber), Some(key)),
+            Err(SandboxError::Timeout) => uncached(timed_out(timeout)),
+            Err(SandboxError::Unavailable) => uncached(CheckOutcome::Error(
                 Diagnostic::new(
                     code::E0004,
                     "this check needs a sandbox and none is available",
                 )
                 .help("install Podman or Docker, or set `verify.runners.sandbox` to `remote`"),
-            ),
-            Err(SandboxError::Image(image)) => CheckOutcome::Error(Diagnostic::new(
+            )),
+            Err(SandboxError::Image(image)) => uncached(CheckOutcome::Error(Diagnostic::new(
                 code::E0610,
                 format!("the sandbox refused the image `{image}`"),
-            )),
-            Err(SandboxError::Io(detail)) => CheckOutcome::Error(Diagnostic::new(
+            ))),
+            Err(SandboxError::Io(detail)) => uncached(CheckOutcome::Error(Diagnostic::new(
                 code::E0612,
                 format!("the sandbox could not run the check: {detail}"),
-            )),
+            ))),
             // `SandboxError` is `#[non_exhaustive]`; a variant added after
             // this was written is reported as a broken check rather than
             // silently becoming a pass.
-            Err(other) => CheckOutcome::Error(Diagnostic::new(
+            Err(other) => uncached(CheckOutcome::Error(Diagnostic::new(
                 code::E0612,
                 format!("the sandbox could not run the check: {other}"),
-            )),
+            ))),
         }
     }
 }
@@ -281,8 +357,12 @@ impl Runner for SandboxRunner {
         Box::pin(async move {
             let started = Instant::now();
             let scrubber = scrubber_for(spec, secrets);
-            let outcome = self.execute(spec, sandbox, &scrubber).await;
-            finish(spec, self.language.id(), outcome, started)
+            let (outcome, key) = self.execute(spec, sandbox, &scrubber).await;
+            let result = finish(spec, self.language.id(), outcome, started);
+            if let Some(key) = key {
+                self.store(key, &result);
+            }
+            result
         })
     }
 }
@@ -376,3 +456,8 @@ fn normalize(text: &str) -> String {
 
 #[cfg(test)]
 mod tests;
+
+/// An outcome that is not worth a cache entry.
+fn uncached(outcome: CheckOutcome) -> (CheckOutcome, Option<Fingerprint>) {
+    (outcome, None)
+}

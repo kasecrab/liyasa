@@ -557,3 +557,133 @@ fn a_declared_image_without_a_digest_is_e0610() {
     );
     assert!(sandbox.jobs.lock().expect("not poisoned").is_empty());
 }
+
+fn shared_cache(cache: ResultCache) -> Arc<Mutex<ResultCache>> {
+    Arc::new(Mutex::new(cache))
+}
+
+#[test]
+fn a_second_run_of_the_same_check_does_not_reach_the_sandbox() {
+    let spec = spec(
+        "echo hello\n",
+        vec![Expectation::Stdout("hello".to_owned())],
+    );
+    let runner = runner().with_cache(shared_cache(ResultCache::new()));
+    let sandbox = TinyShell::default();
+    assert_eq!(run(&runner, &spec, &sandbox), CheckOutcome::Pass);
+    assert_eq!(run(&runner, &spec, &sandbox), CheckOutcome::Pass);
+    assert_eq!(
+        sandbox.jobs.lock().expect("not poisoned").len(),
+        1,
+        "the second run was a cache hit and should have started no job"
+    );
+}
+
+#[test]
+fn a_runner_with_no_cache_runs_every_time() {
+    let spec = spec("echo hello\n", Vec::new());
+    let runner = runner();
+    let sandbox = TinyShell::default();
+    run(&runner, &spec, &sandbox);
+    run(&runner, &spec, &sandbox);
+    assert_eq!(sandbox.jobs.lock().expect("not poisoned").len(), 2);
+}
+
+#[test]
+fn no_cache_runs_every_time() {
+    // `liyasa verify --no-cache`.
+    let spec = spec("echo hello\n", Vec::new());
+    let runner = runner().with_cache(shared_cache(ResultCache::disabled()));
+    let sandbox = TinyShell::default();
+    run(&runner, &spec, &sandbox);
+    run(&runner, &spec, &sandbox);
+    assert_eq!(sandbox.jobs.lock().expect("not poisoned").len(), 2);
+}
+
+#[test]
+fn a_different_block_is_a_different_check() {
+    let runner = runner().with_cache(shared_cache(ResultCache::new()));
+    let sandbox = TinyShell::default();
+    run(&runner, &spec("echo hello\n", Vec::new()), &sandbox);
+    run(&runner, &spec("echo goodbye\n", Vec::new()), &sandbox);
+    assert_eq!(sandbox.jobs.lock().expect("not poisoned").len(), 2);
+}
+
+#[test]
+fn the_same_block_on_two_pages_runs_once() {
+    // VER-06 keys on the block, not on where it sits, so a snippet repeated
+    // across a site costs one run.
+    let runner = runner().with_cache(shared_cache(ResultCache::new()));
+    let sandbox = TinyShell::default();
+    let first = spec("echo hello\n", Vec::new());
+    let mut second = spec("echo hello\n", Vec::new());
+    second.id = CheckId::new("/elsewhere#other#0");
+    second.page = Route::new("/elsewhere");
+    run(&runner, &first, &sandbox);
+    run(&runner, &second, &sandbox);
+    assert_eq!(sandbox.jobs.lock().expect("not poisoned").len(), 1);
+}
+
+#[test]
+fn a_failing_check_is_cached_too() {
+    let spec = spec(
+        "echo goodbye\n",
+        vec![Expectation::Stdout("hello".to_owned())],
+    );
+    let runner = runner().with_cache(shared_cache(ResultCache::new()));
+    let sandbox = TinyShell::default();
+    assert!(matches!(
+        run(&runner, &spec, &sandbox),
+        CheckOutcome::Fail { .. }
+    ));
+    assert!(matches!(
+        run(&runner, &spec, &sandbox),
+        CheckOutcome::Fail { .. }
+    ));
+    assert_eq!(sandbox.jobs.lock().expect("not poisoned").len(), 1);
+}
+
+#[test]
+fn a_sandbox_that_could_not_run_the_check_is_not_cached() {
+    // RFC 2104: an Error is the machine failing, not the block. Caching one
+    // would make the retry that fixes it pointless.
+    let spec = spec("echo hello\n", Vec::new());
+    let runner = runner().with_cache(shared_cache(ResultCache::new()));
+    for error in [
+        SandboxError::Io("no space left on device".to_owned()),
+        SandboxError::Timeout,
+        SandboxError::Unavailable,
+    ] {
+        let sandbox = TinyShell::refusing(error.clone());
+        assert!(matches!(
+            run(&runner, &spec, &sandbox),
+            CheckOutcome::Error(_)
+        ));
+    }
+    // A run that can succeed now does, rather than reading a cached failure.
+    let sandbox = TinyShell::default();
+    assert_eq!(run(&runner, &spec, &sandbox), CheckOutcome::Pass);
+    assert_eq!(sandbox.jobs.lock().expect("not poisoned").len(), 1);
+}
+
+#[test]
+fn a_skipped_block_is_not_cached() {
+    let spec = spec("print(1)\n", Vec::new());
+    let mut unclaimed = spec.clone();
+    unclaimed.input = CheckInput::Code {
+        lang: "python".to_owned(),
+        source: "print(1)\n".to_owned(),
+        hidden_lines: Vec::new(),
+    };
+    let cache = shared_cache(ResultCache::new());
+    let runner = runner().with_cache(Arc::clone(&cache));
+    let sandbox = TinyShell::default();
+    assert!(matches!(
+        run(&runner, &unclaimed, &sandbox),
+        CheckOutcome::Skip { .. }
+    ));
+    assert!(
+        cache.lock().expect("not poisoned").is_empty(),
+        "a skip costs nothing to redo and should not occupy the cache"
+    );
+}
