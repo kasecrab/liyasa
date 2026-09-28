@@ -17,12 +17,10 @@ use liyasa_build::manifest::Manifest;
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use liyasa_core::document::Document;
 use liyasa_core::ids::Route;
-use liyasa_core::verify::{Runner, Sandbox, SecretSource};
+use liyasa_core::verify::{Sandbox, SecretSource};
 use liyasa_verify::core::config::VerifyConfig;
 use liyasa_verify::core::orchestrate::{Budget, Orchestrator, Page, Run};
-use liyasa_verify::core::runners::Registry;
 use liyasa_verify::runners::sandbox::{Builder, Host};
-use liyasa_verify::runners::{Custom, Images, SandboxRunner, built_in};
 
 use crate::lock::Lock;
 
@@ -41,7 +39,6 @@ impl SecretSource for NoSecrets {
 /// What one code run needs, assembled once.
 pub struct Prepared {
     pub config: VerifyConfig,
-    registry: Registry,
     sandbox: Arc<dyn Sandbox>,
     /// Raised while assembling, and reported whether or not a check runs: a
     /// `verify.runners.custom` entry Liyasa cannot use is the operator's
@@ -49,7 +46,11 @@ pub struct Prepared {
     pub problems: Diagnostics,
 }
 
-/// Assembles the registry and the sandbox `verify.runners` describes.
+/// Reads `verify.runners`, folds in the lock's pins, and builds the sandbox.
+///
+/// The registry is no longer assembled here: `Orchestrator::verify` builds it
+/// itself, in two phases, because VER-01's `env=` and `fixture=` are registry
+/// state that cannot exist until the walk has produced them (RFC 1309).
 ///
 /// The error is the one thing that stops a code run before it starts: no
 /// container engine (`E0004`), no runner service for `remote` (`E0611`), or
@@ -61,72 +62,40 @@ pub fn prepare(
 ) -> Result<Prepared, Box<Diagnostic>> {
     let (settings, reading) =
         VerifyConfig::from_value(config.get("verify").unwrap_or(&serde_json::Value::Null));
-    let mut problems: Diagnostics = reading.into_iter().collect();
+    let problems: Diagnostics = reading.into_iter().collect();
+    let mut settings = settings;
+    pin_from_lock(&mut settings, lock);
     let sandbox = Builder::new(Host::Cli)
         .with_root(scratch)
         .build(&settings.runners)
         .map_err(Box::new)?;
-    let (registry, assembling) = registry(&settings, lock);
-    problems.extend(assembling.into_vec());
     Ok(Prepared {
         config: settings,
-        registry,
         sandbox,
         problems,
     })
 }
 
-/// The sandboxed registry, with `liyasa.lock`'s digests as its pins.
+/// `liyasa.lock`'s digests, as `verify.runners.images` entries.
 ///
-/// `liyasa_verify::runners::sandboxed` builds its `Images` from the config
-/// alone and takes no seam for the lock, which is why `Images::with_lock` was
-/// written for VER-03's "pinned by digest in `liyasa.lock`" clause and never
-/// called by anything. The assembly is otherwise that function's, in its
-/// order: a declared runner comes first so `verify.runners.custom` can
-/// override a built-in.
-fn registry(config: &VerifyConfig, lock: Option<&Lock>) -> (Registry, Diagnostics) {
-    let images = Images::new(&config.runners).with_lock(pins(lock));
-    let mut problems = Diagnostics::new();
-    let mut runners: Vec<Arc<dyn Runner>> = Vec::new();
-    for declared in &config.runners.custom {
-        match Custom::new(declared) {
-            Ok(custom) => runners.push(Arc::new(sandboxed(Arc::new(custom), &images, config))),
-            Err(problem) => problems.push(problem),
-        }
+/// VER-03 says a runner image is "pinned by digest in `liyasa.lock`", and
+/// nothing read the lock: `Images::with_lock` was written for this clause and
+/// had no caller. It still has none — the orchestrator builds its own registry
+/// now (RFC 1309), so a caller cannot hand it an `Images` — and the pins reach
+/// the same place through the config the orchestrator is given, with the same
+/// rule: a value the operator wrote in `verify.runners.images` wins, because
+/// that is what they are editing and the lock is what a previous run recorded.
+fn pin_from_lock(config: &mut VerifyConfig, lock: Option<&Lock>) {
+    let Some(lock) = lock else {
+        return;
+    };
+    for runner in &lock.runners {
+        config
+            .runners
+            .images
+            .entry(runner.id.to_ascii_lowercase())
+            .or_insert_with(|| format!("{}@{}", runner.image, runner.digest));
     }
-    for language in built_in() {
-        runners.push(Arc::new(sandboxed(language, &images, config)));
-    }
-    (Registry::new(runners), problems)
-}
-
-fn sandboxed(
-    language: Arc<dyn liyasa_verify::runners::Language>,
-    images: &Images,
-    config: &VerifyConfig,
-) -> SandboxRunner {
-    SandboxRunner::new(language, images.clone()).with_hide_prefix(config.hide_prefix.clone())
-}
-
-/// `[[runners]]` in `liyasa.lock`, as `Images` wants them: the language, and
-/// the image reference with its digest.
-///
-/// A lock entry never overrides `verify.runners.images` — `with_lock` fills
-/// only what the config left unset — because the config is what the operator
-/// is editing and the lock is what a previous run recorded.
-fn pins(lock: Option<&Lock>) -> Vec<(String, String)> {
-    lock.map(|lock| {
-        lock.runners
-            .iter()
-            .map(|runner| {
-                (
-                    runner.id.clone(),
-                    format!("{}@{}", runner.image, runner.digest),
-                )
-            })
-            .collect()
-    })
-    .unwrap_or_default()
 }
 
 /// One page, rendered to the AST the orchestrator walks.
@@ -169,7 +138,7 @@ pub fn pages(root: &Path, manifest: &Manifest) -> (Vec<Rendered>, Diagnostics) {
 }
 
 /// Runs every verified block of every page, within `verify.budget.full`.
-pub fn run(prepared: &Prepared, pages: &[Rendered]) -> Result<Run, Box<Diagnostic>> {
+pub fn run(root: &Path, prepared: &Prepared, pages: &[Rendered]) -> Result<Run, Box<Diagnostic>> {
     let pages: Vec<Page<'_>> = pages
         .iter()
         .map(|page| Page {
@@ -177,11 +146,12 @@ pub fn run(prepared: &Prepared, pages: &[Rendered]) -> Result<Run, Box<Diagnosti
             root: &page.document.root,
         })
         .collect();
+    let vfs = liyasa_config::vfs::OsVfs::new(root);
     let orchestrator = Orchestrator {
-        registry: &prepared.registry,
         config: &prepared.config,
         sandbox: prepared.sandbox.as_ref(),
         secrets: &NoSecrets,
+        vfs: &vfs,
     };
     let mut budget = Budget::full(&prepared.config);
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -196,7 +166,7 @@ pub fn run(prepared: &Prepared, pages: &[Rendered]) -> Result<Run, Box<Diagnosti
                 .help("Retry, and run `liyasa doctor` if it keeps happening."),
             )
         })?;
-    Ok(runtime.block_on(orchestrator.site(&pages, &mut budget)))
+    Ok(runtime.block_on(orchestrator.verify(&pages, &mut budget)))
 }
 
 #[cfg(test)]

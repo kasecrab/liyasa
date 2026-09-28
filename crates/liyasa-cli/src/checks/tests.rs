@@ -32,32 +32,30 @@ fn a_locked_runner_becomes_a_pinned_image() {
         "docker.io/library/python:3.12",
         DIGEST,
     )]);
+    let mut config = VerifyConfig::default();
 
-    let (registry, problems) = registry(&VerifyConfig::default(), Some(&lock));
+    pin_from_lock(&mut config, Some(&lock));
 
-    assert!(problems.is_empty(), "{problems:?}");
-    assert!(
-        registry.for_language("python").is_some(),
-        "the built-in runners are still there"
+    assert_eq!(
+        config.runners.images.get("python").map(String::as_str),
+        Some(format!("docker.io/library/python:3.12@{DIGEST}").as_str())
     );
-    let images = Images::new(&VerifyConfig::default().runners).with_lock(pins(Some(&lock)));
-    let pin = images.pin_any(&["python"]).expect("the lock pinned python");
-    assert_eq!(pin.image, "docker.io/library/python:3.12");
-    assert_eq!(pin.digest, DIGEST);
 }
 
 #[test]
 fn without_a_lock_a_language_has_no_pin() {
-    assert!(pins(None).is_empty());
-    let images = Images::new(&VerifyConfig::default().runners).with_lock(pins(None));
+    let mut config = VerifyConfig::default();
+
+    pin_from_lock(&mut config, None);
+
     assert!(
-        images.pin_any(&["python"]).is_err(),
+        config.runners.images.is_empty(),
         "an unpinned image is E0610, not a silent `latest`"
     );
 }
 
-/// `with_lock` fills what the config left unset and never the other way
-/// round: the config is what the operator is editing now.
+/// The lock fills what the config left unset and never the other way round:
+/// the config is what the operator is editing now.
 #[test]
 fn the_config_wins_over_the_lock() {
     let mut config = VerifyConfig::default();
@@ -71,10 +69,30 @@ fn the_config_wins_over_the_lock() {
         DIGEST,
     )]);
 
-    let images = Images::new(&config.runners).with_lock(pins(Some(&lock)));
+    pin_from_lock(&mut config, Some(&lock));
 
     assert_eq!(
-        images.pin_any(&["python"]).expect("pinned").image,
-        "internal.example/python"
+        config.runners.images.get("python").map(String::as_str),
+        Some(format!("internal.example/python@{DIGEST}").as_str())
+    );
+}
+
+/// `Images` lower-cases what it looks up, so a lock entry written `Python`
+/// has to arrive lower-cased or it is never found.
+#[test]
+fn a_lock_entry_is_keyed_the_way_images_looks_it_up() {
+    let lock = lock(vec![locked(
+        "Python",
+        "docker.io/library/python:3.12",
+        DIGEST,
+    )]);
+    let mut config = VerifyConfig::default();
+
+    pin_from_lock(&mut config, Some(&lock));
+
+    assert!(
+        config.runners.images.contains_key("python"),
+        "{:?}",
+        config.runners.images
     );
 }

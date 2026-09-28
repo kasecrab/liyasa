@@ -193,7 +193,7 @@ fn code_checks(
         .map_err(|error| Box::new(because(CheckClass::Code, *error)))?;
 
     let mut diagnostics = Diagnostics::new();
-    let run = crate::checks::run(&prepared, pages)
+    let run = crate::checks::run(&built.project.root, &prepared, pages)
         .map_err(|error| Box::new(because(CheckClass::Code, *error)))?;
 
     diagnostics.extend(prepared.problems.clone().into_vec());
