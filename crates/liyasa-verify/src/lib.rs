@@ -15,3 +15,4 @@ pub mod report;
 pub mod graph;
 pub mod runners;
 pub mod sources;
+pub mod drift;
