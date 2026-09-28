@@ -102,15 +102,24 @@ pub fn site_default(app: &AppState) -> crate::auth::groups::SiteDefault {
 }
 
 /// The router for both spellings of the endpoint and both discovery paths.
+///
+/// **Written as string literals rather than as the constants beside them, and
+/// not in a loop.** The route census in `tests/server/no_caller_ratchet.rs`
+/// reads the first string literal after each `.route(` across this crate's
+/// source; `.route(PATH,` would make it read the next unrelated literal in
+/// this file and quietly corrupt the census that proves every rate-limit pool
+/// has an endpoint. `the_constants_and_the_routes_agree` below is what keeps
+/// the two spellings from drifting.
 pub fn router(state: Arc<McpState>) -> Router {
-    let mut router = Router::new();
-    for path in [PATH, ALIAS] {
-        router = router.route(path, post(handle).get(no_stream).delete(end_session));
-    }
-    for path in WELL_KNOWN {
-        router = router.route(path, get(card));
-    }
-    router.with_state(state)
+    Router::new()
+        .route("/mcp", post(handle).get(no_stream).delete(end_session))
+        .route(
+            "/_liyasa/mcp",
+            post(handle).get(no_stream).delete(end_session),
+        )
+        .route("/.well-known/mcp", get(card))
+        .route("/.well-known/mcp.json", get(card))
+        .with_state(state)
 }
 
 async fn card(State(state): State<Arc<McpState>>) -> HttpResponse {
@@ -325,8 +334,12 @@ mod tests {
         assert!(protocol_version_refusal(&headers).is_some());
     }
 
+    /// `router` spells its paths as literals so the route census can see
+    /// them; everything else in this module — the shadow check, the card's
+    /// own endpoint URL, `pool_for`'s alias — uses the constants. This is
+    /// where the two are held together.
     #[test]
-    fn both_spellings_and_both_discovery_paths_are_routed() {
+    fn the_constants_and_the_routes_agree() {
         // `/mcp` is what every generated `llms.txt` publishes and
         // `/_liyasa/mcp` is what `pool_for` charges; serving one without the
         // other leaves either an agent on a 404 or agent traffic in the human
@@ -334,5 +347,25 @@ mod tests {
         assert_eq!(PATH, "/mcp");
         assert_eq!(ALIAS, "/_liyasa/mcp");
         assert_eq!(WELL_KNOWN, ["/.well-known/mcp", "/.well-known/mcp.json"]);
+
+        // And the literals in `router` are those four and nothing else. Read
+        // out of this file's own source, because the failure being guarded
+        // against is a literal changing in one place only.
+        let source = include_str!("http.rs");
+        let body = source
+            .split("pub fn router(")
+            .nth(1)
+            .and_then(|rest| rest.split("\n}\n").next())
+            .expect("`router` has a body");
+        let mut routed: Vec<&str> = Vec::new();
+        for call in body.split(".route(").skip(1) {
+            let literal = call.split('"').nth(1).expect("a literal path");
+            routed.push(literal);
+        }
+        routed.sort_unstable();
+        let mut expected = vec![PATH, ALIAS];
+        expected.extend_from_slice(WELL_KNOWN);
+        expected.sort_unstable();
+        assert_eq!(routed, expected);
     }
 }

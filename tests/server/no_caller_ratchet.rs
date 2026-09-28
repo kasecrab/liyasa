@@ -314,12 +314,6 @@ const UNROUTED_TODAY: &[(&str, &str)] = &[
          but `ReaderContext` is constructed only in tests, because no handler builds one.",
     ),
     (
-        "/_liyasa/mcp",
-        "defect 149: and this one reaches users. Every generated `llms.txt` carries \
-         `MCP server: <origin>/mcp`, so an agent reading the site's own index is told \
-         where to connect and the address answers 404.",
-    ),
-    (
         "/_liyasa/proxy",
         "defect 150: API-41's playground proxy. `ProxySource::of`, `allow_list`, \
          `forwardable` and `ProxyEvent` all exist in `liyasa-openapi`; `git grep \

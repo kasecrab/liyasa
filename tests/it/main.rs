@@ -193,3 +193,6 @@ mod ast_10_tools;
 mod ast_01_embed_job;
 #[path = "../editor/ed_01_component_forms.rs"]
 mod ed_01_component_forms;
+
+#[path = "../server/mcp_01_server.rs"]
+mod mcp_01_server;

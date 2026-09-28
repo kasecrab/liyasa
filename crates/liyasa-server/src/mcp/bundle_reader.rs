@@ -345,13 +345,22 @@ fn score_page(page: &Page, body: &str, terms: &[String]) -> Option<(u32, Hit)> {
     let all = u32::from(matched as usize == terms.len());
     let score = matched * 100 + all * 500 + in_title * 50 + occurrences;
 
+    // The DEEPEST section holding the match, not the first. A section runs to
+    // the next heading of its level or shallower, so a page's own `# Title`
+    // contains every word on the page and finding it first would anchor every
+    // result at the top of the page — which is the same as no anchor at all,
+    // and sends the agent back to re-read what it just searched.
     let sections = markdown::sections(body);
     let (section, anchor, text) = sections
         .iter()
-        .find(|section| {
+        .filter(|section| {
             let lower = section.body.to_lowercase();
             terms.iter().any(|term| lower.contains(term.as_str()))
         })
+        // `min_by_key` on the reversed level rather than `max_by_key`: the
+        // latter returns the LAST of several equal maxima, so two sibling
+        // sections both holding the term would anchor at the second one.
+        .min_by_key(|section| std::cmp::Reverse(section.level))
         .map(|section| {
             (
                 section.heading.clone(),
