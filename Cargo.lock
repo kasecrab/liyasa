@@ -2858,6 +2858,7 @@ dependencies = [
  "image",
  "jsonschema",
  "liyasa-ai",
+ "liyasa-analytics",
  "liyasa-build",
  "liyasa-cli",
  "liyasa-components",
