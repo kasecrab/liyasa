@@ -11,6 +11,7 @@
 //! depends on `drift` and the two can be reasoned about apart.
 
 pub mod engine;
+pub mod facts;
 pub mod policy;
 pub mod record;
 pub mod store;

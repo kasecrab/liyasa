@@ -63,6 +63,26 @@ impl Coverage {
 /// test — can hand it over without a graph.
 pub trait Routes: Send + Sync {
     fn routes(&self, blocks: &[(EdgeOrigin, Vec<Edge>)]) -> Result<Vec<Route>, StoreError>;
+
+    /// The route each origin renders on, in the order given, with `None` for one
+    /// the pairing does not know.
+    ///
+    /// [`Self::routes`] sorts and deduplicates, which loses the pairing, and a
+    /// `CheckId` needs the route of the block it names rather than the set the
+    /// impact reached. The default asks once per origin rather than
+    /// reimplementing `routes_of`'s rule about which build's rows to read; an
+    /// implementation with the pairing already in hand should override it.
+    fn route_each(&self, origins: &[EdgeOrigin]) -> Result<Vec<Option<Route>>, StoreError> {
+        origins
+            .iter()
+            .map(|origin| {
+                Ok(self
+                    .routes(std::slice::from_ref(&(origin.clone(), Vec::new())))?
+                    .into_iter()
+                    .next())
+            })
+            .collect()
+    }
 }
 
 pub struct GraphRoutes<'g>(pub &'g MemoryGraph);
