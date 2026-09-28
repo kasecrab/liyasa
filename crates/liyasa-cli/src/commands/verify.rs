@@ -78,16 +78,47 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
             return Exit::Errors;
         }
     }
+    // `code` and `prose` both walk the page's syntax tree, so the render pass
+    // RFC 0914 describes is paid once for the two of them.
     let mut ran = Vec::new();
-    if classes.contains(&CheckClass::Code) {
-        match code_checks(global, format, &built) {
-            Ok(report) => {
-                ran.push(CheckClass::Code);
-                failed |= report.failed;
-                out.extend(report.diagnostics);
-            }
-            Err(note) => out.push(*note),
+    let wanted = [CheckClass::Code, CheckClass::Prose];
+    let rendered = match &built.manifest {
+        Some(manifest) if wanted.iter().any(|class| classes.contains(class)) => {
+            let (pages, problems) = crate::checks::pages(&built.project.root, manifest);
+            out.extend(problems);
+            Some(pages)
         }
+        _ => None,
+    };
+
+    if classes.contains(&CheckClass::Code) {
+        match rendered.as_deref() {
+            Some(pages) => match code_checks(global, format, &built, pages) {
+                Ok(report) => {
+                    ran.push(CheckClass::Code);
+                    failed |= report.failed;
+                    out.extend(report.diagnostics);
+                }
+                Err(note) => out.push(*note),
+            },
+            None => out.push(note(CheckClass::Code, NO_PAGES)),
+        }
+    }
+
+    if classes.contains(&CheckClass::Prose)
+        && let Some(pages) = rendered.as_deref()
+    {
+        let found = crate::checks::prose(&built.project.root, pages);
+        ran.push(CheckClass::Prose);
+        failed |= found.has_errors();
+        if !global.quiet && format == crate::cli::Format::Text {
+            println!(
+                "prose: {} finding{}",
+                found.len(),
+                if found.len() == 1 { "" } else { "s" }
+            );
+        }
+        out.extend(found);
     }
     for class in &classes {
         if ran.contains(class) {
@@ -130,6 +161,9 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
     exit
 }
 
+/// What a build with no manifest leaves a page-walking class with.
+const NO_PAGES: &str = "the build wrote no manifest, so this run has no page list";
+
 /// What a code run produced, in the terms `run` reports in.
 struct CodeRun {
     diagnostics: Diagnostics,
@@ -149,14 +183,8 @@ fn code_checks(
     global: &Global,
     format: crate::cli::Format,
     built: &Built,
+    pages: &[crate::checks::Rendered],
 ) -> Result<CodeRun, Box<Diagnostic>> {
-    let Some(manifest) = &built.manifest else {
-        return Err(Box::new(note(
-            CheckClass::Code,
-            "the build wrote no manifest, so this run has no page list",
-        )));
-    };
-
     let config = crate::net::config_value(&built.project.config);
     let lock = crate::lock::read(&built.project.root.join(crate::lock::LOCK_FILE))
         .ok()
@@ -164,8 +192,8 @@ fn code_checks(
     let prepared = crate::checks::prepare(&config, lock.as_ref(), &built.output.join("sandbox"))
         .map_err(|error| Box::new(because(CheckClass::Code, *error)))?;
 
-    let (pages, mut diagnostics) = crate::checks::pages(&built.project.root, manifest);
-    let run = crate::checks::run(&prepared, &pages)
+    let mut diagnostics = Diagnostics::new();
+    let run = crate::checks::run(&prepared, pages)
         .map_err(|error| Box::new(because(CheckClass::Code, *error)))?;
 
     diagnostics.extend(prepared.problems.clone().into_vec());

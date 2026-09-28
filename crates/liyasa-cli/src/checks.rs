@@ -132,6 +132,8 @@ fn pins(lock: Option<&Lock>) -> Vec<(String, String)> {
 /// One page, rendered to the AST the orchestrator walks.
 pub struct Rendered {
     pub route: Route,
+    /// The file it was written in, which is what `.vale.ini` scopes rules by.
+    pub source: String,
     pub document: Document,
 }
 
@@ -158,6 +160,7 @@ pub fn pages(root: &Path, manifest: &Manifest) -> (Vec<Rendered>, Diagnostics) {
         if let Some(document) = analysis.parsed {
             out.push(Rendered {
                 route: entry.route.clone(),
+                source: entry.source.clone(),
                 document,
             });
         }
@@ -198,3 +201,54 @@ pub fn run(prepared: &Prepared, pages: &[Rendered]) -> Result<Run, Box<Diagnosti
 
 #[cfg(test)]
 mod tests;
+
+/// VER-60 and VER-61's CLI half: the prose rules over every page.
+///
+/// The rules come from the project's own `styles/` when it has them and from
+/// the bundled set when it does not, which is what a project with no
+/// `.vale.ini` gets. A rule Liyasa parsed but does not implement is `W0636`
+/// rather than silence: the difference between "no rule matched" and "the
+/// rule never ran" is the whole reason `check_report` exists.
+///
+/// No speller. `W0632` needs a dictionary and nothing in `liyasa.json` or
+/// `.vale.ini` names one, so a spell check here would report every word in
+/// the site as unknown. The rules run; the speller waits for a dictionary
+/// source.
+pub fn prose(root: &Path, pages: &[Rendered]) -> Diagnostics {
+    use liyasa_verify::core::prose::{self, Linter, Trust};
+
+    let vfs = liyasa_config::vfs::OsVfs::new(root);
+    let ini = std::fs::read_to_string(root.join(".vale.ini"))
+        .map(|text| prose::ini::ValeIni::parse(&text))
+        .unwrap_or_default();
+    let package = prose::load_package(
+        &vfs,
+        &ini,
+        &liyasa_core::vfs::VfsPath::new(""),
+        Trust::Untrusted,
+    );
+
+    let mut out = package.problems.clone();
+    let rules = if package.rules.is_empty() {
+        prose::bundled::liyasa()
+    } else {
+        package.rules
+    };
+    let linter = Linter::new(rules).with_ini(ini);
+
+    let mut delegated = Vec::new();
+    for page in pages {
+        let passages = prose::passages(&page.document.root);
+        let report = linter.check_report(&page.source, &passages, None);
+        for finding in &report.findings {
+            out.push(finding.diagnostic());
+        }
+        delegated.extend(report.not_run);
+    }
+    delegated.sort_by(|a, b| a.rule.cmp(&b.rule));
+    delegated.dedup_by(|a, b| a.rule == b.rule);
+    if let Some(note) = prose::vale::not_run(&delegated, "no companion runtime is configured") {
+        out.push(note);
+    }
+    out
+}
