@@ -382,6 +382,73 @@ button {
 
 .transition { transition: opacity var(--motion, 180ms) ease, transform var(--motion, 180ms) ease; }
 
+/* ED-05's preview context: one row of controls above the preview. */
+.context-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ly-space-3);
+  align-items: flex-end;
+  padding: var(--ly-space-2) var(--ly-space-3);
+  border-bottom: var(--ly-border-subtle);
+}
+
+.context-field { display: flex; flex-direction: column; gap: var(--ly-space-1); font-size: var(--ly-text-sm); }
+.context-groups { display: flex; flex-wrap: wrap; gap: var(--ly-space-2); border: var(--ly-border-subtle); border-radius: var(--ly-radius-sm); padding: var(--ly-space-2); }
+.context-groups legend { font-size: var(--ly-text-xs); color: var(--ly-color-text-muted); }
+.context-group { display: inline-flex; align-items: center; gap: var(--ly-space-1); }
+
+/* The caption is the whole point of the toolbar, so it does not shrink away. */
+.context-note { flex: 1 1 100%; margin: 0; font-size: var(--ly-text-sm); color: var(--ly-color-text-muted); }
+
+.expanded-count { font-size: var(--ly-text-sm); color: var(--ly-color-text-muted); }
+.expanded-count[data-truncated] { color: var(--ly-color-text); }
+
+/* ED-72: the git terms, closed until asked for. */
+.vocabulary summary { cursor: pointer; font-weight: var(--ly-font-weight-semibold); }
+.vocabulary dl, .help-terms { margin: var(--ly-space-2) 0 0; }
+.term { margin-bottom: var(--ly-space-2); }
+.term dt { font-weight: var(--ly-font-weight-semibold); }
+.term dd { margin: 0 0 var(--ly-space-1); color: var(--ly-color-text-muted); font-size: var(--ly-text-sm); }
+.term-git { font-variant: small-caps; }
+
+/* ED-74: the tour points at the editor, so it sits above it and stays small. */
+.tour-step {
+  position: absolute;
+  z-index: 20;
+  max-width: 24rem;
+  padding: var(--ly-space-3);
+  background: var(--ly-color-elevated);
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+}
+
+.tour-step h2 { font-size: var(--ly-text-lg); margin-top: 0; }
+.tour-progress { font-size: var(--ly-text-xs); color: var(--ly-color-text-muted); }
+
+.help { padding: var(--ly-space-3); background: var(--ly-color-bg-subtle); border-radius: var(--ly-radius-md); }
+.help h2 { font-size: var(--ly-text-lg); margin-top: 0; }
+
+.template-list, .task-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ly-space-2); }
+.template-list { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+
+.template, .task {
+  padding: var(--ly-space-3);
+  border: var(--ly-border-subtle);
+  border-radius: var(--ly-radius-md);
+  background: var(--ly-color-surface);
+}
+
+.template[aria-current], .task[aria-current] { border-color: var(--ly-color-primary); }
+.template button, .task button { display: block; width: 100%; text-align: left; }
+.template-kind { display: block; font-size: var(--ly-text-xs); color: var(--ly-color-text-muted); }
+
+/* ED-71: the blast radius reads before the buttons do. */
+.proposal { padding: var(--ly-space-3); border: var(--ly-border); border-radius: var(--ly-radius-md); }
+.proposal-scope { font-weight: var(--ly-font-weight-semibold); }
+.affected { margin: 0 0 var(--ly-space-3); padding-left: var(--ly-space-4); }
+.affected code, .proposal-writes code { font-size: var(--ly-text-sm); }
+.task-form .field { display: flex; flex-direction: column; gap: var(--ly-space-1); margin-bottom: var(--ly-space-3); }
+
 /* ED-80: no motion, not less. */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -39,6 +39,7 @@ import { byCategory, formFor, propFromControl, propsToDirective, renderPropertie
 import { highlight, opaqueReason, renderSourceMode, renderSourcePopover } from "./view/source-mode.ts";
 import { renderSuggestion, renderSuggestions, suggestionAnnouncement } from "./view/suggestions.ts";
 import { renderActivity, renderConflict, renderDrafts, renderEmpty, renderMedia } from "./view/panes.ts";
+import { askLabel, describeContext, renderCappedRows, renderContextToolbar, renderHelp, renderProposal, renderTaskForm, renderTaskList, renderTemplatePicker, renderTourStep, renderVocabulary, termsIn } from "./view/guides.ts";
 
 /** What the shell holds while a draft is open. */
 interface State {
@@ -337,6 +338,18 @@ export const MODULES = {
   renderActivity,
   renderMedia,
   renderEmpty,
+  renderContextToolbar,
+  describeContext,
+  renderCappedRows,
+  renderVocabulary,
+  renderTourStep,
+  renderHelp,
+  termsIn,
+  renderTemplatePicker,
+  renderTaskList,
+  renderTaskForm,
+  askLabel,
+  renderProposal,
   announce,
   state,
 };
