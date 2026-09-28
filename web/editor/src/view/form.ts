@@ -35,7 +35,7 @@ export function renderFrontmatterForm(state: FormState): Fragment {
   const common = state.fields.filter((field) => !field.advanced);
   const advanced = state.fields.filter((field) => field.advanced);
 
-  return html`<form class="frontmatter" data-frontmatter novalidate>
+  return html`<form class="frontmatter" data-frontmatter data-help-context="frontmatter" novalidate>
     <h2>Page settings</h2>
     ${common.map((field) => renderFormField(field, state.values[field.name], errors.get(field.name)))}
 

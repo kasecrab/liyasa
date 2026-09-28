@@ -108,7 +108,7 @@ export function renderChip(node: EditorNode, context: SurfaceContext): Fragment 
   const source = chipSource(expression, context.record);
   const value = context.values[expression.trim()];
   const id = `chip-${node.id.replace(/[^\w-]/g, "-")}`;
-  return html`<span class="chip chip-${source.kind}" data-block="${node.id}" data-chip="${expression.trim()}" data-chip-kind="${source.kind}" tabindex="0" role="button" aria-describedby="${id}-source">${value === undefined ? html`<span class="chip-unresolved" data-unresolved>${expression.trim()}</span>` : html`<span class="chip-value">${value}</span>`}<span class="chip-source visually-hidden" id="${id}-source">${chipTooltip(source, value)}</span></span>`;
+  return html`<span class="chip chip-${source.kind}" data-block="${node.id}" data-chip="${expression.trim()}" data-chip-kind="${source.kind}" data-help-context="templating" tabindex="0" role="button" aria-describedby="${id}-source">${value === undefined ? html`<span class="chip-unresolved" data-unresolved>${expression.trim()}</span>` : html`<span class="chip-value">${value}</span>`}<span class="chip-source visually-hidden" id="${id}-source">${chipTooltip(source, value)}</span></span>`;
 }
 
 /** What the chip's tooltip says, and what it refuses to say. */
@@ -138,7 +138,7 @@ export function renderLogicBlock(node: EditorNode, context: SurfaceContext): Fra
   const id = `logic-${node.id.replace(/[^\w-]/g, "-")}`;
   const body = (node.children ?? [])[0];
   const expanded = context.expansions?.[node.id];
-  return html`<section class="logic-block" data-block="${node.id}" data-statement="${node.name ?? ""}" aria-labelledby="${id}-title">
+  return html`<section class="logic-block" data-block="${node.id}" data-statement="${node.name ?? ""}" data-help-context="templating" aria-labelledby="${id}-title">
     <h3 class="logic-title" id="${id}-title">${statementTitle(node)}</h3>
     ${renderExpressionEditor(node, context)}
     <div class="logic-panes">
@@ -216,7 +216,7 @@ export function expressionCompletions(node: EditorNode, context: SurfaceContext)
 export function renderComponent(node: EditorNode, context: SurfaceContext): Fragment {
   const name = node.name ?? "component";
   const children = node.children ?? [];
-  return html`<section class="block block-component" data-block="${node.id}" data-component="${name}" tabindex="0" aria-label="${name}">
+  return html`<section class="block block-component" data-block="${node.id}" data-component="${name}" data-help-context="components" tabindex="0" aria-label="${name}">
     <header class="component-head">
       <span class="component-name">${name}</span>
       <button type="button" data-open-properties="${node.id}">Properties…</button>

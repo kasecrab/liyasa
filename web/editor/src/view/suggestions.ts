@@ -23,7 +23,7 @@ import { pendingCount } from "../agent.ts";
  */
 export function renderSuggestions(set: SuggestionSet): Fragment {
   const pending = pendingCount(set);
-  return html`<section class="suggestions" data-suggestions="${set.id}" aria-label="Suggested changes">
+  return html`<section class="suggestions" data-suggestions="${set.id}" data-help-context="review" aria-label="Suggested changes">
     <h2>Suggested changes</h2>
     <p class="suggestion-count" role="status" aria-live="polite">
       ${pending === 0

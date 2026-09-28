@@ -4919,7 +4919,7 @@ function renderFrontmatterForm(state           )           {
   const common = state.fields.filter((field) => !field.advanced);
   const advanced = state.fields.filter((field) => field.advanced);
 
-  return html`<form class="frontmatter" data-frontmatter novalidate>
+  return html`<form class="frontmatter" data-frontmatter data-help-context="frontmatter" novalidate>
     <h2>Page settings</h2>
     ${common.map((field) => renderFormField(field, state.values[field.name], errors.get(field.name)))}
 
@@ -6316,7 +6316,7 @@ function opaqueReason(kind        , text        )         {
  */
 function renderSuggestions(set               )           {
   const pending = pendingCount(set);
-  return html`<section class="suggestions" data-suggestions="${set.id}" aria-label="Suggested changes">
+  return html`<section class="suggestions" data-suggestions="${set.id}" data-help-context="review" aria-label="Suggested changes">
     <h2>Suggested changes</h2>
     <p class="suggestion-count" role="status" aria-live="polite">
       ${pending === 0
@@ -7107,7 +7107,7 @@ function renderChip(node            , context                )           {
   const source = chipSource(expression, context.record);
   const value = context.values[expression.trim()];
   const id = `chip-${node.id.replace(/[^\w-]/g, "-")}`;
-  return html`<span class="chip chip-${source.kind}" data-block="${node.id}" data-chip="${expression.trim()}" data-chip-kind="${source.kind}" tabindex="0" role="button" aria-describedby="${id}-source">${value === undefined ? html`<span class="chip-unresolved" data-unresolved>${expression.trim()}</span>` : html`<span class="chip-value">${value}</span>`}<span class="chip-source visually-hidden" id="${id}-source">${chipTooltip(source, value)}</span></span>`;
+  return html`<span class="chip chip-${source.kind}" data-block="${node.id}" data-chip="${expression.trim()}" data-chip-kind="${source.kind}" data-help-context="templating" tabindex="0" role="button" aria-describedby="${id}-source">${value === undefined ? html`<span class="chip-unresolved" data-unresolved>${expression.trim()}</span>` : html`<span class="chip-value">${value}</span>`}<span class="chip-source visually-hidden" id="${id}-source">${chipTooltip(source, value)}</span></span>`;
 }
 
 /** What the chip's tooltip says, and what it refuses to say. */
@@ -7137,7 +7137,7 @@ function renderLogicBlock(node            , context                )           {
   const id = `logic-${node.id.replace(/[^\w-]/g, "-")}`;
   const body = (node.children ?? [])[0];
   const expanded = context.expansions?.[node.id];
-  return html`<section class="logic-block" data-block="${node.id}" data-statement="${node.name ?? ""}" aria-labelledby="${id}-title">
+  return html`<section class="logic-block" data-block="${node.id}" data-statement="${node.name ?? ""}" data-help-context="templating" aria-labelledby="${id}-title">
     <h3 class="logic-title" id="${id}-title">${statementTitle(node)}</h3>
     ${renderExpressionEditor(node, context)}
     <div class="logic-panes">
@@ -7215,7 +7215,7 @@ function expressionCompletions(node            , context                )       
 function renderComponent(node            , context                )           {
   const name = node.name ?? "component";
   const children = node.children ?? [];
-  return html`<section class="block block-component" data-block="${node.id}" data-component="${name}" tabindex="0" aria-label="${name}">
+  return html`<section class="block block-component" data-block="${node.id}" data-component="${name}" data-help-context="components" tabindex="0" aria-label="${name}">
     <header class="component-head">
       <span class="component-name">${name}</span>
       <button type="button" data-open-properties="${node.id}">Properties…</button>
@@ -7660,6 +7660,7 @@ function mount()       {
   restoreTourSeen();
   document.addEventListener("click", onClick);
   document.addEventListener("keydown", onKey);
+  document.addEventListener("focusin", onFocus);
   apply({ do: "first-visit", seen: shell.tourSeen });
 
   announce("Editor ready");
@@ -7729,6 +7730,27 @@ function onKey(event               )       {
     event.preventDefault();
     apply({ do: "open-help" });
   }
+}
+
+/**
+ * What the author is looking at, from what they have focused.
+ *
+ * This is the whole of "contextual" in ED-74's contextual help. Without it
+ * `reduce` still handles a `context` action and nothing ever sends one, so the
+ * help opens on whatever the shell started with — which is help, and is not
+ * contextual help.
+ *
+ * Focus rather than the mouse: it follows the keyboard, it follows a click, and
+ * it is the thing a screen reader user moves. Panes inside the panel column are
+ * skipped, or opening the help would re-point the help at the help.
+ */
+function onFocus(event            )       {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  if (target.closest("[data-panel]")) return;
+  const owner = target.closest("[data-help-context]");
+  const topic = owner?.getAttribute("data-help-context");
+  if (topic && topic !== shell.context) apply({ do: "context", topic });
 }
 
 function typing(target                    )          {

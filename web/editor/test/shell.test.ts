@@ -169,3 +169,100 @@ test("an empty data-help means the current context rather than a topic called em
   assert.deepEqual(actionFor({ "data-help": "" }), { do: "open-help", topic: undefined });
   assert.deepEqual(actionFor({ "data-help": "templating" }), { do: "open-help", topic: "templating" });
 });
+
+// --- ED-74's third clause: the help is contextual -----------------------------
+//
+// `reduce` has handled a `context` action since the panel machine was written,
+// and for one session nothing dispatched one — so `renderHelp` was always called
+// with the shell's starting topic and the help was help rather than contextual
+// help. A tested code path with no caller is a false green.
+//
+// The dispatcher itself is three lines in `editor.ts` and reads the DOM, so it is
+// not testable here. What is testable is the contract it depends on: that the
+// panes carry a `data-help-context`, and that what they carry is a topic `HELP`
+// actually has. Either half rotting turns the help silently back into a constant.
+
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { HELP } from "../src/help.ts";
+import { buildModel } from "../src/model.ts";
+import { formFields, validateFrontmatter } from "../src/frontmatter.ts";
+import { renderFrontmatterForm } from "../src/view/form.ts";
+import { renderSuggestions } from "../src/view/suggestions.ts";
+import { renderSurface, unexpanded } from "../src/view/blocks.ts";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const SCHEMA = JSON.parse(readFileSync(resolve(HERE, "../../../schemas/frontmatter.json"), "utf8"));
+const CORPUS = JSON.parse(readFileSync(resolve(HERE, "fixtures/segments.json"), "utf8"));
+
+function contextsIn(markup: string): string[] {
+  return [...markup.matchAll(/data-help-context="([^"]*)"/g)].map((hit) => hit[1] ?? "");
+}
+
+test("the panes that have a help topic say which one", () => {
+  const page = CORPUS.find((each: { path: string }) => each.path === "limits.md") ?? CORPUS[0];
+  const surface = String(renderSurface(buildModel(page.document, page.source), unexpanded()));
+  const values = { title: "Limits" };
+  const form = String(
+    renderFrontmatterForm({
+      fields: formFields(SCHEMA),
+      values,
+      validation: validateFrontmatter(SCHEMA, values),
+      advanced: false,
+    }),
+  );
+  const review = String(
+    renderSuggestions({
+      id: "r",
+      operation: "tighten",
+      suggestions: [
+        { id: "s", target: "0", before: "a\n", after: "b\n", rationale: "why", status: "pending", diagnostics: [] },
+      ],
+      withheld: [],
+    }),
+  );
+
+  assert.deepEqual(contextsIn(form), ["frontmatter"]);
+  assert.deepEqual(contextsIn(review), ["review"]);
+  const onSurface = new Set(contextsIn(surface));
+  assert.ok(onSurface.has("templating"), "a chip or a logic block says templating");
+  assert.ok(onSurface.has("components"), "a component says components");
+});
+
+test("every topic a pane claims is one the help actually has", () => {
+  // The rot this stops: a topic renamed in `help.ts` and not in the pane, which
+  // leaves `renderHelp` drawing its "no help is written for this" state on a
+  // subject that has help.
+  const page = CORPUS.find((each: { path: string }) => each.path === "limits.md") ?? CORPUS[0];
+  const everywhere = [
+    String(renderSurface(buildModel(page.document, page.source), unexpanded())),
+    String(
+      renderFrontmatterForm({
+        fields: formFields(SCHEMA),
+        values: {},
+        validation: validateFrontmatter(SCHEMA, {}),
+        advanced: true,
+      }),
+    ),
+  ];
+  for (const markup of everywhere) {
+    for (const topic of contextsIn(markup)) {
+      assert.ok(HELP[topic] !== undefined, `no help is written for "${topic}"`);
+    }
+  }
+});
+
+test("a context change re-points open help and leaves the other panels alone", () => {
+  // The dispatcher sends this on every focus move, so it fires far more often
+  // than a click does — and it must not reopen or replace a panel the author
+  // chose.
+  const help = after(START, { do: "open-help" }, { do: "context", topic: "components" });
+  assert.deepEqual(help.panel, { kind: "help", topic: "components" });
+
+  const tasks = after(START, { do: "open-tasks" }, { do: "context", topic: "components" });
+  assert.equal(tasks.panel.kind, "tasks", "focusing a component does not close the task list");
+  assert.equal(tasks.context, "components", "but it is remembered for the next Help");
+  assert.match(String(renderPanel(after(tasks, { do: "close" }, { do: "open-help" }))), /data-help-topic="components"/);
+});

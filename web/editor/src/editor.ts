@@ -173,6 +173,7 @@ function mount(): void {
   restoreTourSeen();
   document.addEventListener("click", onClick);
   document.addEventListener("keydown", onKey);
+  document.addEventListener("focusin", onFocus);
   apply({ do: "first-visit", seen: shell.tourSeen });
 
   announce("Editor ready");
@@ -242,6 +243,27 @@ function onKey(event: KeyboardEvent): void {
     event.preventDefault();
     apply({ do: "open-help" });
   }
+}
+
+/**
+ * What the author is looking at, from what they have focused.
+ *
+ * This is the whole of "contextual" in ED-74's contextual help. Without it
+ * `reduce` still handles a `context` action and nothing ever sends one, so the
+ * help opens on whatever the shell started with — which is help, and is not
+ * contextual help.
+ *
+ * Focus rather than the mouse: it follows the keyboard, it follows a click, and
+ * it is the thing a screen reader user moves. Panes inside the panel column are
+ * skipped, or opening the help would re-point the help at the help.
+ */
+function onFocus(event: FocusEvent): void {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  if (target.closest("[data-panel]")) return;
+  const owner = target.closest("[data-help-context]");
+  const topic = owner?.getAttribute("data-help-context");
+  if (topic && topic !== shell.context) apply({ do: "context", topic });
 }
 
 function typing(target: EventTarget | null): boolean {
