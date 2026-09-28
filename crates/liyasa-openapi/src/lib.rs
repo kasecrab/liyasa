@@ -16,6 +16,10 @@ pub mod field;
 pub mod load;
 pub mod manual;
 pub mod markdown;
+/// The spec-derived mock server the generated samples are executed against
+/// (API-32). Behind `testing`: it binds a listener, and shipped library code
+/// that opens a port is a surface in every deployment.
+#[cfg(any(test, feature = "testing"))]
 pub mod mock;
 pub mod model;
 pub mod nav;

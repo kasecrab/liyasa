@@ -7,6 +7,13 @@ license.workspace = true
 repository.workspace = true
 description = "OpenAPI: the document model, the loader, reference pages, and request samples (PRD §13)."
 
+[features]
+# The spec-derived mock server the API-32 samples are executed against. Off by
+# default: it binds a TcpListener, and a listener in shipped library code is a
+# surface present in every deployment whether or not anything calls it. Matches
+# liyasa-git's `testing` shape.
+testing = []
+
 [lints]
 workspace = true
 
@@ -24,3 +31,5 @@ url.workspace = true
 
 [dev-dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0", features = ["conformance"] }
+# Enables `testing` for this crate's own `tests/it/`, which uses the mock.
+liyasa-openapi = { path = ".", features = ["testing"] }
