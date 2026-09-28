@@ -59,13 +59,61 @@ paths:
               example: { id: "w-43" }
 "##;
 
+/// How to ask one program for its version.
+///
+/// Not `--version` for everything. Go's is the `version` SUBCOMMAND: `go
+/// --version` is "flag provided but not defined" and exits non-zero, so a
+/// blanket `--version` reports that a machine with Go installed has none. That
+/// is not a hypothetical — it is what this file did until 2026-09-28, which
+/// meant the Go generator skipped on every machine and in CI, and the skip read
+/// as a pass. WP-32 found it while pinning the CI toolchain.
+fn version_arg(program: &str) -> &'static str {
+    match program {
+        "go" => "version",
+        _ => "--version",
+    }
+}
+
 fn have(program: &str) -> bool {
     Command::new(program)
-        .arg("--version")
+        .arg(version_arg(program))
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
         .is_ok_and(|status| status.success())
+}
+
+/// Pins the trap above, because the blanket form looks correct and reverting to
+/// it would turn four real checks into four silent skips again.
+#[test]
+fn a_toolchain_is_asked_for_its_version_the_way_it_spells_it() {
+    assert_eq!(
+        version_arg("go"),
+        "version",
+        "`go --version` exits non-zero"
+    );
+    for program in ["curl", "python3", "node"] {
+        assert_eq!(version_arg(program), "--version");
+    }
+}
+
+/// A generator whose runtime is present must not be able to skip unnoticed.
+///
+/// The skip is deliberate — a developer without Go should still be able to run
+/// `cargo test` — but a skip and a pass are the same colour, so the runtimes
+/// that ARE here are named in the output either way.
+#[test]
+fn the_runtimes_this_machine_has_are_reported() {
+    let present: Vec<&str> = ["curl", "node", "python3", "go"]
+        .into_iter()
+        .filter(|program| have(program))
+        .collect();
+    eprintln!("sample runtimes available here: {present:?}");
+    assert!(
+        present.contains(&"curl"),
+        "curl is the one generator with no toolchain of its own, so if it is \
+         missing the suite is not testing API-32 at all"
+    );
 }
 
 /// The request one operation's sample describes, aimed at `base_url`.

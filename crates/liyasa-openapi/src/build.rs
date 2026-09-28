@@ -32,8 +32,8 @@ use liyasa_core::vfs::{Vfs, VfsPath};
 
 use crate::config::SpecConfig;
 use crate::field::Field;
-use crate::nav::{self, Entry, Node, Reference};
 use crate::model::ParameterIn;
+use crate::nav::{self, Entry, Node, Reference};
 use crate::page::{Augmentation, BuildOptions, Page, Rendered, Section};
 use crate::schemas::{self, SchemaPage};
 use crate::source::Location;
@@ -311,7 +311,11 @@ fn one(model: &Spec, config: &SpecConfig, authored: &[Authored]) -> One {
                 selector: entry.selector.clone(),
                 source: document(
                     &front_matter(&page.title, operation_key(&config.id, &entry.selector)),
-                    &operation_body(&page, &config.id, operation.operation.operation_id.as_deref()),
+                    &operation_body(
+                        &page,
+                        &config.id,
+                        operation.operation.operation_id.as_deref(),
+                    ),
                 ),
                 deprecated: entry.deprecated,
                 group: Some(group.name.clone()),
