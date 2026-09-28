@@ -14,6 +14,7 @@ use crate::idx::Index;
 use crate::idx::manifest::Context;
 use crate::idx::query::{self, Filters, Query, ReaderScope};
 use crate::idx::search::{Hit, SearchOptions};
+use crate::idx::suggest::Suggestion;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
@@ -117,6 +118,12 @@ pub struct SearchResponse {
     pub results: Vec<SearchResult>,
     /// How many the index found before `limit` was applied.
     pub total: usize,
+    /// "Did you mean" (SRC-04), filled only when the query found nothing:
+    /// a reader with results does not want to be told they mistyped, and
+    /// walking the term dictionary on every successful query would spend
+    /// SRC-05's budget on a string nobody reads.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub suggestions: Vec<Suggestion>,
 }
 
 /// What a surface searches. The browser index and the server index both
@@ -129,6 +136,19 @@ pub trait Engine {
         context: &Context,
         options: &SearchOptions,
     ) -> Result<Vec<Hit>, SearchError>;
+
+    /// What the reader probably meant (SRC-04). Defaults to none so an engine
+    /// without a term dictionary to walk is not obliged to invent one; the
+    /// browser index overrides it. tantivy has one and could, which is why this
+    /// is a method rather than a field on the response.
+    fn suggestions(
+        &self,
+        _query: &Query,
+        _context: &Context,
+        _options: &SearchOptions,
+    ) -> Result<Vec<Suggestion>, SearchError> {
+        Ok(Vec::new())
+    }
 }
 
 impl Engine for Index {
@@ -139,6 +159,15 @@ impl Engine for Index {
         options: &SearchOptions,
     ) -> Result<Vec<Hit>, SearchError> {
         self.search(query, context, options)
+    }
+
+    fn suggestions(
+        &self,
+        query: &Query,
+        context: &Context,
+        options: &SearchOptions,
+    ) -> Result<Vec<Suggestion>, SearchError> {
+        self.suggest(query, context, options)
     }
 }
 
@@ -181,11 +210,17 @@ pub fn search<E: Engine + ?Sized>(
         &hits,
     );
     let total = hits.len();
+    let suggestions = if hits.is_empty() {
+        index.suggestions(&parsed, &context, &options)?
+    } else {
+        Vec::new()
+    };
     Ok((
         SearchResponse {
             query: parsed.raw.clone(),
             results: hits.into_iter().map(SearchResult::from).collect(),
             total,
+            suggestions,
         },
         event,
     ))

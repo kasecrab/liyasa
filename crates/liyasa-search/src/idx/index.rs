@@ -11,6 +11,7 @@ use super::query::Query;
 use super::reader::{ShardBytes, ShardReader};
 use super::score::{self, Stats};
 use super::search::{self, Hit, SearchOptions};
+use super::suggest::{self, Suggestion};
 use super::writer::{BuiltIndex, MANIFEST};
 use crate::error::SearchError;
 
@@ -109,5 +110,45 @@ impl Index {
         score::rank(&mut hits);
         hits.truncate(options.max_results);
         Ok(hits)
+    }
+
+    /// What the reader probably meant, for the terms this index does not hold
+    /// (SRC-04). Deliberately not folded into `search`: a caller shows a
+    /// suggestion when the results are thin, and paying for one on every query
+    /// that already answered well would spend SRC-05's budget on nothing.
+    pub fn suggest(
+        &self,
+        query: &Query,
+        context: &Context,
+        _options: &SearchOptions,
+    ) -> Result<Vec<Suggestion>, SearchError> {
+        let chosen: Vec<&Shard> = if context == &Context::default() {
+            self.manifest.all_shards().iter().collect()
+        } else {
+            self.manifest.shards_for(context)
+        };
+
+        let mut out: Vec<Suggestion> = Vec::new();
+        for shard in chosen {
+            let reader = self.reader(shard)?;
+            for suggestion in suggest::for_query(&reader, query) {
+                // A term unknown to one shard may be held by another, and a
+                // suggestion for a term some shard has is a correction of a
+                // word that exists.
+                if !out.iter().any(|s| s.term == suggestion.term) {
+                    out.push(suggestion);
+                }
+            }
+        }
+        out.retain(|s| !self.holds(&s.term));
+        Ok(out)
+    }
+
+    /// Whether any shard holds this term.
+    fn holds(&self, term: &str) -> bool {
+        self.manifest
+            .all_shards()
+            .iter()
+            .any(|shard| self.reader(shard).is_ok_and(|r| r.contains(term)))
     }
 }

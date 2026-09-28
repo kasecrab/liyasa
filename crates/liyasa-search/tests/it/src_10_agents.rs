@@ -490,3 +490,60 @@ mod server {
         );
     }
 }
+
+/// SRC-04's suggestions reach the surfaces a caller actually uses. Without
+/// this the Engine method is another function with no caller — the shape that
+/// let the whole index go unwritten.
+///
+/// Note which typo is used. `limis` is one edit from `limit`, and the fuzzy
+/// half of SRC-04 already rescues it — five results, no suggestion needed.
+/// Suggestions earn their place on the typo fuzzy cannot reach: `authorizatn`
+/// is two edits from `authorization`, finds nothing at all, and is the only
+/// case where a reader is stuck without one.
+#[test]
+fn a_query_fuzzy_cannot_rescue_offers_what_the_reader_probably_meant() {
+    let response = rest("q=authorizatn");
+    assert_eq!(response.status, 200);
+    assert!(urls(&response.body).is_empty(), "two edits is past fuzzy");
+
+    let suggestions = response.body["suggestions"]
+        .as_array()
+        .expect("a suggestion list");
+    assert_eq!(suggestions[0]["term"], "authorizatn");
+    assert_eq!(suggestions[0]["suggested"], "authorization");
+}
+
+#[test]
+fn a_query_that_finds_results_is_not_told_it_mistyped() {
+    let response = rest("q=limis");
+    assert!(
+        !urls(&response.body).is_empty(),
+        "one edit is what fuzzy is for"
+    );
+    assert!(
+        response.body.get("suggestions").is_none(),
+        "an answered query carries no did-you-mean: {}",
+        response.body
+    );
+}
+
+#[test]
+fn a_typo_too_far_gone_is_not_guessed_at() {
+    let response = rest("q=authoriztn");
+    assert!(urls(&response.body).is_empty());
+    assert!(
+        response.body.get("suggestions").is_none(),
+        "three edits is a different word, not a typo: {}",
+        response.body
+    );
+}
+
+#[test]
+fn the_tool_result_carries_suggestions_too() {
+    let result = call(json!({ "query": "authorizatn" }));
+    assert_eq!(result["isError"], false);
+    assert_eq!(
+        result["structuredContent"]["suggestions"][0]["suggested"], "authorization",
+        "{result}"
+    );
+}

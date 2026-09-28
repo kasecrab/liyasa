@@ -202,3 +202,159 @@ fn an_empty_query_is_not_an_error() {
     assert!(run(&index, "").is_empty());
     assert!(run(&index, "   ").is_empty());
 }
+
+/// SRC-04's last clause: typo-tolerant suggestions.
+///
+/// Fuzzy matching and suggesting are different jobs. Fuzzy silently widens the
+/// query, so it has to be conservative or a search for one word answers with
+/// another. A suggestion is shown to the reader and applied only if they take
+/// it, so it can reach further — and it is the only thing that helps when the
+/// typo matched nothing at all.
+mod suggestions {
+    use liyasa_core::ids::{Locale, Route};
+    use liyasa_search::doc::{DocKind, SectionDocument};
+    use liyasa_search::idx::suggest::Suggestion;
+    use liyasa_search::idx::writer::{self, WriterOptions};
+
+    use super::*;
+
+    fn suggest(index: &Index, text: &str) -> Vec<Suggestion> {
+        let query = query::parse(text, "en").expect("valid query");
+        index
+            .suggest(&query, &Context::default(), &SearchOptions::default())
+            .expect("suggests")
+    }
+
+    /// The suggestion for one query term, looked up by the term as the parsed
+    /// query carries it — the stem. `limis` reaches the index as `limi`.
+    fn suggested_for<'a>(list: &'a [Suggestion], term: &str) -> Option<&'a str> {
+        list.iter()
+            .find(|s| s.term == term)
+            .map(|s| s.suggested.as_str())
+    }
+
+    #[test]
+    fn a_typo_the_index_nearly_holds_is_corrected() {
+        let index = index();
+        let list = suggest(&index, "limis");
+        assert_eq!(
+            suggested_for(&list, "limi"),
+            Some("limit"),
+            "one edit from a term the corpus holds: {list:?}"
+        );
+    }
+
+    #[test]
+    fn a_term_the_index_holds_is_not_corrected() {
+        let index = index();
+        assert!(
+            suggest(&index, "limits").is_empty(),
+            "nothing to suggest for a word that is already in the index"
+        );
+    }
+
+    #[test]
+    fn only_the_unknown_term_of_a_query_is_corrected() {
+        let index = index();
+        let list = suggest(&index, "rate limis");
+        assert!(suggested_for(&list, "rate").is_none(), "{list:?}");
+        assert_eq!(suggested_for(&list, "limi"), Some("limit"), "{list:?}");
+    }
+
+    #[test]
+    fn a_word_nothing_resembles_gets_no_guess() {
+        let index = index();
+        assert!(
+            suggest(&index, "quinoa").is_empty(),
+            "a miss with no near neighbour is a miss, not a wrong guess"
+        );
+    }
+
+    #[test]
+    fn a_short_typo_is_left_alone() {
+        let index = index();
+        // Below the fuzzy threshold a typo has too many neighbours for any of
+        // them to be the answer, which is why fuzzy matching stops there too.
+        assert!(
+            suggest(&index, "lim").is_empty(),
+            "three letters is a prefix, not a typo"
+        );
+    }
+
+    /// Two candidates one edit away, with the frequencies controlled by the
+    /// fixture rather than read off the reference corpus — so this asserts the
+    /// ranking rule and not a memorised winner. `stash` is on three pages and
+    /// `stasi` on one, so `stash` wins; swapping which is rarer swaps the
+    /// answer, which is what makes the assertion falsifiable.
+    #[test]
+    fn the_commonest_candidate_wins() {
+        fn page(route: &str, body: &str) -> SectionDocument {
+            SectionDocument {
+                route: Route::new(route),
+                anchor: String::new(),
+                title: "Cache".to_owned(),
+                section: "Cache".to_owned(),
+                breadcrumb: Vec::new(),
+                body: body.to_owned(),
+                code: String::new(),
+                keywords: Vec::new(),
+                tab: None,
+                version: None,
+                locale: Locale::new("en"),
+                kind: DocKind::Page,
+                boost: 1.0,
+                groups: Vec::new(),
+                regions: Vec::new(),
+                updated: None,
+            }
+        }
+
+        let common = vec![
+            page("/a", "stash"),
+            page("/b", "stash"),
+            page("/c", "stash"),
+            page("/d", "stasi"),
+        ];
+        let index = Index::from_built(writer::build(&common, &WriterOptions::default()));
+        assert_eq!(
+            suggested_for(&suggest(&index, "stasj"), "stasj"),
+            Some("stash"),
+            "three documents beat one"
+        );
+
+        // The mirror image: make `stasi` the common one and the answer follows.
+        let flipped = vec![
+            page("/a", "stasi"),
+            page("/b", "stasi"),
+            page("/c", "stasi"),
+            page("/d", "stash"),
+        ];
+        let index = Index::from_built(writer::build(&flipped, &WriterOptions::default()));
+        assert_eq!(
+            suggested_for(&suggest(&index, "stasj"), "stasj"),
+            Some("stasi"),
+            "the ranking follows the frequency, not the spelling"
+        );
+    }
+
+    #[test]
+    fn a_suggestion_names_the_term_it_corrects() {
+        let index = index();
+        // `burts` stems to `burt`, one insertion from the indexed `burst`.
+        let list = suggest(&index, "burts");
+        let first = list.first().expect("a suggestion");
+        assert_eq!(first.term, "burt", "the term the parsed query carried");
+        assert_eq!(first.suggested, "burst");
+    }
+
+    #[test]
+    fn suggesting_is_capped_so_a_long_query_cannot_stall_it() {
+        let index = index();
+        let words = vec!["limis"; 40].join(" ");
+        let query = query::parse(&words, "en").expect("valid query");
+        let list = index
+            .suggest(&query, &Context::default(), &SearchOptions::default())
+            .expect("suggests");
+        assert_eq!(list.len(), 1, "one suggestion per distinct term: {list:?}");
+    }
+}

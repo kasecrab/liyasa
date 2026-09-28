@@ -15,6 +15,7 @@ pub mod reader;
 pub mod score;
 pub mod search;
 pub mod snippets;
+pub mod suggest;
 pub mod writer;
 
 pub use index::Index;
