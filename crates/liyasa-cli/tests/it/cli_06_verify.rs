@@ -250,43 +250,49 @@ fn the_flags_are_in_the_help() {
 
 // --- what a class that did not run says (defect 153) -----------------------
 
-/// The orchestrator and the sandboxed runners are both on `main`. A note that
-/// tells the operator the build does not have them sends them looking in the
-/// wrong place, which is worse in a diagnostic than in help text: the reader
-/// has already hit the problem and is trying to locate it.
+/// A class this command runs must never also report that it is waiting for
+/// this command to run it, and a class it does not run must not blame a
+/// component that is present.
+///
+/// **`code` is not in this test on purpose.** Whether it runs depends on the
+/// sandbox the project asks for, so a fixture that leaves it to the machine
+/// asserts one thing here and the other on CI — which is exactly what
+/// happened: this test passed locally, where there is no container engine, and
+/// failed on CI, where there is one, because the class ran and had nothing to
+/// warn about. `code` is covered in `cli_06_verify_code.rs`, where each case
+/// names its sandbox and the answer is the same everywhere.
 #[test]
 fn a_class_that_did_not_run_does_not_blame_a_component_that_exists() {
     let project = site("ver-why-not");
-    // `prose` runs now; `links` always did. These two are what is left.
-    for class in ["code", "facts"] {
+    for class in ["facts", "screenshots"] {
         let outcome = Run::new(["verify", "--only", class, "--offline"])
             .cwd(project.path())
             .output();
         let all = outcome.all();
         assert!(all.contains("W0019"), "{all}");
-        assert!(
-            !all.contains("which this build does not have"),
-            "`{class}` still says the orchestrator is missing: {all}"
-        );
-        assert!(
-            !all.contains("needs the verification orchestrator"),
-            "`{class}` still names the component rather than the caller: {all}"
-        );
+        for stale in [
+            "which this build does not have",
+            "needs the verification orchestrator",
+            "to call the verification orchestrator",
+            "to walk each page's syntax tree",
+        ] {
+            assert!(
+                !all.contains(stale),
+                "`{class}` still says `{stale}`, and it is no longer true: {all}"
+            );
+        }
     }
 }
 
-/// The class nothing runs yet names the caller that is missing, not a
-/// component that is present.
+/// What `facts` is actually waiting for, now that the orchestrator has a
+/// caller: the half that compares a source's value with the pages that
+/// interpolate it.
 #[test]
-fn facts_names_the_caller_that_is_missing() {
+fn facts_names_what_is_actually_missing() {
     let project = site("ver-why-not-caller");
     let outcome = Run::new(["verify", "--only", "facts", "--offline"])
         .cwd(project.path())
         .output();
 
-    assert!(
-        outcome.all().contains("`liyasa verify`"),
-        "{}",
-        outcome.all()
-    );
+    assert!(outcome.all().contains("is not built"), "{}", outcome.all());
 }

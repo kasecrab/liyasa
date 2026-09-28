@@ -124,3 +124,71 @@ fn a_pinned_runner_runs_the_fence_and_reports_what_it_found() {
     // CLI-31: a failed check is `Verification`, not `Errors`.
     assert_eq!(outcome.code, Exit::Verification.code(), "{}", outcome.all());
 }
+
+/// The case CI hit and this machine could not: a sandbox that assembles, and
+/// a page with nothing to check. The class runs, finds no fence, and says so
+/// with a count — it must not fall back to "did not run", which was the note
+/// for a CLI that could not call the orchestrator at all.
+///
+/// `local` is what makes this the same on both: it needs no container engine,
+/// so the class runs here exactly as `container` makes it run on CI.
+#[test]
+fn a_page_with_no_fences_reports_a_count_rather_than_a_refusal() {
+    let project = Dir::new("ver-code-empty");
+    project.write(
+        "liyasa.json",
+        r#"{"name":"Acme docs","verify":{"runners":{"sandbox":"local"}}}"#,
+    );
+    project.write(
+        "index.md",
+        "---\ntitle: Home\ndescription: The home page.\n---\n\n# Home\n\nProse, and no fence.\n",
+    );
+
+    let outcome = Run::new(["verify", "--only", "code", "--offline"])
+        .cwd(project.path())
+        .output();
+
+    assert!(
+        outcome
+            .all()
+            .contains("code: 0 passed, 0 failed, 0 skipped"),
+        "{}",
+        outcome.all()
+    );
+    assert!(
+        !outcome.all().contains("W0019"),
+        "the class ran, so it must not report that it did not: {}",
+        outcome.all()
+    );
+    assert_eq!(outcome.code, Exit::Success.code(), "{}", outcome.all());
+}
+
+/// And when the sandbox cannot be assembled, exactly one note comes back.
+///
+/// Two used to: the class-level one carrying `E0611`, and a second from the
+/// loop that reports a class this command never attempted, still saying the
+/// orchestrator was waiting for a caller — in the same report that called it.
+#[test]
+fn a_class_that_could_not_run_is_reported_once() {
+    let project = site("ver-code-once", "remote");
+
+    let outcome = Run::new(["verify", "--only", "code", "--offline"])
+        .cwd(project.path())
+        .output();
+
+    // Counting the code would count twice: the header and the help URL both
+    // carry it. The sentence appears once per note.
+    assert_eq!(
+        outcome.all().matches("`code` did not run").count(),
+        1,
+        "{}",
+        outcome.all()
+    );
+    assert!(
+        !outcome
+            .all()
+            .contains("to call the verification orchestrator"),
+        "the note still says the orchestrator has no caller: {}",
+        outcome.all()
+    );
+}

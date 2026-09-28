@@ -91,11 +91,15 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
         _ => None,
     };
 
+    // Both arms mark the class handled, including the ones that report why
+    // nothing ran. The loop below is for a class this command never attempts,
+    // and a class that was attempted must not also be described as waiting on
+    // a caller that just called it.
     if classes.contains(&CheckClass::Code) {
+        ran.push(CheckClass::Code);
         match rendered.as_deref() {
             Some(pages) => match code_checks(global, format, &built, pages) {
                 Ok(report) => {
-                    ran.push(CheckClass::Code);
                     failed |= report.failed;
                     out.extend(report.diagnostics);
                 }
@@ -105,20 +109,23 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
         }
     }
 
-    if classes.contains(&CheckClass::Prose)
-        && let Some(pages) = rendered.as_deref()
-    {
-        let found = crate::checks::prose(&built.project.root, pages);
+    if classes.contains(&CheckClass::Prose) {
         ran.push(CheckClass::Prose);
-        failed |= found.has_errors();
-        if !global.quiet && format == crate::cli::Format::Text {
-            println!(
-                "prose: {} finding{}",
-                found.len(),
-                if found.len() == 1 { "" } else { "s" }
-            );
+        match rendered.as_deref() {
+            Some(pages) => {
+                let found = crate::checks::prose(&built.project.root, pages);
+                failed |= found.has_errors();
+                if !global.quiet && format == crate::cli::Format::Text {
+                    println!(
+                        "prose: {} finding{}",
+                        found.len(),
+                        if found.len() == 1 { "" } else { "s" }
+                    );
+                }
+                out.extend(found);
+            }
+            None => out.push(note(CheckClass::Prose, NO_PAGES)),
         }
-        out.extend(found);
     }
     for class in &classes {
         if ran.contains(class) {
@@ -632,19 +639,17 @@ fn unavailable(class: CheckClass, refreshed: bool) -> Option<Diagnostic> {
         // What is still missing is the other half: checking a fact's value
         // against the pages that interpolate it.
         CheckClass::Facts if refreshed => {
-            "fact sources were re-read; checking their values against the pages that use them needs `liyasa verify` to call the verification orchestrator, which it does not yet do"
+            "fact sources were re-read; checking their values against the pages that interpolate them is not built"
         }
-        CheckClass::Code => {
-            "code runners need `liyasa verify` to call the verification orchestrator, which it does not yet do"
-        }
+        // `code` and `prose` are run above, and say for themselves why a run
+        // produced nothing. Reaching here would mean reporting that the
+        // orchestrator has no caller in the same report that called it.
+        CheckClass::Code | CheckClass::Prose => return None,
         CheckClass::Facts => {
-            "fact sources need `liyasa verify` to call the verification orchestrator, which it does not yet do"
+            "fact sources can be re-read with `--refresh`; checking their values against the pages that interpolate them is not built"
         }
         CheckClass::Screenshots => {
             "screenshot comparison is not built; capturing a page to compare needs the companion runtime"
-        }
-        CheckClass::Prose => {
-            "prose rules need `liyasa verify` to walk each page's syntax tree, which it does not yet do"
         }
     };
     Some(note(class, reason))
