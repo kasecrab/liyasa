@@ -268,6 +268,44 @@ pub fn scope_of_query(query: &str, regions: &Regions) -> Scope {
     Scope::Union
 }
 
+/// The regions a gate admits, as a list rather than as a sentence.
+///
+/// One implementation of the `only`/`except` rule, because it has more than one
+/// caller: [`label`] formats it for the agent surfaces (AUTH-53) and a build
+/// needs the same set for the search index, where `regions: { except: ["eu"] }`
+/// must not index as "no restriction" (AUTH-53, defect 157).
+///
+/// **Three answers, not two.** An empty list and no list mean opposite things
+/// here, and collapsing them is how a gate that admits nobody becomes a page
+/// that everybody matches:
+///
+/// - `None` — no gate. Every region, and every reader whose region is unknown.
+/// - `Some(list)` — exactly those regions.
+/// - `Some(empty)` — no region at all. A gate can reach this by contradicting
+///   itself, `only: ["us"], except: ["us"]`, or by excluding every region the
+///   site declares. It is not the same as having said nothing.
+///
+/// `only` wins where both are given: a gate that names the regions it is for
+/// has already answered, and `except` narrows that list rather than widening it.
+pub fn allowed(gate: Option<&RegionGate>, regions: &Regions) -> Option<Vec<String>> {
+    let gate = gate?;
+    let only = gate.only.clone().unwrap_or_default();
+    let except = gate.except.clone().unwrap_or_default();
+    if only.is_empty() && except.is_empty() {
+        return None;
+    }
+    let from = match only.is_empty() {
+        false => &only,
+        true => &regions.list,
+    };
+    Some(
+        from.iter()
+            .filter(|code| !except.iter().any(|one| one == *code))
+            .cloned()
+            .collect(),
+    )
+}
+
 /// The "Available in: US, CA" line a gated block carries in the union render
 /// (AUTH-53).
 ///
@@ -275,25 +313,7 @@ pub fn scope_of_query(query: &str, regions: &Regions) -> Scope {
 /// upper-cased because AUTH-50's are ISO 3166-1 alpha-2 and an aggregate such
 /// as `eu` reads as `EU` beside them.
 pub fn label(gate: Option<&RegionGate>, regions: &Regions) -> Option<String> {
-    let gate = gate?;
-    let only = gate.only.clone().unwrap_or_default();
-    let except = gate.except.clone().unwrap_or_default();
-    if only.is_empty() && except.is_empty() {
-        return None;
-    }
-    let shown: Vec<String> = match only.is_empty() {
-        false => only
-            .iter()
-            .filter(|code| !except.iter().any(|one| one == *code))
-            .cloned()
-            .collect(),
-        true => regions
-            .list
-            .iter()
-            .filter(|code| !except.iter().any(|one| one == *code))
-            .cloned()
-            .collect(),
-    };
+    let shown = allowed(gate, regions)?;
     if shown.is_empty() {
         return Some("Available in: no region".to_owned());
     }
@@ -686,6 +706,50 @@ mod tests {
         assert_eq!(
             scope_of_query("?region=CA&format=md", &regions),
             Scope::One("ca".to_owned())
+        );
+    }
+
+    /// The distinction the search index needs: a gate that admits nobody must
+    /// not arrive at a caller looking like a gate that said nothing, because
+    /// `ReaderScope::admits` opens on an empty list.
+    #[test]
+    fn no_gate_and_no_region_are_different_answers() {
+        let regions = regions(&["choice"]);
+        assert_eq!(allowed(None, &regions), None, "no gate at all");
+        assert_eq!(
+            allowed(Some(&gate(&[], &[])), &regions),
+            None,
+            "a declaration that names nothing is no gate either"
+        );
+        assert_eq!(
+            allowed(Some(&gate(&["us"], &["us"])), &regions),
+            Some(Vec::new()),
+            "a gate that contradicts itself admits nobody"
+        );
+        assert_eq!(
+            allowed(Some(&gate(&[], &["us", "ca", "eu"])), &regions),
+            Some(Vec::new()),
+            "excluding every declared region admits nobody"
+        );
+    }
+
+    #[test]
+    fn the_allowed_set_is_the_one_the_label_reads() {
+        let regions = regions(&["choice"]);
+        assert_eq!(
+            allowed(Some(&gate(&["us", "ca"], &[])), &regions),
+            Some(vec!["us".to_owned(), "ca".to_owned()]),
+            "the order the author wrote"
+        );
+        assert_eq!(
+            allowed(Some(&gate(&[], &["eu"])), &regions),
+            Some(vec!["us".to_owned(), "ca".to_owned()]),
+            "an exclusion is the declared list minus it"
+        );
+        assert_eq!(
+            allowed(Some(&gate(&["us", "ca"], &["ca"])), &regions),
+            Some(vec!["us".to_owned()]),
+            "`only` names the set and `except` narrows it"
         );
     }
 

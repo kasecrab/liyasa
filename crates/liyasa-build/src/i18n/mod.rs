@@ -8,6 +8,7 @@
 pub mod config;
 pub mod fallback;
 pub mod locales;
+pub mod nav;
 pub mod negotiate;
 pub mod openapi;
 pub mod regions;
