@@ -13,6 +13,7 @@ mod api_11_bounds;
 mod api_11_complex;
 mod api_13_pills;
 mod api_14_markdown;
+mod api_21_promotion;
 mod api_30_codegen;
 mod api_30_registry;
 mod api_31_prefill;

@@ -9,8 +9,9 @@
 //! Once both exist, they can disagree, and a page that disagrees with the API
 //! is worse than no page: [`drift`] is what the verifier reports.
 
-use liyasa_core::components::{PropDef, PropSchema, PropType, SlotDef};
+use liyasa_core::components::{ComponentInst, PropDef, PropSchema, PropType, SlotDef};
 use liyasa_core::diagnostics::{Diagnostic, code};
+use liyasa_core::document::PropValue;
 use serde::{Deserialize, Serialize};
 
 use crate::config::ApiConfig;
@@ -546,5 +547,99 @@ paths:
             "GET /users/{id}",
             "so promoting the page keeps its identity (API-21)"
         );
+    }
+}
+
+// ---- reading a page's components back (API-21) ----
+
+/// The component names an endpoint's header may be written as.
+const ENDPOINT_NAMES: &[&str] = &["endpoint", "Endpoint"];
+/// The names a parameter row may be written as, matching
+/// `liyasa_components::components::api`'s aliases.
+const PARAM_NAMES: &[&str] = &["param", "param-field", "ParamField", "Param"];
+/// The names a response field may be written as.
+const RESPONSE_NAMES: &[&str] = &["response-field", "ResponseField"];
+
+/// Every endpoint a page describes by hand, read back out of its components.
+///
+/// `drift` compares an [`Endpoint`] with a spec, and until this existed nothing
+/// built one: the verifier had a comparison whose input it could not construct
+/// without learning what these props mean, which is this crate's job and not
+/// its (see [`prop_schemas`]).
+///
+/// `instances` is the page's component instances in document order. A row
+/// belongs to the endpoint above it, because that is what a reader sees; a row
+/// with no endpoint above it belongs to nothing and is dropped rather than
+/// guessed at.
+pub fn endpoints(instances: &[ComponentInst]) -> Vec<Endpoint> {
+    let mut out: Vec<Endpoint> = Vec::new();
+    for inst in instances {
+        let name = inst.name.as_str();
+        if ENDPOINT_NAMES.contains(&name) {
+            out.push(Endpoint {
+                method: prop_str(inst, "method").unwrap_or_default(),
+                path: prop_str(inst, "path").unwrap_or_default(),
+                title: prop_str(inst, "title"),
+                description: None,
+                deprecated: prop_bool(inst, "deprecated"),
+                params: Vec::new(),
+                response_fields: Vec::new(),
+                base_url: prop_str(inst, "baseUrl"),
+            });
+            continue;
+        }
+        let Some(endpoint) = out.last_mut() else {
+            continue;
+        };
+        if PARAM_NAMES.contains(&name) {
+            endpoint.params.push(field_of(inst, true));
+        } else if RESPONSE_NAMES.contains(&name) {
+            endpoint.response_fields.push(field_of(inst, false));
+        }
+    }
+    out
+}
+
+fn field_of(inst: &ComponentInst, located: bool) -> ManualField {
+    ManualField {
+        name: prop_str(inst, "name").unwrap_or_default(),
+        // A response field has no location, so the prop is not read for one
+        // even if an author wrote it.
+        location: located
+            .then(|| prop_str(inst, "in").as_deref().and_then(ParameterIn::parse))
+            .flatten(),
+        type_label: prop_str(inst, "type"),
+        required: prop_bool(inst, "required"),
+        deprecated: prop_bool(inst, "deprecated"),
+        default: prop_str(inst, "default"),
+        // The prose is the component's CONTENT, not a prop, and reading it
+        // needs an AST walk this crate does not own. `drift` compares names,
+        // types and requiredness, never descriptions, so nothing is lost.
+        description: None,
+    }
+}
+
+fn prop_str(inst: &ComponentInst, name: &str) -> Option<String> {
+    match inst.props.get(name)? {
+        PropValue::Str(text) => Some(text.clone()),
+        // An expression the expander left alone still names something; its
+        // literal text is the honest reading, the same choice
+        // `liyasa_components::props::Reader::str` makes.
+        PropValue::Expr(text) => Some(text.clone()),
+        PropValue::Num(number) => Some(number.to_string()),
+        PropValue::Bool(flag) => Some(flag.to_string()),
+        PropValue::List(_) => None,
+    }
+}
+
+fn prop_bool(inst: &ComponentInst, name: &str) -> bool {
+    match inst.props.get(name) {
+        Some(PropValue::Bool(flag)) => *flag,
+        // A bare flag is `true` (RFC 0304) and an author may also write the
+        // word; neither should read as false.
+        Some(PropValue::Str(text)) => !matches!(text.as_str(), "false" | "0" | ""),
+        Some(PropValue::Num(number)) => *number != 0.0,
+        Some(_) => true,
+        None => false,
     }
 }
