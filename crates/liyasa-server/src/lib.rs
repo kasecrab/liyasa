@@ -15,3 +15,7 @@ pub mod auth;
 // WP-28 contributes `org`: the organization and project model, plan policy,
 // credits, the audit log and notification routing (RFC 2800).
 pub mod org;
+
+// WP-19 contributes `mcp`: the MCP server of MCP-01..05, served at `/mcp`
+// with `/_liyasa/mcp` as an alias (RFC 1900).
+pub mod mcp;
