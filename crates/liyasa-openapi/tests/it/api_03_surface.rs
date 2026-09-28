@@ -135,7 +135,7 @@ fn the_body_is_the_components_a_manual_page_would_use() {
 
     assert!(
         page.source
-            .contains(r#":::endpoint{method="GET" path="/widgets/{id}""#),
+            .contains(r#":::endpoint{method="get" path="/widgets/{id}""#),
         "the method pill and the path come from the endpoint component (CMP-43), \
          which the audit of 2026-09-21 checked works end to end:\n{}",
         page.source

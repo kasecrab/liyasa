@@ -416,13 +416,15 @@ fn schema_body(page: &SchemaPage) -> String {
 fn operation_body(page: &Page, spec: &str, operation_id: Option<&str>) -> String {
     let mut out = String::new();
 
+    // `endpoint.method` is `one_of(&["get", "post", ...])` — the LOWERCASE set.
+    // The component upper-cases it for the pill; the prop is the spec's value.
     let mut props = vec![
-        ("method", page.method.as_str().to_owned()),
-        ("path", page.path.clone()),
-        ("spec", spec.to_owned()),
+        ("method", Prop::Text(page.method.lowercase().to_owned())),
+        ("path", Prop::Text(page.path.clone())),
+        ("spec", Prop::Text(spec.to_owned())),
     ];
     if let Some(id) = operation_id {
-        props.push(("operation", id.to_owned()));
+        props.push(("operation", Prop::Text(id.to_owned())));
     }
     directive(&mut out, "endpoint", &props, "");
 
@@ -513,28 +515,30 @@ fn rows(out: &mut String, field: &Field, prefix: &str, location: Option<&str>) {
         format!("{prefix}.{}", field.name)
     };
 
-    let mut props: Vec<(&str, String)> = vec![("name", name.clone())];
+    let mut props: Vec<(&str, Prop)> = vec![("name", Prop::Text(name.clone()))];
     if let Some(location) = location {
-        props.push(("in", location.to_owned()));
+        props.push(("in", Prop::Text(location.to_owned())));
     }
     if !field.type_label.is_empty() {
-        props.push(("type", field.type_label.clone()));
+        props.push(("type", Prop::Text(field.type_label.clone())));
     }
+    // `required` and `deprecated` are `PropType::Bool`. A bare flag is `true`
+    // (RFC 0304), which is what the schema wants; `required="true"` is E0315.
     if field.required {
-        props.push(("required", "true".to_owned()));
+        props.push(("required", Prop::Flag));
     }
     if field.deprecated {
-        props.push(("deprecated", "true".to_owned()));
+        props.push(("deprecated", Prop::Flag));
     }
     if let Some(default) = &field.default {
-        props.push(("default", crate::example::as_text(default)));
+        props.push(("default", Prop::Text(crate::example::as_text(default))));
     }
     if let Some(example) = &field.example {
-        props.push(("example", crate::example::as_text(example)));
+        props.push(("example", Prop::Text(crate::example::as_text(example))));
     }
     if !field.enumeration.is_empty() {
-        // A list prop is written `[a, b]`, and a member holding a quote or a
-        // comma cannot be spelled, so the whole list goes or none of it does.
+        // A list member holding a quote or a comma cannot be spelled, so the
+        // whole list goes or none of it does.
         let members: Vec<String> = field
             .enumeration
             .iter()
@@ -544,7 +548,7 @@ fn rows(out: &mut String, field: &Field, prefix: &str, location: Option<&str>) {
             .iter()
             .all(|member| safe(member) && !member.contains(','))
         {
-            props.push(("enum", format!("[{}]", members.join(", "))));
+            props.push(("enum", Prop::List(members)));
         }
     }
 
@@ -583,19 +587,33 @@ fn rows(out: &mut String, field: &Field, prefix: &str, location: Option<&str>) {
     }
 }
 
+/// One prop value, spelled the way the component's declared type wants it.
+///
+/// The distinction is not cosmetic. `directives::props::scalar` reads a bare
+/// `true` as `PropValue::Bool` and a quoted `"true"` as `PropValue::Str`, and
+/// the components declare `required` and `deprecated` as `PropType::Bool`. So
+/// `required="true"` is `E0315` — "expects a boolean, and this is a string" —
+/// and the row is dropped. Dispatching on the value's SHAPE instead would break
+/// the other way round: `default` is `PropType::Str`, so a schema whose default
+/// really is the text `true` must stay quoted.
+enum Prop {
+    Text(String),
+    Flag,
+    /// `[a, b]`, for a `PropType::List`.
+    List(Vec<String>),
+}
+
 /// A container directive with its props and its content.
-fn directive(out: &mut String, name: &str, props: &[(&str, String)], content: &str) {
+fn directive(out: &mut String, name: &str, props: &[(&str, Prop)], content: &str) {
     out.push_str(":::");
     out.push_str(name);
     let written: Vec<String> = props
         .iter()
-        .filter(|(_, value)| safe(value))
-        .map(|(key, value)| {
-            if value.starts_with('[') {
-                format!("{key}={value}")
-            } else {
-                format!("{key}=\"{value}\"")
-            }
+        .filter_map(|(key, value)| match value {
+            Prop::Text(text) if safe(text) => Some(format!("{key}=\"{text}\"")),
+            Prop::Text(_) => None,
+            Prop::Flag => Some((*key).to_owned()),
+            Prop::List(members) => Some(format!("{key}=[{}]", members.join(", "))),
         })
         .collect();
     if !written.is_empty() {
