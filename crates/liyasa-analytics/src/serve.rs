@@ -55,6 +55,53 @@ pub struct Analytics {
 }
 
 impl Analytics {
+    /// The two pools and the site, with a default for everything else.
+    ///
+    /// `liyasa-server`'s `Subtree.mount` is `fn(&Arc<AppState>) -> Mount`, and
+    /// `AppState` is a type this crate cannot name without a dependency cycle
+    /// (RFC 1704). So the adapter that bridges the two lives there and this
+    /// exists to keep it short: everything `AppState` does not carry has a
+    /// default here rather than being a parameter the adapter has to invent.
+    ///
+    /// The defaults are the safe readings. No integrations block means nothing
+    /// is enabled; no page facts means the three ANA-40 cards that need the
+    /// build's view of a page are absent rather than computed from zeroes.
+    pub fn from_pools(analytics: SqlitePool, app: SqlitePool, site: impl Into<String>) -> Self {
+        Self {
+            analytics,
+            app,
+            site: site.into(),
+            project: None,
+            retention: retention::Policy::default(),
+            integrations: Value::Null,
+            pages: Vec::new(),
+        }
+    }
+
+    pub fn with_project(mut self, project: ProjectId) -> Self {
+        self.project = Some(project);
+        self
+    }
+
+    /// An operator's `analytics.retention`, or a plan's
+    /// `analytics_retention_days` where one narrows it.
+    pub fn with_retention(mut self, retention: retention::Policy) -> Self {
+        self.retention = retention;
+        self
+    }
+
+    /// The `integrations` block of `liyasa.json` (ANA-60).
+    pub fn with_integrations(mut self, integrations: Value) -> Self {
+        self.integrations = integrations;
+        self
+    }
+
+    /// Page facts from the build and the verification engine (ANA-40).
+    pub fn with_pages(mut self, pages: Vec<PageFacts>) -> Self {
+        self.pages = pages;
+        self
+    }
+
     fn inputs(&self) -> Inputs<'_> {
         Inputs {
             analytics: &self.analytics,
@@ -529,8 +576,12 @@ async fn vendors(State(state): State<Arc<Analytics>>) -> Response {
 
 async fn ratings(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) -> Response {
     let window = Window::parse(raw.as_deref(), now_ms());
+    // `page`, not `route`. `route` is already ANA-71's route-PREFIX filter
+    // (`Filters::from_query`), and this wants one exact page; one name meaning
+    // both would make "ratings for /guides" silently mean "ratings for
+    // everything under /guides".
     let route = url::form_urlencoded::parse(raw.unwrap_or_default().as_bytes())
-        .find(|(name, _)| name == "route")
+        .find(|(name, _)| name == "page")
         .map(|(_, value)| value.into_owned());
     let points = unwrap_or_fail!(
         feedback::ratings_over_time(&state.app, window.range, window.grain, route.as_deref()).await

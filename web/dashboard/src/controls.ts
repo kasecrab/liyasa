@@ -7,7 +7,7 @@
 
 import { html } from "./escape.ts";
 import type { Fragment } from "./escape.ts";
-import { FILTER_DIMENSIONS, activeFilterCount } from "./filters.ts";
+import { CALLER_KINDS, FILTER_DIMENSIONS, activeFilterCount } from "./filters.ts";
 import type { Filters } from "./filters.ts";
 import { describeRange, RANGE_PRESETS } from "./ranges.ts";
 import type { Range } from "./ranges.ts";
@@ -23,6 +23,36 @@ export interface FilterOptions {
   region?: string[];
   product?: string[];
   caller?: string[];
+}
+
+/**
+ * The values the filter bar offers, from the variant split the API returns.
+ *
+ * ANA-71 asks for filters by version, locale, region, product and caller type.
+ * The first four are only knowable from the data — a site with no versions has
+ * no version filter, and inventing one would offer a control that selects
+ * nothing. Caller type is a closed set, so it is always offered.
+ *
+ * A value the reader has already filtered to is kept even when the split no
+ * longer lists it: filtering to `v1` narrows the data to `v1`, and dropping the
+ * option would leave no way to clear it.
+ */
+export function filterOptionsFrom(
+  split: Partial<Record<string, Array<{ name: string }>>> | undefined,
+  current: Filters,
+): FilterOptions {
+  const values = (dimension: string, chosen: string | undefined): string[] => {
+    const listed = (split?.[dimension] ?? []).map((row) => row.name);
+    if (chosen && !listed.includes(chosen)) return [chosen, ...listed];
+    return listed;
+  };
+  return {
+    version: values("version", current.version),
+    locale: values("locale", current.locale),
+    region: values("region", current.region),
+    product: values("product", current.product),
+    caller: [...CALLER_KINDS],
+  };
 }
 
 export function renderRangePicker(state: RouteState, range: Range): Fragment {

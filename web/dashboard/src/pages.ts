@@ -15,6 +15,7 @@ import type { Problem, Result } from "./api.ts";
 import { findEndpoint } from "./api.ts";
 import { routeHref } from "./router.ts";
 import type { RouteState } from "./router.ts";
+import type { Filters } from "./filters.ts";
 import type { Grain, Range } from "./ranges.ts";
 import { bucketsOf, grainFor } from "./ranges.ts";
 
@@ -225,8 +226,63 @@ export function renderDeliveryNote(ratio: number | null | undefined): Fragment |
   </p>`;
 }
 
+/** ANA-10's four `variant` dimensions, as the API returns them. */
+export interface VariantSplit {
+  version: NameRow[];
+  locale: NameRow[];
+  region: NameRow[];
+  product: NameRow[];
+}
+
+/**
+ * The version, locale, region and product splits (ANA-10).
+ *
+ * Each is a link that sets the matching filter, because the answer to "who is
+ * still on v1" is always followed by "show me only them". `routeHref` is what
+ * makes that a shareable URL rather than a click nobody else can repeat.
+ */
+export function renderVariants(state: RouteState, split: VariantSplit): Fragment {
+  const dimensions: Array<[keyof VariantSplit, string, keyof Filters]> = [
+    ["version", "Version", "version"],
+    ["locale", "Locale", "locale"],
+    ["region", "Region", "region"],
+    ["product", "Product", "product"],
+  ];
+  const groups = dimensions.map(([key, label, field]) => {
+    const rows = split[key] ?? [];
+    if (rows.length === 0) return null;
+    const total = rows.reduce((sum, row) => sum + row.count, 0);
+    return html`<div class="ly-variant" data-dimension="${key}">
+      <h4>${label}</h4>
+      <ul class="ly-variant-list">
+        ${rows.map((row) => {
+          const chosen = state.filters[field] === row.name;
+          const href = routeHref({
+            ...state,
+            filters: { ...state.filters, [field]: chosen ? undefined : row.name },
+          });
+          return html`<li>
+            <a href="${href}" aria-pressed="${chosen ? "true" : "false"}">${row.name}</a>
+            <b>${formatCount(row.count)}</b>
+            <span class="ly-variant-share"
+              >${formatPercent(total > 0 ? row.count / total : null)}</span
+            >
+          </li>`;
+        })}
+      </ul>
+    </div>`;
+  });
+  if (groups.every((group) => group === null)) {
+    return html`<p class="ly-empty">
+      No version, locale, region or product was recorded over this period.
+    </p>`;
+  }
+  return html`<div class="ly-variants">${groups}</div>`;
+}
+
 export function renderTraffic(state: RouteState, data: PageData): Fragment {
   const series = data["traffic.series"] as Result<SeriesPayload> | undefined;
+  const splits = data["traffic.variants"] as Result<VariantSplit> | undefined;
   const pages = data["traffic.pages"] as Result<{ pages: PageRow[] }> | undefined;
   const referrers = data["traffic.referrers"] as Result<{ referrers: NameRow[] }> | undefined;
   const journeys = data["traffic.journeys"] as
@@ -263,10 +319,13 @@ export function renderTraffic(state: RouteState, data: PageData): Fragment {
     );
     return html`${entry}${exit}`;
   });
+  const variants = panel("Version, locale, region and product", splits, (value) =>
+    renderVariants(state, value),
+  );
   const tree = html`<p class="ly-source">
     <a href="${routeHref({ ...state, page: "content" })}">See the page tree</a>
   </p>`;
-  return html`${overTime}${mostRead}${hosts}${journey}${renderDeliveryNote(ratio)}${tree}`;
+  return html`${overTime}${mostRead}${variants}${hosts}${journey}${renderDeliveryNote(ratio)}${tree}`;
 }
 
 export interface QueryRow {
@@ -373,9 +432,93 @@ export interface FeedbackRow {
   status: string;
 }
 
+/** One bucket of `feedback.ratings`. */
+export interface RatingPoint {
+  bucket: number;
+  up: number;
+  down: number;
+}
+
+export interface RatingSeries {
+  grain: Grain;
+  route: string | null;
+  points: RatingPoint[];
+}
+
+/** A page's standing, from `feedback.pages`. */
+export interface RatedPage {
+  route: string;
+  up: number;
+  down: number;
+  agentReports: number;
+  open: number;
+}
+
+/**
+ * ANA-30's "per-page ratings over time", as a chart of the same shape the
+ * traffic series uses so the two read alike.
+ *
+ * Up and down rather than a single score line: a page that went from two votes
+ * to two hundred at the same ratio is a different story from one that did not,
+ * and a score line hides the denominator.
+ */
+export function ratingsChart(id: string, series: RatingSeries): ChartSpec {
+  return {
+    id,
+    title: series.route ? `Ratings for ${series.route}` : "Ratings, site-wide",
+    grain: series.grain,
+    kind: "bar",
+    buckets: series.points.map((point) => point.bucket),
+    series: [
+      { key: "up", label: "Helpful", values: series.points.map((p) => p.up) },
+      { key: "down", label: "Not helpful", values: series.points.map((p) => p.down) },
+    ],
+  };
+}
+
+/**
+ * The pages worth looking at first (ANA-30).
+ *
+ * Agent reports are a column of their own and never folded into the score: an
+ * agent that could not finish a task is reporting something a reader's thumb
+ * does not. A page with no votes shows no score rather than 0%.
+ */
+export function renderRatedPages(state: RouteState, pages: RatedPage[]): Fragment {
+  if (pages.length === 0) return html`<p class="ly-empty">Nothing rated over this period.</p>`;
+  const rows = pages.map((page) => {
+    const votes = page.up + page.down;
+    const href = routeHref({ ...state, focus: page.route });
+    return html`<tr>
+      <td><a href="${href}">${page.route}</a></td>
+      <td>${votes > 0 ? formatPercent(page.up / votes) : "—"}</td>
+      <td>${formatCount(page.up)}</td>
+      <td>${formatCount(page.down)}</td>
+      <td>${formatCount(page.agentReports)}</td>
+      <td>${formatCount(page.open)}</td>
+    </tr>`;
+  });
+  return html`<table class="ly-table">
+    <thead>
+      <tr>
+        <th scope="col">Page</th>
+        <th scope="col">Score</th>
+        <th scope="col">Helpful</th>
+        <th scope="col">Not helpful</th>
+        <th scope="col">Agent reports</th>
+        <th scope="col">Open</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+    </tbody>
+  </table>`;
+}
+
 export function renderFeedback(state: RouteState, data: PageData): Fragment {
   const list = data["feedback.list"] as Result<{ items: FeedbackRow[] }> | undefined;
   const summary = data["feedback.summary"] as Result<{ up: number; down: number }> | undefined;
+  const ratings = data["feedback.ratings"] as Result<RatingSeries> | undefined;
+  const rated = data["feedback.pages"] as Result<{ pages: RatedPage[] }> | undefined;
 
   const score = panel("Score", summary, (value) => {
     const total = value.up + value.down;
@@ -410,7 +553,11 @@ export function renderFeedback(state: RouteState, data: PageData): Fragment {
         <a href="${routeHref({ ...state, page: "truth" })}">Open the drift queue</a>
       </p>`;
   });
-  return html`${score}${written}`;
+  const overTime = panel("Ratings over time", ratings, (value) =>
+    renderChart(ratingsChart("feedback-ratings", value)),
+  );
+  const byPage = panel("By page", rated, (value) => renderRatedPages(state, value.pages));
+  return html`${score}${overTime}${byPage}${written}`;
 }
 
 export interface DriftRow {

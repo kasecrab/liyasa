@@ -468,6 +468,95 @@ async fn pressing_a_card_queues_a_real_job_and_an_unknown_action_queues_nothing(
 }
 
 #[tokio::test]
+async fn ratings_for_one_page_are_not_the_ratings_for_all_of_them() {
+    // The parameter is `page` and not `route` on purpose: `route` is ANA-71's
+    // prefix filter, and one name for both would make "ratings for /guides"
+    // quietly mean "everything under /guides".
+    let (state, _dirs) = state("serve-ratings", Vec::new()).await;
+    let repo = liyasa_store::repos::Feedback::new(state.app.clone());
+    for (n, route, rating) in [
+        (1, "/payments", 1),
+        (2, "/payments", -1),
+        (3, "/guides/start", 1),
+    ] {
+        repo.insert(&liyasa_store::records::FeedbackRecord {
+            id: format!("f{n}"),
+            project: None,
+            route: route.to_owned(),
+            kind: liyasa_store::records::FeedbackKind::Page,
+            rating: Some(rating),
+            category: None,
+            text: None,
+            block_id: None,
+            task: None,
+            status: liyasa_store::records::FeedbackStatus::Open,
+            notes: String::new(),
+            created_at: T0 + HOUR,
+            updated_at: T0 + HOUR,
+        })
+        .await
+        .expect("a feedback row");
+    }
+    let router = mount(state);
+
+    let (status, all) = get(
+        &router,
+        &format!(
+            "/_liyasa/api/v1/analytics/feedback/ratings?{}&grain=day",
+            window()
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(all["route"], Value::Null);
+    assert_eq!(all["points"][0]["up"], 2);
+    assert_eq!(all["points"][0]["down"], 1);
+
+    let (_, one) = get(
+        &router,
+        &format!(
+            "/_liyasa/api/v1/analytics/feedback/ratings?{}&grain=day&page=%2Fpayments",
+            window()
+        ),
+    )
+    .await;
+    assert_eq!(one["route"], "/payments");
+    assert_eq!(one["points"][0]["up"], 1);
+    assert_eq!(one["points"][0]["down"], 1);
+
+    // A prefix in `route` must NOT be read as the page, or the two parameters
+    // have collapsed into one.
+    let (_, prefixed) = get(
+        &router,
+        &format!(
+            "/_liyasa/api/v1/analytics/feedback/ratings?{}&grain=day&route=%2Fpayments",
+            window()
+        ),
+    )
+    .await;
+    assert_eq!(
+        prefixed["route"],
+        Value::Null,
+        "`route` is the prefix filter and does not select one page here"
+    );
+
+    let (_, standing) = get(
+        &router,
+        &format!("/_liyasa/api/v1/analytics/feedback/pages?{}", window()),
+    )
+    .await;
+    let pages = standing["pages"].as_array().expect("pages");
+    assert_eq!(pages.len(), 2);
+    let payments = pages
+        .iter()
+        .find(|p| p["route"] == "/payments")
+        .expect("/payments");
+    assert_eq!(payments["up"], 1);
+    assert_eq!(payments["down"], 1);
+    assert_eq!(payments["agentReports"], 0);
+}
+
+#[tokio::test]
 async fn the_settings_page_gets_the_consent_gate_and_the_statement() {
     let (state, _dirs) = state("serve-settings", Vec::new()).await;
     let router = mount(state);

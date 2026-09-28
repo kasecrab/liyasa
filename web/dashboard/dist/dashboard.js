@@ -916,6 +916,36 @@ function isView(value         )                     {
                     
  
 
+/**
+ * The values the filter bar offers, from the variant split the API returns.
+ *
+ * ANA-71 asks for filters by version, locale, region, product and caller type.
+ * The first four are only knowable from the data — a site with no versions has
+ * no version filter, and inventing one would offer a control that selects
+ * nothing. Caller type is a closed set, so it is always offered.
+ *
+ * A value the reader has already filtered to is kept even when the split no
+ * longer lists it: filtering to `v1` narrows the data to `v1`, and dropping the
+ * option would leave no way to clear it.
+ */
+function filterOptionsFrom(
+  split                                                              ,
+  current         ,
+)                {
+  const values = (dimension        , chosen                    )           => {
+    const listed = (split?.[dimension] ?? []).map((row) => row.name);
+    if (chosen && !listed.includes(chosen)) return [chosen, ...listed];
+    return listed;
+  };
+  return {
+    version: values("version", current.version),
+    locale: values("locale", current.locale),
+    region: values("region", current.region),
+    product: values("product", current.product),
+    caller: [...CALLER_KINDS],
+  };
+}
+
 function renderRangePicker(state            , range       )           {
   const current =
     state.rangeSpec.kind === "last" ? state.rangeSpec.days : Math.round((range.to - range.from) / 86_400_000);
@@ -1232,8 +1262,63 @@ function renderDeliveryNote(ratio                           )                  {
   </p>`;
 }
 
+/** ANA-10's four `variant` dimensions, as the API returns them. */
+                               
+                     
+                    
+                    
+                     
+ 
+
+/**
+ * The version, locale, region and product splits (ANA-10).
+ *
+ * Each is a link that sets the matching filter, because the answer to "who is
+ * still on v1" is always followed by "show me only them". `routeHref` is what
+ * makes that a shareable URL rather than a click nobody else can repeat.
+ */
+function renderVariants(state            , split              )           {
+  const dimensions                                                     = [
+    ["version", "Version", "version"],
+    ["locale", "Locale", "locale"],
+    ["region", "Region", "region"],
+    ["product", "Product", "product"],
+  ];
+  const groups = dimensions.map(([key, label, field]) => {
+    const rows = split[key] ?? [];
+    if (rows.length === 0) return null;
+    const total = rows.reduce((sum, row) => sum + row.count, 0);
+    return html`<div class="ly-variant" data-dimension="${key}">
+      <h4>${label}</h4>
+      <ul class="ly-variant-list">
+        ${rows.map((row) => {
+          const chosen = state.filters[field] === row.name;
+          const href = routeHref({
+            ...state,
+            filters: { ...state.filters, [field]: chosen ? undefined : row.name },
+          });
+          return html`<li>
+            <a href="${href}" aria-pressed="${chosen ? "true" : "false"}">${row.name}</a>
+            <b>${formatCount(row.count)}</b>
+            <span class="ly-variant-share"
+              >${formatPercent(total > 0 ? row.count / total : null)}</span
+            >
+          </li>`;
+        })}
+      </ul>
+    </div>`;
+  });
+  if (groups.every((group) => group === null)) {
+    return html`<p class="ly-empty">
+      No version, locale, region or product was recorded over this period.
+    </p>`;
+  }
+  return html`<div class="ly-variants">${groups}</div>`;
+}
+
 function renderTraffic(state            , data          )           {
   const series = data["traffic.series"]                                     ;
+  const splits = data["traffic.variants"]                                    ;
   const pages = data["traffic.pages"]                                            ;
   const referrers = data["traffic.referrers"]                                                ;
   const journeys = data["traffic.journeys"]   
@@ -1270,10 +1355,13 @@ function renderTraffic(state            , data          )           {
     );
     return html`${entry}${exit}`;
   });
+  const variants = panel("Version, locale, region and product", splits, (value) =>
+    renderVariants(state, value),
+  );
   const tree = html`<p class="ly-source">
     <a href="${routeHref({ ...state, page: "content" })}">See the page tree</a>
   </p>`;
-  return html`${overTime}${mostRead}${hosts}${journey}${renderDeliveryNote(ratio)}${tree}`;
+  return html`${overTime}${mostRead}${variants}${hosts}${journey}${renderDeliveryNote(ratio)}${tree}`;
 }
 
                            
@@ -1380,9 +1468,93 @@ function renderAssistant(_state            , data          )           {
                  
  
 
+/** One bucket of `feedback.ratings`. */
+                              
+                 
+             
+               
+ 
+
+                               
+               
+                       
+                        
+ 
+
+/** A page's standing, from `feedback.pages`. */
+                            
+                
+             
+               
+                       
+               
+ 
+
+/**
+ * ANA-30's "per-page ratings over time", as a chart of the same shape the
+ * traffic series uses so the two read alike.
+ *
+ * Up and down rather than a single score line: a page that went from two votes
+ * to two hundred at the same ratio is a different story from one that did not,
+ * and a score line hides the denominator.
+ */
+function ratingsChart(id        , series              )            {
+  return {
+    id,
+    title: series.route ? `Ratings for ${series.route}` : "Ratings, site-wide",
+    grain: series.grain,
+    kind: "bar",
+    buckets: series.points.map((point) => point.bucket),
+    series: [
+      { key: "up", label: "Helpful", values: series.points.map((p) => p.up) },
+      { key: "down", label: "Not helpful", values: series.points.map((p) => p.down) },
+    ],
+  };
+}
+
+/**
+ * The pages worth looking at first (ANA-30).
+ *
+ * Agent reports are a column of their own and never folded into the score: an
+ * agent that could not finish a task is reporting something a reader's thumb
+ * does not. A page with no votes shows no score rather than 0%.
+ */
+function renderRatedPages(state            , pages             )           {
+  if (pages.length === 0) return html`<p class="ly-empty">Nothing rated over this period.</p>`;
+  const rows = pages.map((page) => {
+    const votes = page.up + page.down;
+    const href = routeHref({ ...state, focus: page.route });
+    return html`<tr>
+      <td><a href="${href}">${page.route}</a></td>
+      <td>${votes > 0 ? formatPercent(page.up / votes) : "—"}</td>
+      <td>${formatCount(page.up)}</td>
+      <td>${formatCount(page.down)}</td>
+      <td>${formatCount(page.agentReports)}</td>
+      <td>${formatCount(page.open)}</td>
+    </tr>`;
+  });
+  return html`<table class="ly-table">
+    <thead>
+      <tr>
+        <th scope="col">Page</th>
+        <th scope="col">Score</th>
+        <th scope="col">Helpful</th>
+        <th scope="col">Not helpful</th>
+        <th scope="col">Agent reports</th>
+        <th scope="col">Open</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+    </tbody>
+  </table>`;
+}
+
 function renderFeedback(state            , data          )           {
   const list = data["feedback.list"]                                                ;
   const summary = data["feedback.summary"]                                                    ;
+  const ratings = data["feedback.ratings"]                                    ;
+  const rated = data["feedback.pages"]                                              ;
 
   const score = panel("Score", summary, (value) => {
     const total = value.up + value.down;
@@ -1417,7 +1589,11 @@ function renderFeedback(state            , data          )           {
         <a href="${routeHref({ ...state, page: "truth" })}">Open the drift queue</a>
       </p>`;
   });
-  return html`${score}${written}`;
+  const overTime = panel("Ratings over time", ratings, (value) =>
+    renderChart(ratingsChart("feedback-ratings", value)),
+  );
+  const byPage = panel("By page", rated, (value) => renderRatedPages(state, value.pages));
+  return html`${score}${overTime}${byPage}${written}`;
 }
 
                            
@@ -1680,10 +1856,37 @@ function renderShell(
   </main>`;
 }
 
+/**
+ * What the toolbar needs, on every page rather than only on Traffic.
+ *
+ * The ANA-71 filter bar is part of the shell, so the values it offers cannot
+ * come from `PAGE_ENDPOINTS` — a page that does not draw a variant split still
+ * has to offer the filters. One extra read, outside the per-page set.
+ */
+const SHELL_ENDPOINT = "traffic.variants";
+
+async function loadShell(state            , nowMs        )                         {
+  const range = routeRange(state, nowMs);
+  const split = await read                                         (SHELL_ENDPOINT, {
+    range,
+    filters: {},
+  });
+  return filterOptionsFrom(split.ok ? split.value : undefined, state.filters);
+}
+
 async function loadPage(state            , nowMs        )                    {
   const range = routeRange(state, nowMs);
   const grain = state.grain ?? grainFor(range);
-  const spec = { range, grain, filters: state.filters, compare: state.compare };
+  // `focus` travels to the API as `page`: an exact route, distinct from
+  // ANA-71's `route` prefix filter. An endpoint that does not read it ignores
+  // it, which is why it can go on every request rather than a chosen few.
+  const spec = {
+    range,
+    grain,
+    filters: state.filters,
+    compare: state.compare,
+    extra: { page: state.focus },
+  };
   const ids = PAGE_ENDPOINTS[state.page] ?? [];
   const results = await Promise.all(ids.map((id) => read         (id, spec)));
   const data           = {};
@@ -1702,8 +1905,10 @@ async function draw(root         )                {
   const nowMs = Date.now();
   const views = loadViews(typeof localStorage === "undefined" ? undefined : localStorage);
   let body          ;
+  let options                = {};
   try {
-    const data = await loadPage(state, nowMs);
+    const [data, shell] = await Promise.all([loadPage(state, nowMs), loadShell(state, nowMs)]);
+    options = shell;
     body = renderPage(state, data);
   } catch (error) {
     body = renderProblem("This page could not be drawn", {
@@ -1712,7 +1917,7 @@ async function draw(root         )                {
       detail: String(error),
     });
   }
-  root.innerHTML = String(renderShell(state, body, views, {}, nowMs));
+  root.innerHTML = String(renderShell(state, body, views, options, nowMs));
   attachChartKeys(root, CHART_SPECS);
   wire(root, state, views);
 }

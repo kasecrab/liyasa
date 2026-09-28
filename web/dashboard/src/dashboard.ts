@@ -9,7 +9,7 @@ import { read } from "./api.ts";
 import type { Result } from "./api.ts";
 import { html } from "./escape.ts";
 import type { Fragment } from "./escape.ts";
-import { renderNav, renderToolbar } from "./controls.ts";
+import { filterOptionsFrom, renderNav, renderToolbar } from "./controls.ts";
 import type { FilterOptions } from "./controls.ts";
 import { PAGE_ENDPOINTS, renderPage, renderProblem, unservedFor } from "./pages.ts";
 import type { PageData } from "./pages.ts";
@@ -49,10 +49,37 @@ export function renderShell(
   </main>`;
 }
 
+/**
+ * What the toolbar needs, on every page rather than only on Traffic.
+ *
+ * The ANA-71 filter bar is part of the shell, so the values it offers cannot
+ * come from `PAGE_ENDPOINTS` — a page that does not draw a variant split still
+ * has to offer the filters. One extra read, outside the per-page set.
+ */
+const SHELL_ENDPOINT = "traffic.variants";
+
+async function loadShell(state: RouteState, nowMs: number): Promise<FilterOptions> {
+  const range = routeRange(state, nowMs);
+  const split = await read<Record<string, Array<{ name: string }>>>(SHELL_ENDPOINT, {
+    range,
+    filters: {},
+  });
+  return filterOptionsFrom(split.ok ? split.value : undefined, state.filters);
+}
+
 async function loadPage(state: RouteState, nowMs: number): Promise<PageData> {
   const range = routeRange(state, nowMs);
   const grain = state.grain ?? grainFor(range);
-  const spec = { range, grain, filters: state.filters, compare: state.compare };
+  // `focus` travels to the API as `page`: an exact route, distinct from
+  // ANA-71's `route` prefix filter. An endpoint that does not read it ignores
+  // it, which is why it can go on every request rather than a chosen few.
+  const spec = {
+    range,
+    grain,
+    filters: state.filters,
+    compare: state.compare,
+    extra: { page: state.focus },
+  };
   const ids = PAGE_ENDPOINTS[state.page] ?? [];
   const results = await Promise.all(ids.map((id) => read<unknown>(id, spec)));
   const data: PageData = {};
@@ -71,8 +98,10 @@ async function draw(root: Element): Promise<void> {
   const nowMs = Date.now();
   const views = loadViews(typeof localStorage === "undefined" ? undefined : localStorage);
   let body: Fragment;
+  let options: FilterOptions = {};
   try {
-    const data = await loadPage(state, nowMs);
+    const [data, shell] = await Promise.all([loadPage(state, nowMs), loadShell(state, nowMs)]);
+    options = shell;
     body = renderPage(state, data);
   } catch (error) {
     body = renderProblem("This page could not be drawn", {
@@ -81,7 +110,7 @@ async function draw(root: Element): Promise<void> {
       detail: String(error),
     });
   }
-  root.innerHTML = String(renderShell(state, body, views, {}, nowMs));
+  root.innerHTML = String(renderShell(state, body, views, options, nowMs));
   attachChartKeys(root, CHART_SPECS);
   wire(root, state, views);
 }
