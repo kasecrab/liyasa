@@ -99,15 +99,7 @@ fn best(reader: &ShardReader<'_>, typed: &str) -> Option<String> {
         .map(|(candidate, _)| candidate)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_two_edit_threshold_is_above_the_one_edit_one() {
-        assert!(
-            TWO_EDIT_MIN_LENGTH > crate::idx::query::FUZZY_MIN_LENGTH,
-            "a second edit is for long words only"
-        );
-    }
-}
+/// A second edit is for long words only, so the threshold has to sit above the
+/// one-edit one. A compile-time check rather than a test: both are constants,
+/// so the build is the right place to catch it.
+const _: () = assert!(TWO_EDIT_MIN_LENGTH > crate::idx::query::FUZZY_MIN_LENGTH);
