@@ -132,7 +132,26 @@ pub struct Tree {
     /// Template name to fingerprint for every file under `snippets/`, each of
     /// them interned into the source map (CM-70).
     pub snippets: BTreeMap<String, Fingerprint>,
+    /// Where a page came from, for the pages that did not come from a file
+    /// (RFC 0608). A route absent here was walked out of the content tree.
+    ///
+    /// A side map rather than a field on `Page`: `Tree` derives `Default` so
+    /// this costs no construction site, and `Page` is built explicitly in
+    /// twenty-eight places, most of them test fixtures that would have had to
+    /// name a field they do not care about.
+    pub origins: BTreeMap<Route, Origin>,
     pub diagnostics: Diagnostics,
+}
+
+/// What produced a page (RFC 0608).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Origin {
+    /// One operation or schema of a spec (API-10, API-11). The operation id is
+    /// absent when the spec gave none, which is why it cannot be the key.
+    Spec {
+        spec: String,
+        operation: Option<String>,
+    },
 }
 
 impl Tree {

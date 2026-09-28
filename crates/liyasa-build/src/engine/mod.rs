@@ -191,6 +191,28 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     let declared = crate::versions::Versions::new(&settings.versions);
     let mut tree = tree;
     tree.pages = crate::versions::expand(tree.pages, &declared);
+
+    // 2b. The pages a spec contributes (API-10, API-11, RFC 0608). After
+    // version expansion, because a generated page belongs to no version and has
+    // no front matter saying so; before the navigation and the render, because
+    // from here on it is an ordinary page.
+    let authored: Vec<liyasa_openapi::build::Authored> = tree
+        .pages
+        .iter()
+        .filter_map(|page| {
+            let selector = page.front.openapi.clone()?;
+            Some(liyasa_openapi::build::Authored {
+                route: page.route.as_str().to_owned(),
+                selector,
+                body: body_of(&sources, &page.path),
+            })
+        })
+        .collect();
+    let surface = liyasa_openapi::build::surface(vfs, &load.value, &authored);
+    report
+        .diagnostics
+        .extend(surface.diagnostics.as_slice().to_vec());
+    crate::spec_pages::inject(&mut tree, &mut sources, &surface.pages);
     phase.mark("content_tree");
 
     // 2a. Snippets (CM-70, CM-71). `tree::discover` interned them; the graph
@@ -2139,6 +2161,22 @@ fn tab_of(navigation: &liyasa_theme::nav::Navigation, route: &str) -> Option<Str
 
 fn holds_route(item: &liyasa_theme::nav::Item, route: &str) -> bool {
     item.route == route || item.children.iter().any(|child| holds_route(child, route))
+}
+
+/// A page's Markdown without its front matter, which is what API-04 renders
+/// above the generated parameters.
+fn body_of(sources: &SourceMap, path: &liyasa_core::vfs::VfsPath) -> String {
+    let Some(id) = sources.find(path) else {
+        return String::new();
+    };
+    let text = sources.get(id).text.clone();
+    match liyasa_markdown::scan(&text, id).0.frontmatter {
+        Some(front) => text
+            .get(front.span.end as usize..)
+            .unwrap_or_default()
+            .to_owned(),
+        None => text.to_string(),
+    }
 }
 
 fn write_file(
