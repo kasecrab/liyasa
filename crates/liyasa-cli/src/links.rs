@@ -1,9 +1,9 @@
 //! External links in the built site, and the sleep the rate limiter needs.
 //!
 //! `liyasa-verify` finds a page's external links in its syntax tree, which the
-//! verification orchestrator will hand it. Until that exists, the built HTML is
-//! what a reader would click: it is the same links after expansion, and reading
-//! it needs nothing the CLI does not already have.
+//! verification orchestrator hands it. Until this command drives that walk, the
+//! built HTML is what a reader would click: it is the same links after
+//! expansion, and reading it needs nothing the CLI does not already have.
 
 use std::collections::BTreeMap;
 use std::time::Duration;
