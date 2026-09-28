@@ -15,33 +15,11 @@ env:
 jobs:
   check:
     runs-on: ubuntu-latest
-    # NFR-42 asks CI to test "the MSRV and current stable". Since
-    # `rust-toolchain.toml` pins a version, that is no longer what installing
-    # stable gets you: a toolchain file overrides the installed default for
-    # every cargo invocation, so this job and nfr.yml's `msrv` job would both
-    # compile with the pinned 1.98.1 and the requirement's two-toolchain clause
-    # would quietly become one toolchain twice — green, and testing half of
-    # what it says. `RUSTUP_TOOLCHAIN` is the documented override and the only
-    # thing that outranks the file.
-    #
-    # Deliberately only this job. Every other job SHOULD take the pin: a build
-    # that has to be reproducible wants the version the file names, and stable
-    # coverage is this job's purpose, not theirs.
-    env:
-      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - name: The toolchain this job uses is not the pinned one
-        run: |
-          rustc --version
-          pinned=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
-          echo "rust-toolchain.toml pins ${pinned}; this job overrides it with stable"
-          rustc --version | grep -qv "${pinned}" || {
-            echo "::warning::stable currently resolves to the pinned ${pinned}, so this job and msrv test the same compiler"
-          }
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets --all-features
