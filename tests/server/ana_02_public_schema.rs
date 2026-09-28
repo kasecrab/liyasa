@@ -77,23 +77,68 @@ fn the_schema_is_declared_public_and_it_is_the_only_one() {
     assert_eq!(rows[0].1, "/_liyasa/schema/event.json");
 }
 
+/// A path no subtree claims, for comparison. If the whole instance ever
+/// required a session, this would be refused too — and a bare `!= 401` on the
+/// schema would then fail while blaming the schema.
+const UNCLAIMED: &str = "/_liyasa/definitely-not-a-route-any-package-owns";
+
+/// Whether `status` means THIS path is behind a permission, as opposed to the
+/// instance refusing everything.
+///
+/// Extracted so the rule itself can be tested. It is the part that could be
+/// wrong, and on the live server today neither path is refused, so the
+/// interesting rows of its truth table would never be exercised by the
+/// integration test above — it would pass while proving nothing about the case
+/// it exists to catch.
+fn specifically_gated(status: StatusCode, control: StatusCode) -> bool {
+    let refused = |s: StatusCode| s == StatusCode::UNAUTHORIZED || s == StatusCode::FORBIDDEN;
+    refused(status) && !refused(control)
+}
+
+#[test]
+fn the_rule_fires_only_when_the_document_itself_is_gated() {
+    let ok = StatusCode::OK;
+    let missing = StatusCode::NOT_FOUND;
+    let unauthorized = StatusCode::UNAUTHORIZED;
+    let forbidden = StatusCode::FORBIDDEN;
+
+    // The defect: the schema is refused and an unclaimed path is not.
+    assert!(specifically_gated(unauthorized, missing));
+    assert!(specifically_gated(forbidden, missing));
+    assert!(specifically_gated(unauthorized, ok));
+
+    // Not the defect: the instance refuses everything, so this says nothing
+    // about the schema and must not be reported as if it did.
+    assert!(!specifically_gated(unauthorized, unauthorized));
+    assert!(!specifically_gated(forbidden, unauthorized));
+
+    // Not the defect: nothing is routed there yet, which is today.
+    assert!(!specifically_gated(missing, missing));
+    // Not the defect: it is served, which is the goal.
+    assert!(!specifically_gated(ok, missing));
+}
+
 #[tokio::test]
 async fn the_published_schema_is_never_behind_a_permission() {
-    // True whether or not anything mounts it, which is what makes this half
-    // meaningful before the route exists. A 401 here is the defect: the
-    // document would be refused to the only caller that has a use for it.
+    // Differential rather than absolute, so this can only fail for its own
+    // reason. A bare `assert_ne!(status, 401)` would also fail the day the
+    // shared fixture starts requiring a session for everything — WP-15 is
+    // changing when auth mounts, and `Harness::serving` is not this package's
+    // — and it would report that as the schema being guarded. Comparing
+    // against a path nothing claims separates "this document is gated" from
+    // "this instance gates everything".
     let (harness, _site) = Harness::serving("public-schema").await;
+    let control = harness.get(UNCLAIMED).await.status();
+
     for (id, path) in declared_public(&api_ts()) {
-        let response = harness.get(&path).await;
-        let status = response.status();
-        assert_ne!(
-            status,
-            StatusCode::UNAUTHORIZED,
-            "`{id}` is declared public and answered 401. A collector validates its \
-             events against this document before it may post any, so it has no \
-             session to offer."
+        let status = harness.get(&path).await.status();
+        assert!(
+            !specifically_gated(status, control),
+            "`{id}` is declared public and answered {status}, while an unclaimed path \
+             answered {control}. So it is this document that is behind a permission, \
+             not the instance — and a collector validates its events against it before \
+             it may post any, so it has no session to offer."
         );
-        assert_ne!(status, StatusCode::FORBIDDEN, "`{id}` is declared public");
     }
 }
 
