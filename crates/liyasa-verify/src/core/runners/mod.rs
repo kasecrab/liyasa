@@ -48,6 +48,16 @@ impl Registry {
         self.runners.push(runner);
     }
 
+    /// Takes the runners out, so two registries can be combined.
+    ///
+    /// A real run needs both halves: `regex`, `mermaid`, `json` and `yaml` are
+    /// in-process only and `shell`, `python` and the rest are sandboxed only,
+    /// so a registry holding one half reports the other half's languages as
+    /// having no runner.
+    pub fn into_runners(self) -> Vec<Arc<dyn Runner>> {
+        self.runners
+    }
+
     pub fn for_language(&self, lang: &str) -> Option<&dyn Runner> {
         let lang = lang.trim().to_ascii_lowercase();
         self.runners

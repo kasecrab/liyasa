@@ -7,14 +7,18 @@
 //! compatible with nothing ever calling the runners, which is how this gap
 //! survived to become one of the two largest in the ledger.
 
+use std::sync::Mutex;
+
 use liyasa_core::conformance::block_on;
+use liyasa_core::conformance::fixtures::MemoryVfs;
 use liyasa_core::document::{Block, BlockKind, FenceAttrs, Inline, Node, Origin};
 use liyasa_core::ids::BlockId;
 use liyasa_core::span::{SourceId, Span};
+use liyasa_core::verify::SandboxError;
+use liyasa_core::vfs::Vfs;
 
 use super::*;
 use crate::core::config::{VerifyConfig, VerifyDefault};
-use crate::core::runners::in_process;
 use crate::core::runners::testing::{NoSandbox, Secrets};
 
 fn span() -> Span {
@@ -65,19 +69,58 @@ fn prose(text: &str) -> Block {
 }
 
 fn run(root: &Block, config: &VerifyConfig) -> Run {
-    let registry = in_process();
+    verify_page(root, config, &NoSandbox, &MemoryVfs::new())
+}
+
+/// A config whose `shell` image is pinned, so the runner builds a job.
+///
+/// VER-03 refuses to run an unpinned image (`E0610`) rather than run against
+/// whatever `latest` is today, so a default config never reaches a
+/// `SandboxJob` — and a test that asserted on the job without pinning would
+/// pass on an error it had not noticed.
+fn pinned() -> VerifyConfig {
+    let mut config = VerifyConfig::default();
+    config.runners.images.insert(
+        "shell".to_owned(),
+        "busybox@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+            .to_owned(),
+    );
+    config
+}
+
+/// The same, with a budget the caller chooses.
+fn with_budget(root: &Block, mut budget: Budget) -> Run {
+    let config = VerifyConfig::default();
     let orchestrator = Orchestrator {
-        registry: &registry,
-        config,
+        config: &config,
         sandbox: &NoSandbox,
         secrets: &Secrets::default(),
+        vfs: &MemoryVfs::new(),
+    };
+    let page = Page {
+        route: Route::new("/api"),
+        root,
+    };
+    block_on(orchestrator.verify(std::slice::from_ref(&page), &mut budget))
+}
+
+/// Plans and runs one page. `verify` is the entry point that builds the
+/// registry from the plan's bindings, which is the whole point of defect 154 —
+/// a caller that builds its own registry gets default bindings and silently
+/// drops every `env=` on the page.
+fn verify_page(root: &Block, config: &VerifyConfig, sandbox: &dyn Sandbox, vfs: &dyn Vfs) -> Run {
+    let orchestrator = Orchestrator {
+        config,
+        sandbox,
+        secrets: &Secrets::default(),
+        vfs,
     };
     let page = Page {
         route: Route::new("/api/limits"),
         root,
     };
     let mut budget = Budget::unbounded();
-    block_on(orchestrator.page(&page, &mut budget))
+    block_on(orchestrator.verify(std::slice::from_ref(&page), &mut budget))
 }
 
 #[test]
@@ -220,22 +263,8 @@ fn a_spent_budget_reports_every_check_it_did_not_start() {
         fence("b1", "regex", &[], &["verify"], r"^ok$"),
         fence("b2", "regex", &[], &["verify"], r"^ok$"),
     ]);
-    let registry = in_process();
-    let config = VerifyConfig::default();
-    let orchestrator = Orchestrator {
-        registry: &registry,
-        config: &config,
-        sandbox: &NoSandbox,
-        secrets: &Secrets::default(),
-    };
-    let page = Page {
-        route: Route::new("/api"),
-        root: &root,
-    };
     // Already spent before the first check.
-    let mut budget = Budget::of(Duration::ZERO);
-
-    let out = block_on(orchestrator.site(std::slice::from_ref(&page), &mut budget));
+    let out = with_budget(&root, Budget::of(Duration::ZERO));
 
     assert_eq!(out.results.len(), 2, "both blocks are still in the report");
     assert_eq!(out.skipped(), 2);
@@ -258,21 +287,7 @@ fn a_budget_that_is_not_spent_runs_everything_and_raises_nothing() {
         fence("b1", "regex", &[], &["verify"], r"^ok$"),
         fence("b2", "regex", &[], &["verify"], r"^ok$"),
     ]);
-    let registry = in_process();
-    let config = VerifyConfig::default();
-    let orchestrator = Orchestrator {
-        registry: &registry,
-        config: &config,
-        sandbox: &NoSandbox,
-        secrets: &Secrets::default(),
-    };
-    let page = Page {
-        route: Route::new("/api"),
-        root: &root,
-    };
-    let mut budget = Budget::of(Duration::from_secs(60));
-
-    let out = block_on(orchestrator.site(std::slice::from_ref(&page), &mut budget));
+    let out = with_budget(&root, Budget::of(Duration::from_secs(60)));
 
     assert_eq!(out.passed(), 2, "{:?}", out.results);
     assert!(out.problems.is_empty(), "{:?}", out.problems);
@@ -318,19 +333,7 @@ fn a_sandboxed_runner_is_reached_from_a_page_like_any_other() {
         &["verify"],
         "print(600)",
     )]);
-    let orchestrator = Orchestrator {
-        registry: &registry,
-        config: &config,
-        sandbox: &NoSandbox,
-        secrets: &Secrets::default(),
-    };
-    let page = Page {
-        route: Route::new("/api/limits"),
-        root: &root,
-    };
-    let mut budget = Budget::unbounded();
-
-    let out = block_on(orchestrator.page(&page, &mut budget));
+    let out = verify_page(&root, &config, &NoSandbox, &MemoryVfs::new());
 
     // There is no container runtime here, so the check cannot pass. What is
     // being measured is that the walk REACHED the runner: before this module
@@ -349,21 +352,8 @@ fn a_sandboxed_runner_is_reached_from_a_page_like_any_other() {
 #[test]
 fn a_sandboxed_check_with_no_sandbox_reports_rather_than_disappearing() {
     let config = VerifyConfig::default();
-    let (registry, _) = crate::runners::sandboxed(&config);
     let root = document(vec![fence("b1", "shell", &[], &["verify"], "echo hi")]);
-    let orchestrator = Orchestrator {
-        registry: &registry,
-        config: &config,
-        sandbox: &NoSandbox,
-        secrets: &Secrets::default(),
-    };
-    let page = Page {
-        route: Route::new("/guide"),
-        root: &root,
-    };
-    let mut budget = Budget::unbounded();
-
-    let out = block_on(orchestrator.page(&page, &mut budget));
+    let out = verify_page(&root, &config, &NoSandbox, &MemoryVfs::new());
 
     assert_eq!(out.results.len(), 1);
     assert_eq!(
@@ -402,4 +392,192 @@ fn a_declared_chain_is_reported_rather_than_run_as_independent_steps() {
         );
     };
     assert!(reason.contains("verify-chain"), "{reason}");
+}
+
+// ---- defect 154: the walk dropped `env=`, `setup=` and `fixture=` ----
+//
+// `CheckSpec` is frozen and carries none of them (RFC 2103), so they travel in
+// a `code::Bindings` table keyed by `CheckId`. The walk built specs and never
+// built that table, and `runners/code.rs:178` reads
+//
+//     self.bindings.get(&spec.id).unwrap_or(&default)
+//
+// so a missing binding is indistinguishable from an empty one: the job ran with
+// no environment and the check reported pass or fail as if it had one.
+//
+// These assert on the SandboxJob the runner builds, which is where `binding.env`
+// lands (code.rs:254). That is the real path, and it needs no container.
+
+/// Records the job it is handed and refuses to run it. Refusing is fine: what
+/// is under test is what the runner PUT in the job, not what a container would
+/// do with it.
+#[derive(Default)]
+struct Recorder {
+    jobs: Mutex<Vec<liyasa_core::verify::SandboxJob>>,
+}
+
+impl Sandbox for Recorder {
+    fn exec<'a>(
+        &'a self,
+        job: liyasa_core::verify::SandboxJob,
+    ) -> liyasa_core::net::BoxFut<'a, Result<liyasa_core::verify::SandboxOutput, SandboxError>>
+    {
+        self.jobs.lock().expect("lock").push(job);
+        Box::pin(std::future::ready(Err(SandboxError::Unavailable)))
+    }
+}
+
+impl Recorder {
+    fn only_job(&self) -> liyasa_core::verify::SandboxJob {
+        let jobs = self.jobs.lock().expect("lock");
+        assert_eq!(jobs.len(), 1, "exactly one job should have been built");
+        jobs[0].clone()
+    }
+}
+
+#[test]
+fn an_env_attribute_on_a_fence_reaches_the_sandbox_job() {
+    let root = document(vec![fence(
+        "b1",
+        "shell",
+        &[("env", "TOKEN=abc")],
+        &["verify"],
+        "test -n \"$TOKEN\"",
+    )]);
+    let recorder = Recorder::default();
+    let config = pinned();
+
+    let out = verify_page(&root, &config, &recorder, &MemoryVfs::new());
+
+    assert_eq!(out.results.len(), 1, "{:?}", out.results);
+    let job = recorder.only_job();
+    assert!(
+        job.env.iter().any(|(k, v)| k == "TOKEN" && v == "abc"),
+        "the declared environment must reach the job; before defect 154 was \
+         fixed this was empty and the check still reported a result: {:?}",
+        job.env
+    );
+}
+
+#[test]
+fn a_fence_declaring_no_environment_still_gets_an_empty_one() {
+    let root = document(vec![fence("b1", "shell", &[], &["verify"], "echo hi")]);
+    let recorder = Recorder::default();
+    let config = pinned();
+
+    let out = verify_page(&root, &config, &recorder, &MemoryVfs::new());
+
+    assert_eq!(out.results.len(), 1);
+    assert!(
+        recorder.only_job().env.is_empty(),
+        "no declaration means no environment, which must stay distinguishable \
+         from a dropped one only by the author's intent"
+    );
+}
+
+/// `setup="login"` is `snippets/login.md` (RFC 2105). Extracting its code needs
+/// a Markdown parse this crate has no dependency for, so the check is reported
+/// rather than run without its setup — RFC 2105 says that is the right answer
+/// for an unresolvable setup permanently, not only until the wiring lands.
+#[test]
+fn a_declared_setup_is_reported_rather_than_run_without_it() {
+    let root = document(vec![fence(
+        "b1",
+        "shell",
+        &[("setup", "login")],
+        &["verify"],
+        "whoami",
+    )]);
+    let recorder = Recorder::default();
+    let config = VerifyConfig::default();
+
+    let out = verify_page(&root, &config, &recorder, &MemoryVfs::new());
+
+    assert_eq!(
+        out.results.len(),
+        1,
+        "the block still appears in the report"
+    );
+    let CheckOutcome::Skip { reason } = &out.results[0].outcome else {
+        panic!(
+            "a setup that cannot be honoured must not produce a run result: {:?}",
+            out.results[0].outcome
+        );
+    };
+    assert!(
+        reason.contains("login"),
+        "the reason names the snippet: {reason}"
+    );
+    assert!(
+        recorder.jobs.lock().expect("lock").is_empty(),
+        "and nothing was sent to the sandbox"
+    );
+}
+
+#[test]
+fn a_fixture_attribute_is_resolved_through_the_vfs_and_staged() {
+    let root = document(vec![fence(
+        "b1",
+        "shell",
+        &[("fixture", "data/input.csv")],
+        &["verify"],
+        "cat data/input.csv",
+    )]);
+    let vfs = MemoryVfs::new().with("data/input.csv", "id,name\n1,alice\n");
+    let recorder = Recorder::default();
+    let config = pinned();
+
+    let out = verify_page(&root, &config, &recorder, &vfs);
+
+    assert_eq!(out.results.len(), 1, "{:?}", out.results);
+    let job = recorder.only_job();
+    assert!(
+        job.files
+            .iter()
+            .any(|(path, bytes)| path.as_str().ends_with("input.csv")
+                && String::from_utf8_lossy(bytes).contains("alice")),
+        "the fixture must be staged beside the sample: {:?}",
+        job.files
+            .iter()
+            .map(|(p, _)| p.to_string())
+            .collect::<Vec<_>>()
+    );
+}
+
+/// A declaration that cannot be resolved must not become a silent default —
+/// that is the defect one layer down.
+#[test]
+fn a_fixture_the_vfs_cannot_supply_is_reported_rather_than_dropped() {
+    let root = document(vec![fence(
+        "b1",
+        "shell",
+        &[("fixture", "data/missing.csv")],
+        &["verify"],
+        "cat data/missing.csv",
+    )]);
+    let recorder = Recorder::default();
+    let config = VerifyConfig::default();
+
+    let out = verify_page(&root, &config, &recorder, &MemoryVfs::new());
+
+    assert_eq!(
+        out.results.len(),
+        1,
+        "the block still appears in the report"
+    );
+    assert!(
+        !matches!(out.results[0].outcome, CheckOutcome::Pass),
+        "a check whose fixture is missing must not pass: {:?}",
+        out.results[0].outcome
+    );
+    assert!(
+        out.problems
+            .iter()
+            .any(|d| d.message.contains("missing.csv")),
+        "and the run must name the file: {:?}",
+        out.problems
+            .iter()
+            .map(|d| d.message.as_str())
+            .collect::<Vec<_>>()
+    );
 }
