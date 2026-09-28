@@ -11,7 +11,7 @@ use xtask::{
     workflows,
 };
 #[cfg(not(target_family = "wasm"))]
-use xtask::{flags, pins};
+use xtask::{flags, pins, preflight};
 
 const USAGE: &str = "\
 usage: cargo run -p xtask -- <command>
@@ -41,6 +41,12 @@ usage: cargo run -p xtask -- <command>
   pins [--update]
       Check, or re-derive, tests/pins/*.txt. Run --update after fixing a flag
       or making a code emit, and commit the diff.
+
+  preflight [--refresh] [--offline]
+      Run everything CI runs that bin/gate does not: the upstream CommonMark
+      and GFM suites, parity under wasmtime, wasm32-unknown-unknown, and
+      --all-features. Run it before you park. --refresh re-fetches the suites,
+      --offline uses the cache and fails rather than reaching the network.
 
   conformance DIR [--engine NAME] [--filter TEXT] [-v]
       Run the conformance corpus in DIR through one engine.
@@ -91,6 +97,12 @@ fn dispatch(args: &[String]) -> Result<(), String> {
         Some("lints") => lints::run(&repo_root()),
         Some("notices") => notices::run(&repo_root()),
         Some("workflows") => workflows::run(&repo_root()),
+        #[cfg(not(target_family = "wasm"))]
+        Some("preflight") => preflight::run(
+            &repo_root(),
+            args.iter().any(|a| a == "--refresh"),
+            args.iter().any(|a| a == "--offline"),
+        ),
         #[cfg(not(target_family = "wasm"))]
         Some("pins") => pins::run(&repo_root(), args.iter().any(|a| a == "--update")),
         Some("conformance") => {

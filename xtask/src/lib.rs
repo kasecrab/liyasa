@@ -17,6 +17,10 @@ pub mod notices;
 /// [`flags::audit`], so it inherits that module's dependency on the CLI.
 #[cfg(not(target_family = "wasm"))]
 pub mod pins;
+/// Native only: it shells out to `cargo` and `curl` to run the half of CI the
+/// local gate does not, so it cannot be the thing running under wasmtime.
+#[cfg(not(target_family = "wasm"))]
+pub mod preflight;
 pub mod parity;
 pub mod schemas;
 pub mod spike;

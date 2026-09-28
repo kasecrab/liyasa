@@ -8,6 +8,7 @@ mod flags;
 mod licences;
 mod lints;
 mod pins;
+mod preflight;
 mod schemas;
 mod span_composition;
 mod workflows;
