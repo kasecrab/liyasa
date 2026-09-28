@@ -104,7 +104,10 @@ fn finding(
 
 /// A `Page` origin has no block to name, and the contract's `CheckId` wants
 /// one, so the page's own identity stands in for it.
-fn id_of(origin: &EdgeOrigin, route: &Route) -> CheckId {
+///
+/// Shared with [`super::spec`]: both report a finding about one block of one
+/// page, and they have to name it the same way or a report cannot group them.
+pub(super) fn id_of(origin: &EdgeOrigin, route: &Route) -> CheckId {
     match origin {
         EdgeOrigin::Block(_, block) => check_id(route, block, 0),
         EdgeOrigin::Page(page) => CheckId::new(format!("{}#{page}#0", route.as_str())),
