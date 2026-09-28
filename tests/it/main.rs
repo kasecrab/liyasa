@@ -48,6 +48,12 @@ mod cmp_80_gates;
 mod cfg_91;
 #[path = "../config/cfg_94_schema.rs"]
 mod cfg_94_schema;
+#[path = "../cli/cfg_90_validate.rs"]
+mod cfg_90_validate;
+#[path = "../cli/cli_13_schema.rs"]
+mod cli_13_schema;
+#[path = "../cli/cli_14_migrate.rs"]
+mod cli_14_migrate;
 #[path = "../cli/cli_02_dev.rs"]
 mod cli_02_dev;
 #[path = "../cli/cli_03_build.rs"]
