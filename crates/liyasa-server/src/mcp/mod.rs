@@ -29,5 +29,8 @@ pub mod bundle_reader;
 pub mod jsonrpc;
 pub mod markdown;
 pub mod openapi;
+pub mod prompts;
+pub mod protocol;
 pub mod reader;
+pub mod resources;
 pub mod tools;
