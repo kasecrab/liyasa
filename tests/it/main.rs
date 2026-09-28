@@ -12,6 +12,8 @@ mod auth_05_magic;
 mod auth_03_jwt_return;
 #[path = "../server/auth_13_cdn.rs"]
 mod auth_13_cdn;
+#[path = "../server/ana_02_public_schema.rs"]
+mod ana_02_public_schema;
 #[path = "../server/auth_14_bot_protection.rs"]
 mod auth_14_bot_protection;
 #[path = "../server/auth_07_mixed.rs"]
