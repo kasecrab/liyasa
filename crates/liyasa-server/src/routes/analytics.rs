@@ -13,10 +13,20 @@ use liyasa_store::jobs::Enqueue;
 use liyasa_store::records::JobRecord;
 
 use super::AppState;
-use super::work::{Outcome, Run};
+use super::work::{JobKind, Outcome, Run};
 
 pub const RETENTION_JOB: &str = liyasa_analytics::actions::RETENTION;
 pub const DIGEST_JOB: &str = liyasa_analytics::actions::DIGEST;
+
+/// The two registrations, as consts rather than literals in `work.rs`.
+///
+/// That file is `merge=union`, so a multi-line entry there can interleave with
+/// another package's and leave something `cargo fmt` cannot parse — which
+/// redded eight branches at the format step on 2026-09-28 (defect 192). A
+/// const here is named by one short line there, and the reasoning stays beside
+/// the handlers instead of being stranded by somebody else's append.
+pub const RETENTION: JobKind = JobKind::scheduled(RETENTION_JOB, retention_due, run_retention);
+pub const DIGEST: JobKind = JobKind::scheduled(DIGEST_JOB, digest_due, run_digest);
 
 /// The dashboard's view of this instance, or `None` when it opened no
 /// analytics database.

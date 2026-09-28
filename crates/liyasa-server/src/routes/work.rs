@@ -17,6 +17,14 @@ use liyasa_store::records::JobRecord;
 use serde_json::{Value, json};
 
 use super::AppState;
+use crate::{assistant, deploy};
+// The sweep's three items by name, not by path: with `assistant::` on each,
+// the registration is 101 columns and `max_width` is 100, so rustfmt would put
+// back the multi-line shape a union merge cannot survive. A name collision
+// with another package's import here is a compile error, which is loud; an
+// interleaved literal is not (defect 192). WP-18 can replace these three lines
+// with one `pub const` in its own module whenever it next touches that file.
+use crate::assistant::{RETENTION_JOB, retention_due, run_sweep};
 
 /// One claimed job's run. The worker owns the lease around it.
 pub type Run<'a> = BoxFut<'a, Outcome>;
@@ -52,10 +60,75 @@ pub enum Trigger {
     Scheduled(fn(&Arc<AppState>) -> Option<Enqueue>),
 }
 
+/// What runs a claimed row.
+pub type RunFn = for<'a> fn(&'a Arc<AppState>, &'a JobRecord) -> Run<'a>;
+/// Whether a scheduled job is due this tick, and the row to enqueue if it is.
+pub type DueFn = fn(&Arc<AppState>) -> Option<Enqueue>;
+/// The same question for a deployment that has just succeeded.
+pub type AfterDeployFn = fn(&Arc<AppState>, &Value) -> Option<Enqueue>;
+
 pub struct JobKind {
     pub name: &'static str,
     pub trigger: Trigger,
-    pub run: for<'a> fn(&'a Arc<AppState>, &'a JobRecord) -> Run<'a>,
+    pub run: RunFn,
+}
+
+/// Constructors, because a registration in this file must fit on one line.
+///
+/// `kinds()` is `merge=union`: two packages appending in the same window merge
+/// by line, and a multi-line struct literal interleaves into something
+/// `cargo fmt` cannot parse. That happened on 2026-09-28 — one swallowed `},`
+/// left the file with 55 `{` against 54 `}`, and every branch chained under it
+/// died at the gate's FORMAT step in two seconds, before any of its own code
+/// compiled. Seven packages looked red for one missing brace (defect 192).
+///
+/// "Write one line" is not by itself achievable: a three-field literal is 116
+/// columns and `rustfmt.toml` sets `max_width = 100`, so rustfmt puts back the
+/// shape the rule forbids. What works is writing something one line can point
+/// at — either one of these constructors, or better, a `pub const JobKind` in
+/// your own module, which this list then names in a line short enough to
+/// survive:
+///
+/// ```text
+/// // crates/liyasa-server/src/deploy/jobs.rs — yours, cannot be interleaved
+/// pub const BUILD: JobKind = JobKind::caller(BUILD_JOB, run_build);
+///
+/// // here
+/// crate::deploy::jobs::BUILD,
+/// ```
+///
+/// The const is better than a short constructor call and not merely shorter:
+/// the reasoning for a registration travels with it. A comment beside a
+/// literal in a union-merged file can be separated from what it describes by
+/// somebody else's append, and a stranded comment is not a compile error —
+/// which makes it worse than one, not better.
+impl JobKind {
+    /// Enqueued by whoever does the thing; the worker only runs it.
+    pub const fn caller(name: &'static str, run: RunFn) -> Self {
+        Self {
+            name,
+            trigger: Trigger::Caller,
+            run,
+        }
+    }
+
+    /// Enqueued by the worker's own timer when `due` says so.
+    pub const fn scheduled(name: &'static str, due: DueFn, run: RunFn) -> Self {
+        Self {
+            name,
+            trigger: Trigger::Scheduled(due),
+            run,
+        }
+    }
+
+    /// Enqueued after a deployment succeeds, when `after` says so.
+    pub const fn after_deploy(name: &'static str, after: AfterDeployFn, run: RunFn) -> Self {
+        Self {
+            name,
+            trigger: Trigger::DeploymentSucceeded(after),
+            run,
+        }
+    }
 }
 
 impl std::fmt::Debug for JobKind {
@@ -66,23 +139,25 @@ impl std::fmt::Debug for JobKind {
 
 /// Every job kind, in no particular order. One line per package (RFC 1404).
 ///
-/// Still owed by the packages that own the handlers:
-///
-/// ```text
-/// deploy.build      WP-16, `Trigger::Caller` — its deploy queue enqueues it
-/// deploy.retention  WP-16, `Trigger::Scheduled`
-/// ```
-///
-/// Those two are a comment rather than a pinned list in a test ON PURPOSE,
-/// and the next person here will want to "strengthen" them into one. Do not.
-/// A pin makes this package's test assert a claim about another package's
-/// naming, so it fails when WP-16 registers `build.run` instead — reddening
-/// their branch for being right. **A test is the wrong place for a claim
-/// about work that has not happened.**
+/// **No to-do list lives here, deliberately.** This file is append-only and
+/// `merge=union`, so the package that satisfies a "still owed by WP-NN" note
+/// is the one package forbidden to delete it — the note outlives what it
+/// describes and the fleet reads a stale list as current (defect 203). An
+/// earlier version of this comment named two jobs as owed and was wrong within
+/// the day.
 ///
 /// The absence is already reported where it belongs: [`report`] logs at warn
 /// when nothing is registered, and `/_liyasa/ready` names the kinds nobody can
-/// run. Those tell an operator; the defect ledger tells the fleet.
+/// run. Those tell an operator; the defect ledger tells the fleet. Neither
+/// goes stale in a file nobody may rewrite.
+///
+/// Nor is it a pinned list in a test, and the next person here will want to
+/// make one. Do not. A pin makes this package's test assert a claim about
+/// another package's naming, so it fails when WP-16 registers `build.run`
+/// instead — reddening their branch for being right. **A test is the wrong
+/// place for a claim about work that has not happened**, and — see
+/// `ast_01_embed_job` — counting across this whole list is the wrong place for
+/// a claim about work that has.
 ///
 /// Append your entry; never rewrite the list. This file is on path-guard's
 /// shared list and is `merge=union` in `.gitattributes`, which is what makes
@@ -93,6 +168,13 @@ impl std::fmt::Debug for JobKind {
 /// ```text
 /// git grep -n 'your.job.name' -- tests/ crates/*/tests/
 /// ```
+// WP-18's two, as consts because `&[...]` is only promoted to `'static` when
+// every element is one — a `const fn` call in the list is a temporary and does
+// not promote. One line each, which is what union can merge. They belong in
+// `assistant/`, which is WP-18's path; moving them is a cut and paste.
+const ASSISTANT_EMBED: JobKind = JobKind::caller(deploy::queue::EMBED_JOB, assistant::run_index);
+const ASSISTANT_RETENTION: JobKind = JobKind::scheduled(RETENTION_JOB, retention_due, run_sweep);
+
 pub fn kinds() -> &'static [JobKind] {
     &[
         // WP-18. The name is `deploy::queue::EMBED_JOB` rather than a literal
@@ -126,6 +208,10 @@ pub fn kinds() -> &'static [JobKind] {
             trigger: Trigger::Scheduled(super::analytics::digest_due),
             run: super::analytics::run_digest,
         },
+        ASSISTANT_EMBED,
+        ASSISTANT_RETENTION,
+        super::analytics::RETENTION,
+        super::analytics::DIGEST,
     ]
 }
 
