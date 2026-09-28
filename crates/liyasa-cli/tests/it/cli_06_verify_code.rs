@@ -71,3 +71,56 @@ fn the_json_report_carries_the_reason_as_well_as_the_note() {
     assert!(text.contains("W0019"), "{text}");
     assert!(text.contains("E0611"), "{text}");
 }
+
+/// The one case that runs a check for real, end to end: a `local` sandbox,
+/// which VER-03 allows the CLI and forbids the server, and a shell fence that
+/// only echoes. It is here because every other case in this file stops before
+/// a runner starts, and a wiring that never executes anything would pass them
+/// all.
+///
+/// The pin comes from `liyasa.lock`, which is also the only test that a lock
+/// entry reaches `Images` at all: `SandboxRunner` refuses an unpinned image
+/// with `E0610` whatever the sandbox, so without the lock neither fence runs.
+#[test]
+fn a_pinned_runner_runs_the_fence_and_reports_what_it_found() {
+    let project = Dir::new("ver-code-local");
+    project.write(
+        "liyasa.json",
+        r#"{"name":"Acme docs","verify":{"runners":{"sandbox":"local"}}}"#,
+    );
+    project.write(
+        "index.md",
+        "---\ntitle: Home\ndescription: The home page.\n---\n\n# Home\n\n```sh verify expect=\"hello\"\necho hello\n```\n\n```sh verify expect=\"never\"\necho goodbye\n```\n",
+    );
+
+    let unpinned = Run::new(["verify", "--only", "code", "--offline"])
+        .cwd(project.path())
+        .output();
+    assert!(
+        unpinned.all().contains("E0610"),
+        "an unpinned image is refused before it runs: {}",
+        unpinned.all()
+    );
+
+    project.write(
+        "liyasa.lock",
+        "version = 1\n\n[liyasa]\nversion = \"0.1.0\"\n\n[[runners]]\nid = \"shell\"\nimage = \"docker.io/library/alpine\"\ndigest = \"sha256:1111111111111111111111111111111111111111111111111111111111111111\"\n",
+    );
+
+    let outcome = Run::new(["verify", "--only", "code", "--offline"])
+        .cwd(project.path())
+        .output();
+
+    assert!(
+        outcome.all().contains("1 passed, 1 failed"),
+        "the fences did not run: {}",
+        outcome.all()
+    );
+    assert!(
+        outcome.all().contains("does not contain `never`"),
+        "the failing fence is not reported: {}",
+        outcome.all()
+    );
+    // CLI-31: a failed check is `Verification`, not `Errors`.
+    assert_eq!(outcome.code, Exit::Verification.code(), "{}", outcome.all());
+}
