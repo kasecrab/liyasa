@@ -230,7 +230,8 @@ fn the_flags_are_in_the_help() {
 #[test]
 fn a_class_that_did_not_run_does_not_blame_a_component_that_exists() {
     let project = site("ver-why-not");
-    for class in ["code", "facts", "prose"] {
+    // `prose` runs now; `links` always did. These two are what is left.
+    for class in ["code", "facts"] {
         let outcome = Run::new(["verify", "--only", class, "--offline"])
             .cwd(project.path())
             .output();
@@ -247,19 +248,18 @@ fn a_class_that_did_not_run_does_not_blame_a_component_that_exists() {
     }
 }
 
-/// The two classes nothing runs yet name the caller that is missing, not a
+/// The class nothing runs yet names the caller that is missing, not a
 /// component that is present.
 #[test]
-fn facts_and_prose_name_the_caller_that_is_missing() {
+fn facts_names_the_caller_that_is_missing() {
     let project = site("ver-why-not-caller");
-    for class in ["facts", "prose"] {
-        let outcome = Run::new(["verify", "--only", class, "--offline"])
-            .cwd(project.path())
-            .output();
-        assert!(
-            outcome.all().contains("`liyasa verify`"),
-            "`{class}`: {}",
-            outcome.all()
-        );
-    }
+    let outcome = Run::new(["verify", "--only", "facts", "--offline"])
+        .cwd(project.path())
+        .output();
+
+    assert!(
+        outcome.all().contains("`liyasa verify`"),
+        "{}",
+        outcome.all()
+    );
 }

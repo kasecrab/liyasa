@@ -8,6 +8,7 @@ mod cli_03_build_time;
 mod cli_04_validate;
 mod cli_06_verify;
 mod cli_06_verify_code;
+mod cli_06_verify_prose;
 mod cli_07_links;
 mod cli_08_agents_urls;
 mod cli_14_migrate;
