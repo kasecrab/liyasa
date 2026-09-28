@@ -5,6 +5,7 @@
 mod api_01_load;
 mod api_02_refs;
 mod api_03_nav;
+mod api_03_surface;
 mod api_04_augment;
 mod api_05_ext;
 mod api_10_layout;

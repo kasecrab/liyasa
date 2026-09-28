@@ -7,6 +7,7 @@
 //! and single `type` never leave this crate.
 
 pub mod allof;
+pub mod build;
 pub mod codegen;
 pub mod config;
 pub mod download;

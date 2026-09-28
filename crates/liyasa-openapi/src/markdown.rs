@@ -229,6 +229,14 @@ fn media_section(out: &mut String, media: &MediaSection, level: usize, options: 
 
 /// One table, with a row per field and a dotted path for the nested ones so
 /// the structure survives flattening.
+/// A field table on its own, for a page that is a schema rather than an
+/// operation (API-15).
+pub fn field_table(first: &str, fields: &[Field]) -> String {
+    let mut out = String::new();
+    table(&mut out, first, fields);
+    out
+}
+
 fn table(out: &mut String, first: &str, fields: &[Field]) {
     out.push_str(&format!(
         "| {first} | Type | Required | Description |\n| --- | --- | --- | --- |\n"
