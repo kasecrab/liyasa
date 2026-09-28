@@ -2,10 +2,15 @@
 //!
 //! Internal links, anchors, and assets are what the build decides (E0401,
 //! E0402, E0403); external links are requested over the network (VER-51,
-//! W0404). Code runners, facts and prose wait on this command calling
-//! `liyasa_verify::core::orchestrate`, which exists and which nothing here
-//! calls yet; a run says which classes did not run rather than counting them
-//! as passing.
+//! W0404). Code and prose run here: `checks::run` drives
+//! `liyasa_verify::core::orchestrate` over every page the build wrote, and
+//! `checks::prose` walks the same pages.
+//!
+//! Three of §14's five classes, then. `facts` can re-read its sources with
+//! `--refresh` and cannot yet compare their values against the pages that
+//! interpolate them; `screenshots` has no check in `liyasa-verify` to call.
+//! Both say so per run, because a class that did not run must not be counted
+//! as one that passed.
 
 use std::collections::BTreeSet;
 use std::path::Path;
