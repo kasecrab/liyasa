@@ -209,6 +209,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`E0635`](/errors/E0635) | Error | `verify` setting is not a value Liyasa can read |
 | [`W0636`](/errors/W0636) | Warning | Prose rules Liyasa does not implement did not run |
 | [`E0637`](/errors/E0637) | Error | Staging credential could not be resolved; the request was not sent |
+| [`E0638`](/errors/E0638) | Error | A `verify` fence names a file or snippet that could not be read |
 
 ## Build, cache, assets, determinism
 
