@@ -2809,6 +2809,7 @@ dependencies = [
  "liyasa-config",
  "liyasa-core",
  "liyasa-git",
+ "liyasa-markdown",
  "liyasa-net",
  "liyasa-store",
  "liyasa-tests",

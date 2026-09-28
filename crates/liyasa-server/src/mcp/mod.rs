@@ -25,4 +25,8 @@
 //! serve` mounts it over Streamable HTTP, and `liyasa mcp --dist` (MCP-04)
 //! runs the same dispatcher over stdio against a static build.
 
+pub mod bundle_reader;
 pub mod jsonrpc;
+pub mod markdown;
+pub mod openapi;
+pub mod reader;

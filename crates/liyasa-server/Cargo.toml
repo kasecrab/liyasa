@@ -29,6 +29,10 @@ liyasa-verify = { path = "../liyasa-verify", version = "0.1.0" }
 liyasa-store = { path = "../liyasa-store", version = "0.1.0" }
 # WP-16: provider clients, inbound webhook verification and the clone policy.
 liyasa-git = { path = "../liyasa-git", version = "0.1.0" }
+# WP-19: the MCP `fetch` tool selects a section of a page, and an anchor it
+# selects by has to be the anchor the rendered page uses — so the slug comes
+# from the module that renders it rather than from a second implementation.
+liyasa-markdown = { path = "../liyasa-markdown", version = "0.1.0" }
 blake3.workspace = true
 bytes.workspace = true
 http.workspace = true
