@@ -98,3 +98,72 @@ fn the_host_linker_flag_is_removed_and_nothing_else_is() {
     assert_eq!(without_mold("-D warnings"), None);
     assert_eq!(without_mold(""), None);
 }
+
+#[test]
+fn cases_are_counted_at_any_depth_not_at_the_top() {
+    use xtask::preflight::md_files;
+
+    // The importer writes `<suite>/<section>/<case>.md`, so counting top-level
+    // entries reported "2 cases imported" for a corpus of 674. That matters
+    // because the count IS the empty-corpus guard: two suite directories
+    // holding nothing would satisfy a `> 0` check while the conformance run
+    // over them passed vacuously — defect 147 reintroduced by its own guard.
+    //
+    // The fixture is shaped so the two readings give DIFFERENT numbers. A
+    // check against the real corpus does not discriminate: counting its
+    // directories also beats counting its root files, so the old bug would
+    // have passed that test.
+    let dir = std::env::temp_dir().join(format!("liyasa-preflight-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("commonmark/blank-lines")).expect("fixture");
+    std::fs::create_dir_all(dir.join("gfm/tables-extension")).expect("fixture");
+    for case in [
+        "commonmark/blank-lines/one.md",
+        "commonmark/blank-lines/two.md",
+        "gfm/tables-extension/three.md",
+    ] {
+        std::fs::write(dir.join(case), "# case\n").expect("fixture");
+    }
+    // A stray non-case file must not be counted as one.
+    std::fs::write(dir.join("commonmark/README.txt"), "notes\n").expect("fixture");
+
+    let counted = md_files(&dir).expect("the fixture is readable");
+    let top_level_dirs = std::fs::read_dir(&dir)
+        .expect("readable")
+        .filter_map(Result::ok)
+        .filter(|e| e.path().is_dir())
+        .count();
+
+    assert_eq!(counted, 3, "three cases, at two different depths");
+    assert_eq!(
+        top_level_dirs, 2,
+        "the fixture has the shape the bug needed"
+    );
+    assert_ne!(
+        counted, top_level_dirs,
+        "the fixture must distinguish the two readings, or this test cannot fail"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_corpus_of_empty_suite_directories_counts_zero() {
+    use xtask::preflight::md_files;
+
+    // The failure the guard exists for, stated directly: an import that made
+    // the directories and no cases. The old count returned 2 here and the
+    // `cases == 0` check passed.
+    let dir = std::env::temp_dir().join(format!("liyasa-preflight-empty-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("commonmark")).expect("fixture");
+    std::fs::create_dir_all(dir.join("gfm")).expect("fixture");
+
+    assert_eq!(
+        md_files(&dir).expect("readable"),
+        0,
+        "two empty suite directories are zero cases, not two"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

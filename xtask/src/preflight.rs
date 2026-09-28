@@ -285,17 +285,33 @@ fn fetch_and_import(
         ],
     )?;
 
-    let cases = std::fs::read_dir(corpus)
-        .map_err(|e| format!("{}: {e}", corpus.display()))?
-        .filter_map(Result::ok)
-        .filter(|e| e.path().is_dir())
-        .count();
+    // Count the cases, not the directories above them. The first version of
+    // this counted top-level entries and reported "2 cases imported" for a run
+    // that had just imported 674, because the importer groups them as
+    // `<suite>/<section>/<case>.md`. The number is the empty-corpus guard, so a
+    // number that is wrong in the safe direction is still a guard that cannot
+    // fire: two suite directories holding nothing would have passed it.
+    let cases = md_files(corpus)?;
     // The check defect 147 skipped. An empty corpus makes every suite that
     // reads it green, so it is a failure here rather than a quiet pass.
     if cases == 0 {
         return Err(format!("{} holds no cases after import", corpus.display()));
     }
     Ok(cases)
+}
+
+/// Every `.md` file under `dir`, at any depth: one per corpus case.
+pub fn md_files(dir: &Path) -> Result<usize, String> {
+    let mut found = 0;
+    for entry in std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))? {
+        let path = entry.map_err(|e| format!("{}: {e}", dir.display()))?.path();
+        if path.is_dir() {
+            found += md_files(&path)?;
+        } else if path.extension().is_some_and(|e| e == "md") {
+            found += 1;
+        }
+    }
+    Ok(found)
 }
 
 fn curl(url: &str, into: &Path) -> Result<(), String> {
