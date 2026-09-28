@@ -56,6 +56,7 @@ test("every landmark is present, labelled, and reachable", async ({ page }) => {
     "Page content",
     "Preview",
     "Problems",
+    "Guides",
     "Draft status",
   ]) {
     const region = page.locator(`[data-landmark="${label}"]`);

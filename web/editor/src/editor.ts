@@ -41,6 +41,8 @@ import { renderSuggestion, renderSuggestions, suggestionAnnouncement } from "./v
 import { renderActivity, renderConflict, renderDrafts, renderEmpty, renderMedia } from "./view/panes.ts";
 import { chipTooltip, expressionCompletions, renderBlock, renderChip, renderCode, renderComponent, renderExpressionEditor, renderLogicBlock, renderNode, renderOpaque, renderSurface, unexpanded } from "./view/blocks.ts";
 import { askLabel, describeContext, renderCappedRows, renderContextToolbar, renderHelp, renderProposal, renderTaskForm, renderTaskList, renderTemplatePicker, renderTourStep, renderVocabulary, termsIn } from "./view/guides.ts";
+import { START, actionFor, announcementFor, landmarkFor, reduce, renderPanel } from "./view/shell.ts";
+import type { Action, ShellState } from "./view/shell.ts";
 
 /** What the shell holds while a draft is open. */
 interface State {
@@ -168,7 +170,135 @@ function mount(): void {
     region?.setAttribute("aria-label", landmark.label);
   }
 
+  restoreTourSeen();
+  document.addEventListener("click", onClick);
+  document.addEventListener("keydown", onKey);
+  apply({ do: "first-visit", seen: shell.tourSeen });
+
   announce("Editor ready");
+}
+
+// --- the panels -------------------------------------------------------------
+//
+// Every decision about which panel opens, what closes it, where it goes and what
+// is announced is in `view/shell.ts` and tested there. What is left here is DOM:
+// read the attributes off the clicked control, apply the result, move focus.
+
+let shell: ShellState = START;
+
+const TOUR_SEEN = "liyasa.editor.tourSeen";
+
+/**
+ * Whether the tour has been taken.
+ *
+ * In `localStorage`, which throws in a private window and returns nothing when
+ * site data is cleared — so a failure here means the tour opens again, never that
+ * the editor does not load.
+ */
+function restoreTourSeen(): void {
+  try {
+    if (globalThis.localStorage?.getItem(TOUR_SEEN) === "1") shell = { ...shell, tourSeen: true };
+  } catch {
+    // An unreadable store is a tour the author sees twice, and nothing worse.
+  }
+}
+
+function rememberTourSeen(): void {
+  try {
+    globalThis.localStorage?.setItem(TOUR_SEEN, "1");
+  } catch {
+    // Same: not worth a diagnostic, and never worth throwing out of a click.
+  }
+}
+
+function attributesOf(node: Element): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const attribute of node.attributes) out[attribute.name] = attribute.value;
+  return out;
+}
+
+function onClick(event: MouseEvent): void {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  // `closest` rather than the target itself: the control may be a `<strong>`
+  // inside the button, which is what a template choice is.
+  const control = target.closest("button, [data-choose-template], [data-choose-task]");
+  if (!control) return;
+  const action = actionFor(attributesOf(control));
+  if (!action) return;
+  event.preventDefault();
+  markOpener(control, action);
+  apply(action);
+}
+
+function onKey(event: KeyboardEvent): void {
+  if (event.key === "Escape" && shell.panel.kind !== "none") {
+    event.preventDefault();
+    apply({ do: "close" });
+    return;
+  }
+  // `?` opens help, unless the author is typing one into their page.
+  if (event.key === "?" && !typing(event.target)) {
+    event.preventDefault();
+    apply({ do: "open-help" });
+  }
+}
+
+function typing(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return (
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLInputElement ||
+    target.getAttribute("contenteditable") === "true"
+  );
+}
+
+/**
+ * Remembers which control opened a panel, so closing gives focus back to it.
+ *
+ * WCAG 2.4.3: a dialog that returns focus to the document loses a keyboard user
+ * their place, and it is the commonest way an otherwise accessible panel fails.
+ */
+function markOpener(control: Element, action: Action): void {
+  if (action.do === "close") return;
+  for (const previous of document.querySelectorAll("[data-panel-opener]")) {
+    previous.removeAttribute("data-panel-opener");
+  }
+  if (control.closest("[data-panel]") === null) control.setAttribute("data-panel-opener", "");
+}
+
+function apply(action: Action): void {
+  const before = shell.panel.kind;
+  shell = reduce(shell, action);
+  if (shell.tourSeen) rememberTourSeen();
+  paint();
+  if (shell.panel.kind !== before) announce(announcementFor(shell));
+  const pressed = document.querySelector("[data-advanced]");
+  pressed?.setAttribute("aria-pressed", shell.advanced ? "true" : "false");
+}
+
+function paint(): void {
+  const region = document.querySelector("[data-panel]");
+  if (region) region.innerHTML = "";
+  for (const stale of document.querySelectorAll("[data-tour-step]")) stale.remove();
+  if (shell.panel.kind === "none") {
+    focusOn(shell.focus);
+    return;
+  }
+  const host = document.querySelector(landmarkFor(shell.panel) ?? "[data-panel]");
+  if (!host) return;
+  const holder = document.createElement("div");
+  holder.innerHTML = String(renderPanel(shell));
+  // The tour goes beside the shell rather than inside the panel column, because
+  // a step points at something on screen and cannot sit inside what it points at.
+  host.append(...holder.childNodes);
+  focusOn(shell.focus);
+}
+
+function focusOn(selector: string | null): void {
+  if (selector === null) return;
+  const target = document.querySelector(selector);
+  if (target instanceof HTMLElement) target.focus();
 }
 
 function announce(message: string): void {
@@ -328,6 +458,11 @@ export const MODULES = {
   renderTaskForm,
   askLabel,
   renderProposal,
+  renderPanel,
+  reduce,
+  actionFor,
+  announcementFor,
+  landmarkFor,
   renderNode,
   renderChip,
   chipTooltip,

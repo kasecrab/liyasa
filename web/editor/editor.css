@@ -509,6 +509,17 @@ button {
 .block-opaque { border: 1px dashed var(--ly-color-border-strong); border-radius: var(--ly-radius-md); padding: var(--ly-space-2); margin-bottom: var(--ly-space-3); }
 .opaque-source { font-size: var(--ly-text-sm); overflow-x: auto; }
 
+/* The panel column: the tour, help, templates, tasks and the word list. Empty
+ * most of the time, so it takes no space until something is in it. */
+.panel:empty { display: none; }
+
+.panel {
+  padding: var(--ly-space-3);
+  background: var(--ly-color-surface);
+  border: var(--ly-border-subtle);
+  border-radius: var(--ly-radius-md);
+}
+
 /* ED-80: no motion, not less. */
 @media (prefers-reduced-motion: reduce) {
   *,

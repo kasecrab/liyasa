@@ -162,6 +162,7 @@ export const LANDMARKS: Landmark[] = [
   { role: "main", label: "Page content" },
   { role: "complementary", label: "Preview" },
   { role: "complementary", label: "Problems" },
+  { role: "complementary", label: "Guides" },
   { role: "contentinfo", label: "Draft status" },
 ];
 

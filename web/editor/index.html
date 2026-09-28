@@ -21,6 +21,11 @@
         <button type="button" data-mode-switch>Source</button>
         <button type="button" data-action="suggest" class="primary">Submit for review</button>
         <button type="button" data-help aria-keyshortcuts="?">Help</button>
+        <button type="button" data-open-tasks>Tasks</button>
+        <button type="button" data-open-templates>Templates</button>
+        <button type="button" data-open-tour>Take the tour</button>
+        <button type="button" data-open-vocabulary>What these words mean</button>
+        <button type="button" data-advanced aria-pressed="false">Advanced</button>
       </header>
 
       <nav class="pages" data-landmark="Pages" data-drafts>
@@ -54,6 +59,13 @@
           <h2>Problems</h2>
           <p class="empty">No problems found.</p>
         </aside>
+
+        <!-- The panels that need nothing from the network: the tour, the help,
+             the templates, the task list and the word list. Empty until one is
+             opened, and `aria-live` is deliberately absent — the live region
+             announces the change, and a region that is both live and replaced
+             wholesale is read twice. -->
+        <aside class="panel" data-landmark="Guides" data-panel></aside>
       </div>
 
       <footer class="status" data-landmark="Draft status">
