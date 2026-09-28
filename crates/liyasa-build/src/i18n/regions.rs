@@ -281,12 +281,42 @@ pub fn scope_of_query(query: &str, regions: &Regions) -> Scope {
 ///
 /// - `None` — no gate. Every region, and every reader whose region is unknown.
 /// - `Some(list)` — exactly those regions.
-/// - `Some(empty)` — no region at all. A gate can reach this by contradicting
-///   itself, `only: ["us"], except: ["us"]`, or by excluding every region the
-///   site declares. It is not the same as having said nothing.
+/// - `Some(empty)` — no region at all. It is not the same as having said nothing.
 ///
 /// `only` wins where both are given: a gate that names the regions it is for
 /// has already answered, and `except` narrows that list rather than widening it.
+///
+/// # `Some(empty)` is reachable two ways
+///
+/// A caller will reason about the first and meet the second in production:
+///
+/// 1. A gate that cancels itself — `only: ["us"], except: ["us"]`, or an
+///    `except` naming every region the site declares. The author wrote
+///    something that admits nobody.
+/// 2. An `except`-only gate on a site that declares **no** regions, because the
+///    list being filtered is empty. The author wrote a gate that cannot mean
+///    anything, and the site has no region system for it to mean it in.
+///
+/// The two are the same value and not the same situation, and a caller that
+/// treats `Some(empty)` as "withhold this" should check whether the site
+/// declares any region before acting — otherwise it fires on the sites least
+/// equipped to read the warning.
+///
+/// # `only` is taken as written and `except` is not
+///
+/// `only: ["eu"]` on a site whose `regions.list` omits `eu` comes back as
+/// `Some(["eu"])`, not `Some(empty)`: `only` is the author naming regions and is
+/// passed through, while `except` removes entries from a list the author did not
+/// write and can only remove what is in it.
+///
+/// That asymmetry is deliberate. Both spellings already withhold the content
+/// from every reader, because [`Detector::detect`] only ever yields a declared
+/// code, so nothing is admitted either way. What differs is the diagnosis:
+/// intersecting `only` with `regions.list` would collapse "named a region this
+/// site does not have" into "admits no region", and the first has its own
+/// warning — `W0725`, from [`undeclared`] — which names the code and suggests
+/// the declared one it is closest to. Keeping them apart keeps the better
+/// message.
 pub fn allowed(gate: Option<&RegionGate>, regions: &Regions) -> Option<Vec<String>> {
     let gate = gate?;
     let only = gate.only.clone().unwrap_or_default();
@@ -730,6 +760,54 @@ mod tests {
             allowed(Some(&gate(&[], &["us", "ca", "eu"])), &regions),
             Some(Vec::new()),
             "excluding every declared region admits nobody"
+        );
+    }
+
+    /// The second path to `Some(empty)`, which is the one a caller meets in
+    /// production rather than the self-cancelling gate it reasons about.
+    #[test]
+    fn an_exclusion_on_a_site_with_no_regions_admits_nobody() {
+        let none_declared = Regions {
+            enabled: true,
+            list: Vec::new(),
+            ..Regions::default()
+        };
+        assert_eq!(
+            allowed(Some(&gate(&[], &["eu"])), &none_declared),
+            Some(Vec::new()),
+            "there is no list to remove `eu` from, so nothing is left"
+        );
+        assert_eq!(
+            allowed(Some(&gate(&["us"], &[])), &none_declared),
+            Some(vec!["us".to_owned()]),
+            "and `only` still says what the author wrote"
+        );
+    }
+
+    #[test]
+    fn a_region_only_names_is_passed_through_rather_than_intersected() {
+        let regions = regions(&["choice"]);
+        assert_eq!(
+            allowed(Some(&gate(&["jp"], &[])), &regions),
+            Some(vec!["jp".to_owned()]),
+            "not `Some([])`: W0725 is the better message for an undeclared name"
+        );
+        assert_eq!(
+            allowed(Some(&gate(&[], &["jp"])), &regions),
+            Some(vec!["us".to_owned(), "ca".to_owned(), "eu".to_owned()]),
+            "an `except` can only remove what the declared list holds"
+        );
+        // Either way no reader reaches it, because a detected region is always
+        // a declared one.
+        assert!(!admits_page(Some(&gate(&["jp"], &[])), Some("us")));
+        let detector = Detector::new(&regions);
+        assert_eq!(
+            detector.detect(&Request {
+                chosen: Some("jp"),
+                ..Request::default()
+            }),
+            None,
+            "so `jp` is never a region a reader is in"
         );
     }
 
