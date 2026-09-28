@@ -236,11 +236,7 @@ fn the_markdown_twin_is_a_table_and_carries_no_html() {
         },
     );
 
-    assert!(
-        !twin.diagnostics.has_errors(),
-        "{:#?}",
-        twin.diagnostics
-    );
+    assert!(!twin.diagnostics.has_errors(), "{:#?}", twin.diagnostics);
     for tag in ["<div", "<span", "<table"] {
         assert!(
             !twin.markdown.contains(tag),
