@@ -33,7 +33,8 @@ use liyasa_core::vfs::{Vfs, VfsPath};
 use crate::config::SpecConfig;
 use crate::field::Field;
 use crate::nav::{self, Entry, Node, Reference};
-use crate::page::{Augmentation, BuildOptions, Page, Rendered};
+use crate::model::ParameterIn;
+use crate::page::{Augmentation, BuildOptions, Page, Rendered, Section};
 use crate::schemas::{self, SchemaPage};
 use crate::source::Location;
 use crate::visibility::Audience;
@@ -310,7 +311,7 @@ fn one(model: &Spec, config: &SpecConfig, authored: &[Authored]) -> One {
                 selector: entry.selector.clone(),
                 source: document(
                     &front_matter(&page.title, operation_key(&config.id, &entry.selector)),
-                    &markdown::render(&page, &markdown::Options::default()),
+                    &operation_body(&page, &config.id, operation.operation.operation_id.as_deref()),
                 ),
                 deprecated: entry.deprecated,
                 group: Some(group.name.clone()),
@@ -394,4 +395,238 @@ fn schema_body(page: &SchemaPage) -> String {
     };
     out.push_str(&markdown::field_table("Field", fields));
     out
+}
+
+// ---- the body of a generated operation page ----
+
+/// One operation as the components a manual page would use (API-10, API-11).
+///
+/// `liyasa-components` was built expecting this: `endpoint` takes `spec` and
+/// `operation` so the header can be pulled from the document, and the doc
+/// comment on `reject_body_location` says in as many words that "the generator
+/// emits them as response-field rows under a Body heading". So a generated page
+/// is spelled the way an author spells one, gets the method pill, the per-row
+/// anchors and the table merge for free, and the Markdown twin (API-14) comes
+/// from each component's own `render_markdown` rather than from a second
+/// rendering of the page.
+fn operation_body(page: &Page, spec: &str, operation_id: Option<&str>) -> String {
+    let mut out = String::new();
+
+    let mut props = vec![
+        ("method", page.method.as_str().to_owned()),
+        ("path", page.path.clone()),
+        ("spec", spec.to_owned()),
+    ];
+    if let Some(id) = operation_id {
+        props.push(("operation", id.to_owned()));
+    }
+    directive(&mut out, "endpoint", &props, "");
+
+    if page.deprecated {
+        let note = page
+            .deprecated_note
+            .clone()
+            .unwrap_or_else(|| "This operation is deprecated.".to_owned());
+        out.push_str(&format!("**Deprecated.** {note}\n\n"));
+    }
+    if let Some(description) = &page.description {
+        out.push_str(&format!("{description}\n\n"));
+    }
+    if let Some(intro) = &page.augmentation.intro
+        && !intro.markdown.is_empty()
+    {
+        out.push_str(&format!("{}\n\n", intro.markdown));
+    }
+
+    for section in &page.parameters {
+        if section.fields.is_empty() {
+            continue;
+        }
+        out.push_str(&format!("## {}\n\n", section.title));
+        for field in &section.fields {
+            rows(&mut out, field, "", Some(location_of(section)));
+        }
+    }
+
+    if let Some(body) = &page.body {
+        out.push_str("## Body\n\n");
+        if let Some(description) = &body.description {
+            out.push_str(&format!("{description}\n\n"));
+        }
+        for media in &body.media_types {
+            if body.media_types.len() > 1 {
+                out.push_str(&format!("### `{}`\n\n", media.media_type));
+            }
+            for field in &media.fields {
+                rows(&mut out, field, "", None);
+            }
+            if let Some(example) = &media.example {
+                fence(&mut out, &media.media_type, example);
+            }
+        }
+    }
+
+    if !page.responses.is_empty() {
+        out.push_str("## Responses\n\n");
+        for response in &page.responses {
+            out.push_str(&format!("### {}\n\n", response.status));
+            if !response.description.is_empty() {
+                out.push_str(&format!("{}\n\n", response.description));
+            }
+            for media in &response.media_types {
+                for field in &media.fields {
+                    rows(&mut out, field, "", None);
+                }
+                if let Some(example) = &media.example {
+                    fence(&mut out, &media.media_type, example);
+                }
+            }
+        }
+    }
+
+    out
+}
+
+fn location_of(section: &Section) -> &'static str {
+    match section.location {
+        ParameterIn::Path => "path",
+        ParameterIn::Query => "query",
+        ParameterIn::Header => "header",
+        ParameterIn::Cookie => "cookie",
+    }
+}
+
+/// One field and everything under it.
+///
+/// Nested fields are flattened with a dotted name rather than nested
+/// directives: a container inside a container needs a longer fence, and a
+/// reader reading a table wants `shipping.postcode` on its own row anyway. It
+/// is what [`markdown`]'s own table does.
+fn rows(out: &mut String, field: &Field, prefix: &str, location: Option<&str>) {
+    let name = if prefix.is_empty() {
+        field.name.clone()
+    } else {
+        format!("{prefix}.{}", field.name)
+    };
+
+    let mut props: Vec<(&str, String)> = vec![("name", name.clone())];
+    if let Some(location) = location {
+        props.push(("in", location.to_owned()));
+    }
+    if !field.type_label.is_empty() {
+        props.push(("type", field.type_label.clone()));
+    }
+    if field.required {
+        props.push(("required", "true".to_owned()));
+    }
+    if field.deprecated {
+        props.push(("deprecated", "true".to_owned()));
+    }
+    if let Some(default) = &field.default {
+        props.push(("default", crate::example::as_text(default)));
+    }
+    if let Some(example) = &field.example {
+        props.push(("example", crate::example::as_text(example)));
+    }
+    if !field.enumeration.is_empty() {
+        // A list prop is written `[a, b]`, and a member holding a quote or a
+        // comma cannot be spelled, so the whole list goes or none of it does.
+        let members: Vec<String> = field
+            .enumeration
+            .iter()
+            .map(crate::example::as_text)
+            .collect();
+        if members
+            .iter()
+            .all(|member| safe(member) && !member.contains(','))
+        {
+            props.push(("enum", format!("[{}]", members.join(", "))));
+        }
+    }
+
+    let mut content = String::new();
+    if let Some(description) = &field.description {
+        content.push_str(description);
+    }
+    if !field.constraints.is_empty() {
+        if !content.is_empty() {
+            content.push_str("\n\n");
+        }
+        content.push_str(&field.constraints.join(", "));
+    }
+    if field.truncated {
+        if !content.is_empty() {
+            content.push_str("\n\n");
+        }
+        match &field.schema_name {
+            Some(schema) => content.push_str(&format!("See `{schema}`.")),
+            None => content.push_str("Nested further; expand to see the rest."),
+        }
+    }
+
+    let kind = if location.is_some() {
+        "param"
+    } else {
+        "response-field"
+    };
+    directive(out, kind, &props, &content);
+
+    for child in &field.children {
+        rows(out, child, &name, location);
+    }
+    for variant in &field.variants {
+        rows(out, &variant.field, &name, location);
+    }
+}
+
+/// A container directive with its props and its content.
+fn directive(out: &mut String, name: &str, props: &[(&str, String)], content: &str) {
+    out.push_str(":::");
+    out.push_str(name);
+    let written: Vec<String> = props
+        .iter()
+        .filter(|(_, value)| safe(value))
+        .map(|(key, value)| {
+            if value.starts_with('[') {
+                format!("{key}={value}")
+            } else {
+                format!("{key}=\"{value}\"")
+            }
+        })
+        .collect();
+    if !written.is_empty() {
+        out.push_str(&format!("{{{}}}", written.join(" ")));
+    }
+    out.push('\n');
+    if !content.trim().is_empty() {
+        out.push_str(content.trim());
+        out.push('\n');
+    }
+    out.push_str(":::\n\n");
+}
+
+/// Whether a value can be a directive prop at all.
+///
+/// `directives::props::value` ends a quoted string at the first `"` and has no
+/// escape, so a value holding one would truncate the prop and swallow the rest
+/// of the line. Such a value is dropped: the row loses a hint, where emitting
+/// it would lose the document.
+///
+/// A brace is fine. The props block is delimited by the LAST `}` on the line
+/// (`props.rs` checks `ends_with('}')`) and the scan reads a quoted value
+/// through to its closing quote without looking inside it — which is what makes
+/// `path="/widgets/{id}"` spellable, and every path has braces in it.
+fn safe(value: &str) -> bool {
+    !value.is_empty() && !value.contains('"') && !value.contains('\n')
+}
+
+fn fence(out: &mut String, media_type: &str, text: &str) {
+    let language = if media_type.contains("json") {
+        "json"
+    } else if media_type.contains("xml") {
+        "xml"
+    } else {
+        ""
+    };
+    out.push_str(&format!("```{language}\n{}\n```\n\n", text.trim_end()));
 }

@@ -118,11 +118,84 @@ fn a_page_is_a_whole_markdown_document_front_matter_and_all() {
          endpoint in search (DocKind::Endpoint)"
     );
 
-    assert!(body.contains("`GET /widgets/{id}`"), "{body}");
-    assert!(body.contains("Parameters") || body.contains("id"), "{body}");
     assert!(
         !body.contains("<div") && !body.contains("<span"),
         "the source is Markdown; HTML is the pipeline's job"
+    );
+}
+
+#[test]
+fn the_body_is_the_components_a_manual_page_would_use() {
+    let surface = build::surface(&vfs(), &config(""), &[]);
+    let page = surface
+        .pages
+        .iter()
+        .find(|page| page.selector == "GET /widgets/{id}")
+        .expect("the operation is there");
+
+    assert!(
+        page.source.contains(r#":::endpoint{method="GET" path="/widgets/{id}""#),
+        "the method pill and the path come from the endpoint component (CMP-43), \
+         which the audit of 2026-09-21 checked works end to end:\n{}",
+        page.source
+    );
+    assert!(
+        page.source.contains(r#"spec="api""#) && page.source.contains(r#"operation="getWidget""#),
+        "and it names the operation, so the dependency graph has the edge"
+    );
+    assert!(
+        page.source.contains(r#":::param{name="id" in="path""#),
+        "a parameter is a param row, not a table cell:\n{}",
+        page.source
+    );
+
+    let opens = page.source.matches("\n:::").count() + usize::from(page.source.starts_with(":::"));
+    assert_eq!(
+        opens % 2,
+        0,
+        "every container directive is closed:\n{}",
+        page.source
+    );
+}
+
+#[test]
+fn a_value_holding_a_quote_is_left_out_rather_than_breaking_the_document() {
+    // Directive props have no escape: `value` in
+    // crates/liyasa-markdown/src/directives/props.rs ends the string at the
+    // first `"`, so emitting one would silently truncate the prop and swallow
+    // whatever followed it.
+    let quoted = SPEC.replace(
+        r#"        - { name: id, in: path, required: true, schema: { type: string } }"#,
+        r#"        - { name: id, in: path, required: true, schema: { type: string }, example: 'say "hello"' }"#,
+    );
+    let surface = build::surface(
+        &MemoryVfs::new().with("openapi/api.yaml", quoted.as_str()),
+        &config(""),
+        &[],
+    );
+    assert!(
+        !surface.diagnostics.has_errors(),
+        "{:?}",
+        surface.diagnostics.as_slice()
+    );
+    let page = surface
+        .pages
+        .iter()
+        .find(|page| page.selector == "GET /widgets/{id}")
+        .expect("the operation is there");
+
+    let directive = page
+        .source
+        .lines()
+        .find(|line| line.starts_with(":::param"))
+        .expect("the parameter is a param row");
+    assert!(
+        !directive.contains("hello"),
+        "an unescapable value is dropped from the props: {directive}"
+    );
+    assert!(
+        directive.matches('"').count() % 2 == 0,
+        "so the quotes stay balanced: {directive}"
     );
 }
 
@@ -211,11 +284,13 @@ fn an_authored_page_keeps_its_route_and_its_body_goes_above_the_parameters() {
     let intro = body
         .find("Read this first.")
         .expect("the intro is rendered");
-    let parameters = body.find("`GET /widgets/{id}`").expect("and the reference");
+    let parameters = body.find(":::param").expect("and the reference");
     assert!(
-        intro > parameters,
+        intro < parameters,
         "the body renders above the parameters, below the method and path"
     );
+    let endpoint = body.find(":::endpoint").expect("the header is there");
+    assert!(endpoint < intro, "and below the method and path");
 
     assert_eq!(
         surface

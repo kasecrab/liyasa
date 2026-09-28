@@ -18,6 +18,9 @@ mod auth_14_bot_protection;
 mod auth_07_mixed;
 #[path = "../server/api_50_download.rs"]
 mod api_50_download;
+
+#[path = "../build/api_03_pages_render.rs"]
+mod api_03_pages_render;
 #[path = "../build/auth_01.rs"]
 mod auth_01;
 #[path = "../config/cfg_01.rs"]

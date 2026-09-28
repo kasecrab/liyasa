@@ -2863,6 +2863,7 @@ dependencies = [
  "liyasa-git",
  "liyasa-markdown",
  "liyasa-net",
+ "liyasa-openapi",
  "liyasa-search",
  "liyasa-server",
  "liyasa-store",
@@ -2873,6 +2874,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tower",
+ "url",
  "zeroize",
 ]
 
