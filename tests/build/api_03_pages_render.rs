@@ -13,10 +13,12 @@
 //! It does not need the engine, which is why it can exist before RFC 0806's
 //! call site does.
 
+use std::collections::BTreeSet;
+
 use liyasa_build::render::{self, Options};
 use liyasa_components::registry::Registry;
 use liyasa_core::conformance::fixtures::MemoryVfs;
-use liyasa_core::ids::Locale;
+use liyasa_core::ids::{Locale, Route};
 use liyasa_core::markdown::{Expanded, ExpansionRecord, SiteMeta, SpanMap};
 use liyasa_openapi::build::{self, PageKind};
 use url::Url;
@@ -203,53 +205,79 @@ fn a_request_body_renders_under_its_own_heading() {
     );
 }
 
-/// API-14: the Markdown twin.
+/// API-14: the Markdown twin, rendered through the surface that actually builds
+/// it.
 ///
-/// What holds today is asserted; the parameter table is not reachable yet and
-/// this says why rather than pinning the gap. `liyasa_markdown::render::markdown`
-/// has `render_for(root, _audience)` — the audience is unused — and it
-/// re-serializes the AST generically, so `Component::render_markdown` is never
-/// called on this path and `api::table_markdown` never runs.
-/// `liyasa_components::Reference`, the component-aware serializer that does call
-/// it, is exported and reached by nothing; `render.rs:21` says so in as many
-/// words: "so components are testable before it lands". Both are WP-03's.
+/// `render::from_expanded`'s `page.markdown` is NOT the twin: it goes through
+/// `liyasa_markdown`'s generic AST walk, which does not consult the registry.
+/// The twin is `agents::markdown::render_page`, which builds a
+/// `liyasa_components::Reference` under `Audience::Agent`, and that is what
+/// reaches `api::table_markdown` for an RX-61 field run. Testing the wrong one
+/// of the two is how this test first concluded the table was unreachable.
 #[test]
-fn the_markdown_twin_carries_no_html_and_keeps_the_method_and_path() {
+fn the_markdown_twin_is_a_table_and_carries_no_html() {
+    let registry = Registry::builtins();
+    let site = site();
     let page = rendered(&body("GET /widgets/{id}"));
+    let document = page.document.as_ref().expect("the render keeps the AST");
+    let route = Route::new("/api-reference/getwidget");
+    let routes = BTreeSet::new();
 
+    let twin = liyasa_build::agents::markdown::render_page(
+        document,
+        &liyasa_build::agents::markdown::Options {
+            site: &site,
+            registry: &registry,
+            route: &route,
+            frontmatter: None,
+            routes: &routes,
+            site_instructions: None,
+            openapi_schema: None,
+        },
+    );
+
+    assert!(
+        !twin.diagnostics.has_errors(),
+        "{:#?}",
+        twin.diagnostics
+    );
     for tag in ["<div", "<span", "<table"] {
         assert!(
-            !page.markdown.contains(tag),
+            !twin.markdown.contains(tag),
             "the twin holds no HTML, so nothing has to be stripped at the \
              other end; found `{tag}`:\n{}",
-            page.markdown
+            twin.markdown
         );
     }
     assert!(
-        page.markdown.contains("get") && page.markdown.contains("/widgets/{id}"),
-        "the method and the path are tokens the search index reads:\n{}",
-        page.markdown
+        twin.markdown.contains('|'),
+        "a run of field components merges into one table (RX-61):\n{}",
+        twin.markdown
     );
+    assert!(
+        twin.markdown.contains("id") && twin.markdown.contains("verbose"),
+        "every parameter is a row in it:\n{}",
+        twin.markdown
+    );
+    assert!(
+        twin.markdown.contains("/widgets/{id}"),
+        "and the path is a token the search index reads:\n{}",
+        twin.markdown
+    );
+}
+
+/// The other serializer, for contrast, so the difference is recorded rather
+/// than rediscovered: it is HTML-free and keeps the prose, and it is not the
+/// twin.
+#[test]
+fn the_page_renders_markdown_that_is_not_the_twin() {
+    let page = rendered(&body("GET /widgets/{id}"));
+    for tag in ["<div", "<span", "<table"] {
+        assert!(!page.markdown.contains(tag), "{}", page.markdown);
+    }
     assert!(
         page.markdown.contains("The widget's id."),
-        "and a parameter's own prose survives:\n{}",
-        page.markdown
-    );
-
-    // The table is what API-14 asks for. Assert it once the serializer can
-    // produce it; until then say which gap is in the way, verified above rather
-    // than assumed.
-    if page.markdown.contains(":::") || page.markdown.contains("::param") {
-        eprintln!(
-            "skipping the parameter-table assertion: the twin is re-serialized \
-             directive source, because render_for ignores its Audience and \
-             liyasa_components::Reference is wired to nothing (WP-03)"
-        );
-        return;
-    }
-    assert!(
-        page.markdown.contains('|'),
-        "a run of field components merges into one table (RX-61):\n{}",
+        "a parameter's own prose survives:\n{}",
         page.markdown
     );
 }
