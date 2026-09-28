@@ -30,3 +30,4 @@ pub mod jsonrpc;
 pub mod markdown;
 pub mod openapi;
 pub mod reader;
+pub mod tools;
