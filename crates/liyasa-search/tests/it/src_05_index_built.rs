@@ -307,3 +307,68 @@ fn a_site_config_without_a_search_object_gets_the_defaults() {
         SearchSettings::default()
     );
 }
+
+/// Rule 17: a row that says immutable, cached or content-addressed is only
+/// tested by running it twice.
+///
+/// SRC-11 stores each shard under the content address of its own bytes and
+/// SRC-07 reuses it on that basis. Both rest on a premise no other test states:
+/// that two builds over identical input produce identical bytes. If they did
+/// not, every shard would be a cache miss on every build, incremental indexing
+/// would silently degrade to a full rebuild, and nothing would fail — the build
+/// would just be slower, which is the one defect this project keeps finding.
+mod determinism {
+    use super::*;
+
+    #[test]
+    fn two_runs_over_the_same_pages_produce_the_same_bytes() {
+        let owned = site();
+        let first = build::index_site(&pages(&owned), &SearchSettings::default());
+        let again = build::index_site(&pages(&owned), &SearchSettings::default());
+
+        let names: Vec<&String> = first.index.files.keys().collect();
+        assert_eq!(
+            names,
+            again.index.files.keys().collect::<Vec<_>>(),
+            "the same input names the same files"
+        );
+        for (name, bytes) in &first.index.files {
+            assert_eq!(
+                Some(bytes),
+                again.index.files.get(name),
+                "`{name}` differs between two runs over identical input, so its \
+                 content address differs and the cache can never hit"
+            );
+        }
+    }
+
+    #[test]
+    fn the_manifest_is_byte_identical_too() {
+        let owned = site();
+        let first = build::index_site(&pages(&owned), &SearchSettings::default());
+        let again = build::index_site(&pages(&owned), &SearchSettings::default());
+        assert_eq!(
+            first.index.files.get(writer::MANIFEST),
+            again.index.files.get(writer::MANIFEST)
+        );
+    }
+
+    /// The other direction, so the test above cannot pass by the writer
+    /// ignoring its input: a changed page must change the bytes.
+    #[test]
+    fn a_changed_page_changes_the_bytes() {
+        let owned = site();
+        let first = build::index_site(&pages(&owned), &SearchSettings::default());
+
+        let edited = vec![
+            (page("Rate limits"), meta("/guides/limits", "Rate limits")),
+            (page("Authorisation"), meta("/guides/auth", "Authorisation")),
+        ];
+        let after = build::index_site(&pages(&edited), &SearchSettings::default());
+
+        assert_ne!(
+            first.index.files, after.index.files,
+            "an edit that the index stores must reach the bytes"
+        );
+    }
+}
