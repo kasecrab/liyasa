@@ -157,6 +157,90 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* Source mode: a gutter, a painted layer, and the textarea that owns the caret.
+ * The two layers are stacked and must share every metric exactly — a different
+ * font, size, spacing or padding on either one and the paint drifts from the
+ * text by a fraction of a character per line. */
+.source-mode { display: grid; grid-template-columns: auto minmax(0, 1fr); font-size: var(--ly-text-sm); }
+
+.gutter {
+  display: flex;
+  flex-direction: column;
+  padding: var(--ly-space-2) var(--ly-space-2);
+  border-right: var(--ly-border);
+  color: var(--ly-color-text-subtle);
+  text-align: right;
+  user-select: none;
+}
+
+.gutter-line { padding: 0 var(--ly-space-1); }
+.gutter-error { color: var(--ly-color-danger); font-weight: var(--ly-font-weight-semibold); }
+.gutter-warning { color: var(--ly-color-warning); }
+
+.source-layers { position: relative; }
+
+.source-layers .highlight,
+.source-layers .source-input {
+  margin: 0;
+  padding: var(--ly-space-2);
+  border: 0;
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.source-layers .highlight { position: absolute; inset: 0; pointer-events: none; }
+
+.source-layers .source-input {
+  position: relative;
+  width: 100%;
+  min-height: 60vh;
+  resize: none;
+  background: transparent;
+  /* Transparent text over the painted layer, but a visible caret: `color:
+   * transparent` hides the caret too in some engines, so it is set back. */
+  color: transparent;
+  caret-color: var(--ly-color-text);
+}
+
+.source-layers .source-input::selection { background: var(--ly-color-primary-subtle); }
+
+.tok-directive, .tok-template-output, .tok-template-statement { color: var(--ly-color-primary); }
+.tok-template-comment { color: var(--ly-color-text-subtle); font-style: italic; }
+.tok-code, .tok-inline-code { color: var(--ly-color-success); }
+.tok-frontmatter { color: var(--ly-color-text-muted); }
+.tok-heading { font-weight: var(--ly-font-weight-semibold); }
+.tok-strong { font-weight: var(--ly-font-weight-semibold); }
+.tok-emphasis { font-style: italic; }
+.tok-link, .tok-autolink { color: var(--ly-color-primary); text-decoration: underline; }
+
+/* ED-03(c): the only way to edit a construct the visual mode does not model. */
+.source-popover {
+  border: var(--ly-border);
+  border-radius: var(--ly-radius-md);
+  background: var(--ly-color-elevated);
+  padding: var(--ly-space-4);
+}
+
+.source-popover .why { color: var(--ly-color-text-muted); font-size: var(--ly-text-sm); }
+.source-popover .source-input { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* Forms: the front matter form and a block's properties. */
+.field { margin-bottom: var(--ly-space-3); }
+.field label { display: block; font-weight: var(--ly-font-weight-semibold); }
+.field input, .field select, .field textarea { width: 100%; padding: var(--ly-space-1) var(--ly-space-2); border: var(--ly-border); border-radius: var(--ly-radius-sm); background: var(--ly-color-surface); color: var(--ly-color-text); }
+.field[data-invalid="true"] input, .field[data-invalid="true"] select, .field[data-invalid="true"] textarea { border-color: var(--ly-color-danger); }
+.field-help { margin: var(--ly-space-1) 0 0; color: var(--ly-color-text-muted); font-size: var(--ly-text-sm); }
+.field-error { margin: var(--ly-space-1) 0 0; color: var(--ly-color-danger); font-size: var(--ly-text-sm); }
+.required { color: var(--ly-color-danger); margin-left: 0.15em; }
+.missing { color: var(--ly-color-danger); }
+.save-reason { color: var(--ly-color-text-muted); font-size: var(--ly-text-sm); }
+.color-field, .asset-field { display: flex; gap: var(--ly-space-2); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
 /* ED-80: the focus ring, everywhere, always. */
 :focus-visible {
   outline: 2px solid var(--ly-color-focus);
