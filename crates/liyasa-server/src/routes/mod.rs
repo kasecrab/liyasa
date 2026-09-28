@@ -8,6 +8,7 @@
 
 pub mod acme;
 pub mod analytics;
+pub mod search;
 pub mod api;
 pub mod bundle;
 pub mod client_ip;
@@ -115,6 +116,13 @@ pub struct AppState {
     pub scrubber: Scrubber,
     /// The ACME tokens this replica is answering for (HOST-02).
     pub challenges: Arc<acme::Challenges>,
+    /// The built search index, read once from `dist/search-index/` (REST-04).
+    ///
+    /// `None` on a site built without one, and on a collector. Held beside the
+    /// bundle rather than inside it because `Bundle` deliberately excludes the
+    /// index from its manifest: it holds the text of every page including the
+    /// restricted ones, so it must never be servable as a file.
+    pub search_index: Option<Arc<liyasa_search::idx::Index>>,
     /// The pool on `analytics.db`, published by the ingest writer that opens
     /// it (ANA-08). The dashboard reads through this rather than opening a
     /// second pool: two pools on one SQLite file is two write locks, and the
@@ -182,6 +190,7 @@ impl AppState {
             started: Instant::now(),
             mounted: std::sync::OnceLock::new(),
             self_arc: std::sync::OnceLock::new(),
+            search_index: None,
             analytics: std::sync::OnceLock::new(),
             auth_state: std::sync::OnceLock::new(),
             org_state: std::sync::OnceLock::new(),
@@ -238,6 +247,18 @@ impl AppState {
     /// above all — takes it from here and never constructs its own.
     pub fn auth_state(&self) -> Option<&Arc<crate::auth::state::AuthState>> {
         self.auth_state.get()
+    }
+
+    /// The search index this instance serves queries from.
+    pub fn search_index(&self) -> Option<&Arc<liyasa_search::idx::Index>> {
+        self.search_index.as_ref()
+    }
+
+    /// Reads the index out of a built bundle. Called by `main` beside
+    /// `with_bundle`: the two come from one `dist/`.
+    pub fn with_search_index(mut self, index: Arc<liyasa_search::idx::Index>) -> Self {
+        self.search_index = Some(index);
+        self
     }
 
     /// The analytics database, or `None` on an instance that opened none.
@@ -860,6 +881,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             // deleting a deployment leaves the build it pointed at — and the
             // day that is worth reporting it moves to 200 under this rule
             // without renegotiating it.
+            // REST-04, defect 146. Not a static file: the index holds the
+            // text of every page including the restricted ones, so what a
+            // reader may see is decided per query and never by serving it.
+            .route("/_liyasa/search", get(search::handler))
             .route("/_liyasa/api/v1/content", get(content))
             .route("/_liyasa/api/v1/jobs", get(jobs::list))
             .route("/_liyasa/api/v1/jobs/{id}", get(jobs::get))

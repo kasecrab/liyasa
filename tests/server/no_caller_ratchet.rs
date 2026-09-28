@@ -319,12 +319,6 @@ const UNROUTED_TODAY: &[(&str, &str)] = &[
          `forwardable` and `ProxyEvent` all exist in `liyasa-openapi`; `git grep \
          playground` over this crate returns nothing.",
     ),
-    (
-        "/_liyasa/search",
-        "defect 146: an index is built into `dist/search-index/` and nothing reads it — \
-         no endpoint, and no client-side fetch either. It was briefly served as a static \
-         file until that was recognised as shipping every restricted page's text.",
-    ),
 ];
 
 /// The `starts_with("/_liyasa/...")` prefixes `pool_for` claims.

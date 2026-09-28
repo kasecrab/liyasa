@@ -396,7 +396,14 @@ async fn run_serve(options: Options) -> Result<(), String> {
 
     if !collector_only {
         match routes::bundle::Bundle::open(&options.dist()) {
-            Ok(bundle) => state = state.with_bundle(Arc::new(bundle)),
+            Ok(bundle) => {
+                state = state.with_bundle(Arc::new(bundle));
+                // Read from the same `dist/` the bundle came from, and only
+                // when there is a bundle: a collector serves neither.
+                if let Some(index) = routes::search::open(&options.dist()) {
+                    state = state.with_search_index(Arc::new(index));
+                }
+            }
             Err(error) => {
                 return Err(format!(
                     "reading the bundle at {}: {error}. Run `liyasa build` first, or pass --dist.",
