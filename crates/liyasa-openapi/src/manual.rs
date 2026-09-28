@@ -31,6 +31,12 @@ pub struct Endpoint {
     pub response_fields: Vec<ManualField>,
     /// `api.baseUrl` unless the page overrides it.
     pub base_url: Option<String>,
+    /// The `spec` prop: which declared spec this page documents, when the
+    /// author says. A site with one spec rarely bothers; a site with several
+    /// has no other way to say (API-07).
+    pub spec: Option<String>,
+    /// The `operation` prop: the `operationId` in that spec.
+    pub operation: Option<String>,
 }
 
 impl Endpoint {
@@ -395,6 +401,8 @@ pub fn endpoints(instances: &[ComponentInst]) -> Vec<Endpoint> {
                 params: Vec::new(),
                 response_fields: Vec::new(),
                 base_url: prop_str(inst, "baseUrl"),
+                spec: prop_str(inst, "spec"),
+                operation: prop_str(inst, "operation"),
             });
             continue;
         }
@@ -451,6 +459,59 @@ fn prop_bool(inst: &ComponentInst, name: &str) -> bool {
         Some(PropValue::Num(number)) => *number != 0.0,
         Some(_) => true,
         None => false,
+    }
+}
+
+/// Which declared spec a manual page should be compared against (API-07,
+/// API-21).
+///
+/// No `PartialEq`: `Spec` has none, and comparing two of them is not what a
+/// caller wants anyway — it wants to know which arm it is in.
+#[derive(Debug, Clone)]
+pub enum SpecMatch<'a> {
+    /// The page names a spec and the project declares it.
+    Named(&'a Spec),
+    /// The page names one the project does not declare — a typo, or a spec
+    /// that was removed. Worth saying; the caller owns how.
+    NamedButUndeclared(String),
+    /// The page names none, so every declared spec is a candidate.
+    Unnamed,
+}
+
+/// Resolves the `spec` prop against what the project declares.
+pub fn spec_for<'a>(endpoint: &Endpoint, declared: &[&'a Spec]) -> SpecMatch<'a> {
+    let Some(named) = &endpoint.spec else {
+        return SpecMatch::Unnamed;
+    };
+    match declared.iter().find(|spec| spec.id == *named) {
+        Some(spec) => SpecMatch::Named(spec),
+        None => SpecMatch::NamedButUndeclared(named.clone()),
+    }
+}
+
+/// The drift a manual page has from the specs a project declares (API-21).
+///
+/// The trap this exists to close: [`drift`] reports
+/// [`Drift::NoSuchOperation`] when a spec does not describe the path, and for a
+/// page that names no spec that is not evidence of drift — it is a spec that
+/// does not describe the path, which is the ordinary case. API-20 exists so a
+/// page can document an endpoint no spec covers at all. Reporting it would give
+/// a manual page on a three-spec site two spurious `W0513`s, and the more specs
+/// a project has the noisier it would get.
+///
+/// So `NoSuchOperation` is dropped when the page named no spec, and kept when it
+/// named one: there, the author has said which spec describes this path and the
+/// spec does not, which is a real disagreement.
+pub fn drift_against(endpoint: &Endpoint, declared: &[&Spec]) -> Vec<Drift> {
+    match spec_for(endpoint, declared) {
+        SpecMatch::Named(spec) => drift(endpoint, spec),
+        SpecMatch::NamedButUndeclared(_) => Vec::new(),
+        SpecMatch::Unnamed => declared
+            .iter()
+            .map(|spec| drift(endpoint, spec))
+            .filter(|found| found.as_slice() != [Drift::NoSuchOperation])
+            .flatten()
+            .collect(),
     }
 }
 

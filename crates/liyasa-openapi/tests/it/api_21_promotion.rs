@@ -77,7 +77,13 @@ paths:
 "##;
 
 fn spec(source: &str) -> liyasa_openapi::Spec {
-    let loaded = load::from_bytes("api", "api.yaml", source.as_bytes()).expect("the spec loads");
+    spec_as("api", source)
+}
+
+/// The id matters once a project declares more than one: `spec_for` selects by
+/// it, so a fixture that hardcodes one id cannot test selection at all.
+fn spec_as(id: &str, source: &str) -> liyasa_openapi::Spec {
+    let loaded = load::from_bytes(id, "api.yaml", source.as_bytes()).expect("the spec loads");
     assert!(
         !loaded.diagnostics.has_errors(),
         "{:?}",
@@ -209,4 +215,135 @@ fn the_alias_an_author_may_have_written_is_read_too() {
     assert_eq!(endpoints.len(), 1, "the tag form is the same component");
     assert_eq!(endpoints[0].selector(), "GET /widgets");
     assert_eq!(endpoints[0].params.len(), 1);
+}
+
+/// API-07 with API-21: a project may declare several specs, and a manual page
+/// has to be compared against the right one — or, when it names none, against
+/// each without inventing drift out of the ones that simply do not cover it.
+mod several_specs {
+    use liyasa_openapi::manual::SpecMatch;
+
+    use super::*;
+
+    const OTHER: &str = r##"
+openapi: 3.1.0
+info: { title: Billing, version: "1" }
+paths:
+  /widgets/{id}:
+    get:
+      operationId: getBillingWidget
+      parameters:
+        - { name: id, in: query, required: true, schema: { type: string } }
+      responses: { "200": { description: ok } }
+"##;
+
+    fn named(spec: Option<&str>) -> Vec<ComponentInst> {
+        let mut props = vec![("method", text("GET")), ("path", text("/widgets/{id}"))];
+        if let Some(spec) = spec {
+            props.push(("spec", text(spec)));
+        }
+        let mut out = vec![inst("endpoint", &props)];
+        out.push(inst(
+            "param",
+            &[
+                ("name", text("id")),
+                ("in", text("path")),
+                ("type", text("string")),
+                ("required", PropValue::Bool(true)),
+            ],
+        ));
+        out
+    }
+
+    #[test]
+    fn the_page_names_which_spec_and_that_is_the_one_compared() {
+        let api = spec(SPEC);
+        let billing = spec_as("billing", OTHER);
+        let declared = [&api, &billing];
+
+        let endpoints = manual::endpoints(&named(Some("api")));
+        assert_eq!(endpoints[0].spec.as_deref(), Some("api"));
+        assert!(matches!(
+            manual::spec_for(&endpoints[0], &declared),
+            SpecMatch::Named(_)
+        ));
+        assert!(
+            manual::drift_against(&endpoints[0], &declared).is_empty(),
+            "it agrees with `api`, and `billing` is not its business"
+        );
+    }
+
+    #[test]
+    fn naming_the_other_spec_finds_the_disagreement_with_that_one() {
+        let api = spec(SPEC);
+        let billing = spec_as("billing", OTHER);
+        let declared = [&api, &billing];
+
+        // `billing` puts `id` in the query; the page says path.
+        let endpoints = manual::endpoints(&named(Some("billing")));
+        let drift = manual::drift_against(&endpoints[0], &declared);
+        assert!(
+            !drift.is_empty(),
+            "the page disagrees with the spec it named"
+        );
+    }
+
+    #[test]
+    fn a_page_naming_no_spec_reports_no_drift_from_a_spec_that_lacks_the_path() {
+        let api = spec(SPEC);
+        let unrelated = spec_as(
+            "unrelated",
+            r##"
+openapi: 3.1.0
+info: { title: Other, version: "1" }
+paths:
+  /invoices:
+    get:
+      operationId: listInvoices
+      responses: { "200": { description: ok } }
+"##,
+        );
+        let declared = [&api, &unrelated];
+        let endpoints = manual::endpoints(&named(None));
+
+        // `drift` on its own calls a missing path `NoSuchOperation`; across a
+        // SET that is a spec which does not cover the page, not drift. API-20
+        // exists so a page may document an endpoint no spec covers at all.
+        assert_eq!(
+            manual::drift(&endpoints[0], &unrelated),
+            vec![Drift::NoSuchOperation],
+            "the primitive still says so"
+        );
+        assert!(
+            manual::drift_against(&endpoints[0], &declared).is_empty(),
+            "but the set does not turn it into a complaint"
+        );
+    }
+
+    #[test]
+    fn a_page_naming_a_spec_the_project_does_not_declare_is_distinguishable() {
+        let api = spec(SPEC);
+        let declared = [&api];
+        let endpoints = manual::endpoints(&named(Some("typo")));
+
+        match manual::spec_for(&endpoints[0], &declared) {
+            SpecMatch::NamedButUndeclared(id) => assert_eq!(id, "typo"),
+            other => panic!("expected an undeclared id, got {other:?}"),
+        }
+        assert!(
+            manual::drift_against(&endpoints[0], &declared).is_empty(),
+            "and it is not reported as drift, because the caller owns how to \
+             say that an id does not exist"
+        );
+    }
+
+    #[test]
+    fn a_page_naming_no_spec_on_a_single_spec_site_still_compares() {
+        let api = spec(SPEC);
+        let endpoints = manual::endpoints(&named(None));
+        assert!(
+            manual::drift_against(&endpoints[0], &[&api]).is_empty(),
+            "the common case: one spec, no prop, and it is still checked"
+        );
+    }
 }
