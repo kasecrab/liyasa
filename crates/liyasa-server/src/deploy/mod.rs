@@ -9,6 +9,7 @@
 pub mod environment;
 pub mod hooks;
 pub mod hosts;
+pub mod jobs;
 pub mod preview;
 pub mod queue;
 pub mod retention;
