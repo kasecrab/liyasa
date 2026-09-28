@@ -709,7 +709,15 @@ fn directive(out: &mut String, name: &str, props: &[(&str, Prop)], content: &str
         .filter_map(|(key, value)| match value {
             Prop::Text(text) if safe(text) => Some(format!("{key}=\"{text}\"")),
             Prop::Text(_) => None,
-            Prop::Flag => Some((*key).to_owned()),
+            // `key=true`, not a bare `key`. `directives/props.rs` accepts the
+            // bare form and cites RFC 0304 for it, but `source/scan.rs` has a
+            // second prop parser that rejects it with `E0312` and then orphans
+            // the closing fence with `E0311` — two implementations of one syntax
+            // in one crate, disagreeing. `key=true` is accepted by both, and
+            // `key="true"` is NOT: that is `E0315`, because the schema declares
+            // a boolean and a quoted value is a string. Measured at both stages,
+            // not reasoned about.
+            Prop::Flag => Some(format!("{key}=true")),
             Prop::List(members) => Some(format!("{key}=[{}]", members.join(", "))),
         })
         .collect();

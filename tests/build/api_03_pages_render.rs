@@ -20,6 +20,7 @@ use liyasa_components::registry::Registry;
 use liyasa_core::conformance::fixtures::MemoryVfs;
 use liyasa_core::ids::{Locale, Route};
 use liyasa_core::markdown::{Expanded, ExpansionRecord, SiteMeta, SpanMap};
+use liyasa_core::span::SourceId;
 use liyasa_openapi::build::{self, PageKind};
 use url::Url;
 
@@ -276,4 +277,45 @@ fn the_page_renders_markdown_that_is_not_the_twin() {
         "a parameter's own prose survives:\n{}",
         page.markdown
     );
+}
+
+/// The stage that belonged to nobody.
+///
+/// `render::from_expanded` starts from an already-scanned document, and this
+/// file used to build its `Expanded` by hand — so every test here skipped
+/// `liyasa_markdown::scan` entirely and could not see a prop form the scanner
+/// rejects. WP-06's pipeline test was the first thing to run both stages, and it
+/// found two shapes my generator emitted that the scanner refuses while the
+/// renderer accepts. A generated page has to survive BOTH.
+#[test]
+fn a_generated_page_survives_the_scanner_as_well_as_the_renderer() {
+    for selector in ["GET /widgets/{id}", "PUT /widgets/{id}"] {
+        let source = body(selector);
+        let (_, diagnostics) = liyasa_markdown::scan(&source, SourceId(0));
+        assert!(
+            diagnostics.as_slice().is_empty(),
+            "the scanner refuses {selector}:\n{:#?}\n--- source ---\n{source}",
+            diagnostics
+        );
+    }
+}
+
+/// The whole document, front matter included, the way a file on disk arrives.
+#[test]
+fn the_whole_source_document_scans_including_its_front_matter() {
+    let surface = build::surface(
+        &MemoryVfs::new().with("openapi/api.yaml", SPEC),
+        &serde_json::json!({ "openapi": [{ "id": "api", "source": "openapi/api.yaml" }] }),
+        &[],
+    );
+    for page in &surface.pages {
+        let (_, diagnostics) = liyasa_markdown::scan(&page.source, SourceId(0));
+        assert!(
+            diagnostics.as_slice().is_empty(),
+            "the scanner refuses {}:\n{:#?}\n--- source ---\n{}",
+            page.selector,
+            diagnostics,
+            page.source
+        );
+    }
 }
