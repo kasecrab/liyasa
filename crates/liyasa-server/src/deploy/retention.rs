@@ -234,12 +234,19 @@ pub fn enqueue_for(now_ms: i64) -> liyasa_store::Enqueue {
 ///
 /// Returns `Skipped` rather than `Failed` when there is no store: an instance
 /// with nothing to sweep has not failed to sweep it.
-pub async fn run_sweep(
+pub fn run_sweep<'a>(
+    state: &'a Arc<crate::routes::AppState>,
+    job: &'a liyasa_store::records::JobRecord,
+) -> crate::routes::work::Run<'a> {
+    Box::pin(sweep_all(state, job))
+}
+
+async fn sweep_all(
     state: &Arc<crate::routes::AppState>,
     _job: &liyasa_store::records::JobRecord,
-) -> super::worker::Done {
+) -> crate::routes::work::Outcome {
     let Some(store) = state.store.clone() else {
-        return super::worker::Done::Skipped(
+        return crate::routes::work::Outcome::Skipped(
             "this instance has no store, so there are no bundles to sweep".to_owned(),
         );
     };
@@ -247,7 +254,7 @@ pub async fn run_sweep(
     let deployments = match store.deployments_typed().list(None, None).await {
         Ok(rows) => rows,
         Err(error) => {
-            return super::worker::Done::Failed(format!(
+            return crate::routes::work::Outcome::Failed(format!(
                 "the deployment list could not be read: {error}"
             ));
         }
@@ -265,14 +272,14 @@ pub async fn run_sweep(
         match retention.sweep(&record.project, &record.env).await {
             Ok(gone) => removed += gone.len(),
             Err(error) => {
-                return super::worker::Done::Failed(format!(
+                return crate::routes::work::Outcome::Failed(format!(
                     "sweeping `{}` failed: {error}",
                     record.env
                 ));
             }
         }
     }
-    super::worker::Done::Ok(serde_json::json!({
+    crate::routes::work::Outcome::Done(serde_json::json!({
         "environments": seen.len(),
         "bundlesRemoved": removed,
     }))

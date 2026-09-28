@@ -25,18 +25,17 @@ use serde_json::{Value, json};
 
 use super::queue::{BuildOutcome, Class};
 use crate::routes::AppState;
+use crate::routes::work::{Outcome, Run};
 
-/// What a handler did. Mirrors `routes::work::Outcome` (RFC 1404) without
-/// depending on it, so this module compiles and is testable before that
-/// worker merges; the registration converts between them in one line.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Done {
-    Ok(Value),
-    Failed(String),
-    /// A missing configuration rather than a fault: no store, no workspace.
-    /// Completed rather than retried, so a build does not burn its attempts
-    /// reaching `dead` to tell an operator nothing.
-    Skipped(String),
+/// The handler the job registry dispatches to (RFC 1404).
+///
+/// `run_build` is `async` and the registry wants a plain `fn` returning a boxed
+/// future, so this is the one-line adapter. The mirror enum that used to live
+/// here is gone: `routes::work::Outcome` is on `main` now, and two enums with
+/// the same three variants is the second source of truth this project keeps
+/// paying for.
+pub fn run<'a>(state: &'a Arc<AppState>, job: &'a JobRecord) -> Run<'a> {
+    Box::pin(run_build(state, job))
 }
 
 /// Everything the handler needs off the job row.
@@ -197,23 +196,23 @@ pub fn build(
 }
 
 /// The handler WP-14's worker registers for `deploy.build` (RFC 1404).
-pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
+pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Outcome {
     let Some(plan) = Plan::of(job) else {
-        return Done::Failed("this build row is not a deploy.build payload".to_owned());
+        return Outcome::Failed("this build row is not a deploy.build payload".to_owned());
     };
     let Some(store) = state.store.clone() else {
-        return Done::Skipped("this instance has no store to record a build in".to_owned());
+        return Outcome::Skipped("this instance has no store to record a build in".to_owned());
     };
     let Some(root) = plan.workspace.clone() else {
         // RFC 1608: no workspace is a configuration this installation has not
         // made, not a build that failed.
-        return Done::Skipped(format!(
+        return Outcome::Skipped(format!(
             "no workspace is configured for `{}`, so there is nothing to build",
             plan.project
         ));
     };
     if !root.is_dir() {
-        return Done::Failed(format!("`{}` is not a directory", root.display()));
+        return Outcome::Failed(format!("`{}` is not a directory", root.display()));
     }
 
     let ambient: BTreeMap<String, String> = std::env::vars().collect();
@@ -224,7 +223,7 @@ pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
     if let Some(parent) = staging.parent()
         && let Err(error) = std::fs::create_dir_all(parent)
     {
-        return Done::Failed(format!(
+        return Outcome::Failed(format!(
             "`{}` could not be created: {error}",
             parent.display()
         ));
@@ -246,7 +245,7 @@ pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
     .await
     {
         Ok(report) => report,
-        Err(error) => return Done::Failed(format!("the build panicked: {error}")),
+        Err(error) => return Outcome::Failed(format!("the build panicked: {error}")),
     };
 
     let (errors, warnings) = tally(&report);
@@ -284,7 +283,7 @@ pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
                 "warnings": warnings,
             }),
         );
-        return Done::Failed(format!(
+        return Outcome::Failed(format!(
             "the build reported {errors} error(s) and {warnings} warning(s)"
         ));
     };
@@ -292,7 +291,7 @@ pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
         Ok(home) => home.to_string_lossy().into_owned(),
         Err(error) => {
             discard();
-            return Done::Failed(format!("the bundle could not be placed: {error}"));
+            return Outcome::Failed(format!("the bundle could not be placed: {error}"));
         }
     };
     let status = BuildStatus::Succeeded;
@@ -312,7 +311,7 @@ pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
         })
         .await
     {
-        return Done::Failed(format!("the build record could not be written: {error}"));
+        return Outcome::Failed(format!("the build record could not be written: {error}"));
     }
 
     let outcome = BuildOutcome::new(build_id.to_string()).with_diagnostics(errors, warnings);
@@ -337,7 +336,7 @@ pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
             .point(&plan.project, &plan.env, &build_id)
             .await
     {
-        return Done::Failed(format!(
+        return Outcome::Failed(format!(
             "the deployment pointer could not be moved: {error}"
         ));
     }
@@ -353,7 +352,7 @@ pub async fn run_build(state: &Arc<AppState>, job: &JobRecord) -> Done {
     let mut result = serde_json::to_value(&outcome).unwrap_or(Value::Null);
     result["embeddingJobId"] = json!(embedding);
     result["deployed"] = json!(plan.deploys());
-    Done::Ok(result)
+    Outcome::Done(result)
 }
 
 /// The class a queued build was filed under, for a log line that says whether

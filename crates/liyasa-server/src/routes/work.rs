@@ -110,6 +110,34 @@ pub fn kinds() -> &'static [JobKind] {
             trigger: Trigger::Scheduled(crate::assistant::retention_due),
             run: crate::assistant::run_sweep,
         },
+        // WP-17. The names are `liyasa_analytics::actions`' constants, which
+        // is also what enqueues them, so the registry and the enqueuer cannot
+        // spell the same job two ways.
+        JobKind {
+            name: super::analytics::RETENTION_JOB,
+            trigger: Trigger::Scheduled(super::analytics::retention_due),
+            run: super::analytics::run_retention,
+        },
+        JobKind {
+            name: super::analytics::DIGEST_JOB,
+            trigger: Trigger::Scheduled(super::analytics::digest_due),
+            run: super::analytics::run_digest,
+        // WP-16. `deploy.build` is `Trigger::Caller` because the deploy queue
+        // already enqueues it — a push, a pull request or a manual trigger all
+        // go through `BuildRequest::to_enqueue`, so nothing about how it is
+        // queued changes by registering it.
+        JobKind {
+            name: crate::deploy::queue::JOB_NAME,
+            trigger: Trigger::Caller,
+            run: crate::deploy::worker::run,
+        },
+        // The retention sweep of GIT-23. Keyed by the day, so every replica may
+        // fire its own tick and exactly one row exists.
+        JobKind {
+            name: crate::deploy::retention::JOB_NAME,
+            trigger: Trigger::Scheduled(crate::deploy::retention::daily),
+            run: crate::deploy::retention::run_sweep,
+        },
     ]
 }
 
