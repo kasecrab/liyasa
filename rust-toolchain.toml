@@ -1,3 +1,13 @@
 [toolchain]
-channel = "stable"
+# NFR-42: "rust-toolchain.toml pins the version developers use". A channel is
+# not a version — `stable` is whatever the machine resolved it to last, so two
+# developers on `stable` are not on the same compiler and neither can tell.
+#
+# This is also the MSRV floor in Cargo.toml, deliberately: the floor and the
+# pin being one number means a crate that needs something newer fails here
+# rather than passing locally and failing the msrv job in CI.
+#
+# Raising it is two edits, this line and `rust-version` in Cargo.toml, and
+# `cargo run -p xtask -- lints` fails if they disagree.
+channel = "1.98.1"
 components = ["rustfmt", "clippy"]
