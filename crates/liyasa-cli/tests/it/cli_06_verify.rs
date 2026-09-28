@@ -59,6 +59,33 @@ fn a_second_run_reports_what_the_first_did() {
     assert!(second.all().contains("E0401"), "{}", second.all());
 }
 
+/// The same promise with the flag off, which is the run that changed when
+/// `COLD_UNTIL_RFC_0904` came out: the second build is warm, and a warm build
+/// replays a cached page's diagnostics rather than losing them.
+///
+/// It also covers the half that is not about diagnostics. `verify` deletes its
+/// output directory after every run, so the second run is warm in the cache
+/// and empty on disk; the link check reads the built HTML, so a cache hit has
+/// to write a file that is no longer there.
+#[test]
+fn a_warm_second_run_reports_what_the_cold_first_did() {
+    let project = site("ver-warm");
+    let cold = Run::new(["verify", "--only", "links", "--offline"])
+        .cwd(project.path())
+        .output();
+    let warm = Run::new(["verify", "--only", "links", "--offline"])
+        .cwd(project.path())
+        .output();
+
+    assert!(cold.all().contains("E0401"), "{}", cold.all());
+    assert!(
+        warm.all().contains("E0401"),
+        "the warm run lost the page's diagnostics: {}",
+        warm.all()
+    );
+    assert_eq!(cold.code, warm.code, "{}\n---\n{}", cold.all(), warm.all());
+}
+
 /// A page fixed between runs is reported as fixed, which is the failure a
 /// stale cache would produce.
 #[test]

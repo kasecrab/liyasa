@@ -554,12 +554,6 @@ impl Built {
     }
 }
 
-/// RFC 0904: a warm build does not replay the diagnostics a cached page
-/// produced, so `verify` cannot use one and every run is cold. `--no-cache`
-/// asks for exactly that, and is read below so that the day 0904 is fixed the
-/// flag is what decides, rather than this constant.
-const COLD_UNTIL_RFC_0904: bool = true;
-
 fn build_site(global: &Global, format: crate::cli::Format, no_cache: bool) -> Option<Built> {
     let cwd = ctx::cwd();
     let project = match ctx::locate(global, &cwd) {
@@ -575,7 +569,11 @@ fn build_site(global: &Global, format: crate::cli::Format, no_cache: bool) -> Op
     let scratch = project.root.join(".liyasa/verify");
     let options = liyasa_build::engine::Options {
         output: Some(scratch.clone()),
-        clean: no_cache || COLD_UNTIL_RFC_0904,
+        // RFC 0904 is fixed and on main: a cache hit replays the page's
+        // diagnostics from its own `page_diagnostics` artefact, so a warm
+        // build says what a cold one says. `--no-cache` is now the only thing
+        // that forces a cold run, which is what the flag promised.
+        clean: no_cache,
         ..liyasa_build::engine::Options::default()
     };
     let report = liyasa_build::engine::build(&vfs, &git, &project.root, &options);
