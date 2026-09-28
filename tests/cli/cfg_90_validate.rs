@@ -23,7 +23,10 @@ const BROKEN: &str = r##"{
   "seo": { "canonicalOrigin": "https://docs.acme.com" },
   "theme": { "colors": { "primary": "#818CF8", "accent": "#ggg" } },
   "versions": [{ "name": "v2" }, { "name": "v1" }],
-  "navigation": ["index", "index", { "version": "v9", "pages": ["guides/install"] }]
+  "redirects": { "rules": [{ "source": "/a", "destination": "/b" },
+                           { "source": "/a", "destination": "/c" }] },
+  "navigation": ["index", "index", "guides/gone",
+                 { "version": "v9", "pages": ["guides/install"] }]
 }"##;
 
 const PAGES: &[(&str, &str)] = &[
@@ -67,7 +70,12 @@ fn every_semantic_rule_reaches_the_json_document() {
         .iter()
         .filter_map(|entry| entry.get("code").and_then(Value::as_str))
         .collect();
-    for code in ["E0105", "E0107", "E0108", "E0132", "E0133", "W0130"] {
+    // The rules CFG-90 lists by name: an unknown page, a duplicate route, an
+    // unreachable page, a bad colour, a missing default version, and
+    // conflicting redirects — plus the axis binding, which is the same class.
+    for code in [
+        "E0104", "E0105", "E0106", "E0107", "E0108", "E0132", "E0133", "W0130",
+    ] {
         assert!(codes.contains(&code), "{code} is not among {codes:?}");
     }
 }
