@@ -49,7 +49,10 @@ pub struct BlockVerify {
     /// only in that case.
     pub declared_timeout: Option<Duration>,
     pub env: Vec<(String, String)>,
-    /// `setup="snippet-name"`: a hidden block run in the same sandbox first.
+    /// `setup="name"`: the snippet run in the same sandbox before the sample.
+    /// The name is `snippets/name.md`, the namespace `{% snippet "name" %}`
+    /// already uses (RFC 2105); resolving it needs a filesystem and so happens
+    /// in the caller, not here.
     pub setup: Option<String>,
     pub fixtures: Vec<VfsPath>,
     /// `verify-chain` on a `steps` block (VER-05).

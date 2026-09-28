@@ -36,7 +36,10 @@ use crate::core::scrub::Scrubber;
 pub struct Binding {
     pub mode: Mode,
     pub env: Vec<(String, String)>,
-    /// `setup="snippet-name"`, resolved to the snippet's text.
+    /// The code `setup="name"` asked for, already resolved: the source of the
+    /// fenced blocks of `snippets/name.md` whose language this runner claims,
+    /// in document order (RFC 2105). Not hidden *lines* — those are VER-04 and
+    /// live in `hidden.rs`; this is a whole block that is not on the page.
     pub setup: Option<String>,
     /// The fence's remaining attributes, for the languages that read one.
     pub attrs: BTreeMap<String, String>,

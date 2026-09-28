@@ -649,16 +649,29 @@ fn a_sandbox_that_could_not_run_the_check_is_not_cached() {
     // would make the retry that fixes it pointless.
     let spec = spec("echo hello\n", Vec::new());
     let runner = runner().with_cache(shared_cache(ResultCache::new()));
-    for error in [
-        SandboxError::Io("no space left on device".to_owned()),
-        SandboxError::Timeout,
-        SandboxError::Unavailable,
+    // Each error is pinned to its own code. `Error(_)` alone would also be
+    // satisfied by `E0610`, which the runner raises before it ever consults a
+    // sandbox — so a broken pin would make this pass while proving nothing
+    // about caching (defect 165).
+    for (error, want) in [
+        (
+            SandboxError::Io("no space left on device".to_owned()),
+            code::E0612,
+        ),
+        (SandboxError::Timeout, code::E0603),
+        (SandboxError::Unavailable, code::E0004),
     ] {
         let sandbox = TinyShell::refusing(error.clone());
-        assert!(matches!(
-            run(&runner, &spec, &sandbox),
-            CheckOutcome::Error(_)
-        ));
+        let outcome = run(&runner, &spec, &sandbox);
+        let CheckOutcome::Error(problem) = &outcome else {
+            panic!("{error:?} produced {outcome:?}, not an Error");
+        };
+        assert_eq!(problem.code, want, "{error:?}");
+        assert_eq!(
+            sandbox.jobs.lock().expect("not poisoned").len(),
+            0,
+            "{error:?}: the sandbox refused, so no job should have been recorded"
+        );
     }
     // A run that can succeed now does, rather than reading a cached failure.
     let sandbox = TinyShell::default();
