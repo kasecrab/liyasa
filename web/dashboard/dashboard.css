@@ -328,6 +328,14 @@ body {
   background: var(--ly-color-text-subtle);
 }
 
+.ly-chart-legend li[data-series="up"] .ly-chart-swatch {
+  background: var(--ly-color-primary);
+}
+
+.ly-chart-legend li[data-series="down"] .ly-chart-swatch {
+  background: var(--ly-color-danger);
+}
+
 .ly-chart-plot {
   width: 100%;
   height: 12rem;
@@ -352,7 +360,19 @@ body {
 }
 
 .ly-chart-bar {
+  fill: var(--ly-color-text-subtle);
+}
+
+.ly-chart-bar[data-series="human"],
+.ly-chart-bar[data-series="up"] {
   fill: var(--ly-color-primary);
+}
+
+/* Ratings run helpful against not helpful, and one fill for both drew the two
+   as one series. Colour is not the only cue: the legend names each, and the
+   data table every chart carries has the numbers. */
+.ly-chart-bar[data-series="down"] {
+  fill: var(--ly-color-danger);
 }
 
 .ly-chart-cursor {
@@ -442,4 +462,77 @@ form input {
   border: var(--ly-border);
   border-radius: var(--ly-radius-sm);
   padding: var(--ly-space-1) var(--ly-space-2);
+}
+
+/* The toolbar's own groups. `.ly-control` gives them their row layout; these
+   are the parts that needed something of their own. */
+.ly-range,
+.ly-compare,
+.ly-filters,
+.ly-views {
+  flex-wrap: wrap;
+}
+
+.ly-range-current {
+  color: var(--ly-color-text-subtle);
+  font-size: var(--ly-text-xs);
+}
+
+.ly-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ly-space-1);
+  align-items: center;
+}
+
+.ly-filter-clear {
+  border-style: dashed;
+}
+
+/* ANA-10's version, locale, region and product splits, side by side so an
+   operator reads adoption across all four without scrolling. */
+.ly-variants {
+  display: grid;
+  gap: var(--ly-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.ly-variant h4 {
+  margin: 0 0 var(--ly-space-2);
+  color: var(--ly-color-text-muted);
+  font-size: var(--ly-text-xs);
+  text-transform: uppercase;
+}
+
+.ly-variant-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ly-space-1);
+  font-size: var(--ly-text-sm);
+}
+
+.ly-variant-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--ly-space-2);
+  align-items: baseline;
+}
+
+.ly-variant-list a {
+  color: var(--ly-color-text);
+  text-decoration: none;
+  border-bottom: var(--ly-border-subtle);
+}
+
+.ly-variant-list a[aria-pressed="true"] {
+  color: var(--ly-color-primary);
+  font-weight: var(--ly-font-weight-semibold);
+}
+
+.ly-variant-share {
+  color: var(--ly-color-text-subtle);
+  font-size: var(--ly-text-xs);
 }

@@ -6,7 +6,7 @@
 // name a token, or the dashboard has a second palette and dark mode is this
 // package's problem rather than the theme's.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -53,6 +53,64 @@ test("dark mode is offered by preference and by an explicit attribute", () => {
   assert.match(css, /@media \(prefers-color-scheme: dark\)/);
   assert.match(css, /:root:not\(\[data-theme="light"\]\)/, "an explicit light choice wins");
   assert.match(css, /:root\[data-theme="dark"\]/, "and an explicit dark choice works too");
+});
+
+/**
+ * Classes that carry no rule on purpose.
+ *
+ * Each is a hook rather than a box: something else styles it, or it exists for
+ * a test or a script to find. Anything NOT on this list and not in the
+ * stylesheet is markup the design system does not reach, which on a dashboard
+ * whose requirement is "follows the design system in light and dark" is a gap
+ * rather than a decision.
+ */
+const UNSTYLED_ON_PURPOSE = new Set([
+  // Inside `figcaption`, which styles its children by layout.
+  "ly-chart-title",
+]);
+
+test("every class the renderers emit has a rule, or is exempt on purpose", () => {
+  const emitted = new Set<string>();
+  for (const file of readdirSync(resolve(HERE, "..", "src"))) {
+    if (!file.endsWith(".ts")) continue;
+    const source = readFileSync(resolve(HERE, "..", "src", file), "utf8");
+    for (const match of source.matchAll(/class="([^"$]*)"/g)) {
+      for (const name of match[1]!.split(/\s+/)) {
+        if (name.startsWith("ly-")) emitted.add(name);
+      }
+    }
+  }
+  assert.ok(emitted.size > 30, "the renderers emit classes");
+  const styled = new Set(Array.from(css.matchAll(/\.(ly-[a-z0-9-]+)/g), (m) => m[1]!));
+  const unreached = Array.from(emitted)
+    .filter((name) => !styled.has(name) && !UNSTYLED_ON_PURPOSE.has(name))
+    .sort();
+  assert.deepEqual(unreached, []);
+});
+
+test("a chart draws its series differently from each other", () => {
+  // A bar chart with two series and one fill rule draws them identically: the
+  // chart shows two things as one thing and nothing fails. The rating chart of
+  // ANA-30 is exactly that shape — helpful against not helpful.
+  for (const series of ["up", "down"]) {
+    assert.match(
+      css,
+      new RegExp(`\\.ly-chart-bar\\[data-series="${series}"\\]`),
+      `a bar series with no fill of its own is indistinguishable: ${series}`,
+    );
+  }
+  for (const series of ["human", "agent"]) {
+    assert.match(css, new RegExp(`\\.ly-chart-line\\[data-series="${series}"\\]`), series);
+  }
+  // And each has a legend swatch, because the line colour is the only thing
+  // tying a legend row to a line.
+  for (const series of ["human", "agent", "bot", "up", "down"]) {
+    assert.match(
+      css,
+      new RegExp(`li\\[data-series="${series}"\\] \\.ly-chart-swatch`),
+      `legend swatch for ${series}`,
+    );
+  }
 });
 
 test("focus is visible", () => {
