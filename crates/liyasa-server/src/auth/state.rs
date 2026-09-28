@@ -123,6 +123,8 @@ pub struct AuthState {
     pub magic: Magic,
     pub jwks: Jwks,
     pub tokens: Tokens,
+    /// AUTH-08: the client-credentials grant's rate-limit windows (RFC 1508).
+    pub grants: crate::auth::agent::Grants,
     pub domains: DomainRegistry,
     pub variants: VariantCache,
     pub oidc: Option<Flow>,
@@ -186,6 +188,7 @@ impl AuthState {
             )?,
             jwks: Jwks::new(clock.clone()),
             tokens: Tokens::new(clock.clone()),
+            grants: crate::auth::agent::Grants::new(clock.clone()),
             domains: DomainRegistry::new("", clock.clone()),
             variants: VariantCache::new(
                 NonZeroUsize::new(DEFAULT_VARIANT_CAPACITY).unwrap_or(NonZeroUsize::MIN),

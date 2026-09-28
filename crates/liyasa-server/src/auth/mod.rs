@@ -41,6 +41,7 @@ pub mod roles;
 pub mod routes;
 pub mod session;
 pub mod state;
+pub mod agent;
 pub mod tokens;
 pub mod variant;
 

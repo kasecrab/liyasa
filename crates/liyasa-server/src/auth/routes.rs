@@ -20,10 +20,11 @@ use std::sync::Arc;
 use axum::Router;
 use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use http::{HeaderMap, Method, StatusCode, header};
 use serde_json::json;
 
+use crate::auth::agent;
 use crate::auth::config::Mode;
 use crate::auth::cookie::{self, Cookie};
 use crate::auth::csrf;
@@ -57,6 +58,13 @@ pub fn router(state: Arc<AuthState>) -> Router {
         .route("/_liyasa/auth/magic/{token}", get(magic_consume))
         .route("/_liyasa/auth/logout", post(logout))
         .route("/_liyasa/auth/session", get(session))
+        // AUTH-08, RFC 1508. The grant is not guarded by `guard`: an OAuth
+        // client sends no `Origin`, so the CSRF check would refuse every
+        // legitimate one. The reader's own token endpoints are browser-driven
+        // and are guarded.
+        .route("/_liyasa/auth/token", post(token_grant))
+        .route("/_liyasa/auth/tokens", get(token_list).post(token_mint))
+        .route("/_liyasa/auth/tokens/{id}", delete(token_revoke))
         .with_state(state)
 }
 
@@ -366,6 +374,74 @@ fn origin_of(url: &str) -> Option<String> {
         true => None,
         false => Some(format!("{scheme}://{authority}")),
     }
+}
+
+/// `POST /_liyasa/auth/token` — the client-credentials grant (AUTH-08).
+async fn token_grant(
+    State(state): State<Arc<AuthState>>,
+    request: axum::extract::Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    let headers = parts.headers.clone();
+    let form = parse_body(&headers, &read_body(body).await);
+    // Deliberately no `guard`: see `auth::agent::grant`.
+    let peer = parts
+        .extensions
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ConnectInfo(addr)| *addr);
+    let address = client_ip(&state, &headers, peer);
+    agent::grant(&state, address, &form)
+}
+
+/// `POST /_liyasa/auth/tokens` — a reader mints their own (AUTH-08).
+async fn token_mint(
+    State(state): State<Arc<AuthState>>,
+    request: axum::extract::Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    let headers = parts.headers.clone();
+    let form = parse_body(&headers, &read_body(body).await);
+    if let Some(refused) = guard(&state, &parts.method, &headers, &form) {
+        return refused;
+    }
+    // The session, not the request's `Principal`: `agent::may_mint` needs to
+    // know which credential arrived, and a bearer token must not mint a token.
+    let Some(session) = current(&state, &headers) else {
+        return Problem::new(StatusCode::UNAUTHORIZED, "Sign in required")
+            .detail("minting a token needs a session")
+            .into_response();
+    };
+    agent::mint(&state, &session.principal, &form)
+}
+
+/// `GET /_liyasa/auth/tokens` (AUTH-08).
+async fn token_list(State(state): State<Arc<AuthState>>, headers: HeaderMap) -> Response {
+    let Some(session) = current(&state, &headers) else {
+        return Problem::new(StatusCode::UNAUTHORIZED, "Sign in required")
+            .detail("listing tokens needs a session")
+            .into_response();
+    };
+    agent::list(&state, &session.principal)
+}
+
+/// `DELETE /_liyasa/auth/tokens/{id}` (AUTH-08).
+async fn token_revoke(
+    State(state): State<Arc<AuthState>>,
+    Path(id): Path<String>,
+    request: axum::extract::Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    let headers = parts.headers.clone();
+    let form = parse_body(&headers, &read_body(body).await);
+    if let Some(refused) = guard(&state, &parts.method, &headers, &form) {
+        return refused;
+    }
+    let Some(session) = current(&state, &headers) else {
+        return Problem::new(StatusCode::UNAUTHORIZED, "Sign in required")
+            .detail("revoking a token needs a session")
+            .into_response();
+    };
+    agent::revoke(&state, &session.principal, &id)
 }
 
 /// `POST /_liyasa/auth/password`.
