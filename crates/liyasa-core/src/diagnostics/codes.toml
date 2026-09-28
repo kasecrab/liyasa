@@ -257,3 +257,4 @@ W0138 = { severity = "warning", crate = "liyasa-config", title = "Magic-link sig
 W0139 = { severity = "warning", crate = "liyasa-config", title = "A configured operator holds their role whatever the membership table says, and removing them from the organization does not revoke it" }
 E0022 = { severity = "error", crate = "liyasa-cli", title = "Git reference not found, or this directory is not a git repository" }
 W0023 = { severity = "warning", crate = "liyasa-cli", title = "`--changed` could not narrow every problem; some carry no location" }
+W0728 = { severity = "warning", crate = "liyasa-build", title = "A `theme/strings*.json` key is not one the theme shows, or the file could not be read" }

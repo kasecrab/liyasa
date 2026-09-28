@@ -241,6 +241,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0725`](/errors/W0725) | Warning | A page, navigation node, block or availability matrix names a region `regions.list` does not declare |
 | [`W0726`](/errors/W0726) | Warning | A `:::variation` directive names a variation or option `variations` does not declare |
 | [`W0727`](/errors/W0727) | Warning | A translation was made from an older version of its source page |
+| [`W0728`](/errors/W0728) | Warning | A `theme/strings*.json` key is not one the theme shows, or the file could not be read |
 
 ## Server, auth, deployments, network
 

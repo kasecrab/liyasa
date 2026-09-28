@@ -16,6 +16,8 @@
 
 use std::collections::BTreeMap;
 
+use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
+use liyasa_core::vfs::{Vfs, VfsPath};
 use liyasa_theme::strings::Strings;
 
 /// CM-102's "not yet translated" notice. Not a `Strings` key: it is raised by
@@ -185,6 +187,120 @@ pub fn resolve(
     unknown.sort();
     unknown.dedup();
     (strings, unknown)
+}
+
+/// Everything CM-105 has for one locale, read from the project.
+#[derive(Debug, Clone)]
+pub struct Loaded {
+    pub strings: Strings,
+    /// A malformed file, or a key the theme does not declare. Both are
+    /// warnings rather than build failures: a typo in one word must not stop a
+    /// site publishing, and it must not be silent either.
+    pub diagnostics: Diagnostics,
+}
+
+/// Reads the operator's strings files and layers all four sources of CM-105.
+///
+/// `theme/strings.json` first, then the locale's own file, so overriding one
+/// word in one language costs neither the rest of that language nor the
+/// site-wide override. For `pt-BR` the language file `theme/strings.pt.json` is
+/// read before `theme/strings.pt-BR.json`, the order
+/// `liyasa_theme::banner::BannerConfig` already resolves a banner in.
+///
+/// A file that is not there is not an error — both are optional — and a file
+/// that will not parse leaves the layers under it in place, so a broken
+/// override costs the words it names and nothing else.
+pub fn load(vfs: &dyn Vfs, code: &str) -> Loaded {
+    let mut diagnostics = Diagnostics::new();
+    let mut strings = Strings::default();
+    let (shipped, _) = strings.clone().with_overrides(&overrides(code));
+    strings = shipped;
+
+    for path in files_for(code) {
+        let Ok(bytes) = vfs.read(&VfsPath::new(&path)) else {
+            continue;
+        };
+        let Ok(text) = std::str::from_utf8(&bytes) else {
+            diagnostics.push(unreadable(&path));
+            continue;
+        };
+        let parsed: Result<BTreeMap<String, String>, _> = serde_json::from_str(text);
+        let Ok(map) = parsed else {
+            diagnostics.push(unparsable(&path));
+            continue;
+        };
+        let (next, unknown) = strings.with_overrides(&map);
+        strings = next;
+        for key in unknown {
+            diagnostics.push(unknown_key(&path, &key));
+        }
+    }
+
+    Loaded {
+        strings,
+        diagnostics,
+    }
+}
+
+/// The operator's files for a locale, least specific first.
+pub fn files_for(code: &str) -> Vec<String> {
+    let mut out = vec![Strings::FILE.to_owned()];
+    let primary = primary_subtag(code);
+    if primary != code {
+        out.push(Strings::file_for(primary));
+    }
+    out.push(Strings::file_for(code));
+    out
+}
+
+fn unreadable(path: &str) -> Diagnostic {
+    Diagnostic::new(
+        code::W0728,
+        format!("`{path}` is not UTF-8 and was ignored"),
+    )
+    .help("save the file as UTF-8 without a byte-order mark")
+}
+
+fn unparsable(path: &str) -> Diagnostic {
+    Diagnostic::new(
+        code::W0728,
+        format!("`{path}` is not a JSON object of strings and was ignored"),
+    )
+    .help("the file is one flat object: `{ \"searchPlaceholder\": \"…\" }`")
+}
+
+fn unknown_key(path: &str, key: &str) -> Diagnostic {
+    let diagnostic = Diagnostic::new(
+        code::W0728,
+        format!("`{path}` sets `{key}`, which is not a string the theme shows"),
+    );
+    match nearest(key) {
+        Some(near) => diagnostic.help(format!("did you mean `{near}`?")),
+        None => diagnostic.help(format!(
+            "`liyasa docs reference` lists all {} keys",
+            Strings::KEYS.len()
+        )),
+    }
+}
+
+/// The declared key a typo is closest to, by shared prefix, so `onThisPge`
+/// suggests `onThisPage` and a key from another product suggests nothing.
+fn nearest(key: &str) -> Option<&'static str> {
+    let mut best: Option<(usize, &'static str)> = None;
+    for declared in Strings::KEYS {
+        let shared = declared
+            .chars()
+            .zip(key.chars())
+            .take_while(|(a, b)| a.eq_ignore_ascii_case(b))
+            .count();
+        if shared * 2 < key.len().max(declared.len()) {
+            continue;
+        }
+        if best.is_none_or(|(held, _)| shared > held) {
+            best = Some((shared, declared));
+        }
+    }
+    best.map(|(_, declared)| declared)
 }
 
 const EN: &[(&str, &str)] = &[
@@ -732,7 +848,15 @@ const ZH_TW: &[(&str, &str)] = &[
 mod tests {
     use std::collections::BTreeSet;
 
+    use liyasa_config::vfs::MemVfs;
+
     use super::*;
+
+    fn vfs(files: &[(&str, &str)]) -> MemVfs {
+        files.iter().fold(MemVfs::new(), |held, (path, text)| {
+            held.with(path, text.as_bytes().to_vec())
+        })
+    }
 
     #[test]
     fn cm_105_ships_at_least_twelve_languages_beyond_the_default() {
@@ -879,5 +1003,149 @@ mod tests {
         assert_eq!(endonym("pt"), Some("Português do Brasil"));
         assert_eq!(endonym("cy"), None);
         assert_eq!(shipped().len(), CATALOGS.len());
+    }
+
+    #[test]
+    fn a_locales_files_are_read_least_specific_first() {
+        assert_eq!(
+            files_for("pt-BR"),
+            vec![
+                "theme/strings.json".to_owned(),
+                "theme/strings.pt.json".to_owned(),
+                "theme/strings.pt-BR.json".to_owned(),
+            ]
+        );
+        assert_eq!(
+            files_for("de"),
+            vec![
+                "theme/strings.json".to_owned(),
+                "theme/strings.de.json".to_owned(),
+            ],
+            "a bare language has no third file"
+        );
+    }
+
+    #[test]
+    fn a_project_with_no_strings_files_gets_the_shipped_translation() {
+        let loaded = load(&vfs(&[]), "de");
+        assert_eq!(loaded.strings.on_this_page, "Auf dieser Seite");
+        assert!(loaded.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn the_operators_files_are_layered_over_the_translation() {
+        let loaded = load(
+            &vfs(&[
+                ("theme/strings.json", r#"{"builtWith":"Docs by Acme"}"#),
+                ("theme/strings.de.json", r#"{"askAi":"Acme fragen"}"#),
+            ]),
+            "de",
+        );
+        assert_eq!(loaded.strings.built_with, "Docs by Acme");
+        assert_eq!(loaded.strings.ask_ai, "Acme fragen");
+        assert_eq!(
+            loaded.strings.on_this_page, "Auf dieser Seite",
+            "the rest of the German survives both overrides"
+        );
+        assert!(loaded.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn the_more_specific_file_wins() {
+        let loaded = load(
+            &vfs(&[
+                ("theme/strings.json", r#"{"search":"Find"}"#),
+                ("theme/strings.pt.json", r#"{"search":"Procurar"}"#),
+                ("theme/strings.pt-BR.json", r#"{"search":"Pesquisar aqui"}"#),
+            ]),
+            "pt-BR",
+        );
+        assert_eq!(loaded.strings.search, "Pesquisar aqui");
+    }
+
+    #[test]
+    fn a_language_file_reaches_its_regional_locale() {
+        let loaded = load(
+            &vfs(&[("theme/strings.de.json", r#"{"search":"Finden"}"#)]),
+            "de-AT",
+        );
+        assert_eq!(loaded.strings.search, "Finden");
+        assert_eq!(
+            loaded.strings.on_this_page, "Auf dieser Seite",
+            "and so does the shipped German catalogue"
+        );
+    }
+
+    #[test]
+    fn a_typo_is_reported_against_the_file_that_holds_it() {
+        let loaded = load(
+            &vfs(&[("theme/strings.json", r#"{"onThisPge":"x"}"#)]),
+            "en",
+        );
+        let codes: Vec<&str> = loaded.diagnostics.iter().map(|d| d.code.as_str()).collect();
+        assert_eq!(codes, ["W0728"]);
+        let only = loaded.diagnostics.iter().next().expect("one diagnostic");
+        assert!(
+            only.message.contains("theme/strings.json"),
+            "{}",
+            only.message
+        );
+        assert!(only.message.contains("onThisPge"));
+        assert_eq!(only.help.as_deref(), Some("did you mean `onThisPage`?"));
+    }
+
+    #[test]
+    fn a_key_from_somewhere_else_entirely_suggests_nothing() {
+        let loaded = load(
+            &vfs(&[("theme/strings.json", r#"{"sidebar_title":"x"}"#)]),
+            "en",
+        );
+        let only = loaded.diagnostics.iter().next().expect("one diagnostic");
+        assert!(
+            only.help
+                .as_deref()
+                .is_some_and(|help| help.contains("36 keys")),
+            "{:?}",
+            only.help
+        );
+    }
+
+    /// A broken override must cost the words it names and nothing else. Before
+    /// this, nothing read either file at all, so a project could not tell.
+    #[test]
+    fn a_file_that_will_not_parse_leaves_the_layers_under_it() {
+        let loaded = load(
+            &vfs(&[
+                ("theme/strings.json", r#"{"builtWith":"Docs by Acme"}"#),
+                ("theme/strings.de.json", "{ not json"),
+            ]),
+            "de",
+        );
+        assert_eq!(loaded.strings.built_with, "Docs by Acme");
+        assert_eq!(loaded.strings.on_this_page, "Auf dieser Seite");
+        let only = loaded.diagnostics.iter().next().expect("one diagnostic");
+        assert_eq!(only.code.as_str(), "W0728");
+        assert!(only.message.contains("theme/strings.de.json"));
+    }
+
+    #[test]
+    fn a_file_that_is_not_utf_8_is_reported_rather_than_guessed_at() {
+        let broken = MemVfs::new().with("theme/strings.json", vec![0xff, 0xfe, 0x00]);
+        let loaded = load(&broken, "en");
+        let only = loaded.diagnostics.iter().next().expect("one diagnostic");
+        assert!(only.message.contains("not UTF-8"), "{}", only.message);
+    }
+
+    #[test]
+    fn an_unshipped_locale_still_takes_the_operators_words() {
+        let loaded = load(
+            &vfs(&[("theme/strings.cy.json", r#"{"search":"Chwilio"}"#)]),
+            "cy",
+        );
+        assert_eq!(loaded.strings.search, "Chwilio");
+        assert_eq!(
+            loaded.strings.on_this_page, "On this page",
+            "the rest stays English because there is no Welsh catalogue"
+        );
     }
 }
