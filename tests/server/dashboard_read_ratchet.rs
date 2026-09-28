@@ -131,19 +131,14 @@ async fn classify(harness: &Harness, endpoint: &Declared) -> Reached {
 /// EDIT THIS DOWNWARD ONLY. An entry leaves when its route moves behind a
 /// guarded subtree; nothing should ever be added. Sorted so a diff is legible.
 const UNGATED_TODAY: &[&str] = &[
-    // WP-16's deploy subtree, registered with `permission: None`.
-    "builds.activate",
-    "builds.queue",
-    "builds.status",
-    "builds.trigger",
-    // This package's own base router, which carries no permission layer.
+    // All of these are the base router, which carries no permission layer.
+    // WP-16's eight left on 2026-09-28: its subtree now applies
+    // `DashboardRead` to its dashboard routes itself and keeps only the
+    // webhook endpoints public, which a provider reaches by signature
+    // rather than by session.
     "content.tree",
     "deployments.current",
-    "deployments.history",
-    "deployments.latest",
     "deployments.list",
-    "deployments.retained",
-    "deployments.rollback",
     "feedback.list",
     "feedback.status",
     "feedback.summary",

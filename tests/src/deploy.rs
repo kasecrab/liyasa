@@ -80,6 +80,21 @@ impl liyasa_server::deploy::rollback::Audit for RecordingAudit {
     }
 }
 
+/// A signed-in reader carrying `DashboardRead`, which is the least a caller
+/// needs to reach the deploy dashboard routes.
+pub fn reader() -> liyasa_server::auth::Principal {
+    let mut principal = liyasa_server::auth::Principal::new("test-viewer");
+    principal.role = liyasa_server::auth::roles::Role::Viewer;
+    principal
+}
+
+/// An administrator, for the rollback policy of GIT-40.
+pub fn admin() -> liyasa_server::auth::Principal {
+    let mut principal = liyasa_server::auth::Principal::new("test-admin");
+    principal.role = liyasa_server::auth::roles::Role::Admin;
+    principal
+}
+
 pub struct Harness {
     pub state: Arc<AppState>,
     pub store: Arc<SqliteStore>,
@@ -154,7 +169,27 @@ impl Harness {
             .id
     }
 
+    /// Sends a request as a signed-in reader who may read the dashboard.
+    ///
+    /// The deploy subtree's dashboard routes sit behind
+    /// `Permission::DashboardRead`, so a request with no `Principal` is
+    /// correctly refused with 401. Production gets one from WP-15's session
+    /// layer; an in-process test has to put one on the request itself, the
+    /// same way `auth`'s own tests do.
     pub async fn send(&self, request: Request<Body>) -> Response<Body> {
+        self.send_as(request, Some(reader())).await
+    }
+
+    /// Sends with an explicit principal, or as an anonymous caller when `None`
+    /// — which is what a test asserting the gate itself wants.
+    pub async fn send_as(
+        &self,
+        mut request: Request<Body>,
+        principal: Option<liyasa_server::auth::Principal>,
+    ) -> Response<Body> {
+        if let Some(principal) = principal {
+            request.extensions_mut().insert(principal);
+        }
         self.router
             .clone()
             .oneshot(request)

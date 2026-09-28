@@ -29,11 +29,28 @@ use crate::routes::problem::Problem;
 /// `Policy { admins_only: true }` mean anything on a server with no auth layer
 /// wired up yet.
 fn actor(parts: &http::request::Parts) -> Actor {
-    parts
-        .extensions
-        .get::<Actor>()
-        .cloned()
-        .unwrap_or_else(|| Actor::member("anonymous"))
+    // A test may put an `Actor` on the request directly. In production the
+    // session layer inserts a `Principal` and nothing inserts an `Actor`, so
+    // reading only the latter made `Policy { admins_only: true }` refuse
+    // everyone and the default refuse no one — a check whose branches could
+    // not both be taken.
+    if let Some(actor) = parts.extensions.get::<Actor>() {
+        return actor.clone();
+    }
+    match parts.extensions.get::<crate::auth::Principal>() {
+        // GIT-40 restricts a rollback to admins. `SettingsWrite` is the
+        // permission that distinguishes Admin and Owner from the roles that
+        // can merely read the dashboard, so it is the one that answers
+        // "is this an administrator" without inventing a second role table.
+        Some(principal) => Actor {
+            id: principal.subject.clone(),
+            admin: principal
+                .role
+                .permissions()
+                .contains(&crate::auth::roles::Permission::SettingsWrite),
+        },
+        None => Actor::member("anonymous"),
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -448,24 +465,47 @@ fn rollback_error(error: &RollbackError) -> Response {
 }
 
 /// Every route this package adds. Merged onto the server's router.
+/// Every route this package adds, in two halves that are authenticated
+/// differently on purpose.
+///
+/// **The webhook endpoints stay public.** A git provider has no session and
+/// cannot get one: it authenticates by an HMAC signature over the raw body,
+/// which `webhook::Verifier` checks before anything parses the payload
+/// (GIT-01). Putting a session permission in front of it would refuse every
+/// real delivery and accept nothing in exchange.
+///
+/// **The dashboard endpoints are gated.** `mount::guarded` answers 401 without
+/// a `Principal` and 403 to a role without the permission, which is what
+/// `subtrees()` means when it records this subtree as authorizing inside
+/// itself rather than through one permission for the whole tree. Until this
+/// commit that note described authorization six of these eight handlers did
+/// not perform.
 pub fn router(state: Arc<DeployState>) -> Router {
-    Router::new()
+    let inbound = Router::new()
         .route("/_liyasa/hooks", get(super::hooks::configured))
         .route("/_liyasa/hooks/{provider}", post(super::hooks::receive))
-        .route("/_liyasa/api/v1/builds", get(queued).post(trigger))
-        .route("/_liyasa/api/v1/builds/{id}", get(status))
-        .route("/_liyasa/api/v1/builds/{id}/deploy", post(activate))
-        .route("/_liyasa/api/v1/deployments/{env}/history", get(history))
-        .route("/_liyasa/api/v1/deployments/{env}/retained", get(retained))
-        .route(
-            "/_liyasa/api/v1/deployments/{env}/rollback/{buildId}",
-            post(rollback_to),
-        )
-        .route(
-            "/_liyasa/api/v1/deployments/{env}/latest",
-            post(return_to_latest),
-        )
-        .with_state(state)
+        .with_state(state.clone());
+
+    let dashboard = crate::routes::mount::guarded(
+        Router::new()
+            .route("/_liyasa/api/v1/builds", get(queued).post(trigger))
+            .route("/_liyasa/api/v1/builds/{id}", get(status))
+            .route("/_liyasa/api/v1/builds/{id}/deploy", post(activate))
+            .route("/_liyasa/api/v1/deployments/{env}/history", get(history))
+            .route("/_liyasa/api/v1/deployments/{env}/retained", get(retained))
+            .route(
+                "/_liyasa/api/v1/deployments/{env}/rollback/{buildId}",
+                post(rollback_to),
+            )
+            .route(
+                "/_liyasa/api/v1/deployments/{env}/latest",
+                post(return_to_latest),
+            )
+            .with_state(state),
+        crate::auth::roles::Permission::DashboardRead,
+    );
+
+    inbound.merge(dashboard)
 }
 
 #[cfg(test)]
