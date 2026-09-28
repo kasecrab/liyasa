@@ -266,3 +266,36 @@ test("a context change re-points open help and leaves the other panels alone", (
   assert.equal(tasks.context, "components", "but it is remembered for the next Help");
   assert.match(String(renderPanel(after(tasks, { do: "close" }, { do: "open-help" }))), /data-help-topic="components"/);
 });
+
+test("a context change never moves focus, because a focus move is what sends it", () => {
+  // The bug this pins: `context` spread the previous state, so it inherited
+  // whichever `focus` selector the last opened panel had set. The dispatcher
+  // fires on every focus move, so tabbing into a chip re-applied that stale
+  // selector and threw the author out of the surface. Everything after the
+  // first help-bearing block was unreachable by keyboard.
+  const opened = after(START, { do: "open-tasks" });
+  assert.equal(opened.focus, "[data-choose-task]", "opening a panel does move focus");
+
+  const moved = after(opened, { do: "context", topic: "components" });
+  assert.equal(moved.focus, null, "and a focus move must not");
+  assert.equal(moved.panel.kind, "tasks");
+
+  const withHelp = after(START, { do: "open-help" }, { do: "context", topic: "components" });
+  assert.equal(withHelp.focus, null, "even when it re-points the open help");
+  assert.deepEqual(withHelp.panel, { kind: "help", topic: "components" });
+});
+
+test("every action that is not a focus move still says where focus goes", () => {
+  // The other half: releasing focus for `context` must not release it for the
+  // controls, or a panel opens without taking focus at all.
+  for (const action of [
+    { do: "open-help" } as const,
+    { do: "open-tour" } as const,
+    { do: "open-templates" } as const,
+    { do: "open-tasks" } as const,
+    { do: "open-vocabulary" } as const,
+    { do: "close" } as const,
+  ]) {
+    assert.ok(reduce(START, action).focus !== null, `${action.do} lost its focus target`);
+  }
+});

@@ -7392,9 +7392,18 @@ function reduce(state            , action        )             {
     case "context":
       // Changing what the author is looking at re-points open help at it, and
       // leaves every other panel alone.
+      //
+      // `focus: null` is the whole of this case's difficulty. Every other action
+      // is a control being pressed, so moving focus is right; this one is
+      // dispatched *by* a focus move, and a state that carried the previous
+      // action's `focus` selector sent the author straight back out of whatever
+      // they had just reached. Tabbing into a chip threw focus to the panel, so
+      // the surface after the first help-bearing block was unreachable by
+      // keyboard — WCAG 2.4.3, found by the accessibility suite rather than by
+      // reading this.
       return state.panel.kind === "help"
-        ? { ...state, context: action.topic, panel: { kind: "help", topic: action.topic } }
-        : { ...state, context: action.topic };
+        ? { ...state, context: action.topic, panel: { kind: "help", topic: action.topic }, focus: null }
+        : { ...state, context: action.topic, focus: null };
   }
 }
 

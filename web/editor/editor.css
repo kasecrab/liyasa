@@ -104,15 +104,23 @@ body {
   min-height: 100vh;
 }
 
+/* The toolbar wraps. It was laid out for three controls and carries eight, and
+ * a flex row that cannot wrap does not shrink — it runs off the side of the
+ * page and takes the whole document's scrollWidth with it. At 390px the
+ * overflow was 287px, which is most of a phone. */
 .toolbar {
   grid-area: toolbar;
   display: flex;
+  flex-wrap: wrap;
   gap: var(--ly-space-2);
   align-items: center;
   padding: var(--ly-space-2) var(--ly-space-4);
   border-bottom: var(--ly-border);
   background: var(--ly-color-surface);
 }
+
+/* The name holds the row open on its own line when the controls wrap under it. */
+.toolbar > strong { flex: 1 0 auto; }
 
 .pages { grid-area: pages; border-right: var(--ly-border); overflow: auto; }
 .page { grid-area: page; overflow: auto; padding: var(--ly-space-6); }
@@ -414,7 +422,9 @@ button {
 .tour-step {
   position: absolute;
   z-index: 20;
-  max-width: 24rem;
+  /* `min()` rather than a media query: 24rem is 384px and a phone is 390px, so
+   * the box plus its padding and border overflows before any breakpoint fires. */
+  max-width: min(24rem, calc(100vw - 2 * var(--ly-space-4)));
   padding: var(--ly-space-3);
   background: var(--ly-color-elevated);
   border: var(--ly-border);

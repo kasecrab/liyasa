@@ -422,9 +422,20 @@ test("every control in every pane is reachable with Tab alone", async ({ page })
     });
     if (controls === 0) continue;
 
+    // The budget is the whole document twice over, not the pane's own count.
+    // `controls * 6` looked generous and scaled with the wrong thing: a pane with
+    // one control got six presses while the shell's chrome alone — eight toolbar
+    // buttons and the tour — is eleven stops before main is reached at all. It
+    // passed until the toolbar grew, then reported the source pane's textarea as
+    // unreachable when it was merely further away than the budget allowed.
+    const tabbable = await page.evaluate(
+      () => document.querySelectorAll("button, a[href], input, select, textarea, [tabindex='0']").length,
+    );
+    const budget = (tabbable + 2) * 2;
+
     const reached = new Set<string>();
     await page.locator("body").press("Tab");
-    for (let step = 0; step < controls * 6; step += 1) {
+    for (let step = 0; step < budget; step += 1) {
       const marker = await page.evaluate(() => document.activeElement?.getAttribute("data-tab-probe"));
       if (marker !== null && marker !== undefined) reached.add(marker);
       if (reached.size >= controls) break;
