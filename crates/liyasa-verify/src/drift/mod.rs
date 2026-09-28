@@ -12,6 +12,8 @@
 
 pub mod policy;
 pub mod record;
+pub mod store;
 
 pub use policy::DriftPolicy;
 pub use record::{Candidate, DriftKey, DriftKind, DriftRecord, DriftState, Resolution, escalated};
+pub use store::{MemoryDrift, RecordStore};

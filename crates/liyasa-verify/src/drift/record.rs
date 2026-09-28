@@ -16,7 +16,7 @@
 use std::time::{Duration, SystemTime};
 
 use liyasa_core::document::{Edge, EdgeOrigin};
-use liyasa_core::ids::{CheckId, FactId, Route};
+use liyasa_core::ids::{CheckId, FactId, Fingerprint, JobId, Route};
 use liyasa_core::verify::{ChangeKind, FactValue};
 
 use crate::core::config::DriftSeverity;
@@ -34,6 +34,31 @@ pub enum DriftKey {
     Link(String),
     Check(CheckId),
     Review(Route),
+}
+
+impl DriftKey {
+    /// The identity the frozen `Repo<Drift>` names this record by.
+    ///
+    /// Derived from the subject rather than minted, so it is the same in every
+    /// process and on every run without a store round trip — and so this crate
+    /// needs no source of randomness, which it could not have: `ulid` is pinned
+    /// with `default-features = false` because `getrandom` has no
+    /// `wasm32-unknown-unknown` backend (RFC 2061).
+    pub fn job_id(&self) -> JobId {
+        let tagged: Vec<&[u8]> = match self {
+            Self::Fact(fact) => vec![b"fact", fact.as_str().as_bytes()],
+            Self::Operation { spec, op } => {
+                vec![b"operation", spec.as_bytes(), op.as_bytes()]
+            }
+            Self::Link(url) => vec![b"link", url.as_bytes()],
+            Self::Check(check) => vec![b"check", check.as_str().as_bytes()],
+            Self::Review(page) => vec![b"review", page.as_str().as_bytes()],
+        };
+        let digest = Fingerprint::of_parts(tagged);
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&digest.0[..16]);
+        JobId(ulid::Ulid::from_bytes(bytes))
+    }
 }
 
 /// What drifted, with everything specific to that kind of drift.
