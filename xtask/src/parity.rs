@@ -62,10 +62,10 @@ pub fn run(dir: &Path, engine: &str, strict: bool) -> Result<(), String> {
 }
 
 fn build(strict: bool) -> Result<Option<PathBuf>, String> {
-    let status = Command::new(cargo())
-        .args(["build", "-p", "xtask", "--target", TARGET])
-        .status()
-        .map_err(|e| format!("cargo: {e}"))?;
+    let mut command = Command::new(cargo());
+    command.args(["build", "-p", "xtask", "--target", TARGET]);
+    scrub_host_link_flag(&mut command);
+    let status = command.status().map_err(|e| format!("cargo: {e}"))?;
     if !status.success() {
         return if strict {
             Err(format!(
@@ -111,4 +111,59 @@ fn target_dir() -> Result<PathBuf, String> {
         .as_str()
         .map(PathBuf::from)
         .ok_or_else(|| "cargo metadata has no target_directory".to_owned())
+}
+
+/// Take the host's linker flag out of `RUSTFLAGS` for a wasm child.
+///
+/// `bin/buildenv` exports `-C link-arg=-fuse-ld=mold`, and `rust-lld` — which
+/// is what links a wasm target — answers
+///
+/// ```text
+/// rust-lld: error: unknown argument: -fuse-ld=mold
+/// ```
+///
+/// so every local `parity` run died at the link step before comparing anything.
+/// `buildenv` documents the defect and carries a partial fix that only covers
+/// `CARGO_BUILD_TARGET`, not a `--target` on the command line, which is how
+/// this module asks for wasm. Its complete fix — dropping the global
+/// `RUSTFLAGS` and scoping mold to the host triple — changes every rustc
+/// command line in the workspace and so invalidates sccache for every unit; it
+/// is deliberately deferred to a pause.
+///
+/// This is the narrow version of it: one child process, one flag removed, host
+/// builds untouched and their cache entries with them. Anything else in
+/// `RUSTFLAGS` is preserved rather than cleared, because `RUSTFLAGS=` would
+/// silently drop a flag somebody set on purpose.
+pub fn scrub_host_link_flag(command: &mut Command) {
+    if let Ok(flags) = std::env::var("RUSTFLAGS")
+        && let Some(rest) = without_mold(&flags)
+    {
+        command.env("RUSTFLAGS", rest);
+    }
+}
+
+/// `RUSTFLAGS` with mold's linker flag removed, or `None` if it was not there.
+///
+/// Both spellings cargo accepts are handled: `-C link-arg=...` as two tokens,
+/// which is what `buildenv` writes, and `-Clink-arg=...` as one. Removing half
+/// of the two-token form would leave a bare `-C` and rustc would reject the
+/// command line, which is a worse failure than the one being fixed.
+pub fn without_mold(flags: &str) -> Option<String> {
+    const ARG: &str = "link-arg=-fuse-ld=mold";
+    if !flags.contains("-fuse-ld=mold") {
+        return None;
+    }
+    let mut out: Vec<&str> = Vec::new();
+    let mut tokens = flags.split_whitespace().peekable();
+    while let Some(token) = tokens.next() {
+        if token == "-C" && tokens.peek() == Some(&ARG) {
+            tokens.next();
+            continue;
+        }
+        if token.strip_prefix("-C") == Some(ARG) {
+            continue;
+        }
+        out.push(token);
+    }
+    Some(out.join(" "))
 }
