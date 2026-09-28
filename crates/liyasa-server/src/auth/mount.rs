@@ -59,8 +59,21 @@ pub fn contribute(app: &Arc<AppState>) -> Contribution {
         // AUTH-01: a public site has no auth code path at all, and that
         // includes the layer — there is nothing to extract and nothing that
         // would read it.
+        //
+        // AUTH-40 collides with that here, and the collision is a disclosure
+        // rather than an inconvenience: an operator who asked for a protected
+        // preview on a public site gets no auth mounted, so `site_default`
+        // answers `Public` and the preview is served to anyone with the link.
+        // A preview link reaches CI logs, notification emails and everyone
+        // with repository read access, so it is reported (E0817) rather than
+        // quietly served.
+        let mut diagnostics = Diagnostics::new();
+        if let Some(diagnostic) = preview_needs_auth(&app.config.env, &config) {
+            diagnostics.push(diagnostic);
+        }
         return Contribution {
-            routes: Mount::skipped("`auth.mode` is public, so there is nothing to sign in to"),
+            routes: Mount::skipped("`auth.mode` is public, so there is nothing to sign in to")
+                .with_diagnostics(diagnostics),
             state: None,
         };
     }
@@ -79,6 +92,16 @@ pub fn contribute(app: &Arc<AppState>) -> Contribution {
                 // wrong with the configuration, it just does not send.
                 Ok(None) => {}
                 Err(diagnostic) => diagnostics.push(diagnostic),
+            }
+            // AUTH-40, the other half. This site has a login flow, so the
+            // public-site disclosure above cannot happen; what can is
+            // `protection: password` with no password for THIS environment.
+            // `site_default` then calls the preview private and every request
+            // answers `SignIn`, which redirects to a password form that will
+            // never accept anything. Same reasoning as the mail block: an
+            // operator watching the site sees a sign-in page, not a fault.
+            if let Some(diagnostic) = unprotectable_preview(&state) {
+                diagnostics.push(diagnostic);
             }
             // The role chain, assembled here because this is the only place
             // that can see both halves: `AppState::role_source` has no
@@ -159,6 +182,60 @@ pub fn contribute(app: &Arc<AppState>) -> Contribution {
 /// and so the two cannot drift.
 pub fn mount(app: &Arc<AppState>) -> Mount {
     contribute(app).routes
+}
+
+/// E0817 for the case that is a disclosure: a protected preview asked for on a
+/// site whose `auth.mode` is `public`.
+///
+/// Such a site mounts no auth at all, so there is no session to require, no
+/// password endpoint to enter one at, and no `AuthState` for `site_default` to
+/// read — which makes the preview world-readable rather than merely broken.
+/// Whether a password happens to be configured makes no difference: without the
+/// auth subtree there is nowhere to present it.
+fn preview_needs_auth(env: &str, config: &AuthConfig) -> Option<Diagnostic> {
+    use crate::auth::config::PreviewProtection;
+    use crate::auth::preview;
+
+    if !preview::is_preview(env) || config.preview.protection == PreviewProtection::Public {
+        return None;
+    }
+    Some(Diagnostic::new(
+        code::E0817,
+        format!(
+            "the `{env}` preview asks for `{}` protection and `auth.mode` is `public`, so no \
+             auth is mounted and the preview would be served to anyone with the link",
+            match config.preview.protection {
+                PreviewProtection::Org => "org",
+                PreviewProtection::Password => "password",
+                PreviewProtection::Public => "public",
+            }
+        ),
+    ))
+}
+
+/// E0817 for the case that is merely broken: a preview on a site that *has* a
+/// login flow, whose protection still cannot be satisfied.
+///
+/// Only reachable for a preview: production is served under the site's own
+/// mode, and `auth.preview.protection` says nothing about it.
+fn unprotectable_preview(state: &AuthState) -> Option<Diagnostic> {
+    use crate::auth::preview::{self, Protection};
+
+    if !preview::is_preview(&state.env) {
+        return None;
+    }
+    let password_set = state.passwords.is_set(&state.env);
+    if preview::protection(&state.config, password_set) != Protection::Unprotectable {
+        return None;
+    }
+    Some(Diagnostic::new(
+        code::E0817,
+        format!(
+            "the `{}` preview asks for `password` protection and no password is set for that \
+             environment; the password is per environment, so production's does not apply",
+            state.env
+        ),
+    ))
 }
 
 /// The SMTP sender, when the site configures one.
@@ -253,6 +330,141 @@ mod tests {
             ..ServerConfig::default()
         };
         Arc::new(AppState::new(config))
+    }
+
+    /// The same instance serving a named environment rather than production.
+    fn app_in(env: &str, site_config: serde_json::Value) -> Arc<AppState> {
+        let config = ServerConfig {
+            site_config: Arc::new(site_config),
+            env: env.to_owned(),
+            ..ServerConfig::default()
+        };
+        Arc::new(AppState::new(config))
+    }
+
+    fn codes(contribution: &Contribution) -> Vec<&'static str> {
+        contribution
+            .routes
+            .diagnostics
+            .iter()
+            .map(|d| d.code.as_str())
+            .collect()
+    }
+
+    /// AUTH-40, and the reason this is a **disclosure** rather than a broken
+    /// redirect. `contribute` returns early for `auth.mode: public` with no
+    /// state at all, so `routes::site_default` answers `Public` and the preview
+    /// is served to anyone holding the link — which for a preview means CI
+    /// logs, notification emails and everyone with repository read access.
+    ///
+    /// My first version of this check ran after that early return and the test
+    /// failed, which is how the leak was found: the code was written against
+    /// "the reader gets a redirect to nowhere", and the truth was worse.
+    #[test]
+    fn a_protected_preview_on_a_public_site_is_a_disclosure_and_is_reported() {
+        let contribution = contribute(&app_in(
+            "preview-42",
+            serde_json::json!({
+                "auth": { "mode": "public", "preview": { "protection": "org" } },
+                "seo": { "canonicalOrigin": "https://docs.acme.com" }
+            }),
+        ));
+        assert!(
+            codes(&contribution).contains(&"E0817"),
+            "{:?}",
+            codes(&contribution)
+        );
+    }
+
+    /// The other half: `password` with no password for THIS environment. The
+    /// password is per environment (AUTH-02), so production's does not carry.
+    #[test]
+    fn a_password_protected_preview_with_no_password_for_that_environment_is_reported() {
+        let contribution = contribute(&app_in(
+            "preview-42",
+            serde_json::json!({
+                "auth": { "mode": "password", "preview": { "protection": "password" } },
+                "seo": { "canonicalOrigin": "https://docs.acme.com" }
+            }),
+        ));
+        assert!(
+            codes(&contribution).contains(&"E0817"),
+            "{:?}",
+            codes(&contribution)
+        );
+    }
+
+    /// Production is not a preview, so `auth.preview` says nothing about it
+    /// and the same configuration is silent there. Without this the diagnostic
+    /// would fire on every public site that had ever named a preview policy.
+    #[test]
+    fn production_is_not_a_preview_so_the_same_configuration_is_silent() {
+        let contribution = contribute(&app(serde_json::json!({
+            "auth": { "mode": "public", "preview": { "protection": "org" } },
+            "seo": { "canonicalOrigin": "https://docs.acme.com" }
+        })));
+        assert!(
+            !codes(&contribution).contains(&"E0817"),
+            "{:?}",
+            codes(&contribution)
+        );
+    }
+
+    /// The password case on a public site is reported too. A password with no
+    /// endpoint to present it at protects nothing, so whether one is
+    /// configured makes no difference to the disclosure.
+    #[test]
+    fn a_password_protected_preview_on_a_public_site_is_reported_too() {
+        let contribution = contribute(&app_in(
+            "preview-42",
+            serde_json::json!({
+                "auth": { "mode": "public", "preview": { "protection": "password" } },
+                "seo": { "canonicalOrigin": "https://docs.acme.com" }
+            }),
+        ));
+        assert!(
+            codes(&contribution).contains(&"E0817"),
+            "{:?}",
+            codes(&contribution)
+        );
+    }
+
+    /// A preview that CAN be protected raises nothing, so the test above is
+    /// about the protection rather than about being a preview at all.
+    #[test]
+    fn a_preview_the_organization_can_sign_in_to_is_not_reported() {
+        let contribution = contribute(&app_in(
+            "preview-42",
+            serde_json::json!({
+                "auth": { "mode": "oidc", "preview": { "protection": "org" },
+                          "oidc": { "issuer": "https://idp.acme.com",
+                                    "clientId": "docs" } },
+                "seo": { "canonicalOrigin": "https://docs.acme.com" }
+            }),
+        ));
+        assert!(
+            !codes(&contribution).contains(&"E0817"),
+            "{:?}",
+            codes(&contribution)
+        );
+    }
+
+    /// An explicitly public preview is the operator's decision written down,
+    /// which is what AUTH-40 asks for, so it is not a diagnostic.
+    #[test]
+    fn an_explicitly_public_preview_is_a_decision_rather_than_a_fault() {
+        let contribution = contribute(&app_in(
+            "preview-42",
+            serde_json::json!({
+                "auth": { "mode": "public", "preview": { "protection": "public" } },
+                "seo": { "canonicalOrigin": "https://docs.acme.com" }
+            }),
+        ));
+        assert!(
+            !codes(&contribution).contains(&"E0817"),
+            "{:?}",
+            codes(&contribution)
+        );
     }
 
     #[test]
