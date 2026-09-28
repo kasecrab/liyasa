@@ -388,3 +388,169 @@ fn a_remote_source_says_so_rather_than_generating_nothing_silently() {
         surface.diagnostics.as_slice()
     );
 }
+
+/// API-02 and API-07: which documents a spec's `$ref`s may reach when its pages
+/// are built.
+mod documents {
+    use super::*;
+
+    const SPLIT: &str = r##"
+openapi: 3.1.0
+info: { title: Widgets, version: "1" }
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "shared.yaml#/components/schemas/Money" }
+"##;
+
+    const SHARED: &str = r##"
+components:
+  schemas:
+    Money:
+      type: object
+      properties:
+        amount: { type: integer }
+        currency: { type: string }
+"##;
+
+    const BILLING: &str = r##"
+openapi: 3.1.0
+info: { title: Billing, version: "1" }
+paths: {}
+components:
+  schemas:
+    Money:
+      type: object
+      properties:
+        cents: { type: integer }
+"##;
+
+    /// A spec may be split across a directory of files (API-02), and until this
+    /// was tested `surface` inserted only the root document, so every `$ref`
+    /// leaving the file failed and the page rendered without those fields.
+    #[test]
+    fn a_ref_into_another_file_of_the_same_spec_resolves() {
+        let vfs = MemoryVfs::new()
+            .with("openapi/api.yaml", SPLIT)
+            .with("openapi/shared.yaml", SHARED);
+        let surface = build::surface(&vfs, &config(""), &[]);
+        assert!(
+            !surface.diagnostics.has_errors(),
+            "{:?}",
+            surface.diagnostics.as_slice()
+        );
+
+        let page = surface
+            .pages
+            .iter()
+            .find(|page| page.selector == "GET /widgets")
+            .expect("the operation is there");
+        assert!(
+            page.source.contains("amount") && page.source.contains("currency"),
+            "the referenced schema's fields reach the page:\n{}",
+            page.source
+        );
+    }
+
+    /// API-07: cross-spec `$ref` is disabled by default. A sibling spec's source
+    /// is a readable local file, so this has to be refused deliberately — the
+    /// traversal above would otherwise have turned the default off.
+    #[test]
+    fn a_ref_into_another_declared_spec_is_refused() {
+        let vfs = MemoryVfs::new()
+            .with(
+                "openapi/api.yaml",
+                SPLIT.replace("shared.yaml", "billing.yaml").as_str(),
+            )
+            .with("openapi/billing.yaml", BILLING);
+        let config = serde_json::json!({ "openapi": [
+            { "id": "api", "source": "openapi/api.yaml" },
+            { "id": "billing", "source": "openapi/billing.yaml" }
+        ]});
+        let surface = build::surface(&vfs, &config, &[]);
+
+        let refused = surface
+            .diagnostics
+            .as_slice()
+            .iter()
+            .find(|d| d.message.contains("another declared spec"))
+            .expect("the cross-spec reference is named");
+        assert_eq!(refused.code.as_str(), "E0502");
+        assert!(
+            refused
+                .help
+                .as_deref()
+                .is_some_and(|help| help.contains("off by default")),
+            "and the help says what to do instead: {:?}",
+            refused.help
+        );
+
+        let page = surface
+            .pages
+            .iter()
+            .find(|page| page.spec == "api" && page.selector == "GET /widgets")
+            .expect("the rest of the spec still renders");
+        assert!(
+            !page.source.contains("cents"),
+            "the other spec's schema did not leak into this page:\n{}",
+            page.source
+        );
+    }
+
+    /// The same file reached twice is read once, and a cycle between documents
+    /// terminates.
+    #[test]
+    fn a_reference_cycle_between_files_terminates() {
+        let a = r##"
+openapi: 3.1.0
+info: { title: Widgets, version: "1" }
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "b.yaml#/components/schemas/Node" }
+"##;
+        let b = r##"
+components:
+  schemas:
+    Node:
+      type: object
+      properties:
+        next: { $ref: "b.yaml#/components/schemas/Node" }
+        name: { type: string }
+"##;
+        let vfs = MemoryVfs::new()
+            .with("openapi/api.yaml", a)
+            .with("openapi/b.yaml", b);
+
+        let started = std::time::Instant::now();
+        let surface = build::surface(&vfs, &config(""), &[]);
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(10),
+            "it took {:?}",
+            started.elapsed()
+        );
+        assert!(
+            !surface.diagnostics.has_errors(),
+            "{:?}",
+            surface.diagnostics.as_slice()
+        );
+        let page = surface
+            .pages
+            .iter()
+            .find(|page| page.selector == "GET /widgets")
+            .expect("the operation is there");
+        assert!(page.source.contains("name"), "{}", page.source);
+    }
+}

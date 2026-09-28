@@ -96,7 +96,12 @@ pub fn surface(vfs: &dyn Vfs, config: &serde_json::Value, authored: &[Authored])
         );
     }
     for spec in &specs {
-        let Some(model) = processed(vfs, spec, &mut out.diagnostics) else {
+        let siblings: Vec<&str> = specs
+            .iter()
+            .filter(|other| other.id != spec.id)
+            .map(|other| other.source.as_str())
+            .collect();
+        let Some(model) = processed(vfs, spec, &siblings, &mut out.diagnostics) else {
             continue;
         };
         let one = one(&model, spec, authored);
@@ -115,7 +120,13 @@ pub fn surface(vfs: &dyn Vfs, config: &serde_json::Value, authored: &[Authored])
 /// are written to disk and a static host hands them to every visitor, so they
 /// may hold only what every visitor may have. Per-reader filtering is API-52
 /// and belongs at request time.
-pub fn processed(vfs: &dyn Vfs, spec: &SpecConfig, diagnostics: &mut Diagnostics) -> Option<Spec> {
+pub fn processed(
+    vfs: &dyn Vfs,
+    spec: &SpecConfig,
+    // The other declared specs' sources, which a `$ref` may not reach (API-07).
+    siblings: &[&str],
+    diagnostics: &mut Diagnostics,
+) -> Option<Spec> {
     let path = match Location::parse(&spec.source) {
         Location::File(path) => path,
         // Which URLs a build may fetch depends on the deploy branch's config,
@@ -170,8 +181,7 @@ pub fn processed(vfs: &dyn Vfs, spec: &SpecConfig, diagnostics: &mut Diagnostics
     };
     diagnostics.extend(normalize::to_3_1(&mut root, &dialect).as_slice().to_vec());
 
-    let mut documents = read::Documents::default();
-    documents.insert(documents.root_key().to_owned(), root);
+    let documents = local_documents(vfs, &path.to_string(), root, siblings, diagnostics);
     let mut reader = read::Reader::new(&documents);
     let mut model = reader.spec(&spec.id, dialect);
     diagnostics.extend(reader.into_diagnostics().as_slice().to_vec());
@@ -220,6 +230,93 @@ fn overlays(spec: &SpecConfig) -> Vec<String> {
         out.push(discovered);
     }
     out
+}
+
+/// How many documents one spec may reach, mirroring [`crate::source`]'s cap.
+const MAX_DOCUMENTS: usize = 512;
+
+/// Every local document this spec reaches, so a spec split across a directory
+/// of files renders (API-02).
+///
+/// A sync twin of [`crate::source::Fetcher::documents`], which is async because
+/// it also fetches URLs. A page is built without an `HttpClient`, so a remote
+/// `$ref` is refused here rather than fetched.
+///
+/// **A `$ref` into another declared spec is refused on purpose** (API-07):
+/// cross-spec resolution is off by default, and a sibling spec's source happens
+/// to be a readable local file, so without this check adding the traversal would
+/// have silently turned that default off.
+fn local_documents(
+    vfs: &dyn Vfs,
+    root_key: &str,
+    root: tree::Value,
+    siblings: &[&str],
+    diagnostics: &mut Diagnostics,
+) -> read::Documents {
+    let mut documents = read::Documents::new(root_key.to_owned(), root.clone());
+    let mut queue: Vec<(String, tree::Value)> = vec![(root_key.to_owned(), root)];
+    let mut seen: Vec<String> = vec![root_key.to_owned()];
+
+    while let Some((base, document)) = queue.pop() {
+        for reference in crate::source::external_refs(&document) {
+            let key = crate::refs::join(&base, &reference);
+            if seen.contains(&key) {
+                continue;
+            }
+            seen.push(key.clone());
+            if seen.len() > MAX_DOCUMENTS {
+                diagnostics.push(Diagnostic::new(
+                    code::E0502,
+                    format!("this spec reaches more than {MAX_DOCUMENTS} documents"),
+                ));
+                return documents;
+            }
+            if let Location::Remote(url) = Location::parse(&key) {
+                diagnostics.push(
+                    Diagnostic::new(
+                        code::E0502,
+                        format!("`{url}` is remote, so its `$ref` is not resolved here"),
+                    )
+                    .help("vendor the document beside the spec"),
+                );
+                continue;
+            }
+            if siblings.iter().any(|source| same_document(source, &key)) {
+                diagnostics.push(
+                    Diagnostic::new(
+                        code::E0502,
+                        format!("`{reference}` points at another declared spec"),
+                    )
+                    .help(
+                        "cross-spec `$ref` is off by default; give the shared part its own \
+                         document that both specs reference",
+                    ),
+                );
+                continue;
+            }
+            let Ok(bytes) = vfs.read(&VfsPath::new(&key)) else {
+                diagnostics.push(
+                    Diagnostic::new(code::E0502, format!("`{reference}` could not be read"))
+                        .help(format!("nothing is at `{key}` in the project")),
+                );
+                continue;
+            };
+            match tree::parse(&bytes, &key) {
+                Ok(parsed) => {
+                    documents.insert(key.clone(), parsed.clone());
+                    queue.push((key, parsed));
+                }
+                Err(error) => diagnostics.push(*error),
+            }
+        }
+    }
+    documents
+}
+
+/// Whether two paths name one document, normalized so `./a.yaml` and `a.yaml`
+/// are not two specs.
+fn same_document(left: &str, right: &str) -> bool {
+    VfsPath::new(left).to_string() == VfsPath::new(right).to_string()
 }
 
 struct One {
