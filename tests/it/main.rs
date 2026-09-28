@@ -196,3 +196,6 @@ mod ed_01_component_forms;
 
 #[path = "../server/mcp_01_server.rs"]
 mod mcp_01_server;
+
+#[path = "../server/mcp_04_stdio.rs"]
+mod mcp_04_stdio;

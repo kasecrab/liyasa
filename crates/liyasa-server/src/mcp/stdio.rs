@@ -41,7 +41,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use serde_json::Value;
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
 use super::bundle_reader::BundleReader;
 use super::jsonrpc::Incoming;
@@ -64,7 +64,7 @@ pub fn open(dist: &Path, site_config: &Value) -> std::io::Result<Arc<BundleReade
 /// Serves until `input` ends, which is how a client says it is finished.
 pub async fn run<I, O>(reader: Arc<BundleReader>, input: I, output: O) -> std::io::Result<()>
 where
-    I: AsyncBufRead + Unpin,
+    I: AsyncRead + Unpin,
     O: AsyncWrite + Unpin,
 {
     let mut lines = BufReader::new(input).lines();
