@@ -10,7 +10,11 @@
 //! Three things it decides, because nothing else could (RFC 1308):
 //!
 //! - It takes the **Rendered AST plus a route**, never a path or a `Document`.
-//!   `liyasa-build` depends on this crate, so the other direction is a cycle.
+//!   A caller that has a path must read files and parse Markdown to get a
+//!   rendered page, and this crate does neither. (An earlier version of this
+//!   comment said the other direction would be a cycle; it would not —
+//!   `liyasa-build` does not depend on `liyasa-verify`. RFC 1308 carries the
+//!   correction.)
 //! - A block the author asked to verify and which did not run is still
 //!   **reported**, as a skip naming why. The report may say "did not run"; it
 //!   may never say nothing.
