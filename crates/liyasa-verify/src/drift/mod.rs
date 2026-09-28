@@ -12,6 +12,7 @@
 
 pub mod checks;
 pub mod engine;
+pub mod entries;
 pub mod facts;
 pub mod links;
 pub mod policy;
@@ -20,6 +21,7 @@ pub mod spec;
 pub mod store;
 
 pub use engine::{Coverage, Engine, GraphRoutes, Routes};
+pub use entries::entries;
 pub use links::FailingLink;
 pub use policy::DriftPolicy;
 pub use record::{Candidate, DriftKey, DriftKind, DriftRecord, DriftState, Resolution, escalated};

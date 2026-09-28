@@ -94,7 +94,10 @@ pub enum DriftKind {
     /// and the key has to be derivable from the kind alone.
     Review {
         page: Route,
-        owner: String,
+        /// VER-77's review owners: what `DOCOWNERS` named, or the last author
+        /// as the fallback. Empty when neither source answered, which is a
+        /// state the digest has to show rather than drop.
+        owners: Vec<String>,
         reviewed: Option<SystemTime>,
         cadence: Duration,
         overdue_by: Duration,

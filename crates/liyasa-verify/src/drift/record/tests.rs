@@ -27,7 +27,7 @@ fn operation(diff: &[&str]) -> DriftKind {
 fn review(page: &str, overdue: Duration) -> DriftKind {
     DriftKind::Review {
         page: Route::new(page),
-        owner: "docs@example.com".to_owned(),
+        owners: vec!["docs@example.com".to_owned()],
         reviewed: Some(SystemTime::UNIX_EPOCH),
         cadence: Duration::from_secs(180 * 86_400),
         overdue_by: overdue,

@@ -116,7 +116,10 @@ pub(super) fn id_of(origin: &EdgeOrigin, route: &Route) -> CheckId {
 
 /// A short form for a diagnostic, not the reader's rendering — that is the
 /// theme's and needs a locale this crate does not have.
-fn show(value: Option<&FactValue>) -> String {
+///
+/// Shared with [`super::entries`], so a finding and the report entry beside it
+/// show the same value the same way.
+pub(super) fn show(value: Option<&FactValue>) -> String {
     let Some(value) = value else {
         return "absent".to_owned();
     };

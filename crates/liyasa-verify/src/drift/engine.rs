@@ -257,6 +257,37 @@ impl<'a> Engine<'a> {
     }
 }
 
+/// The frozen entry point (§34.9).
+///
+/// It covers only what its signature can carry: fact impacts and check results.
+/// Spec drift takes `OperationImpact`, link drift takes a sweep and a grace
+/// period, and review drift takes the pages and their owners — none of which is
+/// in this signature, so those go through [`Engine::record`] with the candidates
+/// their own producer built.
+impl liyasa_core::verify::DriftEngine for Engine<'_> {
+    /// `store` is checked, not written: `Drift` is a field-less entity and
+    /// cannot carry a record, so the records go to the [`RecordStore`] this
+    /// engine holds. Handing a different store is a caller error rather than a
+    /// silently different answer (RFC 2061, following RFC 2032).
+    fn apply(
+        &self,
+        impacts: &[liyasa_core::verify::Impact],
+        checks: &[liyasa_core::verify::CheckResult],
+        policy: &liyasa_core::verify::VerifyPolicy,
+        store: &dyn liyasa_core::store::DriftRepo,
+    ) -> Result<DriftReport, StoreError> {
+        // TODO(rfc-2061): drop the check once `Drift` can carry a record.
+        let handed = std::ptr::from_ref(store) as *const ();
+        let held = std::ptr::from_ref(self.records) as *const ();
+        if handed != held {
+            return Err(StoreError::Conflict);
+        }
+        let mut candidates = super::facts::candidates(impacts, self.routes)?;
+        candidates.extend(super::checks::candidates(checks));
+        self.record(&candidates, &policy_of(policy))
+    }
+}
+
 /// Whether the check class this kind belongs to is on.
 ///
 /// A class set to `off` reports nothing, and a drift record is a report

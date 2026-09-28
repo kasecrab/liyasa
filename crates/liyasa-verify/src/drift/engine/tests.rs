@@ -12,13 +12,19 @@ use crate::drift::store::{MemoryDrift, RecordStore};
 
 use super::{Coverage, Engine, Routes, policy_of};
 
-/// The pairing a graph would answer with; the engine never asks for more.
+/// The pairing a graph would answer with: one page, so `apply` has somewhere to
+/// file what it finds.
 struct Pairs;
+
+const ONLY_PAGE: &str = "/pricing";
 
 impl Routes for Pairs {
     fn routes(&self, blocks: &[(EdgeOrigin, Vec<Edge>)]) -> Result<Vec<Route>, StoreError> {
-        assert!(blocks.is_empty(), "these tests build candidates directly");
-        Ok(Vec::new())
+        Ok(if blocks.is_empty() {
+            Vec::new()
+        } else {
+            vec![Route::new(ONLY_PAGE)]
+        })
     }
 }
 
@@ -379,4 +385,80 @@ fn the_frozen_policy_value_is_read_for_its_classes_and_not_for_fail_on() {
     // Untouched classes fall through to VER-71's table.
     assert_eq!(policy.level(CheckClass::Facts), PolicyLevel::Error);
     assert_eq!(policy.declared(CheckClass::Code), None);
+}
+
+#[test]
+fn the_frozen_entry_point_wires_fact_impacts_and_check_failures_together() {
+    use liyasa_core::ids::{BlockId, Fingerprint, PageId};
+    use liyasa_core::verify::{CheckOutcome, CheckResult, DriftEngine as _, FactChange, Impact};
+
+    let store = MemoryDrift::new();
+    let config = DriftConfig::default();
+    let routes = Pairs;
+    let policy = VerifyPolicy::default();
+
+    let impacts = [Impact {
+        change: FactChange {
+            fact: FactId::new("plan.pro.price"),
+            old: Some(FactValue::Num(20.0)),
+            new: Some(FactValue::Num(25.0)),
+            kind: ChangeKind::Changed,
+        },
+        blocks: vec![(
+            EdgeOrigin::Block(PageId(ulid::Ulid::from_bytes([1; 16])), BlockId([1; 12])),
+            Vec::new(),
+        )],
+    }];
+    let checks = [CheckResult {
+        id: CheckId::new("/install#aabbccddeeff001122334455#0"),
+        outcome: CheckOutcome::Fail {
+            excerpt: "exit 1".to_owned(),
+        },
+        duration: Duration::from_millis(2),
+        digest: Fingerprint::of("c"),
+    }];
+
+    let engine = engine(&store, &config, &routes, 100);
+    let report = engine
+        .apply(&impacts, &checks, &policy, &store)
+        .expect("the store it holds");
+    assert_eq!((report.created, report.updated, report.resolved), (2, 0, 0));
+    assert!(
+        store
+            .find(&DriftKey::Fact(FactId::new("plan.pro.price")))
+            .expect("a read")
+            .is_some()
+    );
+    assert!(
+        store
+            .find(&DriftKey::Check(CheckId::new(
+                "/install#aabbccddeeff001122334455#0"
+            )))
+            .expect("a read")
+            .is_some()
+    );
+}
+
+#[test]
+fn the_frozen_entry_point_refuses_a_store_it_is_not_the_engine_for() {
+    use liyasa_core::verify::DriftEngine as _;
+
+    let store = MemoryDrift::new();
+    let elsewhere = MemoryDrift::new();
+    let config = DriftConfig::default();
+    let routes = Pairs;
+    let engine = engine(&store, &config, &routes, 100);
+
+    assert_eq!(
+        engine.apply(&[], &[], &VerifyPolicy::default(), &elsewhere),
+        Err(StoreError::Conflict),
+        "a record written to the wrong store would be a silently different answer"
+    );
+    assert!(elsewhere.is_empty());
+    // And the one it does hold is accepted.
+    assert!(
+        engine
+            .apply(&[], &[], &VerifyPolicy::default(), &store)
+            .is_ok()
+    );
 }
