@@ -84,7 +84,9 @@ pub enum DriftKind {
         reason: String,
         failing_since: SystemTime,
     },
-    /// A check that passed before and does not now.
+    /// A verified example that does not pass. `CheckOutcome::Error` is
+    /// deliberately not this: an error is the checker failing, not the
+    /// documentation being wrong.
     Check { check: CheckId, excerpt: String },
     /// VER-77. `reviewed` is absent when the page has never recorded one.
     ///
@@ -197,6 +199,10 @@ pub struct DriftRecord {
     pub blocks: Vec<(EdgeOrigin, Vec<Edge>)>,
     pub first_seen: SystemTime,
     pub last_seen: SystemTime,
+    /// When a covered run first found that the condition no longer holds. Set
+    /// whether or not `autoResolve` closes the record, so a dashboard can offer
+    /// "this looks fixed" and an owner's approval can close it (RFC 2063).
+    pub gone_since: Option<SystemTime>,
     pub resolved_at: Option<SystemTime>,
     pub resolution: Option<Resolution>,
     /// VER-77's traffic weight, and `None` for a kind or a deployment with no
@@ -257,6 +263,7 @@ impl Candidate {
             blocks: self.blocks,
             first_seen: now,
             last_seen: now,
+            gone_since: None,
             resolved_at: None,
             resolution: None,
             weight: self.weight,
