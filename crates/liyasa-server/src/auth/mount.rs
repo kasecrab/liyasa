@@ -55,25 +55,22 @@ pub fn contribute(app: &Arc<AppState>) -> Contribution {
             };
         }
     };
-    if config.mode.is_public() {
-        // AUTH-01: a public site has no auth code path at all, and that
-        // includes the layer — there is nothing to extract and nothing that
-        // would read it.
-        //
-        // AUTH-40 collides with that here, and the collision is a disclosure
-        // rather than an inconvenience: an operator who asked for a protected
-        // preview on a public site gets no auth mounted, so `site_default`
-        // answers `Public` and the preview is served to anyone with the link.
-        // A preview link reaches CI logs, notification emails and everyone
-        // with repository read access, so it is reported (E0817) rather than
-        // quietly served.
-        let mut diagnostics = Diagnostics::new();
-        if let Some(diagnostic) = preview_needs_auth(&app.config.env, &config) {
-            diagnostics.push(diagnostic);
-        }
+    // AUTH-01 and AUTH-40 are statements about different things, and collapsing
+    // them here was a disclosure (defect 167). `auth.mode` describes the SITE;
+    // `auth.preview.protection` describes PREVIEWS. A public site has no auth
+    // code path, which is AUTH-01 and correct — but a preview that declares its
+    // own protection is not covered by it, and taking the early return for one
+    // left `state: None`, so `routes::site_default` answered `Public` and the
+    // preview was served to anyone holding the link.
+    //
+    // So the state is built either way, and E0817 says why. Reporting alone
+    // would have been the same disclosure with a warning attached.
+    let protected_preview = preview_needs_auth(&app.config.env, &config);
+    if config.mode.is_public() && protected_preview.is_none() {
+        // A public site in production, or one whose preview is explicitly
+        // public. Both are AUTH-01 exactly as written.
         return Contribution {
-            routes: Mount::skipped("`auth.mode` is public, so there is nothing to sign in to")
-                .with_diagnostics(diagnostics),
+            routes: Mount::skipped("`auth.mode` is public, so there is nothing to sign in to"),
             state: None,
         };
     }
@@ -101,6 +98,9 @@ pub fn contribute(app: &Arc<AppState>) -> Contribution {
             // never accept anything. Same reasoning as the mail block: an
             // operator watching the site sees a sign-in page, not a fault.
             if let Some(diagnostic) = unprotectable_preview(&state) {
+                diagnostics.push(diagnostic);
+            }
+            if let Some(diagnostic) = protected_preview {
                 diagnostics.push(diagnostic);
             }
             // The role chain, assembled here because this is the only place
@@ -196,7 +196,14 @@ fn preview_needs_auth(env: &str, config: &AuthConfig) -> Option<Diagnostic> {
     use crate::auth::config::PreviewProtection;
     use crate::auth::preview;
 
-    if !preview::is_preview(env) || config.preview.protection == PreviewProtection::Public {
+    // `mode.is_public()` is part of the condition, not the caller's business:
+    // a site WITH a login flow can protect its preview, and an earlier version
+    // of this that left the mode check to the `if` below reported one that
+    // could. A test caught it.
+    if !config.mode.is_public()
+        || !preview::is_preview(env)
+        || config.preview.protection == PreviewProtection::Public
+    {
         return None;
     }
     Some(Diagnostic::new(
@@ -322,6 +329,7 @@ fn origins(config: &serde_json::Value) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::auth::groups::SiteDefault;
     use crate::routes::ServerConfig;
 
     fn app(site_config: serde_json::Value) -> Arc<AppState> {
@@ -374,6 +382,104 @@ mod tests {
             "{:?}",
             codes(&contribution)
         );
+    }
+
+    /// **Reporting is not enough**, and this is the assertion that says so: a
+    /// diagnostic with the preview still served is the same disclosure with a
+    /// warning attached.
+    ///
+    /// The refusal is `site_default`. `routes::site_default` is
+    /// `auth_state().map(..).unwrap_or(SiteDefault::Public)`, so the state
+    /// existing at all is half of it and the state answering `Private` is the
+    /// other half; `groups::decide` then answers `SignIn` for a reader with no
+    /// session and nothing is served.
+    #[test]
+    fn a_protected_preview_on_a_public_site_serves_nothing() {
+        let contribution = contribute(&app_in(
+            "preview-42",
+            serde_json::json!({
+                "auth": { "mode": "public", "preview": { "protection": "org" } },
+                "seo": { "canonicalOrigin": "https://docs.acme.com" }
+            }),
+        ));
+        let state = contribution
+            .state
+            .expect("a protected preview needs state, or `site_default` answers Public");
+        assert_eq!(
+            state.site_default(),
+            SiteDefault::Private,
+            "the preview would be served to anyone with the link"
+        );
+        assert_eq!(
+            crate::auth::groups::decide(state.site_default(), &[], None),
+            crate::auth::groups::Decision::SignIn,
+            "a reader with no session must not be served"
+        );
+    }
+
+    /// AUTH-01 is unchanged wherever no protected preview is being served:
+    /// still no state, still no layer. Without this the fix would have quietly
+    /// given every public site an auth code path.
+    ///
+    /// Note which cases are here. **Production always**, because `auth.preview`
+    /// says nothing about it. And a preview whose protection is explicitly
+    /// `public`, in any mode. What is NOT here is a public site serving a
+    /// preview under the default protection — see the test below.
+    #[test]
+    fn a_public_site_not_serving_a_protected_preview_still_mounts_nothing() {
+        let unprotected = serde_json::json!({
+            "auth": { "mode": "public", "preview": { "protection": "public" } }
+        });
+        for (env, site) in [
+            ("production", serde_json::json!({})),
+            (
+                "production",
+                serde_json::json!({ "auth": { "mode": "public" } }),
+            ),
+            ("production", unprotected.clone()),
+            ("preview-42", unprotected),
+        ] {
+            let contribution = contribute(&app_in(env, site.clone()));
+            assert!(
+                contribution.state.is_none(),
+                "AUTH-01: {env} {site} mounted a state"
+            );
+            assert!(contribution.routes.router.is_none(), "{env} {site}");
+        }
+    }
+
+    /// **`PreviewProtection` defaults to `Org`**, which is AUTH-40's "previews
+    /// require organization login by default", so a public site serving a
+    /// preview trips E0817 *without the operator having written anything*.
+    ///
+    /// That reads like noise until you take AUTH-40 at its word: it says a
+    /// public preview is "an explicit setting". An operator whose site has no
+    /// login flow and who wants their preview readable has to say so, and this
+    /// is what tells them. A site that never deploys a preview never sees it.
+    ///
+    /// I expected the opposite when I wrote the test above, and the default is
+    /// what corrected me.
+    #[test]
+    fn the_default_protection_makes_a_public_sites_preview_report_without_being_asked() {
+        for site in [
+            serde_json::json!({}),
+            serde_json::json!({ "auth": { "mode": "public" } }),
+        ] {
+            let contribution = contribute(&app_in("preview-42", site.clone()));
+            assert!(
+                codes(&contribution).contains(&"E0817"),
+                "{site}: {:?}",
+                codes(&contribution)
+            );
+            assert_eq!(
+                contribution
+                    .state
+                    .expect("state, or the preview is served")
+                    .site_default(),
+                SiteDefault::Private,
+                "{site}"
+            );
+        }
     }
 
     /// The other half: `password` with no password for THIS environment. The
