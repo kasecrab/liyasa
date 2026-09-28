@@ -847,22 +847,72 @@ mod sender_tests {
     }
 
     /// AUTH-09: the endpoint answers identically whether or not the address is
-    /// known, so the send cannot be awaited in the handler. This asserts the
-    /// shape that makes that true — `send_link` returns without a runtime to
-    /// spawn onto being required to have *finished* anything — by calling it
-    /// against a host that does not resolve and observing that it returns.
+    /// known, so the send cannot be awaited in the handler.
+    ///
+    /// **This asserts that the send has not FINISHED when `send_link` returns,
+    /// not that returning was fast.** It used to time the call against a 100ms
+    /// budget, which was the wrong instrument in both directions: too weak,
+    /// because awaiting a relay that answered in 5ms would have passed and
+    /// AUTH-09's guarantee would be gone; and too strong, because a correct
+    /// spawn misses the budget whenever the machine is loaded. It cost WP-17 a
+    /// 652s gate at 106.8ms, and would have cost one red gate per package
+    /// running the full sweep on a busy machine. WP-17 found it and named the
+    /// right instrument.
+    ///
+    /// The relay is a real loopback listener, so "has not finished" is
+    /// observable rather than inferred: if the send were awaited, the
+    /// connection would necessarily be established before the call returned.
+    /// The check is a synchronous `accept` with no `await` between it and
+    /// `send_link`, and `#[tokio::test]` is a current-thread runtime — so the
+    /// spawned task provably has not been polled yet. That makes the assertion
+    /// deterministic at any speed, and it still fails if someone makes the
+    /// handler wait: a `block_on` here panics on a current-thread runtime.
+    ///
+    /// **What the determinism rests on, so that an edit can see it:**
+    /// `tokio::spawn` onto a current-thread runtime, which queues the task and
+    /// cannot poll it until this test awaits. Changing `send_link`'s deferral to
+    /// `std::thread::spawn` — a plausible simplification, since it drops the
+    /// `Handle::try_current()` dance and the log-instead-of-panic branch — would
+    /// let an OS thread reach `connect()` before the `accept()` below, and this
+    /// test would become *racy* rather than failing. That is the same defect as
+    /// the stopwatch it replaced, and intermittent is harder to read than a
+    /// 6.8ms margin. (WP-17 again.)
+    ///
+    /// The second half is not decoration either: if `try_current()` ever
+    /// returned `None`, nothing would be spawned, `WouldBlock` would hold
+    /// forever and the first assertion would pass trivially. Only "does
+    /// eventually reach the relay" catches that, so the pair is the test.
     #[tokio::test]
-    async fn send_link_returns_without_waiting_for_the_relay() {
-        let mut config = config(Security::Starttls, None);
-        config.smtp.host = "smtp.invalid".to_owned();
+    async fn send_link_returns_before_the_send_has_finished() {
+        let relay = std::net::TcpListener::bind("127.0.0.1:0").expect("a loopback relay");
+        relay
+            .set_nonblocking(true)
+            .expect("a listener we can poll without blocking");
+        let port = relay.local_addr().expect("an address").port();
+
+        let mut config = config(Security::None, None);
+        config.smtp.host = "127.0.0.1".to_owned();
+        config.smtp.port = Some(port);
         let sender = sender(&config);
-        let started = std::time::Instant::now();
+
         sender.send_link("reader@example.com", "t");
+        // No `await` above this line, so the spawned task cannot have run.
         assert!(
-            started.elapsed() < std::time::Duration::from_millis(100),
-            "send_link waited for the relay: {:?}",
-            started.elapsed()
+            matches!(relay.accept(), Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock),
+            "send_link waited for the relay"
         );
+
+        // And it does eventually happen, so the test above is about the timing
+        // of the return rather than about the send being dropped.
+        let mut connected = false;
+        for _ in 0..500 {
+            if relay.accept().is_ok() {
+                connected = true;
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert!(connected, "the spawned send never reached the relay");
     }
 
     /// The same, for the branch that cannot even build a message. An early
