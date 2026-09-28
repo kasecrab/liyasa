@@ -180,6 +180,65 @@ pub struct DriftRecord {
     pub weight: Option<f64>,
 }
 
+/// An observation before anything has decided whether it is a record.
+///
+/// Every producer in this package — [`super::facts`], [`super::spec`],
+/// [`super::links`], [`super::checks`], [`super::review`] — returns these, and
+/// [`super::policy`] is the only thing that grades them. Keeping the two apart
+/// is what stops each producer inventing its own threshold.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Candidate {
+    pub kind: DriftKind,
+    pub pages: Vec<Route>,
+    pub blocks: Vec<(EdgeOrigin, Vec<Edge>)>,
+    pub weight: Option<f64>,
+}
+
+impl Candidate {
+    /// `pages` and `blocks` sorted and deduplicated, which is what the record
+    /// is declared to carry and what makes two runs comparable.
+    pub fn new(kind: DriftKind, mut pages: Vec<Route>) -> Self {
+        pages.sort();
+        pages.dedup();
+        Self {
+            kind,
+            pages,
+            blocks: Vec::new(),
+            weight: None,
+        }
+    }
+
+    pub fn with_blocks(mut self, blocks: Vec<(EdgeOrigin, Vec<Edge>)>) -> Self {
+        self.blocks = blocks;
+        self
+    }
+
+    pub fn with_weight(mut self, weight: Option<f64>) -> Self {
+        self.weight = weight;
+        self
+    }
+
+    pub fn key(&self) -> DriftKey {
+        self.kind.key()
+    }
+
+    /// The record this candidate opens, seen for the first time at `now`.
+    pub fn opened(self, severity: DriftSeverity, now: SystemTime) -> DriftRecord {
+        DriftRecord {
+            kind: self.kind,
+            severity,
+            state: DriftState::Open,
+            pages: self.pages,
+            blocks: self.blocks,
+            first_seen: now,
+            last_seen: now,
+            resolved_at: None,
+            resolution: None,
+            weight: self.weight,
+        }
+    }
+}
+
 impl DriftRecord {
     pub fn key(&self) -> DriftKey {
         self.kind.key()

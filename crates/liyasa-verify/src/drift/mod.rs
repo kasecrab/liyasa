@@ -10,6 +10,8 @@
 //! It reads a completed run rather than taking part in one, so `core` never
 //! depends on `drift` and the two can be reasoned about apart.
 
+pub mod policy;
 pub mod record;
 
-pub use record::{DriftKey, DriftKind, DriftRecord, DriftState, Resolution, escalated};
+pub use policy::DriftPolicy;
+pub use record::{Candidate, DriftKey, DriftKind, DriftRecord, DriftState, Resolution, escalated};
