@@ -24,6 +24,8 @@
 //!
 //! See `plan/rfcs/0806-generated-pages-enter-the-pipeline.md` for the call site
 //! this needs, which is WP-06's.
+// TODO(rfc-0806): nothing calls this yet. The pages exist and are tested; the
+// build that writes them is one call in `liyasa-build`'s engine.
 
 use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use liyasa_core::vfs::{Vfs, VfsPath};
