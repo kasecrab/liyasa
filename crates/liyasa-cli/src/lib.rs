@@ -8,6 +8,7 @@
 pub mod a11y;
 pub mod browser;
 pub mod budget;
+pub mod checks;
 pub mod built;
 pub mod cli;
 pub mod clock;
