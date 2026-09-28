@@ -220,3 +220,46 @@ fn the_flags_are_in_the_help() {
         assert!(outcome.stdout.contains(flag), "{}", outcome.stdout);
     }
 }
+
+// --- what a class that did not run says (defect 153) -----------------------
+
+/// The orchestrator and the sandboxed runners are both on `main`. A note that
+/// tells the operator the build does not have them sends them looking in the
+/// wrong place, which is worse in a diagnostic than in help text: the reader
+/// has already hit the problem and is trying to locate it.
+#[test]
+fn a_class_that_did_not_run_does_not_blame_a_component_that_exists() {
+    let project = site("ver-why-not");
+    for class in ["code", "facts", "prose"] {
+        let outcome = Run::new(["verify", "--only", class, "--offline"])
+            .cwd(project.path())
+            .output();
+        let all = outcome.all();
+        assert!(all.contains("W0019"), "{all}");
+        assert!(
+            !all.contains("which this build does not have"),
+            "`{class}` still says the orchestrator is missing: {all}"
+        );
+        assert!(
+            !all.contains("needs the verification orchestrator"),
+            "`{class}` still names the component rather than the caller: {all}"
+        );
+    }
+}
+
+/// The two classes nothing runs yet name the caller that is missing, not a
+/// component that is present.
+#[test]
+fn facts_and_prose_name_the_caller_that_is_missing() {
+    let project = site("ver-why-not-caller");
+    for class in ["facts", "prose"] {
+        let outcome = Run::new(["verify", "--only", class, "--offline"])
+            .cwd(project.path())
+            .output();
+        assert!(
+            outcome.all().contains("`liyasa verify`"),
+            "`{class}`: {}",
+            outcome.all()
+        );
+    }
+}

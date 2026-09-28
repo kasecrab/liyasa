@@ -2,9 +2,10 @@
 //!
 //! Internal links, anchors, and assets are what the build decides (E0401,
 //! E0402, E0403); external links are requested over the network (VER-51,
-//! W0404). Code runners, facts, screenshots, and prose need the verification
-//! orchestrator and the sandbox, and a run says which classes did not run
-//! rather than counting them as passing.
+//! W0404). Code runners, facts and prose wait on this command calling
+//! `liyasa_verify::core::orchestrate`, which exists and which nothing here
+//! calls yet; a run says which classes did not run rather than counting them
+//! as passing.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -484,17 +485,20 @@ fn unavailable(class: CheckClass, refreshed: bool) -> Option<Diagnostic> {
         // What is still missing is the other half: checking a fact's value
         // against the pages that interpolate it.
         CheckClass::Facts if refreshed => {
-            "fact sources were re-read; checking their values against the pages that use them needs the verification orchestrator"
+            "fact sources were re-read; checking their values against the pages that use them needs `liyasa verify` to call the verification orchestrator, which it does not yet do"
         }
-        // The orchestrator is the binding constraint: no sandboxed runner
-        // exists, so installing a container changes nothing here yet.
-        // TODO(rfc-0908).
         CheckClass::Code => {
-            "code runners need the verification orchestrator, which this build does not have; a container sandbox is needed too, but only once it does"
+            "code runners need `liyasa verify` to call the verification orchestrator, which it does not yet do"
         }
-        CheckClass::Facts => "fact sources need the verification orchestrator",
-        CheckClass::Screenshots => "screenshot sources need the companion runtime",
-        CheckClass::Prose => "prose rules need the page syntax tree the orchestrator supplies",
+        CheckClass::Facts => {
+            "fact sources need `liyasa verify` to call the verification orchestrator, which it does not yet do"
+        }
+        CheckClass::Screenshots => {
+            "screenshot comparison is not built; capturing a page to compare needs the companion runtime"
+        }
+        CheckClass::Prose => {
+            "prose rules need `liyasa verify` to walk each page's syntax tree, which it does not yet do"
+        }
     };
     Some(Diagnostic::new(
         code::W0019,
