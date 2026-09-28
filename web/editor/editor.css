@@ -256,10 +256,14 @@ body {
 .suggestion-accepted { border-left-color: var(--ly-color-success); }
 .suggestion-rejected { border-left-color: var(--ly-color-border-strong); opacity: 0.7; }
 .suggestion .why { margin: 0 0 var(--ly-space-2); color: var(--ly-color-text-muted); font-size: var(--ly-text-sm); }
-.suggestion-before { display: block; color: var(--ly-color-text-subtle); }
+/* `text-subtle` on `primary-subtle` is 4.23:1 in the light theme, which axe
+ * caught here: the suggestion's own tint is not the page background these tokens
+ * were paired against. `text-muted` is 7.19:1 light and 7.20:1 dark. The
+ * strike-through and the `<del>` carry the distinction; the colour never had to. */
+.suggestion-before { display: block; color: var(--ly-color-text-muted); text-decoration: line-through; }
 .suggestion-after { display: block; color: var(--ly-color-text); text-decoration: none; }
 .suggestion-actions { display: flex; gap: var(--ly-space-2); align-items: center; margin-top: var(--ly-space-2); }
-.suggestion-status { color: var(--ly-color-text-subtle); font-size: var(--ly-text-sm); }
+.suggestion-status { color: var(--ly-color-text-muted); font-size: var(--ly-text-sm); }
 .suggestion-warnings { margin: var(--ly-space-2) 0 0; padding-left: var(--ly-space-4); color: var(--ly-color-warning); font-size: var(--ly-text-sm); }
 .suggestion-count, .withheld { color: var(--ly-color-text-muted); font-size: var(--ly-text-sm); }
 .withheld { color: var(--ly-color-warning); }
@@ -359,11 +363,6 @@ button {
   font-size: var(--ly-text-sm);
   opacity: 1;
 }
-
-/* A tracked change from the agent (ED-41): visible, and not yet applied. */
-.suggestion { border-left: 3px solid var(--ly-color-primary); background: var(--ly-color-primary-subtle); }
-.suggestion-before { text-decoration: line-through; color: var(--ly-color-text-subtle); }
-.suggestion-after { color: var(--ly-color-text); }
 
 .shortcuts { border-collapse: collapse; width: 100%; }
 .shortcuts th, .shortcuts td { text-align: left; padding: var(--ly-space-1) var(--ly-space-3); border-bottom: var(--ly-border-subtle); }

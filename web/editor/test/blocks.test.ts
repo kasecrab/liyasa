@@ -135,7 +135,12 @@ test("an expanded loop shows the rows read-only, capped, with the whole total", 
     expansions: { [node.id]: capIterations(rows, PREVIEW_DEFAULTS) },
   };
   const markup = String(renderLogicBlock(node, context));
-  assert.match(markup, /aria-readonly="true"/);
+  // The name says read-only; `aria-readonly` on a `<pre>` is not an allowed
+  // attribute and every screen reader ignores it. Focusable because the
+  // stylesheet scrolls the box, and an unreachable scroll region is unreadable
+  // content (WCAG 2.1.1); axe's `scrollable-region-focusable` caught that one.
+  assert.match(markup, /<pre class="expansion" data-readonly tabindex="0" aria-label="[^"]*Read-only/);
+  assert.ok(!markup.includes("aria-readonly"), "not on a pre");
   assert.match(markup, /Showing 50 of 900 rows/);
   assert.ok(markup.includes("| row 0 |"), "the first row is drawn");
   assert.ok(!markup.includes("| row 50 |"), "and the fifty-first is not");

@@ -125,8 +125,14 @@ export function chipTooltip(source: ReturnType<typeof chipSource>, value: string
  * The three are separate controls because they are three different things to
  * edit, and conflating any two of them loses information. The statement is an
  * expression, the body is Markdown that may be partial, and the expansion is
- * output — which is why the third is `readonly` and says so rather than being a
- * disabled input that looks broken.
+ * output — which is why the third is a `<pre>` rather than a disabled input that
+ * looks broken.
+ *
+ * "Read-only" is in the expansion's accessible name rather than in an
+ * `aria-readonly`: that attribute belongs to a widget and axe rejects it on a
+ * `<pre>`, where it is ignored by every screen reader anyway. The box is
+ * `tabindex="0"` because the stylesheet scrolls it, and a scrollable region a
+ * keyboard cannot reach is content a keyboard cannot read (WCAG 2.1.1).
  */
 export function renderLogicBlock(node: EditorNode, context: SurfaceContext): Fragment {
   const id = `logic-${node.id.replace(/[^\w-]/g, "-")}`;
@@ -145,7 +151,7 @@ export function renderLogicBlock(node: EditorNode, context: SurfaceContext): Fra
         <h4>What that produces</h4>
         ${expanded === undefined
           ? html`<p class="empty unserved" data-unresolved>Nothing has expanded this page for the selected context yet, so there is no result to show.</p>`
-          : html`<pre class="expansion" data-readonly aria-readonly="true">${expanded.shown.join("")}</pre>
+          : html`<pre class="expansion" data-readonly tabindex="0" aria-label="The rows this produces. Read-only: edit the body to change them.">${expanded.shown.join("")}</pre>
               ${renderCappedRows(expanded, context.limits ?? PREVIEW_DEFAULTS)}`}
       </div>
     </div>
