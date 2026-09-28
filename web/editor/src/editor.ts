@@ -37,6 +37,7 @@ import { EditorSession, PreviewHold, sessionNonce } from "./session.ts";
 import { renderFrontmatterForm, valueFromControl } from "./view/form.ts";
 import { byCategory, formFor, propFromControl, propsToDirective, renderProperties } from "./view/properties.ts";
 import { highlight, opaqueReason, renderSourceMode, renderSourcePopover } from "./view/source-mode.ts";
+import { renderSuggestion, renderSuggestions, suggestionAnnouncement } from "./view/suggestions.ts";
 
 /** What the shell holds while a draft is open. */
 interface State {
@@ -327,6 +328,9 @@ export const MODULES = {
   renderSourcePopover,
   highlight,
   opaqueReason,
+  renderSuggestions,
+  renderSuggestion,
+  suggestionAnnouncement,
   announce,
   state,
 };

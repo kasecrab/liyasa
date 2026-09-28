@@ -241,6 +241,29 @@ body {
 .color-field, .asset-field { display: flex; gap: var(--ly-space-2); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
+/* ED-41: a tracked change shows both texts, so the author reads the change
+ * rather than the editor's summary of it. */
+.suggestion-list { list-style: none; margin: 0; padding: 0; }
+
+.suggestion {
+  margin-bottom: var(--ly-space-3);
+  padding: var(--ly-space-3);
+  border-left: 3px solid var(--ly-color-primary);
+  background: var(--ly-color-primary-subtle);
+  border-radius: var(--ly-radius-sm);
+}
+
+.suggestion-accepted { border-left-color: var(--ly-color-success); }
+.suggestion-rejected { border-left-color: var(--ly-color-border-strong); opacity: 0.7; }
+.suggestion .why { margin: 0 0 var(--ly-space-2); color: var(--ly-color-text-muted); font-size: var(--ly-text-sm); }
+.suggestion-before { display: block; color: var(--ly-color-text-subtle); }
+.suggestion-after { display: block; color: var(--ly-color-text); text-decoration: none; }
+.suggestion-actions { display: flex; gap: var(--ly-space-2); align-items: center; margin-top: var(--ly-space-2); }
+.suggestion-status { color: var(--ly-color-text-subtle); font-size: var(--ly-text-sm); }
+.suggestion-warnings { margin: var(--ly-space-2) 0 0; padding-left: var(--ly-space-4); color: var(--ly-color-warning); font-size: var(--ly-text-sm); }
+.suggestion-count, .withheld { color: var(--ly-color-text-muted); font-size: var(--ly-text-sm); }
+.withheld { color: var(--ly-color-warning); }
+
 /* ED-80: the focus ring, everywhere, always. */
 :focus-visible {
   outline: 2px solid var(--ly-color-focus);
