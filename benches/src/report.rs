@@ -6,7 +6,7 @@
 
 use std::fmt::Write as _;
 
-use crate::budget::{Budget, Limit, Metric, SIX_SIX};
+use crate::budget::{Budget, Limit, Metric, SIX_SIX, THIRTY_ONE};
 use crate::measure::Measurement;
 
 /// One budget against one run.
@@ -130,6 +130,27 @@ pub fn budgets(runs: &[Measurement]) -> String {
             "| {} | {} | {measured} | {note} |",
             budget.scenario,
             show(budget.limit)
+        );
+    }
+    out
+}
+
+/// The §30.1 rows this suite does not measure, with the reason.
+///
+/// Printed beside the measured table rather than left out. §30.1 has six
+/// requirements and only NFR-01's build figures are measurable from a build
+/// harness, so a release that published only what this suite measures would
+/// show one row and silently omit eight — and an omitted budget reads as one
+/// nobody set, not one nobody measured.
+pub fn unmeasured() -> String {
+    let mut out = String::from("| §30.1 runtime budget | Budget | Needs |\n|---|---|---|\n");
+    for runtime in THIRTY_ONE {
+        let _ = writeln!(
+            out,
+            "| {} | {} | {} |",
+            runtime.row,
+            show(runtime.limit),
+            runtime.needs
         );
     }
     out

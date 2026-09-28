@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use liyasa_benches::budget::{Budget, Limit, Metric, SIX_SIX, SIZES};
+use liyasa_benches::budget::{self, Budget, Limit, Metric, SIX_SIX, SIZES};
 use liyasa_benches::measure::{self, Measurement};
 use liyasa_benches::report::{self, Verdict};
 use liyasa_benches::site::Site;
@@ -326,4 +326,46 @@ fn every_budget_names_a_size_the_suite_measures() {
             budget.pages
         );
     }
+}
+
+#[test]
+fn the_runtime_budgets_are_published_with_what_they_need() {
+    let table = report::unmeasured();
+
+    // Every §30.1 runtime row appears. The failure this guards is a release
+    // that publishes one build figure and silently omits eight budgets, which
+    // reads as though nobody set them rather than nobody measured them.
+    assert_eq!(
+        table.lines().filter(|l| l.starts_with("| ")).count() - 1,
+        budget::THIRTY_ONE.len(),
+        "one row per budget, after the header: {table}"
+    );
+
+    // The figures are the PRD's, not rounded for display.
+    assert!(table.contains("50 ms"), "{table}");
+    assert!(table.contains("200 ms"), "{table}");
+    assert!(table.contains("1.50 s"), "{table}");
+    assert!(table.contains("1.50 GB"), "{table}");
+
+    // Every row says what measuring it needs, and says something specific.
+    // "needs more work" would satisfy a non-empty check and help nobody.
+    for runtime in budget::THIRTY_ONE {
+        assert!(
+            runtime.needs.len() > 20,
+            "{} gives no usable blocker: {}",
+            runtime.row,
+            runtime.needs
+        );
+        assert!(
+            table.contains(runtime.needs),
+            "{} is missing its reason",
+            runtime.row
+        );
+    }
+
+    // And it is not confusable with the measured table: no verdict column.
+    assert!(
+        !table.contains("met"),
+        "this table asserts nothing: {table}"
+    );
 }

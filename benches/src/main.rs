@@ -150,6 +150,7 @@ fn measure_in_a_child(directory: &Path, pages: usize) -> Result<Measurement, Str
 fn print(runs: &[Measurement]) {
     println!("{}", report::table(runs));
     println!("{}", report::budgets(runs));
+    println!("{}", report::unmeasured());
     println!("{}", report::provenance(runs));
 }
 

@@ -99,3 +99,69 @@ impl Metric {
         }
     }
 }
+
+/// A §30.1 budget this suite does not measure, and what measuring it needs.
+///
+/// These are runtime figures — a served request, a warm browser index, a
+/// keystroke in an editor — and this suite builds sites. They are carried here
+/// so a release publishes the whole of §30.1 rather than the sixth of it that
+/// happens to be a build figure: five P0 rows currently appear nowhere, and a
+/// budget nobody prints is one nobody can notice is unmeasured.
+///
+/// `needs` is the specific blocker, not "more work". A reader deciding whether
+/// to go and measure one should be able to tell from this column whether they
+/// have the hardware for it.
+#[derive(Debug, Clone, Copy)]
+pub struct Runtime {
+    pub row: &'static str,
+    pub limit: Limit,
+    pub needs: &'static str,
+}
+
+/// PRD §30.1's runtime rows, in the PRD's own figures.
+///
+/// NFR-06 says its breakdown is published "per release from the benchmark
+/// suite", which is this crate — so when somebody builds the server-side
+/// harness, that row is the one that moves from this table into a measured one.
+pub const THIRTY_ONE: &[Runtime] = &[
+    Runtime {
+        row: "Server, cached page, time to first byte, p99",
+        limit: Limit::Time(Duration::from_millis(50)),
+        needs: "a served site on a 2-vCPU instance",
+    },
+    Runtime {
+        row: "Server, dynamic (group or region) page, time to first byte, p99",
+        limit: Limit::Time(Duration::from_millis(200)),
+        needs: "a served site on a 2-vCPU instance",
+    },
+    Runtime {
+        row: "Browser search, after index warm-up",
+        limit: Limit::Time(Duration::from_millis(50)),
+        needs: "a browser: the budget is the wasm index in a page, not under wasmtime",
+    },
+    Runtime {
+        row: "Server search, p95",
+        limit: Limit::Time(Duration::from_millis(30)),
+        needs: "a served site with a tantivy index",
+    },
+    Runtime {
+        row: "Assistant, first token, p50, hosted model",
+        limit: Limit::Time(Duration::from_millis(1_500)),
+        needs: "a hosted model and an account to bill",
+    },
+    Runtime {
+        row: "Assistant, retrieval, p95",
+        limit: Limit::Time(Duration::from_millis(100)),
+        needs: "a served site with vectors on disk",
+    },
+    Runtime {
+        row: "Editor, keystroke to preview, pages under 5,000 words",
+        limit: Limit::Time(Duration::from_millis(50)),
+        needs: "a browser running the wasm renderer, so Playwright rather than this suite",
+    },
+    Runtime {
+        row: "Server memory, 10,000 pages at load, resident",
+        limit: Limit::Resident(3 * GIB / 2),
+        needs: "a 2 vCPU, 4 GB instance under the server budget's request rate",
+    },
+];
