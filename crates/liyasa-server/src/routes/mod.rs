@@ -7,6 +7,7 @@
 //! store is the only thing that persists.
 
 pub mod acme;
+pub mod analytics;
 pub mod api;
 pub mod bundle;
 pub mod client_ip;
@@ -114,6 +115,16 @@ pub struct AppState {
     pub scrubber: Scrubber,
     /// The ACME tokens this replica is answering for (HOST-02).
     pub challenges: Arc<acme::Challenges>,
+    /// The pool on `analytics.db`, published by the ingest writer that opens
+    /// it (ANA-08). The dashboard reads through this rather than opening a
+    /// second pool: two pools on one SQLite file is two write locks, and the
+    /// writer's is the one that must win.
+    ///
+    /// A `OnceLock` because only the runtime knows whether this instance has
+    /// an analytics database — `spawn_ingest_at` opens it, and a site built
+    /// without one never publishes. Set before `application` mounts, so a
+    /// subtree that needs it can read it while composing.
+    analytics: std::sync::OnceLock<liyasa_store::SqlitePool>,
     pub started: Instant,
     draining: AtomicBool,
     /// What `application` mounted, so readiness can report it (RFC 1403).
@@ -171,6 +182,7 @@ impl AppState {
             started: Instant::now(),
             mounted: std::sync::OnceLock::new(),
             self_arc: std::sync::OnceLock::new(),
+            analytics: std::sync::OnceLock::new(),
             auth_state: std::sync::OnceLock::new(),
             org_state: std::sync::OnceLock::new(),
             draining: AtomicBool::new(false),
@@ -226,6 +238,20 @@ impl AppState {
     /// above all — takes it from here and never constructs its own.
     pub fn auth_state(&self) -> Option<&Arc<crate::auth::state::AuthState>> {
         self.auth_state.get()
+    }
+
+    /// The analytics database, or `None` on an instance that opened none.
+    pub fn analytics_pool(&self) -> Option<&liyasa_store::SqlitePool> {
+        self.analytics.get()
+    }
+
+    /// Called once by the ingest writer's startup, before `application` runs.
+    ///
+    /// Public because the test harness opens an `analytics.db` of its own and
+    /// must publish it the same way, before composing: a harness that could
+    /// not would only ever exercise the branch where the subtree is skipped.
+    pub fn publish_analytics_pool(&self, pool: liyasa_store::SqlitePool) {
+        let _ = self.analytics.set(pool);
     }
 
     /// Called once by the `auth` subtree's adapter, before any request.

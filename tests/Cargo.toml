@@ -44,6 +44,7 @@ image.workspace = true
 # acceptance tests drive the router in process with `tower::ServiceExt`
 # rather than binding a port, so a test needs no listener.
 liyasa-server = { path = "../crates/liyasa-server", version = "0.1.0" }
+liyasa-analytics = { path = "../crates/liyasa-analytics", version = "0.1.0", features = ["server"] }
 liyasa-store = { path = "../crates/liyasa-store", version = "0.1.0" }
 # WP-16: the deploy routes and the recorded HTTP client the GIT-01 acceptance
 # test drives instead of a network.

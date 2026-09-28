@@ -138,6 +138,21 @@ pub fn subtrees() -> &'static [Subtree] {
             permission: None,
             mount: org,
         },
+        Subtree {
+            name: "analytics",
+            permission: Some(Permission::DashboardRead),
+            mount: analytics,
+        },
+        Subtree {
+            // ANA-02's event schema, and the reason WP-17 asked for two
+            // entries rather than one: a static-site collector validates its
+            // events against this document BEFORE it is allowed to post any,
+            // so by construction it holds no dashboard credential. Inside the
+            // guarded layer it would answer 401 to every caller that needs it.
+            name: "analytics-schema",
+            permission: None,
+            mount: analytics_schema,
+        },
     ]
 }
 
@@ -170,6 +185,26 @@ fn org(app: &Arc<AppState>) -> Mount {
         // Only reachable on a collector, which the loop skips before asking.
         None => Mount::skipped("no organization was built for this instance"),
     }
+}
+
+/// WP-17. Two pools: the dashboard reads events from `analytics.db` and
+/// feedback and jobs from `liyasa.db`, and neither crate can open the other's.
+///
+/// The four `with_*` builders `liyasa-analytics` offers are deliberately not
+/// used. Each needs configuration this state does not carry, and their absence
+/// is the safe reading rather than a guess: no integrations enabled, no page
+/// facts, so ANA-40's three build-dependent cards are absent instead of being
+/// computed from zeroes. Wire one when the config plumbing for it exists.
+fn analytics(app: &Arc<AppState>) -> Mount {
+    match super::analytics::view(app) {
+        Some(view) => Mount::routes(liyasa_analytics::serve::mount(Arc::new(view))),
+        None => Mount::skipped("this instance has no analytics database"),
+    }
+}
+
+/// ANA-02. Takes no state, so it needs no pool and mounts on a collector too.
+fn analytics_schema(_app: &Arc<AppState>) -> Mount {
+    Mount::routes(liyasa_analytics::serve::schema_router())
 }
 
 /// WP-16. Belongs in `crate::deploy` as `pub fn mount`.

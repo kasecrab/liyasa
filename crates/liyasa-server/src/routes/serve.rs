@@ -54,6 +54,10 @@ impl Runtime {
         options: IngestOptions,
     ) -> Result<(), liyasa_core::store::StoreError> {
         let writer = Writer::open(path, self.state.ingest.clone(), options).await?;
+        // The dashboard reads this database through the pool the writer
+        // opened. Published before the writer moves into its task, and before
+        // `application` mounts, so a subtree can read it while composing.
+        self.state.publish_analytics_pool(writer.pool().clone());
         self.spawn_ingest(writer);
         Ok(())
     }

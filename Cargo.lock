@@ -2805,6 +2805,7 @@ dependencies = [
  "instant-acme",
  "lettre",
  "liyasa-ai",
+ "liyasa-analytics",
  "liyasa-build",
  "liyasa-config",
  "liyasa-core",

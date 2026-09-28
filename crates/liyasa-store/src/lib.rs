@@ -19,6 +19,10 @@ pub use ingest::{IngestOptions, IngestQueue, RawSink, Writer};
 pub use jobs::{Enqueue, Enqueued, Jobs};
 pub use liyasa_core::store::*;
 pub use secrets::{MasterKey, Secrets};
+/// The pool type, for crates that hold one without depending on sqlx. This is
+/// the only crate that opens a database; a second `sqlx` in another crate's
+/// graph would be a second version to keep in step for no gain.
+pub use sqlx::sqlite::SqlitePool;
 
 /// Milliseconds since the Unix epoch, the timestamp every table stores.
 pub fn now_ms() -> i64 {

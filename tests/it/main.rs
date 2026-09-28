@@ -201,3 +201,5 @@ mod mcp_01_server;
 
 #[path = "../server/mcp_04_stdio.rs"]
 mod mcp_04_stdio;
+#[path = "../server/ana_02_dashboard_mount.rs"]
+mod ana_02_dashboard_mount;

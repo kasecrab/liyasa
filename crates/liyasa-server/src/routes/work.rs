@@ -113,6 +113,19 @@ pub fn kinds() -> &'static [JobKind] {
         // WP-16, one self-contained line each; rationale in `crate::deploy::jobs`.
         crate::deploy::jobs::BUILD,
         crate::deploy::jobs::RETENTION,
+        // WP-17. The names are `liyasa_analytics::actions`' constants, which
+        // is also what enqueues them, so the registry and the enqueuer cannot
+        // spell the same job two ways.
+        JobKind {
+            name: super::analytics::RETENTION_JOB,
+            trigger: Trigger::Scheduled(super::analytics::retention_due),
+            run: super::analytics::run_retention,
+        },
+        JobKind {
+            name: super::analytics::DIGEST_JOB,
+            trigger: Trigger::Scheduled(super::analytics::digest_due),
+            run: super::analytics::run_digest,
+        },
     ]
 }
 

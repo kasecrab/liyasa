@@ -50,6 +50,10 @@ pub struct Setup {
     /// `liyasa.json` as the subtrees read it. `None` is a site with no
     /// sections beyond the defaults, which is a public site with no auth.
     pub site_config: Option<serde_json::Value>,
+    /// Opens an `analytics.db` and publishes its pool before composing, the
+    /// way `Runtime::spawn_ingest_at` does. Off by default: most tests want
+    /// the shape of an instance that opened none.
+    pub analytics: bool,
 }
 
 impl Setup {
@@ -61,6 +65,7 @@ impl Setup {
             config: ServerConfig::default(),
             with_store: true,
             site_config: None,
+            analytics: false,
         }
     }
 }
@@ -97,6 +102,7 @@ impl Harness {
         };
 
         let ingest = IngestQueue::new(1024, 64);
+        let ingest_for_analytics = ingest.clone();
         let config = match setup.site_config {
             Some(value) => ServerConfig {
                 site_config: Arc::new(value),
@@ -126,6 +132,20 @@ impl Harness {
             state = state.with_store(Arc::new(store));
         }
         let state = Arc::new(state);
+        if setup.analytics {
+            // The writer opens the database and publishes its pool; the
+            // dashboard reads through that pool rather than opening a second
+            // one. Done here, before `application`, for the same reason the
+            // runtime does it before mounting.
+            let writer = liyasa_store::Writer::open(
+                &root.join("analytics.db"),
+                ingest_for_analytics,
+                liyasa_store::IngestOptions::default(),
+            )
+            .await
+            .expect("an analytics database");
+            state.publish_analytics_pool(writer.pool().clone());
+        }
         // RFC 1403: the same composition the binary performs. A harness that
         // builds its own router tests an application the product never runs,
         // which is exactly how two packages' HTTP surfaces went unrouted.

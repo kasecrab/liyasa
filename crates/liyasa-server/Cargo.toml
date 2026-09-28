@@ -27,6 +27,9 @@ liyasa-ai = { path = "../liyasa-ai", version = "0.1.0" }
 # through; §34.7 already has the server depending on verify.
 liyasa-verify = { path = "../liyasa-verify", version = "0.1.0" }
 liyasa-store = { path = "../liyasa-store", version = "0.1.0" }
+# `server` is default-off in that crate so its base graph keeps axum out
+# (PRD §6.2.1); the dashboard routes need it.
+liyasa-analytics = { path = "../liyasa-analytics", version = "0.1.0", features = ["server"] }
 # WP-16: provider clients, inbound webhook verification and the clone policy.
 liyasa-git = { path = "../liyasa-git", version = "0.1.0" }
 # WP-19: the MCP `fetch` tool selects a section of a page, and an anchor it
