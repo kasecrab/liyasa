@@ -68,6 +68,8 @@ mod cm_15_functions;
 mod cm_36_links;
 #[path = "../build/cm_70_snippets.rs"]
 mod cm_70_snippets;
+#[path = "../build/auth_53_region_index.rs"]
+mod auth_53_region_index;
 #[path = "../build/cm_80_hidden.rs"]
 mod cm_80_hidden;
 #[path = "../build/cm_82_redirects.rs"]
