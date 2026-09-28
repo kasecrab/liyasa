@@ -4893,6 +4893,1232 @@ class PreviewHold {
   }
 }
 
+// ED-11's front matter form, as markup.
+//
+// The whole requirement is a form: "front matter is edited through a form
+// generated from the schema with per-field help; advanced keys under a
+// disclosure", and its acceptance test is that an invalid value shows the
+// schema error on its field and blocks the save. So the fields come from
+// `formFields(schema)` rather than from a list written here — a form with a
+// field the schema does not have writes front matter the build rejects, and
+// the author finds out at the next build.
+//
+// Pure, like every renderer in this package: state in, `Fragment` out.
+// `editor.ts` is the only module that puts one in the document.
+
+/**
+ * The form.
+ *
+ * `aria-describedby` ties each field to its help *and* its error, so a screen
+ * reader reads both when the field takes focus. A visible error the field is
+ * not described by is an error only sighted users get.
+ */
+function renderFrontmatterForm(state           )           {
+  const errors = new Map(state.validation.errors.map((error) => [error.field, error.message]));
+  const common = state.fields.filter((field) => !field.advanced);
+  const advanced = state.fields.filter((field) => field.advanced);
+
+  return html`<form class="frontmatter" data-frontmatter novalidate>
+    <h2>Page settings</h2>
+    ${common.map((field) => renderFormField(field, state.values[field.name], errors.get(field.name)))}
+
+    <details class="advanced-fields" data-advanced-frontmatter ${state.advanced ? raw("open") : null}>
+      <summary>Advanced (${advanced.length})</summary>
+      ${advanced.map((field) => renderFormField(field, state.values[field.name], errors.get(field.name)))}
+    </details>
+
+    ${renderSaveRow(state.validation)}
+  </form>`;
+}
+
+/**
+ * The save control.
+ *
+ * Disabled is not enough on its own: a disabled button tells somebody nothing
+ * about *why*, so the reason sits beside it in a live region and the button is
+ * described by it.
+ */
+function renderSaveRow(validation            )           {
+  const blocked = !validation.canSave;
+  const unchecked = validation.unchecked.length;
+  return html`<div class="form-actions">
+    <button
+      type="button"
+      class="primary"
+      data-action="save"
+      aria-describedby="frontmatter-save-reason"
+      ${blocked ? raw("disabled") : null}
+    >Save</button>
+    <p class="save-reason" id="frontmatter-save-reason" role="status" aria-live="polite">
+      ${blocked
+        ? `${validation.errors.length} field${validation.errors.length === 1 ? "" : "s"} to fix before this can be saved.`
+        : null}
+      ${
+        // Said out loud rather than left implicit: the form checked what it can
+        // and the build checks the rest. Silence here would read as "all
+        // checked", which is the claim this editor must not make.
+        unchecked > 0
+          ? `${unchecked} field${unchecked === 1 ? "" : "s"} the build checks rather than this form.`
+          : null
+      }
+    </p>
+  </div>`;
+}
+
+function renderFormField(field           , value                        , error                    )           {
+  const id = `fm-${field.name}`;
+  const helpId = `${id}-help`;
+  const errorId = `${id}-error`;
+  const describedBy = error === undefined ? helpId : `${helpId} ${errorId}`;
+
+  return html`<div class="field" data-field="${field.name}"${error === undefined ? null : raw(' data-invalid="true"')}>
+    <label for="${id}">${label(field.name)}</label>
+    ${fieldControl(field, id, value, describedBy, error !== undefined)}
+    <p class="field-help" id="${helpId}" data-field-help>${field.help}</p>
+    ${error === undefined
+      ? null
+      : html`<p class="field-error" id="${errorId}" data-field-error="${field.name}" role="alert">${error}</p>`}
+  </div>`;
+}
+
+function fieldControl(
+  field           ,
+  id        ,
+  value                        ,
+  describedBy        ,
+  invalid         ,
+)           {
+  const shared = raw(
+    `id="${id}" name="${field.name}" aria-describedby="${describedBy}"${invalid ? ' aria-invalid="true"' : ""}`,
+  );
+
+  if (field.choices) {
+    return html`<select ${shared}>
+      <option value="">(not set)</option>
+      ${field.choices.map(
+        (choice) => html`<option value="${choice}" ${choice === value ? raw("selected") : null}>${choice}</option>`,
+      )}
+    </select>`;
+  }
+
+  switch (field.control) {
+    case "boolean":
+      // Three states, not two: a front matter key that is absent means "take
+      // the project's default", and a checkbox cannot say that. `draft: false`
+      // and no `draft` at all are different bytes and a form that collapsed
+      // them would rewrite pages nobody edited.
+      return html`<select ${shared}>
+        <option value="" ${value === undefined || value === null ? raw("selected") : null}>(not set)</option>
+        <option value="true" ${value === true ? raw("selected") : null}>Yes</option>
+        <option value="false" ${value === false ? raw("selected") : null}>No</option>
+      </select>`;
+    case "number":
+      return html`<input type="number" ${shared} value="${value ?? ""}" />`;
+    case "textarea":
+      return html`<textarea ${shared} rows="3">${value ?? ""}</textarea>`;
+    case "list":
+      return html`<input
+        type="text"
+        ${shared}
+        value="${Array.isArray(value) ? value.join(", ") : ""}"
+        placeholder="one, then another"
+      />`;
+    case "object":
+    case "opaque":
+      // Not editable as a form: a map or a key whose schema this form cannot
+      // model is shown as the source it is, in a field the author can still
+      // type into, rather than hidden or silently dropped.
+      return html`<textarea ${shared} rows="2" data-opaque>${value === undefined ? "" : JSON.stringify(value)}</textarea>`;
+    default:
+      return html`<input type="text" ${shared} value="${value ?? ""}" />`;
+  }
+}
+
+/** `sidebarTitle` reads as "Sidebar title" to somebody who does not write code. */
+function label(name        )         {
+  const spaced = name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/**
+ * What the form's controls parse back to.
+ *
+ * The inverse of `fieldControl` above, and the reason the boolean field has three
+ * options: `""` has to come back as "remove this key", not as `false`.
+ */
+function valueFromControl(field           , raw        )                    {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  switch (field.control) {
+    case "boolean":
+      return trimmed === "true";
+    case "number": {
+      const parsed = Number(trimmed);
+      return Number.isFinite(parsed) ? parsed : trimmed;
+    }
+    case "list":
+      return trimmed
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => part !== "");
+    case "object":
+    case "opaque":
+      try {
+        return JSON.parse(trimmed)              ;
+      } catch {
+        // Handed back as the string it is. The schema check reports it, which
+        // is a better error than this function inventing one.
+        return trimmed;
+      }
+    default:
+      return trimmed;
+  }
+}
+
+// Generated from `liyasa_components::Registry::builtins()` by
+// `tests/editor/ed_01_component_forms.rs`. Do not edit: that test compares this
+// file with the registry and fails when they differ.
+//
+// Each component's `editor_block()` gives the widget, label and help per prop;
+// `schema()` gives `required` and an enum's choices, which a form needs to say
+// what is missing rather than only what is set.
+
+                                
+               
+                 
+                
+               
+                    
+                     
+ 
+
+                                
+               
+               
+                   
+                  
+                         
+                                                         
+                                                             
+ 
+
+const COMPONENT_FORMS                  = [
+  {
+    name: "accordion",
+    icon: "chevron-right",
+    category: "Disclosure",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Summary line the reader clicks.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Icon shown before the title.", required: false },
+      { prop: "open", widget: "toggle", label: "Open", help: "Starts open.", required: false },
+      { prop: "id", widget: "text", label: "Id", help: "Anchor for the URL hash; defaults to a slug of the title.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "accordions",
+    icon: "list-collapse",
+    category: "Disclosure",
+    inline: false,
+    props: [
+      { prop: "one", widget: "toggle", label: "One", help: "Opening one accordion closes the others.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "assistant",
+    icon: "bot",
+    category: "Page",
+    inline: false,
+    props: [
+      { prop: "prompt", widget: "text", label: "Prompt", help: "The question the assistant opens with.", required: true },
+      { prop: "label", widget: "text", label: "Label", help: "Text on the button; defaults to the prompt.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "badge",
+    icon: "tag",
+    category: "Inline",
+    inline: true,
+    props: [
+      { prop: "color", widget: "color", label: "Color", help: "Accent colour: a theme token name or a hex value.", required: false },
+      { prop: "variant", widget: "select", label: "Variant", help: "How strongly the colour is applied.", required: false, choices: ["soft", "outline", "solid"] },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Icon shown before the label.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "banner",
+    icon: "megaphone",
+    category: "Page",
+    inline: false,
+    props: [
+      { prop: "color", widget: "color", label: "Color", help: "Accent colour: a theme token name or a hex value.", required: false },
+      { prop: "dismissible", widget: "toggle", label: "Dismissible", help: "Lets the reader close the banner; `id` is what remembers that.", required: false },
+      { prop: "id", widget: "text", label: "Id", help: "Identifies the banner so a dismissal is remembered across pages.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "callout",
+    icon: "megaphone",
+    category: "Callouts",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Heading shown above the body.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Icon shown beside the title.", required: false },
+      { prop: "color", widget: "color", label: "Color", help: "Accent colour: a theme token name or a hex value.", required: false },
+      { prop: "variant", widget: "select", label: "Variant", help: "How strongly the colour is applied.", required: false, choices: ["soft", "outline", "solid"] },
+      { prop: "collapsible", widget: "toggle", label: "Collapsible", help: "Renders the callout as a disclosure the reader can fold away.", required: false },
+      { prop: "open", widget: "toggle", label: "Open", help: "Starts a collapsible callout open.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "card",
+    icon: "square",
+    category: "Layout",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Card heading.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Icon shown above or beside the title.", required: false },
+      { prop: "href", widget: "route", label: "Href", help: "Makes the whole card a link to this route or URL.", required: false },
+      { prop: "img", widget: "asset", label: "Img", help: "Image shown on top, or on the left when `horizontal`.", required: false },
+      { prop: "horizontal", widget: "toggle", label: "Horizontal", help: "Lays the image beside the body instead of above it.", required: false },
+      { prop: "cta", widget: "text", label: "Cta", help: "Call-to-action text shown at the foot of the card.", required: false },
+      { prop: "color", widget: "color", label: "Color", help: "Accent colour: a theme token name or a hex value.", required: false },
+      { prop: "arrow", widget: "toggle", label: "Arrow", help: "Shows an arrow beside the call to action.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "cards",
+    icon: "grid",
+    category: "Layout",
+    inline: false,
+    props: [
+      { prop: "cols", widget: "number", label: "Cols", help: "Columns in the grid, 1 to 4.", required: false },
+      { prop: "gap", widget: "text", label: "Gap", help: "Space between cards: a theme spacing token or a CSS length.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "check",
+    icon: "circle-check",
+    category: "Callouts",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Heading shown above the body; defaults to the callout's name.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Overrides the default icon. An empty value removes it.", required: false },
+      { prop: "collapsible", widget: "toggle", label: "Collapsible", help: "Renders the callout as a disclosure the reader can fold away.", required: false },
+      { prop: "open", widget: "toggle", label: "Open", help: "Starts a collapsible callout open.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "code",
+    icon: "code",
+    category: "Code",
+    inline: true,
+    props: [
+      { prop: "lang", widget: "text", label: "Lang", help: "Language the span is highlighted as.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "code-group",
+    icon: "code",
+    category: "Code",
+    inline: false,
+    props: [
+      { prop: "sync", widget: "text", label: "Sync", help: "Synchronizes every group with the same key site-wide and remembers the reader's choice.", required: false },
+      { prop: "dropdown", widget: "toggle", label: "Dropdown", help: "Shows a select instead of a row of tabs.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "color",
+    icon: "palette",
+    category: "Inline",
+    inline: true,
+    props: [
+      { prop: "value", widget: "color", label: "Value", help: "The colour, as a CSS value.", required: true },
+      { prop: "name", widget: "text", label: "Name", help: "What the colour is called; shown beside the swatch.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "column",
+    icon: "column",
+    category: "Layout",
+    inline: false,
+    props: [
+      { prop: "span", widget: "number", label: "Span", help: "Columns this one spans, 1 to 4.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "columns",
+    icon: "columns",
+    category: "Layout",
+    inline: false,
+    props: [
+      { prop: "cols", widget: "number", label: "Cols", help: "Columns in the grid, 1 to 4.", required: false },
+      { prop: "gap", widget: "text", label: "Gap", help: "Space between columns: a theme spacing token or a CSS length.", required: false },
+      { prop: "align", widget: "select", label: "Align", help: "How columns line up against each other vertically.", required: false, choices: ["start", "center", "end", "stretch"] },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "danger",
+    icon: "octagon-alert",
+    category: "Callouts",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Heading shown above the body; defaults to the callout's name.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Overrides the default icon. An empty value removes it.", required: false },
+      { prop: "collapsible", widget: "toggle", label: "Collapsible", help: "Renders the callout as a disclosure the reader can fold away.", required: false },
+      { prop: "open", widget: "toggle", label: "Open", help: "Starts a collapsible callout open.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "divider",
+    icon: "minus",
+    category: "Layout",
+    inline: false,
+    props: [
+      { prop: "label", widget: "text", label: "Label", help: "Text shown in the middle of the rule.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "embed",
+    icon: "link",
+    category: "Media",
+    inline: false,
+    props: [
+      { prop: "url", widget: "route", label: "Url", help: "The page to embed. Must be from an allow-listed provider.", required: true },
+      { prop: "title", widget: "text", label: "Title", help: "Accessible name for the frame; defaults to the provider's name.", required: false },
+      { prop: "height", widget: "text", label: "Height", help: "CSS height, e.g. `480px`.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "endpoint",
+    icon: "route",
+    category: "API",
+    inline: false,
+    props: [
+      { prop: "method", widget: "select", label: "Method", help: "HTTP method.", required: false, choices: ["get", "post", "put", "patch", "delete", "head", "options", "trace"] },
+      { prop: "path", widget: "text", label: "Path", help: "Request path, with `{parameters}` in braces.", required: false },
+      { prop: "spec", widget: "text", label: "Spec", help: "Spec this endpoint is documented in; with `operation`, the header is pulled from it.", required: false },
+      { prop: "operation", widget: "text", label: "Operation", help: "`operationId` in that spec.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "expandable",
+    icon: "chevron-down",
+    category: "Disclosure",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Summary line the reader clicks.", required: false },
+      { prop: "open", widget: "toggle", label: "Open", help: "Starts open.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "expandables",
+    icon: "list-tree",
+    category: "Disclosure",
+    inline: false,
+    props: [
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "fact",
+    icon: "badge-check",
+    category: "Inline",
+    inline: true,
+    props: [
+      { prop: "id", widget: "text", label: "Id", help: "The fact's ID, as declared under `facts/`.", required: true },
+      { prop: "format", widget: "text", label: "Format", help: "How to render the value, e.g. `currency` or `date`.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "feedback",
+    icon: "thumbs-up",
+    category: "Page",
+    inline: false,
+    props: [
+      { prop: "question", widget: "text", label: "Question", help: "What the reader is asked.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "file",
+    icon: "file-down",
+    category: "Media",
+    inline: false,
+    props: [
+      { prop: "src", widget: "asset", label: "Src", help: "The file to download.", required: true },
+      { prop: "name", widget: "text", label: "Name", help: "Name shown on the card; defaults to the file name.", required: false },
+      { prop: "size", widget: "text", label: "Size", help: "Size shown on the card, e.g. `2.4 MB`.", required: false },
+      { prop: "type", widget: "text", label: "Type", help: "File type shown on the card; defaults to the extension.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "files",
+    icon: "folder",
+    category: "Media",
+    inline: false,
+    props: [
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "frame",
+    icon: "frame",
+    category: "Media",
+    inline: false,
+    props: [
+      { prop: "caption", widget: "text", label: "Caption", help: "Caption shown under the frame.", required: false },
+      { prop: "hint", widget: "text", label: "Hint", help: "Smaller note under the caption.", required: false },
+      { prop: "video", widget: "toggle", label: "Video", help: "Frames a video rather than an image: no zoom, and the aspect ratio is kept.", required: false },
+      { prop: "align", widget: "select", label: "Align", help: "How the frame sits in the text column.", required: false, choices: ["left", "center", "right", "full"] },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "github",
+    icon: "github",
+    category: "Page",
+    inline: false,
+    props: [
+      { prop: "repo", widget: "text", label: "Repo", help: "Repository as `owner/name`.", required: true },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "hero",
+    icon: "layout-template",
+    category: "Layout",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Headline, rendered as the page's H1.", required: false },
+      { prop: "subtitle", widget: "text", label: "Subtitle", help: "Sentence under the headline.", required: false },
+      { prop: "image", widget: "asset", label: "Image", help: "Image or illustration beside the text.", required: false },
+      { prop: "actions", widget: "text", label: "Actions", help: "Buttons, each `Label -> /route`; the first is the primary action.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "icon",
+    icon: "sparkles",
+    category: "Inline",
+    inline: true,
+    props: [
+      { prop: "name", widget: "icon", label: "Name", help: "Icon name in the chosen set.", required: true },
+      { prop: "type", widget: "text", label: "Type", help: "Icon set the name comes from.", required: false },
+      { prop: "size", widget: "number", label: "Size", help: "Size in pixels; defaults to the surrounding text's size.", required: false },
+      { prop: "color", widget: "color", label: "Color", help: "Colour: a theme token name or a hex value.", required: false },
+      { prop: "label", widget: "text", label: "Label", help: "Accessible name. Without it the icon is decorative and screen readers skip it.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "iframe",
+    icon: "square-code",
+    category: "Media",
+    inline: false,
+    props: [
+      { prop: "src", widget: "route", label: "Src", help: "The page to frame.", required: true },
+      { prop: "title", widget: "text", label: "Title", help: "What the frame holds. A screen reader announces this instead of the frame.", required: true },
+      { prop: "height", widget: "text", label: "Height", help: "CSS height, e.g. `480px`.", required: false },
+      { prop: "allow", widget: "text", label: "Allow", help: "Permissions policy for the frame, e.g. `clipboard-write`.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "image",
+    icon: "image",
+    category: "Media",
+    inline: false,
+    props: [
+      { prop: "src", widget: "asset", label: "Src", help: "The image. A path under `assets/`, or an absolute URL.", required: true },
+      { prop: "alt", widget: "text", label: "Alt", help: "What the image says, for a reader who cannot see it. Empty only when the image is decorative.", required: true },
+      { prop: "dark", widget: "asset", label: "Dark", help: "Variant shown in dark mode.", required: false },
+      { prop: "width", widget: "number", label: "Width", help: "Intrinsic width in pixels; prevents layout shift.", required: false },
+      { prop: "height", widget: "number", label: "Height", help: "Intrinsic height in pixels; prevents layout shift.", required: false },
+      { prop: "caption", widget: "text", label: "Caption", help: "Caption shown under the image.", required: false },
+      { prop: "zoom", widget: "toggle", label: "Zoom", help: "Opens the image full size when clicked.", required: false },
+      { prop: "align", widget: "select", label: "Align", help: "How the image sits in the text column.", required: false, choices: ["left", "center", "right", "full"] },
+      { prop: "border", widget: "toggle", label: "Border", help: "Draws a border around the image.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "info",
+    icon: "circle-info",
+    category: "Callouts",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Heading shown above the body; defaults to the callout's name.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Overrides the default icon. An empty value removes it.", required: false },
+      { prop: "collapsible", widget: "toggle", label: "Collapsible", help: "Renders the callout as a disclosure the reader can fold away.", required: false },
+      { prop: "open", widget: "toggle", label: "Open", help: "Starts a collapsible callout open.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "kbd",
+    icon: "keyboard",
+    category: "Inline",
+    inline: true,
+    props: [
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "md",
+    icon: "file-text",
+    category: "Page",
+    inline: false,
+    props: [
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "note",
+    icon: "info",
+    category: "Callouts",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Heading shown above the body; defaults to the callout's name.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Overrides the default icon. An empty value removes it.", required: false },
+      { prop: "collapsible", widget: "toggle", label: "Collapsible", help: "Renders the callout as a disclosure the reader can fold away.", required: false },
+      { prop: "open", widget: "toggle", label: "Open", help: "Starts a collapsible callout open.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "openapi-schema",
+    icon: "file-json",
+    category: "API",
+    inline: false,
+    props: [
+      { prop: "spec", widget: "text", label: "Spec", help: "Spec the schema lives in.", required: true },
+      { prop: "schema", widget: "text", label: "Schema", help: "Name of the schema object, as in `components.schemas`.", required: true },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "panel",
+    icon: "panel-right",
+    category: "Layout",
+    inline: false,
+    props: [
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "param",
+    icon: "sliders",
+    category: "API",
+    inline: false,
+    props: [
+      { prop: "name", widget: "text", label: "Name", help: "Parameter name, as it appears in the request.", required: true },
+      { prop: "in", widget: "select", label: "In", help: "Where the parameter goes. `body` is for manual API pages; a spec-backed page emits body fields as response-field rows.", required: false, choices: ["query", "path", "body", "header", "cookie"] },
+      { prop: "type", widget: "text", label: "Type", help: "Type as the API documents it, e.g. `integer` or `string[]`.", required: false },
+      { prop: "required", widget: "toggle", label: "Required", help: "Marks the parameter as required.", required: false },
+      { prop: "deprecated", widget: "toggle", label: "Deprecated", help: "Marks the parameter as deprecated.", required: false },
+      { prop: "default", widget: "text", label: "Default", help: "Value used when the parameter is omitted.", required: false },
+      { prop: "placeholder", widget: "text", label: "Placeholder", help: "Example value shown in the playground's input.", required: false },
+      { prop: "enum", widget: "text", label: "Enum", help: "The values the parameter accepts.", required: false },
+      { prop: "min", widget: "number", label: "Min", help: "Smallest accepted value or length.", required: false },
+      { prop: "max", widget: "number", label: "Max", help: "Largest accepted value or length.", required: false },
+      { prop: "example", widget: "text", label: "Example", help: "A value that works, shown beside the row.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "prompt",
+    icon: "sparkle",
+    category: "Page",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Headline above the prompt.", required: false },
+      { prop: "open", widget: "select", label: "Open", help: "Assistants to offer an `open in` button for.", required: false, choices: ["cursor", "claude", "chatgpt"] },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "region",
+    icon: "globe",
+    category: "Page",
+    inline: false,
+    props: [
+      { prop: "only", widget: "text", label: "Only", help: "Regions this block is shown in.", required: false },
+      { prop: "except", widget: "text", label: "Except", help: "Regions this block is hidden in.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "request-example",
+    icon: "arrow-up-right",
+    category: "API",
+    inline: false,
+    props: [
+      { prop: "lang", widget: "text", label: "Lang", help: "Language of the example, e.g. `curl` or `python`.", required: false },
+      { prop: "title", widget: "text", label: "Title", help: "Title shown above the example.", required: false },
+      { prop: "status", widget: "text", label: "Status", help: "HTTP status this example illustrates.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "response-example",
+    icon: "arrow-down-left",
+    category: "API",
+    inline: false,
+    props: [
+      { prop: "lang", widget: "text", label: "Lang", help: "Language of the example, e.g. `json`.", required: false },
+      { prop: "title", widget: "text", label: "Title", help: "Title shown above the example.", required: false },
+      { prop: "status", widget: "text", label: "Status", help: "HTTP status this example illustrates.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "response-field",
+    icon: "braces",
+    category: "API",
+    inline: false,
+    props: [
+      { prop: "name", widget: "text", label: "Name", help: "Property name, as it appears in the response.", required: true },
+      { prop: "type", widget: "text", label: "Type", help: "Type as the API documents it.", required: false },
+      { prop: "required", widget: "toggle", label: "Required", help: "Marks the property as always present.", required: false },
+      { prop: "deprecated", widget: "toggle", label: "Deprecated", help: "Marks the property as deprecated.", required: false },
+      { prop: "default", widget: "text", label: "Default", help: "Value the property takes when the API omits it.", required: false },
+      { prop: "example", widget: "text", label: "Example", help: "A value that occurs, shown beside the row.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "screenshot",
+    icon: "camera",
+    category: "Media",
+    inline: false,
+    props: [
+      { prop: "src", widget: "asset", label: "Src", help: "Where the capture is stored; the automation writes it.", required: true },
+      { prop: "alt", widget: "text", label: "Alt", help: "What the screenshot shows.", required: true },
+      { prop: "app", widget: "text", label: "App", help: "Which application to capture, as named in the verification config.", required: false },
+      { prop: "route", widget: "route", label: "Route", help: "Route within that application.", required: false },
+      { prop: "selector", widget: "text", label: "Selector", help: "CSS selector to crop to.", required: false },
+      { prop: "viewport", widget: "text", label: "Viewport", help: "Viewport to capture at, e.g. `1280x800`.", required: false },
+      { prop: "caption", widget: "text", label: "Caption", help: "Caption shown under the screenshot.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "snippet-from",
+    icon: "file-code",
+    category: "Code",
+    inline: false,
+    props: [
+      { prop: "file", widget: "text", label: "File", help: "Path to the file, relative to the repository root.", required: true },
+      { prop: "lines", widget: "text", label: "Lines", help: "Line range, e.g. `10-25`. Mutually exclusive with `symbol`.", required: false },
+      { prop: "symbol", widget: "text", label: "Symbol", help: "Name of a `// [liyasa:start name]` marker region, or of a symbol the language server can find.", required: false },
+      { prop: "repo", widget: "text", label: "Repo", help: "Connected repository the file lives in; defaults to this one.", required: false },
+      { prop: "ref", widget: "text", label: "Ref", help: "Branch, tag, or commit to read the file at.", required: false },
+      { prop: "lang", widget: "text", label: "Lang", help: "Language to highlight as; defaults to the file's extension.", required: false },
+      { prop: "title", widget: "text", label: "Title", help: "Title shown above the block; defaults to the file path.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "step",
+    icon: "circle-dot",
+    category: "Disclosure",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "What this step does; becomes the step's anchor.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Icon shown in the marker when the group's style is `icon`.", required: false },
+      { prop: "number", widget: "number", label: "Number", help: "Overrides the number this step would otherwise get.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "steps",
+    icon: "list-ordered",
+    category: "Disclosure",
+    inline: false,
+    props: [
+      { prop: "style", widget: "select", label: "Style", help: "Whether each step shows its number or its icon.", required: false, choices: ["numbered", "icon"] },
+      { prop: "start", widget: "number", label: "Start", help: "Number the first step carries.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "tab",
+    icon: "square",
+    category: "Disclosure",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Tab label. Must say what the tab holds: agents read it flattened.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Icon shown before the label.", required: false },
+      { prop: "sync", widget: "text", label: "Sync", help: "Value this tab represents for its group's `sync` key, e.g. `npm`.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "tabs",
+    icon: "folder-tree",
+    category: "Disclosure",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Names the group, e.g. `Install`; used to prefix tab titles in the agent output.", required: false },
+      { prop: "sync", widget: "text", label: "Sync", help: "Synchronizes every tab group with the same key site-wide and remembers the reader's choice.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "terminal",
+    icon: "terminal",
+    category: "Code",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Window title shown above the session.", required: false },
+      { prop: "prompt", widget: "text", label: "Prompt", help: "Prompt prefix; the copy button removes it.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "tile",
+    icon: "square",
+    category: "Layout",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Tile label.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Icon shown above the label.", required: false },
+      { prop: "href", widget: "route", label: "Href", help: "Makes the tile a link to this route or URL.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "tiles",
+    icon: "layout-grid",
+    category: "Layout",
+    inline: false,
+    props: [
+      { prop: "cols", widget: "number", label: "Cols", help: "Columns in the grid, 1 to 4.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "tip",
+    icon: "lightbulb",
+    category: "Callouts",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Heading shown above the body; defaults to the callout's name.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Overrides the default icon. An empty value removes it.", required: false },
+      { prop: "collapsible", widget: "toggle", label: "Collapsible", help: "Renders the callout as a disclosure the reader can fold away.", required: false },
+      { prop: "open", widget: "toggle", label: "Open", help: "Starts a collapsible callout open.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "toc",
+    icon: "list",
+    category: "Layout",
+    inline: false,
+    props: [
+      { prop: "depth", widget: "number", label: "Depth", help: "Deepest heading level listed, 1 to 6.", required: false },
+      { prop: "from", widget: "route", label: "From", help: "Lists the pages under this route instead of the headings on this page.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "tooltip",
+    icon: "message-square",
+    category: "Inline",
+    inline: true,
+    props: [
+      { prop: "text", widget: "text", label: "Text", help: "What the tooltip says.", required: true },
+      { prop: "href", widget: "route", label: "Href", help: "Makes the anchor a link as well as a tooltip.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "tree",
+    icon: "folder-tree",
+    category: "Layout",
+    inline: false,
+    props: [
+      { prop: "root", widget: "text", label: "Root", help: "Label for the top of the tree, e.g. the repository name.", required: false },
+      { prop: "active", widget: "text", label: "Active", help: "Path highlighted as the file being described.", required: false },
+      { prop: "expanded", widget: "toggle", label: "Expanded", help: "Opens every folder.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "update",
+    icon: "calendar",
+    category: "Page",
+    inline: false,
+    props: [
+      { prop: "date", widget: "text", label: "Date", help: "Release date, `YYYY-MM-DD`.", required: true },
+      { prop: "version", widget: "text", label: "Version", help: "Version this entry describes.", required: false },
+      { prop: "labels", widget: "text", label: "Labels", help: "Tags the entry is filtered by, e.g. `breaking` or `api`.", required: false },
+      { prop: "title", widget: "text", label: "Title", help: "Headline for the entry.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "video",
+    icon: "play",
+    category: "Media",
+    inline: false,
+    props: [
+      { prop: "src", widget: "asset", label: "Src", help: "The video file, or a YouTube, Vimeo, or Loom URL.", required: true },
+      { prop: "poster", widget: "asset", label: "Poster", help: "Still shown before the video plays.", required: false },
+      { prop: "autoplay", widget: "toggle", label: "Autoplay", help: "Plays as soon as it is visible. Requires `muted`.", required: false },
+      { prop: "loop", widget: "toggle", label: "Loop", help: "Restarts when it ends.", required: false },
+      { prop: "muted", widget: "toggle", label: "Muted", help: "Starts with no sound.", required: false },
+      { prop: "controls", widget: "toggle", label: "Controls", help: "Shows the player's controls.", required: false },
+      { prop: "caption", widget: "text", label: "Caption", help: "Caption shown under the video.", required: false },
+      { prop: "title", widget: "text", label: "Title", help: "Accessible name for an embedded player.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "visibility",
+    icon: "eye",
+    category: "Page",
+    inline: false,
+    props: [
+      { prop: "humans", widget: "toggle", label: "Humans", help: "Include in the HTML output.", required: false },
+      { prop: "agents", widget: "toggle", label: "Agents", help: "Include in the Markdown output.", required: false },
+      { prop: "groups", widget: "text", label: "Groups", help: "Authenticated groups that may see it.", required: false },
+      { prop: "regions", widget: "text", label: "Regions", help: "Regions it is shown in.", required: false },
+      { prop: "locales", widget: "text", label: "Locales", help: "Locales it is shown in.", required: false },
+      { prop: "versions", widget: "text", label: "Versions", help: "Versions it is shown in.", required: false },
+    ],
+    slots: [
+    ],
+  },
+  {
+    name: "warning",
+    icon: "triangle-alert",
+    category: "Callouts",
+    inline: false,
+    props: [
+      { prop: "title", widget: "text", label: "Title", help: "Heading shown above the body; defaults to the callout's name.", required: false },
+      { prop: "icon", widget: "icon", label: "Icon", help: "Overrides the default icon. An empty value removes it.", required: false },
+      { prop: "collapsible", widget: "toggle", label: "Collapsible", help: "Renders the callout as a disclosure the reader can fold away.", required: false },
+      { prop: "open", widget: "toggle", label: "Open", help: "Starts a collapsible callout open.", required: false },
+    ],
+    slots: [
+    ],
+  },
+];
+
+// ED-01's properties form: the pane a component block opens.
+//
+// > directives become component blocks with a properties form
+//
+// The fields come from `COMPONENT_FORMS`, generated from
+// `liyasa_components::Registry::builtins()` — every component's `editor_block()`
+// for the widget, label and help, and its `PropSchema` for `required` and an
+// enum's choices. A form that invented its fields from the props a block
+// happens to carry could never say what is *missing*, which is most of what a
+// properties form is for.
+//
+// Pure: state in, `Fragment` out. `editor.ts` puts it in the document.
+
+
+function formFor(name        )                            {
+  return COMPONENT_FORMS.find((form) => form.name === name);
+}
+
+/** Every component, grouped the way the insert menu groups them. */
+function byCategory()                                                      {
+  const groups = new Map                         ();
+  for (const form of COMPONENT_FORMS) {
+    groups.set(form.category, [...(groups.get(form.category) ?? []), form]);
+  }
+  return [...groups.entries()]
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([category, components]) => ({ category, components }));
+}
+
+                                  
+                                                          
+                    
+                                   
+                                                           
+                
+ 
+
+/**
+ * The properties pane.
+ *
+ * A component the registry does not know is not an error here — ED-03(c) says
+ * an unknown directive is an opaque node carrying its bytes — so the pane says
+ * so and offers the source instead of an empty form.
+ */
+function renderProperties(state                 )           {
+  const form = formFor(state.component);
+  if (!form) {
+    return html`<section class="properties" data-properties="${state.block}">
+      <h2>${state.component}</h2>
+      <p class="empty">
+        This project has no component called <code>${state.component}</code>, so there are no
+        settings to show. Its source is editable in the block itself.
+      </p>
+    </section>`;
+  }
+
+  const missing = form.props.filter(
+    (prop) => prop.required && state.props[prop.prop] === undefined,
+  );
+
+  return html`<section class="properties" data-properties="${state.block}" data-component="${form.name}">
+    <h2>${form.name}</h2>
+    ${missing.length === 0
+      ? null
+      : html`<p class="missing" role="alert" data-missing>
+          ${missing.length === 1
+            ? `This ${form.name} needs a ${missing[0]?.label.toLowerCase()}.`
+            : `This ${form.name} needs ${missing.length} settings it does not have.`}
+        </p>`}
+    ${form.props.map((prop) => renderPropField(form.name, prop, state.props[prop.prop]))}
+    ${form.slots.length === 0 ? null : renderSlots(form)}
+  </section>`;
+}
+
+function renderSlots(form               )           {
+  return html`<details class="slots">
+    <summary>Parts (${form.slots.length})</summary>
+    <ul>
+      ${form.slots.map(
+        (slot) => html`<li data-slot="${slot.name}">
+          <strong>${slot.name}</strong>${slot.required ? " (required)" : null}
+          <span class="field-help">${slot.help}</span>
+        </li>`,
+      )}
+    </ul>
+  </details>`;
+}
+
+function renderPropField(component        , prop               , value                       )           {
+  const id = `prop-${component}-${prop.prop}`;
+  const helpId = `${id}-help`;
+  const unset = value === undefined;
+  const invalid = prop.required && unset;
+
+  return html`<div class="field" data-prop="${prop.prop}"${invalid ? raw(' data-invalid="true"') : null}>
+    <label for="${id}">${prop.label}${prop.required ? html`<span class="required" aria-hidden="true">*</span>` : null}</label>
+    ${propControl(prop, id, helpId, value, invalid)}
+    <p class="field-help" id="${helpId}" data-field-help>${prop.help}</p>
+  </div>`;
+}
+
+/**
+ * The control a widget asks for.
+ *
+ * An `expr` prop is a template expression the build evaluates, so it gets a
+ * code field and never a value picker — offering a colour swatch for
+ * `{{ theme.brand }}` would invite an author to replace an expression with a
+ * propLiteral without noticing.
+ */
+function propControl(
+  prop               ,
+  id        ,
+  helpId        ,
+  value                       ,
+  invalid         ,
+)           {
+  const shared = raw(
+    `id="${id}" name="${prop.prop}" aria-describedby="${helpId}"` +
+      (invalid ? ' aria-invalid="true" required' : "") +
+      (prop.required ? "" : ""),
+  );
+  const text = plainValue(value);
+
+  if (prop.choices) {
+    return html`<select ${shared}>
+      ${prop.required ? null : html`<option value="">(not set)</option>`}
+      ${prop.choices.map(
+        (choice) => html`<option value="${choice}" ${choice === text ? raw("selected") : null}>${choice}</option>`,
+      )}
+    </select>`;
+  }
+
+  switch (prop.widget) {
+    case "toggle":
+      // Three states again: an absent boolean prop takes the component's own
+      // default, which is not the same as `false`.
+      return html`<select ${shared}>
+        <option value="" ${value === undefined ? raw("selected") : null}>(not set)</option>
+        <option value="true" ${text === "true" ? raw("selected") : null}>Yes</option>
+        <option value="false" ${text === "false" ? raw("selected") : null}>No</option>
+      </select>`;
+    case "number":
+      return html`<input type="number" ${shared} value="${text}" />`;
+    case "color":
+      // Text beside the swatch, because a swatch cannot express a token like
+      // `var(--ly-color-primary)` and an author who only had the swatch would
+      // have to overwrite the token to use the field at all.
+      return html`<span class="color-field">
+        <input type="color" ${shared} value="${/^#[0-9a-fA-F]{6}$/.test(text) ? text : "#000000"}" />
+        <input type="text" name="${prop.prop}-text" value="${text}" aria-label="${prop.label} as text" />
+      </span>`;
+    case "asset":
+      return html`<span class="asset-field">
+        <input type="text" ${shared} value="${text}" />
+        <button type="button" data-open-media="${prop.prop}">Choose…</button>
+      </span>`;
+    case "code":
+      return html`<textarea ${shared} rows="2" spellcheck="false" data-expression>${text}</textarea>`;
+    default:
+      return html`<input type="text" ${shared} value="${text}" />`;
+  }
+}
+
+/** A `PropValue` as the text a control shows. */
+function plainValue(value                       )         {
+  if (value === undefined) return "";
+  switch (value.type) {
+    case "str":
+    case "expr":
+      return value.value;
+    case "num":
+      return String(value.value);
+    case "bool":
+      return value.value ? "true" : "false";
+    case "list":
+      return value.value.map((item) => plainValue(item)).join(", ");
+  }
+}
+
+/**
+ * The `PropValue` a control's text becomes, or `null` to remove the prop.
+ *
+ * A `code` widget always produces an `expr`: its whole purpose is to hold
+ * something the build evaluates, and storing it as a string would have the
+ * directive print the expression rather than run it.
+ */
+function propFromControl(prop               , raw        )                   {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  if (prop.widget === "code") return { type: "expr", value: trimmed };
+  if (prop.widget === "toggle") return { type: "bool", value: trimmed === "true" };
+  if (prop.widget === "number") {
+    const parsed = Number(trimmed);
+    // Not a number stays a string, so the build's own prop check reports it
+    // with the code and the span rather than this function guessing.
+    return Number.isFinite(parsed) ? { type: "num", value: parsed } : { type: "str", value: trimmed };
+  }
+  return { type: "str", value: trimmed };
+}
+
+/**
+ * The directive text a set of props serialises to, for one leaf or open line.
+ *
+ * Only the props that are set are written. Writing every declared prop with an
+ * empty value would turn a two-prop directive into a twelve-prop one on the
+ * first edit, which is the opposite of what the Source Document is for.
+ */
+function propsToDirective(
+  name        ,
+  props                           ,
+  colons        ,
+)         {
+  const written = Object.entries(props)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => `${key}=${propLiteral(value)}`);
+  const marker = ":".repeat(Math.max(colons, 2));
+  return written.length === 0 ? `${marker}${name}` : `${marker}${name}{${written.join(" ")}}`;
+}
+
+function propLiteral(value           )         {
+  switch (value.type) {
+    case "num":
+      return String(value.value);
+    case "bool":
+      return value.value ? "true" : "false";
+    case "expr":
+      return `"${value.value.replace(/"/g, '\\"')}"`;
+    case "list":
+      return `"${value.value.map((item) => plainValue(item)).join(",")}"`;
+    default:
+      return `"${value.value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  }
+}
+
 // The editor application.
 //
 // This is the only module that touches the document, the network, storage or
@@ -4904,6 +6130,8 @@ class PreviewHold {
 // Nothing here runs under `node --test`. What is testable about the shell is
 // the markup its renderers produce, and those are pure and live beside the
 // state they render.
+
+
 
 
 
@@ -5203,6 +6431,13 @@ const MODULES = {
   renderProblems,
   renderToolbar,
   renderShortcuts,
+  renderFrontmatterForm,
+  valueFromControl,
+  renderProperties,
+  formFor,
+  byCategory,
+  propFromControl,
+  propsToDirective,
   announce,
   state,
 };

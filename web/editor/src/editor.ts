@@ -34,6 +34,8 @@ import { HELP, TEMPLATES, TOUR, VOCABULARY, pageFromTemplate, say } from "./help
 import { LANDMARKS, SHORTCUTS, chartTable, motionDuration, reviewAnnouncement, saveAnnouncement, validationAnnouncement } from "./a11y.ts";
 import { messageFor, shownFor } from "./messages.ts";
 import { EditorSession, PreviewHold, sessionNonce } from "./session.ts";
+import { renderFrontmatterForm, valueFromControl } from "./view/form.ts";
+import { byCategory, formFor, propFromControl, propsToDirective, renderProperties } from "./view/properties.ts";
 
 /** What the shell holds while a draft is open. */
 interface State {
@@ -313,6 +315,13 @@ export const MODULES = {
   renderProblems,
   renderToolbar,
   renderShortcuts,
+  renderFrontmatterForm,
+  valueFromControl,
+  renderProperties,
+  formFor,
+  byCategory,
+  propFromControl,
+  propsToDirective,
   announce,
   state,
 };

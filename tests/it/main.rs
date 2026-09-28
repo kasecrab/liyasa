@@ -191,3 +191,9 @@ mod dashboard_read_ratchet;
 mod ast_10_tools;
 #[path = "../server/ast_01_embed_job.rs"]
 mod ast_01_embed_job;
+#[path = "../server/ana_02_dashboard_mount.rs"]
+mod ana_02_dashboard_mount;
+#[path = "../server/rest_04_search.rs"]
+mod rest_04_search;
+#[path = "../editor/ed_01_component_forms.rs"]
+mod ed_01_component_forms;

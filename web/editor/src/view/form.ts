@@ -37,11 +37,11 @@ export function renderFrontmatterForm(state: FormState): Fragment {
 
   return html`<form class="frontmatter" data-frontmatter novalidate>
     <h2>Page settings</h2>
-    ${common.map((field) => renderField(field, state.values[field.name], errors.get(field.name)))}
+    ${common.map((field) => renderFormField(field, state.values[field.name], errors.get(field.name)))}
 
     <details class="advanced-fields" data-advanced-frontmatter ${state.advanced ? raw("open") : null}>
       <summary>Advanced (${advanced.length})</summary>
-      ${advanced.map((field) => renderField(field, state.values[field.name], errors.get(field.name)))}
+      ${advanced.map((field) => renderFormField(field, state.values[field.name], errors.get(field.name)))}
     </details>
 
     ${renderSaveRow(state.validation)}
@@ -82,15 +82,15 @@ function renderSaveRow(validation: Validation): Fragment {
   </div>`;
 }
 
-function renderField(field: FormField, value: FieldValue | undefined, error: string | undefined): Fragment {
+function renderFormField(field: FormField, value: FieldValue | undefined, error: string | undefined): Fragment {
   const id = `fm-${field.name}`;
   const helpId = `${id}-help`;
   const errorId = `${id}-error`;
   const describedBy = error === undefined ? helpId : `${helpId} ${errorId}`;
 
-  return html`<div class="field" data-field="${field.name}" ${error === undefined ? null : raw('data-invalid="true"')}>
+  return html`<div class="field" data-field="${field.name}"${error === undefined ? null : raw(' data-invalid="true"')}>
     <label for="${id}">${label(field.name)}</label>
-    ${control(field, id, value, describedBy, error !== undefined)}
+    ${fieldControl(field, id, value, describedBy, error !== undefined)}
     <p class="field-help" id="${helpId}" data-field-help>${field.help}</p>
     ${error === undefined
       ? null
@@ -98,7 +98,7 @@ function renderField(field: FormField, value: FieldValue | undefined, error: str
   </div>`;
 }
 
-function control(
+function fieldControl(
   field: FormField,
   id: string,
   value: FieldValue | undefined,
@@ -160,7 +160,7 @@ export function label(name: string): string {
 /**
  * What the form's controls parse back to.
  *
- * The inverse of `control` above, and the reason the boolean field has three
+ * The inverse of `fieldControl` above, and the reason the boolean field has three
  * options: `""` has to come back as "remove this key", not as `false`.
  */
 export function valueFromControl(field: FormField, raw: string): FieldValue | null {
