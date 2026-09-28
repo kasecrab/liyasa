@@ -449,6 +449,67 @@ button {
 .affected code, .proposal-writes code { font-size: var(--ly-text-sm); }
 .task-form .field { display: flex; flex-direction: column; gap: var(--ly-space-1); margin-bottom: var(--ly-space-3); }
 
+/* ED-05's chip: a value with a source, not a token the author has to decode. */
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  padding: 0 var(--ly-space-1);
+  border-radius: var(--ly-radius-sm);
+  background: var(--ly-color-primary-subtle);
+  border: 1px solid var(--ly-color-border);
+}
+
+/* An unresolved chip is visibly not a value: dashed, muted, monospace. */
+.chip-unresolved {
+  font-family: var(--ly-font-mono, monospace);
+  font-size: var(--ly-text-sm);
+  color: var(--ly-color-text-muted);
+}
+
+.chip:has(.chip-unresolved) { border-style: dashed; background: var(--ly-color-bg-subtle); }
+.chip-value { font-weight: var(--ly-font-weight-semibold); }
+
+/* ED-05's LogicBlock: statement above, body and expansion side by side. */
+.logic-block {
+  border: var(--ly-border);
+  border-left: 3px solid var(--ly-color-primary);
+  border-radius: var(--ly-radius-md);
+  padding: var(--ly-space-3);
+  margin-bottom: var(--ly-space-3);
+}
+
+.logic-title { font-size: var(--ly-text-sm); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ly-color-text-muted); margin: 0 0 var(--ly-space-2); }
+.expression-editor { display: flex; flex-direction: column; gap: var(--ly-space-1); margin-bottom: var(--ly-space-3); }
+.expression-input { font-family: var(--ly-font-mono, monospace); width: 100%; }
+.logic-panes { display: grid; gap: var(--ly-space-3); grid-template-columns: 1fr 1fr; }
+.logic-body, .logic-expansion { min-width: 0; }
+.logic-expansion h4 { font-size: var(--ly-text-sm); margin: 0 0 var(--ly-space-1); }
+
+/* The expansion is output: it wraps, it scrolls, and it never grows the page. */
+.expansion {
+  max-height: 20rem;
+  overflow: auto;
+  background: var(--ly-color-bg-subtle);
+  border-radius: var(--ly-radius-sm);
+  padding: var(--ly-space-2);
+  font-size: var(--ly-text-sm);
+}
+
+/* Side by side needs width. Below it, the body reads before its result. */
+@media (max-width: 60rem) {
+  .logic-panes { grid-template-columns: 1fr; }
+}
+
+.block-component { border: var(--ly-border-subtle); border-radius: var(--ly-radius-md); padding: var(--ly-space-2); margin-bottom: var(--ly-space-3); }
+.component-head { display: flex; justify-content: space-between; align-items: center; gap: var(--ly-space-2); }
+.component-name { font-size: var(--ly-text-sm); color: var(--ly-color-text-muted); }
+.block-code { margin-bottom: var(--ly-space-3); }
+.code-lang { display: block; font-size: var(--ly-text-xs); color: var(--ly-color-text-muted); }
+
+/* An opaque block looks unlike the rest: the author should see it is verbatim. */
+.block-opaque { border: 1px dashed var(--ly-color-border-strong); border-radius: var(--ly-radius-md); padding: var(--ly-space-2); margin-bottom: var(--ly-space-3); }
+.opaque-source { font-size: var(--ly-text-sm); overflow-x: auto; }
+
 /* ED-80: no motion, not less. */
 @media (prefers-reduced-motion: reduce) {
   *,

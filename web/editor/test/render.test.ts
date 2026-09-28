@@ -12,13 +12,8 @@ import assert from "node:assert/strict";
 import type { Diagnostic, SourceDocument } from "../../../crates/liyasa-wasm/ts/liyasa-wasm.d.ts";
 import { buildModel } from "../src/model.ts";
 import { frontmatterDiagnostics, validateFrontmatter } from "../src/frontmatter.ts";
-import {
-  renderBlock,
-  renderProblems,
-  renderShortcuts,
-  renderSurface,
-  renderToolbar,
-} from "../src/editor.ts";
+import { renderProblems, renderShortcuts, renderToolbar } from "../src/editor.ts";
+import { renderBlock, renderSurface } from "../src/view/blocks.ts";
 
 function model(text: string) {
   const document: SourceDocument = {

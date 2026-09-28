@@ -39,6 +39,7 @@ import { byCategory, formFor, propFromControl, propsToDirective, renderPropertie
 import { highlight, opaqueReason, renderSourceMode, renderSourcePopover } from "./view/source-mode.ts";
 import { renderSuggestion, renderSuggestions, suggestionAnnouncement } from "./view/suggestions.ts";
 import { renderActivity, renderConflict, renderDrafts, renderEmpty, renderMedia } from "./view/panes.ts";
+import { chipTooltip, expressionCompletions, renderBlock, renderChip, renderCode, renderComponent, renderExpressionEditor, renderLogicBlock, renderNode, renderOpaque, renderSurface, unexpanded } from "./view/blocks.ts";
 import { askLabel, describeContext, renderCappedRows, renderContextToolbar, renderHelp, renderProposal, renderTaskForm, renderTaskList, renderTemplatePicker, renderTourStep, renderVocabulary, termsIn } from "./view/guides.ts";
 
 /** What the shell holds while a draft is open. */
@@ -67,29 +68,6 @@ const state: State = {
 };
 
 // --- rendering --------------------------------------------------------------
-
-/** One block of the visual mode, as the markup the surface shows. */
-export function renderBlock(block: MarkdownBlock): Fragment {
-  const body = block.text.replace(/\n+$/, "");
-  return html`<div class="block block-${block.kind}" data-block="${block.id}" tabindex="0" role="group"
-    aria-label="${block.kind}">${body}</div>`;
-}
-
-/** The whole visual surface. */
-export function renderSurface(model: EditorModel): Fragment {
-  const parts: Fragment[] = [];
-  for (const node of model.nodes) {
-    if (node.blocks) {
-      for (const block of node.blocks) parts.push(renderBlock(block));
-      continue;
-    }
-    parts.push(
-      html`<div class="block block-${node.kind}" data-block="${node.id}" tabindex="0" role="group"
-        aria-label="${node.name ?? node.kind}">${node.text.replace(/\n+$/, "")}</div>`,
-    );
-  }
-  return html`<div class="surface" data-editor-surface>${parts}</div>`;
-}
 
 /**
  * Where a code's help page may be linked from.
@@ -350,6 +328,16 @@ export const MODULES = {
   renderTaskForm,
   askLabel,
   renderProposal,
+  renderNode,
+  renderChip,
+  chipTooltip,
+  renderLogicBlock,
+  renderExpressionEditor,
+  expressionCompletions,
+  renderComponent,
+  renderCode,
+  renderOpaque,
+  unexpanded,
   announce,
   state,
 };
