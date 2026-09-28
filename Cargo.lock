@@ -2694,6 +2694,7 @@ dependencies = [
  "hmac",
  "liyasa-core",
  "liyasa-net",
+ "ring",
  "serde",
  "serde_json",
  "sha2 0.11.0",

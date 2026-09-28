@@ -98,6 +98,9 @@ pub trait JwtSigner: Send + Sync {
     fn sign_rs256(&self, claims: &str) -> Result<String, GitError>;
 }
 
+/// TODO(rfc-1609): configurable by the caller only. No `git.apiBase` exists in
+/// the schema, so nothing in a running server can set this yet.
+///
 /// Where a provider lives. `api_base` is configurable so GitHub Enterprise
 /// Server, a self-managed GitLab and a Gitea all work (GIT-01, GIT-02, GIT-03).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

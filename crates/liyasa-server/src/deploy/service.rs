@@ -128,6 +128,10 @@ impl Binding {
 
 /// The inbound webhook secrets, one verifier per provider so each keeps its
 /// own replay memory.
+///
+/// TODO(rfc-1609): the secret is supplied by whoever builds this, because
+/// `schemas/liyasa.schema.json` has no `git.webhookSecret` — or any other
+/// `git.*` key. RFC 1609 names the whole block.
 #[derive(Debug, Default)]
 pub struct Hooks {
     verifiers: BTreeMap<Provider, Verifier>,

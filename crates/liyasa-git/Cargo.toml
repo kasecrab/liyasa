@@ -34,6 +34,9 @@ sha2 = { version = "0.11", default-features = false }
 # Base64url for the app JWT of GIT-01; already in the graph through sqlx and
 # instant-acme.
 base64 = { version = "0.22", default-features = false, features = ["alloc"] }
+# RS256 for the GitHub App flow (GIT-01). Already a workspace dependency for
+# JWT verification (RFC 1500); `RsaKeyPair` signs RSA-PKCS1-SHA256.
+ring.workspace = true
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
