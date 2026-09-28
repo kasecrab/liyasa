@@ -50,6 +50,21 @@ jobs:
       # like a CI-only fault. Fetching here keeps the test's no-network
       # promise intact rather than relaxing it.
       - run: cargo fetch --target wasm32-unknown-unknown
+      # API-32 says the generated client samples are verified "in CI", and its
+      # Go test decides whether to run by asking whether `go` is on PATH. The
+      # runner image ships a Go, but relying on that leaves the requirement's
+      # toolchain implicit: if the image drops it, the test stops running and
+      # reports success, because a generator it cannot exercise is skipped
+      # rather than failed. Pinning it makes the dependency a line somebody can
+      # read, and a removal a red job rather than a quieter green one.
+      #
+      # `check-latest: false` so the step uses the image's Go when the version
+      # already matches, rather than downloading one on every run.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          check-latest: false
+      - run: go version
       # `--no-fail-fast` because `cargo test` stops at the first failing
       # target: `liyasa-markdown` failing hid every crate ordered after it, so
       # a 3072-line log of a red run did not mention `liyasa-tests` once and
