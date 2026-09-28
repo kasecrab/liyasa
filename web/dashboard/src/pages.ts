@@ -80,12 +80,39 @@ export function panel<T>(
   </section>`;
 }
 
+/** How far back each table can still answer (ANA-06, RFC 1702). */
+export interface Horizon {
+  rawFrom: number;
+  rollupFrom: number;
+}
+
+/**
+ * The sentence RFC 1702 promised a chart would carry, when it applies.
+ *
+ * A filter on version, locale, region or product cannot be answered from the
+ * hourly rollup, so the query falls to the raw `event` table — which is kept 90
+ * days against the rollup's thirteen months. Ask for a year and the chart draws
+ * a confident line over nine months whose rows were DELETED, beside a totals
+ * panel for the same period that is right. Two numbers on one page disagreeing
+ * with nothing saying why is the failure this note exists to prevent.
+ *
+ * `None` when it does not apply: the rollup answered, or the chart does not
+ * reach past what raw still holds.
+ */
+export function retentionNote(payload: SeriesPayload, horizon: Horizon | undefined): string | null {
+  if (payload.source !== "raw" || !horizon) return null;
+  const first = payload.points[0]?.bucket;
+  if (first === undefined || first >= horizon.rawFrom) return null;
+  return `Reads raw events, which reach back to ${formatDate(horizon.rawFrom)}. Buckets before that are empty because the rows were deleted, not because there was no traffic.`;
+}
+
 /** A series payload as a chart, with ANA-10's label when it is client measured. */
 export function seriesChart(
   id: string,
   title: string,
   payload: SeriesPayload,
   delivery?: number | null,
+  horizon?: Horizon,
 ): ChartSpec {
   const measured =
     delivery === null || delivery === undefined
@@ -103,7 +130,13 @@ export function seriesChart(
       { key: "bot", label: "Crawlers", values: payload.points.map((p) => p.bot) },
     ],
   };
-  if (payload.sampledByClient) spec.note = `Sampled by client${measured}`;
+  // A chart can be both client-sampled and reading a shortened window, and
+  // both matter, so neither replaces the other.
+  const notes = [
+    payload.sampledByClient ? `Sampled by client${measured}` : null,
+    retentionNote(payload, horizon),
+  ].filter((note): note is string => note !== null);
+  if (notes.length > 0) spec.note = notes.join(" · ");
   return spec;
 }
 
@@ -172,6 +205,7 @@ export function renderOverview(state: RouteState, data: PageData): Fragment {
   const totals = data["traffic.totals"] as Result<Record<string, Comparison>> | undefined;
   const series = data["traffic.series"] as Result<SeriesPayload> | undefined;
   const insights = data["insights.cards"] as Result<{ cards: InsightCard[] }> | undefined;
+  const reach = data["traffic.horizon"] as Result<Horizon> | undefined;
   const stats =
     totals && totals.ok
       ? renderStats(
@@ -185,7 +219,15 @@ export function renderOverview(state: RouteState, data: PageData): Fragment {
         )
       : renderProblem("Headline numbers", problemOf(totals));
   const traffic = panel("Traffic", series, (payload) =>
-    renderChart(seriesChart("overview-traffic", "Page views", payload)),
+    renderChart(
+      seriesChart(
+        "overview-traffic",
+        "Page views",
+        payload,
+        undefined,
+        reach && reach.ok ? reach.value : undefined,
+      ),
+    ),
   );
   const cards = panel("What to look at", insights, (value) => renderInsightList(value.cards));
   return html`${stats}${traffic}${cards}`;
@@ -290,9 +332,11 @@ export function renderTraffic(state: RouteState, data: PageData): Fragment {
     | undefined;
   const delivery = data["traffic.delivery"] as Result<{ ratio: number | null }> | undefined;
   const ratio = delivery && delivery.ok ? delivery.value.ratio : undefined;
+  const reach = data["traffic.horizon"] as Result<Horizon> | undefined;
+  const horizon = reach && reach.ok ? reach.value : undefined;
 
   const overTime = panel("Over time", series, (payload) =>
-    renderChart(seriesChart("traffic-series", "Page views", payload, ratio)),
+    renderChart(seriesChart("traffic-series", "Page views", payload, ratio, horizon)),
   );
   const mostRead = panel("Most read", pages, (value) =>
     renderTable(
@@ -747,7 +791,7 @@ export const RENDERERS: Record<string, (state: RouteState, data: PageData) => Fr
 
 /** What each page reads, so `dashboard.ts` fetches without a second list. */
 export const PAGE_ENDPOINTS: Record<string, string[]> = {
-  overview: ["traffic.totals", "traffic.series", "insights.cards"],
+  overview: ["traffic.totals", "traffic.series", "insights.cards", "traffic.horizon"],
   traffic: [
     "traffic.series",
     "traffic.pages",
@@ -755,6 +799,7 @@ export const PAGE_ENDPOINTS: Record<string, string[]> = {
     "traffic.journeys",
     "traffic.variants",
     "traffic.delivery",
+    "traffic.horizon",
   ],
   search: ["search.queries", "search.pages", "search.trending"],
   assistant: ["assistant.summary"],

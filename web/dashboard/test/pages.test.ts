@@ -13,6 +13,7 @@ import {
   ratingsChart,
   renderRatedPages,
   renderVariants,
+  retentionNote,
   renderDeliveryNote,
   renderInsightList,
   renderPage,
@@ -130,6 +131,73 @@ test("a client measured series carries the label and the measured ratio", () => 
     "Sampled by client",
     "no ratio to report is not a ratio of zero",
   );
+});
+
+const DAY = 86_400_000;
+
+/** A raw-sourced series whose first bucket is a year back. */
+function longRawSeries(): SeriesPayload {
+  return {
+    grain: "day",
+    source: "raw",
+    sampledByClient: false,
+    points: Array.from({ length: 5 }, (_, i) => ({
+      bucket: T0 - 365 * DAY + i * DAY,
+      human: 1,
+      agent: 0,
+      bot: 0,
+      integration: 0,
+    })),
+  };
+}
+
+test("a chart reading raw events past their retention says so", () => {
+  // RFC 1702's whole point: a version filter cannot be answered from the hourly
+  // rollup, so it falls to raw, which is kept 90 days against thirteen months.
+  // Over a year the line is confident and nine months of it were deleted, while
+  // the totals panel beside it is right.
+  const note = retentionNote(longRawSeries(), { rawFrom: T0 - 90 * DAY, rollupFrom: T0 - 396 * DAY });
+  assert.match(note ?? "", /reach back to 2026-06-16/);
+  assert.match(note ?? "", /rows were deleted, not because there was no traffic/);
+});
+
+test("the note is absent when it would be untrue", () => {
+  const horizon = { rawFrom: T0 - 90 * DAY, rollupFrom: T0 - 396 * DAY };
+  // The rollup answered, so retention did not shorten anything.
+  assert.equal(retentionNote({ ...longRawSeries(), source: "rollup" }, horizon), null);
+  // Raw, but the chart does not reach past what raw still holds.
+  const recent: SeriesPayload = {
+    ...longRawSeries(),
+    points: [{ bucket: T0 - 5 * DAY, human: 1, agent: 0, bot: 0, integration: 0 }],
+  };
+  assert.equal(retentionNote(recent, horizon), null);
+  // No horizon was served, so nothing is claimed either way.
+  assert.equal(retentionNote(longRawSeries(), undefined), null);
+  // No points at all.
+  assert.equal(retentionNote({ ...longRawSeries(), points: [] }, horizon), null);
+});
+
+test("a chart can be both client-sampled and shortened, and says both", () => {
+  const spec = seriesChart(
+    "x",
+    "Scroll depth",
+    { ...longRawSeries(), sampledByClient: true },
+    0.71,
+    { rawFrom: T0 - 90 * DAY, rollupFrom: T0 - 396 * DAY },
+  );
+  assert.match(spec.note ?? "", /Sampled by client/);
+  assert.match(spec.note ?? "", /71%/);
+  assert.match(spec.note ?? "", /rows were deleted/);
+  assert.match(spec.note ?? "", / · /, "neither note replaces the other");
+});
+
+test("the traffic page passes the horizon to the chart it draws", () => {
+  const data: PageData = {
+    "traffic.series": { ok: true, value: longRawSeries() },
+    "traffic.horizon": { ok: true, value: { rawFrom: T0 - 90 * DAY, rollupFrom: T0 - 396 * DAY } },
+  };
+  const markup = String(renderPage(state("traffic"), data));
+  assert.match(markup, /rows were deleted/, "the safeguard reaches the screen");
 });
 
 test("the delivery note reports a measurement and not an assumption", () => {

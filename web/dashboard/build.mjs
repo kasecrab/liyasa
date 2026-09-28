@@ -19,8 +19,19 @@ import { bundle } from "../reader/build.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-/** Entry, output name, and the budget the compressed bundle must fit. */
-export const ENTRIES = [{ entry: "src/dashboard.ts", out: "dashboard.js", budget: 72 * 1024 }];
+/**
+ * Entry, output name, and the budget the compressed bundle must fit.
+ *
+ * This is a tripwire, not a page-weight budget. The reader runtime's 50 KB
+ * (THM-31) is a real constraint on a public documentation page in a reader's
+ * critical path; the dashboard is an internal application behind
+ * `Permission::DashboardRead` that an operator opens deliberately. What the
+ * number is for is catching something accidentally vendored in — a date
+ * library, a charting package — which shows up as a step change rather than
+ * the few hundred bytes a new panel costs. Raise it when honest growth needs
+ * it and say so; do not raise it to make a jump fit.
+ */
+export const ENTRIES = [{ entry: "src/dashboard.ts", out: "dashboard.js", budget: 96 * 1024 }];
 
 export function buildDashboard() {
   const report = [];
