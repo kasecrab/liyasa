@@ -264,6 +264,34 @@ body {
 .suggestion-count, .withheld { color: var(--ly-color-text-muted); font-size: var(--ly-text-sm); }
 .withheld { color: var(--ly-color-warning); }
 
+/* The listing panes. Each says whether an empty list is empty or unknown. */
+.unserved { color: var(--ly-color-warning); }
+
+.draft-list, .asset-list, .conflict-regions { list-style: none; margin: 0; padding: 0; }
+.draft { display: flex; gap: var(--ly-space-3); align-items: baseline; padding: var(--ly-space-2) 0; border-bottom: var(--ly-border-subtle); }
+.draft[aria-current="true"] { background: var(--ly-color-primary-subtle); }
+.draft-status, .draft-author, .draft-age, .draft-pages { color: var(--ly-color-text-subtle); font-size: var(--ly-text-sm); }
+.draft-search, .media-search { display: block; margin-bottom: var(--ly-space-3); font-size: var(--ly-text-sm); }
+
+/* ED-21: both versions rendered, side by side, stacking on a narrow window. */
+.conflict-sides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ly-space-4); }
+.conflict-sides article { border: var(--ly-border); border-radius: var(--ly-radius-md); padding: var(--ly-space-3); min-width: 0; }
+@media (max-width: 60rem) { .conflict-sides { grid-template-columns: minmax(0, 1fr); } }
+.conflict .why { color: var(--ly-color-text-muted); }
+.conflict-regions li { padding: var(--ly-space-2) 0; border-bottom: var(--ly-border-subtle); }
+
+.activity-filters { display: flex; flex-wrap: wrap; gap: var(--ly-space-2); margin-bottom: var(--ly-space-3); }
+.activity-filters button[aria-pressed="false"] { color: var(--ly-color-text-subtle); }
+.activity-day ul { list-style: none; margin: 0; padding: 0; }
+.activity-entry { display: flex; gap: var(--ly-space-3); align-items: baseline; padding: var(--ly-space-1) 0; }
+.activity-kind, .activity-who { color: var(--ly-color-text-subtle); font-size: var(--ly-text-sm); }
+
+.asset { display: flex; gap: var(--ly-space-3); padding: var(--ly-space-3) 0; border-bottom: var(--ly-border-subtle); }
+.asset img { border: var(--ly-border); border-radius: var(--ly-radius-sm); background: var(--ly-color-bg-subtle); height: auto; }
+.asset-detail { min-width: 0; flex: 1 1 auto; }
+.asset-usage { color: var(--ly-color-text-muted); font-size: var(--ly-text-sm); }
+.asset-actions { display: flex; gap: var(--ly-space-2); margin-top: var(--ly-space-2); }
+
 /* ED-80: the focus ring, everywhere, always. */
 :focus-visible {
   outline: 2px solid var(--ly-color-focus);

@@ -38,6 +38,7 @@ import { renderFrontmatterForm, valueFromControl } from "./view/form.ts";
 import { byCategory, formFor, propFromControl, propsToDirective, renderProperties } from "./view/properties.ts";
 import { highlight, opaqueReason, renderSourceMode, renderSourcePopover } from "./view/source-mode.ts";
 import { renderSuggestion, renderSuggestions, suggestionAnnouncement } from "./view/suggestions.ts";
+import { renderActivity, renderConflict, renderDrafts, renderEmpty, renderMedia } from "./view/panes.ts";
 
 /** What the shell holds while a draft is open. */
 interface State {
@@ -331,6 +332,11 @@ export const MODULES = {
   renderSuggestions,
   renderSuggestion,
   suggestionAnnouncement,
+  renderDrafts,
+  renderConflict,
+  renderActivity,
+  renderMedia,
+  renderEmpty,
   announce,
   state,
 };
