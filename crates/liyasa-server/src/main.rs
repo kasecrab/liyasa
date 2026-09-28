@@ -34,6 +34,9 @@ OPTIONS:
     --env <name>          config overlay and the analytics env (default: production)
     --tls-cert <file>     PEM certificate chain; --tls-key must be given too
     --tls-key <file>      PEM private key
+    --acme-domain <name>  obtain a certificate for this domain; repeatable
+    --acme-contact <mail> the account contact address ACME requires
+    --acme-directory <url> ACME directory (default: Let's Encrypt production)
     --collector-only      accept analytics events and serve no site (ANA-09)
     --origin <origin>     an origin the collector accepts events for; repeatable
     --collect-site <name> a site the collector accepts events for; repeatable
@@ -53,6 +56,9 @@ struct Options {
     env: Option<String>,
     tls_cert: Option<PathBuf>,
     tls_key: Option<PathBuf>,
+    acme_domains: Vec<String>,
+    acme_contact: Option<String>,
+    acme_directory: Option<String>,
     collector_only: bool,
     origins: Vec<String>,
     collect_sites: Vec<String>,
@@ -99,6 +105,9 @@ fn parse(args: &[String]) -> Result<Command, String> {
             "--env" => options.env = Some(value(&mut index)?),
             "--tls-cert" => options.tls_cert = Some(value(&mut index)?.into()),
             "--tls-key" => options.tls_key = Some(value(&mut index)?.into()),
+            "--acme-domain" => options.acme_domains.push(value(&mut index)?),
+            "--acme-contact" => options.acme_contact = Some(value(&mut index)?),
+            "--acme-directory" => options.acme_directory = Some(value(&mut index)?),
             "--origin" => options.origins.push(value(&mut index)?),
             "--collect-site" => options.collect_sites.push(value(&mut index)?),
             "--otlp-endpoint" => options.otlp_endpoint = Some(value(&mut index)?),
@@ -475,7 +484,24 @@ async fn run_serve(options: Options) -> Result<(), String> {
 
     let stop = runtime.shutdown_signal();
 
-    match (&options.tls_cert, &options.tls_key) {
+    // HOST-02: obtain a certificate before the TLS branch reads one off disk.
+    //
+    // The order is answered over the listener that is already bound, because
+    // the directory fetches the HTTP-01 token from this process while
+    // `ensure` is still awaiting — `routes/mod.rs` mounts
+    // `/.well-known/acme-challenge/{token}` and `state.challenges` holds it in
+    // memory. A replica that did not place the token cannot answer for it,
+    // which is why the token is not written into the bundle.
+    let acme_paths = match acme_certificate(&options, &state).await {
+        Ok(paths) => paths,
+        Err(error) => return Err(error),
+    };
+    let (tls_cert, tls_key) = match &acme_paths {
+        Some((cert, key)) => (Some(cert.clone()), Some(key.clone())),
+        None => (options.tls_cert.clone(), options.tls_key.clone()),
+    };
+
+    match (&tls_cert, &tls_key) {
         (Some(cert), Some(key)) => {
             let tls = routes::tls::load_config(cert, key).map_err(|e| e.to_string())?;
             tracing::info!(target: "liyasa_server", address = %bound, tls = true, "listening");
@@ -495,6 +521,73 @@ async fn run_serve(options: Options) -> Result<(), String> {
                 .map_err(|e| e.to_string())
         }
         _ => Err("--tls-cert and --tls-key are given together".to_owned()),
+    }
+}
+
+/// Obtains a certificate for `--acme-domain`, returning where it was written.
+///
+/// `None` is an instance that was not asked for one, which is every instance
+/// today: the flags are opt-in and an operator who gives none serves plain
+/// HTTP or a certificate they manage themselves.
+async fn acme_certificate(
+    options: &Options,
+    state: &Arc<routes::AppState>,
+) -> Result<Option<(PathBuf, PathBuf)>, String> {
+    if options.acme_domains.is_empty() {
+        return Ok(None);
+    }
+    if options.tls_cert.is_some() || options.tls_key.is_some() {
+        return Err(
+            "--acme-domain obtains a certificate, so it cannot be combined with --tls-cert              or --tls-key"
+                .to_owned(),
+        );
+    }
+    let Some(contact) = options.acme_contact.clone() else {
+        return Err(
+            "--acme-contact is required with --acme-domain: a directory will not issue to an              account with no contact address"
+                .to_owned(),
+        );
+    };
+    let directory = options
+        .acme_directory
+        .clone()
+        .unwrap_or_else(|| routes::acme::LETS_ENCRYPT.to_owned());
+
+    let dir = options.storage().join("acme");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
+    let cert = dir.join("cert.pem");
+    let key = dir.join("key.pem");
+
+    let request = routes::acme::Request {
+        directory: &directory,
+        contact_email: &contact,
+        domains: &options.acme_domains,
+        cert: &cert,
+        key: &key,
+    };
+    match routes::acme::ensure(state.config.offline, &request, state.challenges.clone()).await {
+        Ok(ordered) => {
+            tracing::info!(
+                target: "liyasa_server",
+                domains = %options.acme_domains.join(", "),
+                ordered,
+                "certificate ready"
+            );
+            Ok(Some((cert, key)))
+        }
+        // A certificate already on disk is served even when this pass could
+        // not renew it: refusing to start would take a working site down over
+        // a directory that is briefly unreachable, and `is_fresh` means the
+        // next start tries again.
+        Err(error) if cert.is_file() && key.is_file() => {
+            tracing::warn!(
+                target: "liyasa_server",
+                %error,
+                "serving the certificate already on disk"
+            );
+            Ok(Some((cert, key)))
+        }
+        Err(error) => Err(format!("obtaining a certificate: {error}")),
     }
 }
 
@@ -766,6 +859,104 @@ mod tests {
         let error = trace_collector(&options(Some("not a url")), false)
             .expect_err("a malformed endpoint is a startup failure");
         assert!(error.contains("--otlp-endpoint"), "{error}");
+    }
+
+    /// HOST-02. `acme_certificate` refuses before it opens a socket, so these
+    /// run with no directory to talk to. What they pin is the refusal, not the
+    /// order: an operator who mistypes the invocation learns at startup rather
+    /// than when the certificate does not renew.
+    fn acme(domains: &[&str], contact: Option<&str>, cert: Option<&str>) -> Options {
+        Options {
+            acme_domains: domains.iter().map(|d| (*d).to_owned()).collect(),
+            acme_contact: contact.map(str::to_owned),
+            tls_cert: cert.map(PathBuf::from),
+            ..Options::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn no_acme_domain_is_not_an_error_and_orders_nothing() {
+        let state = Arc::new(routes::AppState::new(routes::ServerConfig::default()));
+        assert!(matches!(
+            acme_certificate(&acme(&[], None, None), &state).await,
+            Ok(None)
+        ));
+    }
+
+    #[tokio::test]
+    async fn a_domain_without_a_contact_stops_the_server_starting() {
+        let state = Arc::new(routes::AppState::new(routes::ServerConfig::default()));
+        let error = acme_certificate(&acme(&["docs.example.com"], None, None), &state)
+            .await
+            .expect_err("a directory will not issue without a contact");
+        assert!(error.contains("--acme-contact"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn acme_and_a_managed_certificate_are_not_combined() {
+        // Both would "work": one would silently win. Which one is not
+        // something an operator should have to read this file to discover.
+        let state = Arc::new(routes::AppState::new(routes::ServerConfig::default()));
+        let error = acme_certificate(
+            &acme(
+                &["docs.example.com"],
+                Some("ops@example.com"),
+                Some("/tls/c.pem"),
+            ),
+            &state,
+        )
+        .await
+        .expect_err("two sources for one certificate is a mistake, not a preference");
+        assert!(error.contains("--tls-cert"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn an_offline_instance_does_not_order_a_certificate() {
+        // HOST-08: no outbound request of any kind, and a certificate order
+        // is one. The refusal names the mode rather than the network.
+        let state = Arc::new(routes::AppState::new(routes::ServerConfig {
+            offline: true,
+            ..routes::ServerConfig::default()
+        }));
+        let error = acme_certificate(
+            &acme(&["docs.example.com"], Some("ops@example.com"), None),
+            &state,
+        )
+        .await
+        .expect_err("an offline instance cannot obtain a certificate");
+        assert!(error.contains("offline"), "{error}");
+    }
+
+    #[test]
+    fn the_acme_flags_parse() {
+        let args: Vec<String> = [
+            "serve",
+            "--acme-domain",
+            "docs.example.com",
+            "--acme-domain",
+            "api.example.com",
+            "--acme-contact",
+            "ops@example.com",
+            "--acme-directory",
+            "https://acme.test/directory",
+        ]
+        .iter()
+        .map(|s| (*s).to_owned())
+        .collect();
+        match parse(&args).expect("the flags parse") {
+            Command::Serve(options) => {
+                assert_eq!(
+                    options.acme_domains,
+                    ["docs.example.com", "api.example.com"]
+                );
+                assert_eq!(options.acme_contact.as_deref(), Some("ops@example.com"));
+                assert_eq!(
+                    options.acme_directory.as_deref(),
+                    Some("https://acme.test/directory")
+                );
+            }
+            _ => panic!("`serve` is the command"),
+        }
     }
 
     #[test]
