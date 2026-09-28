@@ -69,6 +69,9 @@ clap_complete.workspace = true
 miette.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# `SecretSource` returns a `Zeroizing<String>`; the CLI implements the trait to
+# return nothing at all (`checks.rs`).
+zeroize.workspace = true
 
 [dev-dependencies]
 jsonschema.workspace = true

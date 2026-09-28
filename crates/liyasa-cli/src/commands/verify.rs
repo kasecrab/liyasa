@@ -78,7 +78,21 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
             return Exit::Errors;
         }
     }
+    let mut ran = Vec::new();
+    if classes.contains(&CheckClass::Code) {
+        match code_checks(global, format, &built) {
+            Ok(report) => {
+                ran.push(CheckClass::Code);
+                failed |= report.failed;
+                out.extend(report.diagnostics);
+            }
+            Err(note) => out.push(*note),
+        }
+    }
     for class in &classes {
+        if ran.contains(class) {
+            continue;
+        }
         if let Some(note) = unavailable(*class, args.refresh) {
             out.push(note);
         }
@@ -114,6 +128,109 @@ pub fn run(global: &Global, args: &Verify) -> Exit {
     let exit = report(global, format, &out, &built.sources, failed);
     built.discard();
     exit
+}
+
+/// What a code run produced, in the terms `run` reports in.
+struct CodeRun {
+    diagnostics: Diagnostics,
+    failed: bool,
+}
+
+/// VER-01 to VER-03's CLI half: every verified fence of every page, run in
+/// the sandbox `verify.runners` names.
+///
+/// The error is the `W0019` note rather than the assembly failure itself. A
+/// developer machine with no container runtime is the ordinary case, and a
+/// `liyasa verify` that exited non-zero there would be unusable where §14
+/// says the other classes still run. The real diagnostic — `E0004`, `E0611`
+/// or `E0620` — rides along as `related`, so its code, its help and its
+/// wording all reach the reader and any JSON consumer.
+fn code_checks(
+    global: &Global,
+    format: crate::cli::Format,
+    built: &Built,
+) -> Result<CodeRun, Box<Diagnostic>> {
+    let Some(manifest) = &built.manifest else {
+        return Err(Box::new(note(
+            CheckClass::Code,
+            "the build wrote no manifest, so this run has no page list",
+        )));
+    };
+
+    let config = crate::net::config_value(&built.project.config);
+    let lock = crate::lock::read(&built.project.root.join(crate::lock::LOCK_FILE))
+        .ok()
+        .flatten();
+    let prepared = crate::checks::prepare(&config, lock.as_ref(), &built.output.join("sandbox"))
+        .map_err(|error| Box::new(because(CheckClass::Code, *error)))?;
+
+    let (pages, mut diagnostics) = crate::checks::pages(&built.project.root, manifest);
+    let run = crate::checks::run(&prepared, &pages)
+        .map_err(|error| Box::new(because(CheckClass::Code, *error)))?;
+
+    diagnostics.extend(prepared.problems.clone().into_vec());
+    diagnostics.extend(run.problems.clone().into_vec());
+
+    // `verify.policy.code` decides whether a failing check fails the run. A
+    // class set to `warn` still reports every failure; what it does not do is
+    // change the exit code.
+    let severity = prepared
+        .config
+        .policy
+        .severity(liyasa_verify::core::policy::CheckClass::Code);
+    for result in &run.results {
+        match &result.outcome {
+            liyasa_core::verify::CheckOutcome::Pass
+            | liyasa_core::verify::CheckOutcome::Skip { .. } => {}
+            liyasa_core::verify::CheckOutcome::Fail { excerpt } => {
+                diagnostics.push(at_severity(
+                    Diagnostic::new(code::E0601, format!("`{}` failed: {excerpt}", result.id)),
+                    severity,
+                ));
+            }
+            liyasa_core::verify::CheckOutcome::Error(diagnostic) => {
+                diagnostics.push(at_severity(diagnostic.clone(), severity));
+            }
+        }
+    }
+
+    if !global.quiet && format == crate::cli::Format::Text {
+        println!(
+            "code: {} passed, {} failed, {} skipped",
+            run.passed(),
+            run.failed(),
+            run.skipped()
+        );
+    }
+
+    Ok(CodeRun {
+        diagnostics,
+        failed: run.failed() > 0 && severity == Some(liyasa_core::diagnostics::Severity::Error),
+    })
+}
+
+/// A class-level note carrying the diagnostic that explains it.
+fn because(class: CheckClass, diagnostic: Diagnostic) -> Diagnostic {
+    let mut out = note(class, &diagnostic.message);
+    out.related.push(diagnostic);
+    out
+}
+
+fn note(class: CheckClass, reason: &str) -> Diagnostic {
+    Diagnostic::new(
+        code::W0019,
+        format!("`{}` did not run: {reason}", name(class)),
+    )
+}
+
+fn at_severity(
+    diagnostic: Diagnostic,
+    severity: Option<liyasa_core::diagnostics::Severity>,
+) -> Diagnostic {
+    match severity {
+        Some(severity) => diagnostic.with_severity(severity),
+        None => diagnostic,
+    }
 }
 
 /// VER-22's CLI half: `--refresh` re-reads every declared truth source before
@@ -396,6 +513,9 @@ struct Built {
     project: ctx::Project,
     diagnostics: Diagnostics,
     sources: SourceMap,
+    /// Every route the build wrote, which is the page list the code checks
+    /// walk (RFC 0914). `None` when the build produced no manifest at all.
+    manifest: Option<liyasa_build::manifest::Manifest>,
     /// The throwaway output, which the external check reads for its links.
     output: std::path::PathBuf,
 }
@@ -449,6 +569,7 @@ fn build_site(global: &Global, format: crate::cli::Format, no_cache: bool) -> Op
         project,
         diagnostics: found,
         sources,
+        manifest: report.manifest,
         output: scratch,
     })
 }
@@ -500,10 +621,7 @@ fn unavailable(class: CheckClass, refreshed: bool) -> Option<Diagnostic> {
             "prose rules need `liyasa verify` to walk each page's syntax tree, which it does not yet do"
         }
     };
-    Some(Diagnostic::new(
-        code::W0019,
-        format!("`{}` did not run: {reason}", name(class)),
-    ))
+    Some(note(class, reason))
 }
 
 const fn name(class: CheckClass) -> &'static str {
