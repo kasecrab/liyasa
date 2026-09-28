@@ -523,18 +523,40 @@ fn operation_body(page: &Page, spec: &str, operation_id: Option<&str>) -> String
     if let Some(id) = operation_id {
         props.push(("operation", Prop::Text(id.to_owned())));
     }
-    directive(&mut out, "endpoint", &props, "");
-
+    // The prose goes INSIDE the endpoint container, not after it. Two reasons,
+    // and the second is the one that forces it.
+    //
+    // `Endpoint::html` and `Endpoint::markdown` both end with
+    // `ctx.children(&inst.children)`, so the component was built to hold the
+    // description and emitting it as a sibling paragraph was always slightly
+    // wrong.
+    //
+    // And an EMPTY container is `E0317`: `ast/build.rs` cannot tell `:::endpoint`
+    // with no body from a leaf `::endpoint` except by the span it occupies, so a
+    // container written empty is read as a leaf and the kind mismatch is
+    // reported. `endpoint` is declared `kind = Container`, so it must always
+    // have a body — which is why the fallback below is not padding but the
+    // requirement. WP-06 measured this through the real pipeline; a test that
+    // hands `render::from_expanded` a default `SpanMap` cannot see it, because
+    // the span-keyed `written` map has nothing to line up with.
+    let mut body = String::new();
     if page.deprecated {
         let note = page
             .deprecated_note
             .clone()
             .unwrap_or_else(|| "This operation is deprecated.".to_owned());
-        out.push_str(&format!("**Deprecated.** {note}\n\n"));
+        body.push_str(&format!("**Deprecated.** {note}\n\n"));
     }
     if let Some(description) = &page.description {
-        out.push_str(&format!("{description}\n\n"));
+        body.push_str(description);
+    } else if let Some(summary) = &page.summary {
+        body.push_str(summary);
+    } else {
+        // Nothing was written about this operation, and the container still
+        // needs a body. Its own name is the only honest thing to put there.
+        body.push_str(&page.title);
     }
+    directive(&mut out, "endpoint", &props, &body);
     if let Some(intro) = &page.augmentation.intro
         && !intro.markdown.is_empty()
     {

@@ -554,3 +554,65 @@ components:
         assert!(page.source.contains("name"), "{}", page.source);
     }
 }
+
+/// `endpoint` is declared `kind = Container`, and `ast/build.rs` cannot tell a
+/// container written with no body from a leaf except by the span it occupies —
+/// so an empty one is `E0317`, a kind mismatch. Every generated endpoint must
+/// therefore carry a body, whatever the spec says about it.
+#[test]
+fn the_endpoint_container_is_never_written_empty() {
+    // An operation with no description and no summary: the worst case.
+    let bare = r##"
+openapi: 3.1.0
+info: { title: Widgets, version: "1" }
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      responses: { "204": { description: "" } }
+"##;
+    let surface = build::surface(
+        &MemoryVfs::new().with("openapi/api.yaml", bare),
+        &config(""),
+        &[],
+    );
+    let page = surface
+        .pages
+        .iter()
+        .find(|page| page.selector == "GET /widgets")
+        .expect("the operation is there");
+
+    let open = page
+        .source
+        .find(":::endpoint")
+        .expect("the endpoint directive is there");
+    let after = &page.source[open..];
+    let first_line_end = after.find('\n').expect("the directive has a line");
+    let rest = after[first_line_end + 1..].trim_start();
+    assert!(
+        !rest.starts_with(":::"),
+        "the container closes immediately, so it reads as a leaf and is E0317:\n{}",
+        page.source
+    );
+}
+
+#[test]
+fn the_description_goes_inside_the_endpoint_container() {
+    let surface = build::surface(&vfs(), &config(""), &[]);
+    let page = surface
+        .pages
+        .iter()
+        .find(|page| page.selector == "GET /widgets/{id}")
+        .expect("the operation is there");
+
+    let open = page.source.find(":::endpoint").expect("the directive");
+    let close = page.source[open..]
+        .find("\n:::")
+        .map(|at| open + at)
+        .expect("the directive closes");
+    let inside = &page.source[open..close];
+    assert!(
+        inside.lines().count() > 1,
+        "the container holds its prose rather than closing empty:\n{inside}"
+    );
+}
