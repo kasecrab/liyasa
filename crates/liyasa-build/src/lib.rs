@@ -41,3 +41,4 @@ pub use pool::RenderPool;
 pub mod hosting;
 
 pub mod i18n;
+pub mod index_scope;

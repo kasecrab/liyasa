@@ -36,7 +36,7 @@ fn site(name: &str) -> Project {
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("a project directory");
     fs::write(
-        &root.join("liyasa.json"),
+        root.join("liyasa.json"),
         r#"{
           "name": "Acme docs",
           "seo": { "canonicalOrigin": "https://docs.acme.com" },

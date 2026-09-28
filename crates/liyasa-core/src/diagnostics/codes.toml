@@ -259,3 +259,4 @@ E0022 = { severity = "error", crate = "liyasa-cli", title = "Git reference not f
 W0023 = { severity = "warning", crate = "liyasa-cli", title = "`--changed` could not narrow every problem; some carry no location" }
 W0728 = { severity = "warning", crate = "liyasa-build", title = "A `theme/strings*.json` key is not one the theme shows, or the file could not be read" }
 E0638 = { severity = "error", crate = "liyasa-verify", title = "A `verify` fence names a file or snippet that could not be read" }
+W0729 = { severity = "warning", crate = "liyasa-build", title = "A page's region gate admits no region, so no reader reaches it and it is left out of search" }

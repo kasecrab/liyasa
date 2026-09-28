@@ -515,29 +515,39 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         .ok()
         .map(|seconds| seconds.saturating_mul(1_000));
     let search_settings = liyasa_search::build::settings_from_config(&load.value);
+    let declared_regions = crate::i18n::config::Regions::from_value(&load.value);
+    let mut region_diagnostics: Vec<Diagnostic> = Vec::new();
     let offered: Vec<liyasa_search::build::IndexPage<'_>> = tree
         .pages
         .iter()
         .zip(pages.iter())
         .filter_map(|(page, outcome)| {
-            outcome
-                .document
-                .as_ref()
-                .map(|document| liyasa_search::build::IndexPage {
-                    document,
-                    // Cloned per page: `filter_map` needs `FnMut`, and a
-                    // locale is a short string beside tokenizing the page.
-                    meta: page_meta(
-                        page,
-                        outcome,
-                        &navigations,
-                        settings_locale.clone(),
-                        build_clock_ms,
-                    ),
-                    indexed: page.indexing.search,
-                })
+            let document = outcome.document.as_ref()?;
+            let scope = crate::index_scope::of_page(
+                &page.route,
+                page.front.regions.as_ref(),
+                &declared_regions,
+                page.indexing.search,
+            );
+            region_diagnostics.extend(scope.diagnostic);
+            // Cloned per page: `filter_map` needs `FnMut`, and a locale is a
+            // short string beside tokenizing the page.
+            let mut meta = page_meta(
+                page,
+                outcome,
+                &navigations,
+                settings_locale.clone(),
+                build_clock_ms,
+            );
+            meta.regions = scope.regions;
+            Some(liyasa_search::build::IndexPage {
+                document,
+                meta,
+                indexed: scope.indexed,
+            })
         })
         .collect();
+    report.diagnostics.extend(region_diagnostics);
     let search_index = liyasa_search::build::index_site(&offered, &search_settings);
     for (path, bytes) in search_index.output_files() {
         write_file(&output, &path, bytes, &mut report, &mut outputs);
@@ -2103,12 +2113,9 @@ fn page_meta(
     };
     meta.keywords = page.front.keywords.clone();
     meta.groups = page.front.groups.clone();
-    meta.regions = page
-        .front
-        .regions
-        .as_ref()
-        .and_then(|gate| gate.only.clone())
-        .unwrap_or_default();
+    // `meta.regions` is not set here: a gate's `only` and `except` compose, and
+    // the empty list this field uses for "every region" cannot spell the gate
+    // that admits nobody. `index_scope::of_page` decides both (defect 157).
     meta.updated = updated;
     meta
 }

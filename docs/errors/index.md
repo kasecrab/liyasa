@@ -243,6 +243,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0726`](/errors/W0726) | Warning | A `:::variation` directive names a variation or option `variations` does not declare |
 | [`W0727`](/errors/W0727) | Warning | A translation was made from an older version of its source page |
 | [`W0728`](/errors/W0728) | Warning | A `theme/strings*.json` key is not one the theme shows, or the file could not be read |
+| [`W0729`](/errors/W0729) | Warning | A page's region gate admits no region, so no reader reaches it and it is left out of search |
 
 ## Server, auth, deployments, network
 
