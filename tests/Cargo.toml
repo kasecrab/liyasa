@@ -59,7 +59,6 @@ tower = { workspace = true, features = ["util"] }
 http.workspace = true
 # ANA-02: `ana_02_public_schema.rs` asserts the served document IS the schema
 # this crate publishes, rather than a copy of it that could drift.
-liyasa-analytics = { path = "../crates/liyasa-analytics", version = "0.1.0" }
 # WP-24b: the editor's acceptance tests compare the WebAssembly session's
 # preview with the build engine's render of the same source. The crate is a
 # cdylib for `wasm32` and an rlib everywhere else, so a native test links it.

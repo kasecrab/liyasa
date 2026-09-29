@@ -177,39 +177,13 @@ const ASSISTANT_RETENTION: JobKind = JobKind::scheduled(RETENTION_JOB, retention
 
 pub fn kinds() -> &'static [JobKind] {
     &[
-        // WP-18. The name is `deploy::queue::EMBED_JOB` rather than a literal
-        // or `liyasa_ai`'s copy: `queue_embedding` is what actually enqueues
-        // this row, so the enqueuer owns the spelling. `Trigger::Caller` for
-        // the same reason — a `DeploymentSucceeded` trigger would enqueue a
-        // second row (RFC 1404, corrected).
-        JobKind {
-            name: crate::deploy::queue::EMBED_JOB,
-            trigger: Trigger::Caller,
-            run: crate::assistant::run_index,
-        },
-        JobKind {
-            name: crate::assistant::RETENTION_JOB,
-            trigger: Trigger::Scheduled(crate::assistant::retention_due),
-            run: crate::assistant::run_sweep,
-        },
-        // WP-16, one self-contained line each; rationale in `crate::deploy::jobs`.
-        crate::deploy::jobs::BUILD,
-        crate::deploy::jobs::RETENTION,
-        // WP-17. The names are `liyasa_analytics::actions`' constants, which
-        // is also what enqueues them, so the registry and the enqueuer cannot
-        // spell the same job two ways.
-        JobKind {
-            name: super::analytics::RETENTION_JOB,
-            trigger: Trigger::Scheduled(super::analytics::retention_due),
-            run: super::analytics::run_retention,
-        },
-        JobKind {
-            name: super::analytics::DIGEST_JOB,
-            trigger: Trigger::Scheduled(super::analytics::digest_due),
-            run: super::analytics::run_digest,
-        },
+        // WP-18; consts below, because `assistant/` is not this package's path.
         ASSISTANT_EMBED,
         ASSISTANT_RETENTION,
+        // WP-16, rationale in `crate::deploy::jobs`.
+        crate::deploy::jobs::BUILD,
+        crate::deploy::jobs::RETENTION,
+        // WP-17, rationale in `super::analytics`.
         super::analytics::RETENTION,
         super::analytics::DIGEST,
     ]

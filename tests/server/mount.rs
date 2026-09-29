@@ -719,6 +719,25 @@ fn a_subtree_that_declares_no_permission_is_saying_something_deliberate() {
                 "`{}` gained a permission; if that is intended, say why here",
                 subtree.name
             ),
+            // Every analytics read is somebody's traffic, search queries or
+            // feedback text, so the subtree is gated as a whole rather than
+            // per handler.
+            "analytics" => assert_eq!(
+                subtree.permission,
+                Some(liyasa_server::auth::roles::Permission::DashboardRead),
+                "the dashboard's reads are not public"
+            ),
+            // ANA-02's event schema, and the reason it is a second entry
+            // rather than a route inside the first: a static-site collector
+            // validates its events against this document BEFORE it is allowed
+            // to post any, so by construction it holds no dashboard
+            // credential. Inside the guarded layer it would answer 401 to
+            // exactly the caller that needs it, and nothing would fail — it
+            // would quietly not work.
+            "analytics-schema" => assert!(
+                subtree.permission.is_none(),
+                "the published schema must stay reachable without a credential"
+            ),
             other => panic!("`{other}` is registered and this test has not been told about it"),
         }
     }
