@@ -69,7 +69,10 @@ pub fn summary(kind: &DriftKind) -> String {
             overdue_by,
             ..
         } => match reviewed {
-            None => format!("never reviewed; the cadence is {}", days(*cadence)),
+            // Never reviewed, or reviewed on a date nothing could read
+            // (`W0639`) — the record cannot tell those apart and saying "never
+            // reviewed" would be wrong for the second.
+            None => format!("no recorded review date; the cadence is {}", days(*cadence)),
             Some(_) => format!(
                 "review is {} overdue; the cadence is {}",
                 days(*overdue_by),

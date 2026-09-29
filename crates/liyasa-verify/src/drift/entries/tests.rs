@@ -123,7 +123,7 @@ fn every_kind_says_what_a_reader_has_to_do_about_it() {
     };
     assert_eq!(
         summary(&review(None, Duration::ZERO)),
-        "never reviewed; the cadence is 180 days"
+        "no recorded review date; the cadence is 180 days"
     );
     assert_eq!(
         summary(&review(Some(at(0)), Duration::from_secs(86_400))),

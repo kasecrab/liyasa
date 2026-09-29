@@ -15,14 +15,18 @@ pub mod engine;
 pub mod entries;
 pub mod facts;
 pub mod links;
+pub mod owners;
 pub mod policy;
 pub mod record;
+pub mod review;
 pub mod spec;
 pub mod store;
 
 pub use engine::{Coverage, Engine, GraphRoutes, Routes};
 pub use entries::entries;
 pub use links::FailingLink;
+pub use owners::Docowners;
 pub use policy::DriftPolicy;
 pub use record::{Candidate, DriftKey, DriftKind, DriftRecord, DriftState, Resolution, escalated};
+pub use review::{Cadence, Digest, Overdue, OwnerDigest, PageReview};
 pub use store::{MemoryDrift, RecordStore};
