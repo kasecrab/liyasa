@@ -6,4 +6,5 @@
 # a note saying whose.
 #
 # Regenerate with: cargo run -p xtask -- pins --update
+--dist
 --images
