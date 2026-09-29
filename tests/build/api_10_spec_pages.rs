@@ -41,8 +41,14 @@ const SPEC: &str = r#"{
   }
 }"#;
 
-fn site() -> Project {
-    let root = std::env::temp_dir().join(format!("liyasa-api-10-{}", std::process::id()));
+/// `name` discriminates the directory per test, not per process. Two tests in
+/// one binary share a PID under `cargo test` — which is what CI runs, while
+/// `bin/gate` runs `cargo nextest` and gives each test its own process — so a
+/// process-keyed fixture is isolated by the local harness and shared by CI's.
+/// `Project` removes the directory on drop, so sharing it means one test
+/// deleting the tree another is still asserting against.
+fn site(name: &str) -> Project {
+    let root = std::env::temp_dir().join(format!("liyasa-api-10-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("a project directory");
     fs::write(
@@ -78,7 +84,7 @@ fn build(project: &Project) -> engine::Report {
 
 #[test]
 fn an_operation_becomes_a_page_with_no_file_behind_it() {
-    let project = site();
+    let project = site("routes");
     let report = build(&project);
     assert!(!report.failed(false), "{:?}", report.diagnostics);
 
@@ -100,7 +106,7 @@ fn an_operation_becomes_a_page_with_no_file_behind_it() {
 /// serializing it separately: every downstream surface sees it.
 #[test]
 fn a_generated_page_reaches_the_html_and_the_markdown_twin() {
-    let project = site();
+    let project = site("surfaces");
     let report = build(&project);
     assert!(!report.failed(false), "{:?}", report.diagnostics);
 
