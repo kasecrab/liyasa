@@ -110,9 +110,6 @@ impl Mount {
 }
 
 /// Every subtree, in mount order. One line per package (RFC 1403).
-///
-/// WP-19 adds `Subtree { name: "mcp", mount: crate::mcp::mount }` once that
-/// module exists.
 pub fn subtrees() -> &'static [Subtree] {
     &[
         Subtree {
@@ -137,6 +134,17 @@ pub fn subtrees() -> &'static [Subtree] {
             name: "org",
             permission: None,
             mount: org,
+        },
+        Subtree {
+            // MCP-03: a public site serves the read tools unauthenticated and
+            // rate-limited; a private one authorizes inside the handlers, per
+            // page, through `groups::decide`. WP-19's shape, taken once
+            // `crate::mcp` reached main — the module landed without this
+            // entry, so the server has been carrying an MCP implementation
+            // that `application` never composed.
+            name: "mcp",
+            permission: None,
+            mount: crate::mcp::mount,
         },
         Subtree {
             name: "analytics",

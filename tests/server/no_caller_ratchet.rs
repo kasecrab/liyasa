@@ -306,14 +306,12 @@ fn a_test_only_caller_does_not_count_as_a_caller() {
 /// intentions that reads as a list of facts, and four entries sat in it for
 /// weeks pointing at nothing (defect 150). Each has its mechanism built and
 /// unit-tested; what is missing is the route.
-const UNROUTED_TODAY: &[(&str, &str)] = &[
-    (
-        "/_liyasa/assistant",
-        "defect 146: the retrieval filter is written and tested — `ReaderContext.groups` \
+const UNROUTED_TODAY: &[(&str, &str)] = &[(
+    "/_liyasa/assistant",
+    "defect 146: the retrieval filter is written and tested — `ReaderContext.groups` \
          feeds `ChunkQuery.groups` and the store applies it during retrieval (RFC 1807) — \
          but `ReaderContext` is constructed only in tests, because no handler builds one.",
-    ),
-];
+)];
 
 /// The `starts_with("/_liyasa/...")` prefixes `pool_for` claims.
 ///

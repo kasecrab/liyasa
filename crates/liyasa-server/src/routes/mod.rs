@@ -471,6 +471,11 @@ pub fn pool_for(path: &str, wants_markdown: bool) -> Option<RateLimitPool> {
         "/_liyasa/e" => Some(RateLimitPool::Pages),
         p if p.starts_with("/_liyasa/feedback") => Some(RateLimitPool::Feedback),
         p if p.starts_with("/_liyasa/api/") => Some(RateLimitPool::Rest),
+        // `/mcp` is canonical: MCP-01's text is literal and every generated
+        // `llms.txt` publishes `<origin>/mcp`, so an agent is told to connect
+        // there. Without this arm that traffic falls through to the page pool
+        // and an agent is charged against a human's budget.
+        p if p == "/mcp" || p.starts_with("/mcp/") => Some(RateLimitPool::Mcp),
         p if p.starts_with("/_liyasa/mcp") => Some(RateLimitPool::Mcp),
         p if p.starts_with("/_liyasa/search") => Some(RateLimitPool::Search),
         p if p.starts_with("/_liyasa/assistant") => Some(RateLimitPool::Assistant),

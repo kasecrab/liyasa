@@ -719,6 +719,13 @@ fn a_subtree_that_declares_no_permission_is_saying_something_deliberate() {
                 "`{}` gained a permission; if that is intended, say why here",
                 subtree.name
             ),
+            // MCP-03: the read tools are public on a public site and
+            // authorize per page inside the handlers on a private one, which
+            // is finer than one permission for the whole subtree.
+            "mcp" => assert!(
+                subtree.permission.is_none(),
+                "the MCP tools authorize per page, not per subtree"
+            ),
             // Every analytics read is somebody's traffic, search queries or
             // feedback text, so the subtree is gated as a whole rather than
             // per handler.
