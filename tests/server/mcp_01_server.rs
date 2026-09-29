@@ -532,6 +532,86 @@ async fn the_address_llms_txt_publishes_is_the_address_that_answers() {
 }
 
 #[tokio::test]
+async fn a_site_served_under_a_prefix_answers_under_that_prefix_too() {
+    // `CanonicalOrigin::parse_with_base_path` puts `build.basePath` into every
+    // address the agent surfaces publish (`engine/mod.rs:1551`), the MCP
+    // endpoint among them — so a server listening only at `/mcp` would 404 the
+    // address it had just published. Defect 162 again, one deployment shape
+    // narrower, and Liyasa's own documentation site is served under a prefix.
+    //
+    // Both spellings answer. `tests/docs/mig_22.rs` has an ignored test
+    // claiming the prefix does not reach the agent surfaces at all; one of the
+    // two is stale and it is WP-31's to settle, and answering at both
+    // addresses is right whichever way it goes.
+    let root = std::env::temp_dir().join(format!("liyasa-mcp01-base-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a project directory");
+    let config = SITE.replace(
+        r#""name": "Acme docs","#,
+        r#""name": "Acme docs", "build": { "basePath": "/docs" },"#,
+    );
+    write(&root, "liyasa.json", &config);
+    write(&root, "petstore.json", SPEC);
+    for (path, body) in PAGES {
+        write(&root, path, body);
+    }
+    let report = engine::build(
+        &OsVfs::new(&root),
+        &NoGit,
+        &root,
+        &Options {
+            build_time: Some(1_789_473_600),
+            ..Options::default()
+        },
+    );
+    assert!(!report.failed(false), "{:?}", report.diagnostics);
+
+    let (harness, _) = Harness::new(Setup {
+        dist: Some(root.join("dist")),
+        site_config: Some(serde_json::from_str(&config).expect("JSON")),
+        ..Setup::new("baseprefix")
+    })
+    .await;
+    let router = mcp::mount(&harness.state).router.expect("a router");
+
+    for path in ["/docs/mcp", "/mcp", "/docs/_liyasa/mcp", "/_liyasa/mcp"] {
+        let answer = rpc_as(&router, path, "tools/list", json!({}), None).await;
+        assert!(
+            answer["result"]["tools"].is_array(),
+            "{path} did not answer as an MCP server: {answer}"
+        );
+    }
+
+    // The card is served at the origin's root, because a well-known URI is
+    // defined relative to the root (RFC 8615) — and it names the prefixed
+    // endpoint, which is where the site's own index points.
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/.well-known/mcp")
+                .body(Body::empty())
+                .expect("a request"),
+        )
+        .await
+        .expect("a response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+        .await
+        .expect("a complete body");
+    let card: Value = serde_json::from_slice(&bytes).expect("JSON");
+    assert_eq!(
+        card["servers"][0]["url"],
+        json!("https://docs.acme.com/docs/mcp")
+    );
+    assert_eq!(
+        card["documentation"],
+        json!("https://docs.acme.com/docs/llms.txt")
+    );
+}
+
+#[tokio::test]
 async fn the_rate_limited_alias_answers_exactly_as_the_canonical_path_does() {
     // `routes::pool_for` charges the `Mcp` bucket on `/_liyasa/mcp`. Serving
     // only `/mcp` would leave agent traffic in the human page pool; serving

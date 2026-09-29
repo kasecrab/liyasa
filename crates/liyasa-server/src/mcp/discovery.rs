@@ -136,6 +136,7 @@ mod tests {
             name: "Acme docs".to_owned(),
             description: Some("How Acme works".to_owned()),
             origin: Some("https://docs.acme.com".to_owned()),
+            base_path: String::new(),
         }
     }
 

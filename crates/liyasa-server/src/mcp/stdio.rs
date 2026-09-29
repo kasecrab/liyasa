@@ -57,7 +57,7 @@ use crate::routes::bundle::Bundle;
 /// that cannot find the config still gets a working server rather than none.
 pub fn open(dist: &Path, site_config: &Value) -> std::io::Result<Arc<BundleReader>> {
     let bundle = Bundle::open(dist)?;
-    let info = super::site_info(site_config);
+    let info = super::site_info(site_config, bundle.base_path());
     Ok(Arc::new(BundleReader::new(Arc::new(bundle), info)))
 }
 

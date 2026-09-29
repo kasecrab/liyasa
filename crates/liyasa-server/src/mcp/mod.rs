@@ -65,19 +65,20 @@ pub fn mount(app: &Arc<AppState>) -> Mount {
         return Mount::skipped("`agents.mcp.enabled` is false in this site's configuration");
     }
 
-    let info = site_info(&app.config.site_config);
-    let diagnostics = shadowed(&bundle);
-    let endpoint = absolute(&info, http::PATH);
+    let info = site_info(&app.config.site_config, bundle.base_path());
+    let diagnostics = shadowed(&bundle, &info.base_path);
     let card = discovery::card(
         &info,
         &settings,
-        &endpoint,
+        &absolute(&info, http::PATH),
         &absolute(&info, resources::LLMS_TXT),
     );
+    let base_path = info.base_path.clone();
     let state = Arc::new(http::McpState {
         app: app.clone(),
         reader: Arc::new(BundleReader::new(bundle, info)),
         card,
+        base_path,
     });
     Mount::routes(http::router(state)).with_diagnostics(diagnostics)
 }
@@ -99,12 +100,20 @@ pub fn mount(app: &Arc<AppState>) -> Mount {
 /// Raised once, here, at startup — not per request, and not at the
 /// composition point, which is another package's file and a long way from the
 /// cause.
-fn shadowed(bundle: &Bundle) -> Diagnostics {
+/// `base_path` is the prefix the endpoint also answers under, because that is
+/// where `llms.txt` advertises it. The well-known paths are checked WITHOUT
+/// it: a well-known URI is defined relative to the origin's root (RFC 8615)
+/// and this server serves them there whatever the site's prefix is, so a page
+/// at `<base>/.well-known/mcp` shadows nothing and must not be warned about.
+fn shadowed(bundle: &Bundle, base_path: &str) -> Diagnostics {
     let mut diagnostics = Diagnostics::new();
-    let mut paths = vec![http::PATH, http::ALIAS];
-    paths.extend_from_slice(http::WELL_KNOWN);
+    let mut paths = vec![
+        format!("{base_path}{}", http::PATH),
+        format!("{base_path}{}", http::ALIAS),
+    ];
+    paths.extend(http::WELL_KNOWN.iter().map(|path| (*path).to_owned()));
     for path in paths {
-        if !matches!(bundle.resolve(path, false), Target::NotFound) {
+        if !matches!(bundle.resolve(&path, false), Target::NotFound) {
             diagnostics.push(Diagnostic::new(
                 code::W0818,
                 format!(
@@ -117,8 +126,9 @@ fn shadowed(bundle: &Bundle) -> Diagnostics {
     diagnostics
 }
 
-/// What the site says it is, out of the config the server was given.
-fn site_info(config: &serde_json::Value) -> SiteInfo {
+/// What the site says it is, out of the config the server was given and the
+/// prefix the bundle was built under.
+pub(crate) fn site_info(config: &serde_json::Value, base_path: &str) -> SiteInfo {
     let text = |value: &serde_json::Value| {
         value
             .as_str()
@@ -131,19 +141,25 @@ fn site_info(config: &serde_json::Value) -> SiteInfo {
         description: text(&config["description"]),
         origin: text(&config["seo"]["canonicalOrigin"])
             .map(|origin| origin.trim_end_matches('/').to_owned()),
+        base_path: match base_path.trim_matches('/') {
+            "" => String::new(),
+            prefix => format!("/{prefix}"),
+        },
     }
 }
 
-/// `path` as an absolute URL when the site declares an origin, and unchanged
-/// when it does not.
+/// A site path as an absolute URL when the site declares an origin, and as a
+/// site-relative path when it does not — carrying `build.basePath` either way,
+/// so it is the same address `CanonicalOrigin::resource_url` publishes.
 ///
 /// A relative URL still resolves against the document a client just fetched,
 /// which is better than an absolute one built on a host this process only
 /// guessed at — a server behind a proxy sees its own bind address, not the
 /// name the agent used.
 fn absolute(info: &SiteInfo, path: &str) -> String {
+    let path = format!("{}{path}", info.base_path);
     match &info.origin {
         Some(origin) => format!("{origin}{path}"),
-        None => path.to_owned(),
+        None => path,
     }
 }

@@ -71,6 +71,9 @@ pub struct McpState {
     pub reader: Arc<dyn SiteReader>,
     /// The card `/.well-known/mcp` answers with, built once at startup.
     pub card: Value,
+    /// `build.basePath` as a leading-slash prefix, or `""`. The endpoint
+    /// answers under it as well, because that is where `llms.txt` says it is.
+    pub base_path: String,
 }
 
 impl McpState {
@@ -108,18 +111,61 @@ pub fn site_default(app: &AppState) -> crate::auth::groups::SiteDefault {
 /// reads the first string literal after each `.route(` across this crate's
 /// source; `.route(PATH,` would make it read the next unrelated literal in
 /// this file and quietly corrupt the census that proves every rate-limit pool
-/// has an endpoint. `the_constants_and_the_routes_agree` below is what keeps
-/// the two spellings from drifting.
+/// has an endpoint. That is also why the base-path spellings below are built
+/// by [`under`] with the un-prefixed literal as its first argument: the census
+/// then reads `"/mcp"`, which is true of that handler, instead of reading
+/// whatever literal happens to come next. `the_constants_and_the_routes_agree`
+/// is what keeps all of it from drifting.
+///
+/// ## Why there are up to six
+///
+/// A site built with `build.basePath` publishes every address through
+/// `CanonicalOrigin::resource_url`, which puts the prefix in — so `llms.txt`
+/// on such a site advertises `<origin>/docs/mcp`, and a server listening only
+/// at `/mcp` would 404 the address it just published. That is defect 162
+/// again, one deployment shape narrower, and Liyasa's own documentation site
+/// is served under a prefix.
+///
+/// The un-prefixed spellings stay whatever the site's prefix is, and that is
+/// not redundancy. `tests/docs/mig_22.rs` carries an ignored test claiming
+/// `build.basePath` does not reach the agent surfaces, while
+/// `engine/mod.rs:1551` passes `settings.base_path` into
+/// `CanonicalOrigin::parse_with_base_path` — one of those is stale and it is
+/// WP-31's to settle. Answering at both addresses is correct whichever way it
+/// goes, which is a better position than picking the one that happens to be
+/// true this week.
+///
+/// The `/.well-known/` paths are NOT prefixed. A well-known URI is defined
+/// relative to the origin's root (RFC 8615), so `<origin>/docs/.well-known/mcp`
+/// is not a well-known URI at all and no client looks there.
 pub fn router(state: Arc<McpState>) -> Router {
-    Router::new()
+    let base = state.base_path.clone();
+    let mut router = Router::new()
         .route("/mcp", post(handle).get(no_stream).delete(end_session))
         .route(
             "/_liyasa/mcp",
             post(handle).get(no_stream).delete(end_session),
         )
         .route("/.well-known/mcp", get(card))
-        .route("/.well-known/mcp.json", get(card))
-        .with_state(state)
+        .route("/.well-known/mcp.json", get(card));
+    if !base.is_empty() {
+        router = router
+            .route(
+                &under("/mcp", &base),
+                post(handle).get(no_stream).delete(end_session),
+            )
+            .route(
+                &under("/_liyasa/mcp", &base),
+                post(handle).get(no_stream).delete(end_session),
+            );
+    }
+    router.with_state(state)
+}
+
+/// `path` under `build.basePath`, which is the spelling a request arrives in
+/// on a prefixed deployment.
+fn under(path: &str, base: &str) -> String {
+    format!("{base}{path}")
 }
 
 async fn card(State(state): State<Arc<McpState>>) -> HttpResponse {
@@ -350,7 +396,9 @@ mod tests {
 
         // And the literals in `router` are those four and nothing else. Read
         // out of this file's own source, because the failure being guarded
-        // against is a literal changing in one place only.
+        // against is a literal changing in one place only — and because the
+        // route census reads the same text the same way, so this is the
+        // census's own view of this module.
         let source = include_str!("http.rs");
         let body = source
             .split("pub fn router(")
@@ -363,9 +411,25 @@ mod tests {
             routed.push(literal);
         }
         routed.sort_unstable();
+        // The base-path registrations repeat `/mcp` and `/_liyasa/mcp`,
+        // deliberately: `under("/mcp", &base)` puts the un-prefixed literal
+        // where the census reads it, which is true of that handler and keeps
+        // the census from picking up an unrelated string.
+        routed.dedup();
         let mut expected = vec![PATH, ALIAS];
         expected.extend_from_slice(WELL_KNOWN);
         expected.sort_unstable();
         assert_eq!(routed, expected);
+    }
+
+    #[test]
+    fn a_prefixed_deployment_answers_where_it_advertises() {
+        // `CanonicalOrigin::resource_url` puts `build.basePath` into every
+        // address `llms.txt` publishes, the MCP endpoint among them.
+        assert_eq!(under(PATH, "/docs"), "/docs/mcp");
+        assert_eq!(under(ALIAS, "/docs"), "/docs/_liyasa/mcp");
+        // And a site without one is unchanged rather than gaining a prefix
+        // of nothing.
+        assert_eq!(under(PATH, ""), "/mcp");
     }
 }

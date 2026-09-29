@@ -27,19 +27,41 @@ pub const PLAIN_TEXT: &str = "text/plain";
 /// name its Markdown rather than its HTML.
 pub const LLMS_TXT: &str = "/llms.txt";
 
-/// The URI for a path on this site.
+/// The URI for a site path, carrying `build.basePath`.
+///
+/// The prefix is not decoration: on a site served under one, the page really
+/// is at `<origin>/docs/guides/install.md`, and a URI without it names
+/// nothing. `CanonicalOrigin::resource_url` builds every other published
+/// address the same way.
 pub fn uri_for(reader: &dyn SiteReader, path: &str) -> String {
+    let site = reader.site();
     let path = match path.starts_with('/') {
-        true => path.to_owned(),
-        false => format!("/{path}"),
+        true => format!("{}{path}", site.base_path),
+        false => format!("{}/{path}", site.base_path),
     };
-    match reader.site().origin.as_deref() {
+    match site.origin.as_deref() {
         Some(origin) => format!("{}{path}", origin.trim_end_matches('/')),
         // Three slashes: an empty authority, which is what RFC 3986 asks for
         // when a hierarchical URI has a path and no host. `liyasa:/path` is
         // also legal and is the spelling clients get wrong.
         None => format!("liyasa://{path}"),
     }
+}
+
+/// The path part of a resource URI: authority, query and fragment dropped.
+///
+/// The authority is dropped rather than compared, the same way `fetch`
+/// resolves a locator — a site served on two domains would refuse its own URL
+/// if the host had to match.
+fn path_of(uri: &str) -> &str {
+    let rest = match uri.split_once("://") {
+        Some((_, rest)) => match rest.find('/') {
+            Some(at) => &rest[at..],
+            None => "/",
+        },
+        None => uri,
+    };
+    rest.split(['?', '#']).next().unwrap_or(rest)
 }
 
 /// `resources/list`, from `cursor`.
@@ -83,7 +105,10 @@ pub fn list(reader: &dyn SiteReader, scope: &Scope, cursor: Option<&str>) -> Val
 /// into the protocol's own "resource not found" rather than an empty read —
 /// an empty `contents` array reads as a page that exists and is blank.
 pub fn read(reader: &dyn SiteReader, scope: &Scope, uri: &str) -> Option<Value> {
-    if uri == uri_for(reader, LLMS_TXT) || uri.ends_with(LLMS_TXT) {
+    // The whole path, not a suffix: `ends_with("/llms.txt")` would serve this
+    // site's index for `https://somewhere.else/docs/llms.txt`, which is a
+    // different document with the same name.
+    if path_of(uri) == format!("{}{LLMS_TXT}", reader.site().base_path) {
         let text = reader.llms_txt(scope)?;
         return Some(json!({
             "contents": [{ "uri": uri, "mimeType": PLAIN_TEXT, "text": text }]
@@ -173,11 +198,16 @@ mod tests {
     }
 
     fn site(origin: Option<&str>, count: usize) -> Fake {
+        site_under(origin, "", count)
+    }
+
+    fn site_under(origin: Option<&str>, base_path: &str, count: usize) -> Fake {
         Fake {
             info: SiteInfo {
                 name: "Acme docs".to_owned(),
                 description: None,
                 origin: origin.map(str::to_owned),
+                base_path: base_path.to_owned(),
             },
             pages: (0..count)
                 .map(|n| PageRef {
@@ -277,5 +307,77 @@ mod tests {
         )
         .expect("the index");
         assert_eq!(read["contents"][0]["text"], json!("# Acme docs\n"));
+    }
+
+    #[test]
+    fn a_different_path_ending_in_llms_txt_is_a_different_document() {
+        // The match is on the whole path. A suffix match would serve this
+        // site's index for `/vendor/llms.txt`, which is some vendor's index
+        // that happens to share a file name.
+        let reader = site(Some("https://docs.acme.com"), 1);
+        assert!(
+            read(
+                &reader,
+                &Scope::anonymous(),
+                "https://docs.acme.com/vendor/llms.txt"
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn the_authority_is_ignored_the_same_way_fetch_ignores_it() {
+        // Deliberate, and asserted rather than left to be discovered: a site
+        // served on two domains would refuse its own URL if the host had to
+        // match, and `fetch` already resolves a locator this way. Nothing is
+        // disclosed by it — `llms_txt` is filtered through the caller's scope
+        // whichever spelling asked for it.
+        let reader = site(Some("https://docs.acme.com"), 1);
+        assert!(
+            read(
+                &reader,
+                &Scope::anonymous(),
+                "https://somewhere.else/llms.txt"
+            )
+            .is_some()
+        );
+    }
+
+    #[test]
+    fn a_site_served_under_a_prefix_names_its_resources_under_it() {
+        // `CanonicalOrigin::resource_url` puts `build.basePath` into every
+        // other published address, so a resource URI without it names nothing.
+        let reader = site_under(Some("https://acme.example"), "/docs", 1);
+        let listed = list(&reader, &Scope::anonymous(), None);
+        let uris: Vec<&str> = listed["resources"]
+            .as_array()
+            .expect("resources")
+            .iter()
+            .filter_map(|entry| entry["uri"].as_str())
+            .collect();
+        assert_eq!(
+            uris,
+            [
+                "https://acme.example/docs/llms.txt",
+                "https://acme.example/docs/p0.md"
+            ]
+        );
+        assert!(
+            read(
+                &reader,
+                &Scope::anonymous(),
+                "https://acme.example/docs/llms.txt"
+            )
+            .is_some()
+        );
+        // And the un-prefixed spelling is not this site's index either.
+        assert!(
+            read(
+                &reader,
+                &Scope::anonymous(),
+                "https://acme.example/llms.txt"
+            )
+            .is_none()
+        );
     }
 }

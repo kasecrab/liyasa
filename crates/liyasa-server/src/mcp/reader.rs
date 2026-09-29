@@ -87,6 +87,18 @@ pub struct SiteInfo {
     /// The canonical origin, with no trailing slash. `None` when the site
     /// declares none, in which case discovery serves relative paths.
     pub origin: Option<String>,
+    /// `build.basePath`, as a leading-slash prefix with no trailing slash, or
+    /// `""`.
+    ///
+    /// It is here because the URLs this server publishes have to be the URLs
+    /// the rest of the build publishes. `CanonicalOrigin::resource_url` puts
+    /// the prefix into every address `llms.txt` advertises, the MCP endpoint
+    /// among them, so a server that built its own URLs from the origin alone
+    /// would advertise and answer at two different places on any site served
+    /// under a prefix — which is defect 162 again, one deployment shape
+    /// narrower. `plan/rfcs/1006-who-owns-the-base-path.md` records that the
+    /// prefix belongs to `build.basePath` and to nothing else.
+    pub base_path: String,
 }
 
 /// Why a tool could not answer.
