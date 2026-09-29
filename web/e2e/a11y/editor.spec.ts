@@ -81,6 +81,56 @@ test("the editor announces that it is ready", async ({ page }) => {
   await expect(page.locator("[data-announce]")).toHaveText("Editor ready");
 });
 
+/**
+ * Walks Tab forward from the top of the document and returns every probe reached.
+ *
+ * Two engine differences make the obvious version of this a Chromium-only test,
+ * and both were found by CI going red on Firefox while 66 local assertions on
+ * Chromium were green.
+ *
+ * **`body.focus()` does not blur the focused element in Firefox.** Chromium
+ * moves focus to `<body>`, so a following Tab restarts from the top of the page;
+ * Firefox leaves focus exactly where it was, because `<body>` is not focusable.
+ * The shell focuses the tour on load, and the tour is the last thing in the
+ * document, so in Firefox the sweep began at the end.
+ *
+ * **Firefox does not wrap the tab order back into the page.** From the last
+ * tabbable, Tab moves to the browser chrome and `document.activeElement` stops
+ * changing. Chromium cycles back through the document. So a sweep that started
+ * at the end reached nothing at all, which is why CI reported an empty set
+ * rather than a short one.
+ *
+ * Focusing the first tabbable explicitly fixes both: it is where Tab from the
+ * browser chrome lands in a real window, it needs no wrap, and it behaves
+ * identically on both engines.
+ */
+async function tabSweep(page: import("@playwright/test").Page, want: number): Promise<Set<string>> {
+  const reached = new Set<string>();
+  const record = async () => {
+    const marker = await page.evaluate(() => document.activeElement?.getAttribute("data-tab-probe"));
+    if (marker !== null && marker !== undefined) reached.add(marker);
+  };
+
+  await page.evaluate(() => {
+    const first = document.querySelector(
+      "button, a[href], input, select, textarea, [tabindex='0']",
+    );
+    if (first instanceof HTMLElement) first.focus();
+  });
+  await record();
+
+  // One pass over the document is enough now that the sweep starts at the top,
+  // so the budget is a count rather than a guess at how far away something is.
+  const tabbable = await page.evaluate(
+    () => document.querySelectorAll("button, a[href], input, select, textarea, [tabindex='0']").length,
+  );
+  for (let step = 0; step < tabbable + 2 && reached.size < want; step += 1) {
+    await page.keyboard.press("Tab");
+    await record();
+  }
+  return reached;
+}
+
 test("every control in the shell is reachable with Tab alone", async ({ page }) => {
   // Each control is tagged with its own index first. Identifying the focused
   // element by its text or by an attribute it shares with another control
@@ -92,13 +142,7 @@ test("every control in the shell is reachable with Tab alone", async ({ page }) 
   });
   expect(controls).toBeGreaterThan(0);
 
-  const reached = new Set<string>();
-  for (let step = 0; step < controls * 4; step += 1) {
-    await page.keyboard.press("Tab");
-    const marker = await page.evaluate(() => document.activeElement?.getAttribute("data-tab-probe"));
-    if (marker !== null && marker !== undefined) reached.add(marker);
-    if (reached.size >= controls) break;
-  }
+  const reached = await tabSweep(page, controls);
   expect([...reached].sort()).toEqual(
     Array.from({ length: controls }, (_, at) => String(at)).sort(),
   );
@@ -422,25 +466,11 @@ test("every control in every pane is reachable with Tab alone", async ({ page })
     });
     if (controls === 0) continue;
 
-    // The budget is the whole document twice over, not the pane's own count.
-    // `controls * 6` looked generous and scaled with the wrong thing: a pane with
-    // one control got six presses while the shell's chrome alone — eight toolbar
-    // buttons and the tour — is eleven stops before main is reached at all. It
-    // passed until the toolbar grew, then reported the source pane's textarea as
-    // unreachable when it was merely further away than the budget allowed.
-    const tabbable = await page.evaluate(
-      () => document.querySelectorAll("button, a[href], input, select, textarea, [tabindex='0']").length,
-    );
-    const budget = (tabbable + 2) * 2;
-
-    const reached = new Set<string>();
-    await page.locator("body").press("Tab");
-    for (let step = 0; step < budget; step += 1) {
-      const marker = await page.evaluate(() => document.activeElement?.getAttribute("data-tab-probe"));
-      if (marker !== null && marker !== undefined) reached.add(marker);
-      if (reached.size >= controls) break;
-      await page.keyboard.press("Tab");
-    }
+    // `tabSweep` starts at the first tabbable in the document rather than
+    // resetting through `<body>`, which is the difference between a sweep that
+    // works on two engines and one that works on Chromium. Its own comment has
+    // the two Firefox behaviours that forced it.
+    const reached = await tabSweep(page, controls);
     expect([...reached].map(Number).sort((a, b) => a - b), `${pane.name}: unreachable control`).toEqual(
       Array.from({ length: controls }, (_, at) => at),
     );
