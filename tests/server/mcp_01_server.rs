@@ -40,7 +40,7 @@ const SITE: &str = r#"{
   "seo": { "canonicalOrigin": "https://docs.acme.com" },
   "navigation": [
     "index",
-    { "group": "Guides", "pages": ["guides/install"] },
+    { "group": "Guides", "pages": ["guides/appendix", "guides/install"] },
     { "group": "Internal", "groups": ["staff"], "pages": ["internal/runbook"] }
   ],
   "openapi": [{ "id": "petstore", "source": "petstore.json" }]
@@ -50,6 +50,16 @@ const PAGES: &[(&str, &str)] = &[
     (
         "index.md",
         "---\ntitle: Home\n---\n# Home\n\nWelcome to Acme.\n",
+    ),
+    // Exists to sit BETWEEN `/` and `/guides/install` in route order, so the
+    // listing assertions below are exercised against an insertion rather than
+    // merely written to survive one. A page appearing between two this file
+    // names is not hypothetical: WP-06's RFC 0608 generates a page per OpenAPI
+    // operation and `/api-reference/getpet` lands in exactly that gap. It has
+    // no other job, so nothing else here asserts anything about it.
+    (
+        "guides/appendix.md",
+        "---\ntitle: Appendix\n---\n# Appendix\n\nReference tables.\n",
     ),
     (
         "guides/install.md",
@@ -305,6 +315,27 @@ async fn fetch_takes_a_route_a_markdown_twin_or_the_page_s_own_url() {
     }
 }
 
+/// One listed page, found by route.
+///
+/// **Never index a listing positionally in this file.** The set of pages a
+/// site has is not this package's to fix: a generator in another package adds
+/// one and every `pages[1]` after the lookup silently starts asserting about
+/// a different page — passing or failing for reasons unrelated to what it
+/// checks. That is the vacuous-assertion shape, arriving by insertion rather
+/// than by inversion.
+fn listed<'a>(pages: &'a [Value], route: &str) -> &'a Value {
+    pages
+        .iter()
+        .find(|page| page["route"] == json!(route))
+        .unwrap_or_else(|| {
+            let all: Vec<&str> = pages
+                .iter()
+                .filter_map(|page| page["route"].as_str())
+                .collect();
+            panic!("`{route}` is not listed. The listing holds: {all:?}")
+        })
+}
+
 #[tokio::test]
 async fn list_pages_gives_the_routes_with_their_depth() {
     let (_harness, router) = serve("list", &[]).await;
@@ -312,14 +343,52 @@ async fn list_pages_gives_the_routes_with_their_depth() {
     let pages = result["structuredContent"]["pages"]
         .as_array()
         .expect("pages");
+
+    // Each page this test is about, by route. Another package generating more
+    // pages is another package being correct, and must not fail this.
+    let home = listed(pages, "/");
+    assert_eq!(home["depth"], json!(0));
+    assert_eq!(home["title"], json!("Home"));
+
+    let install = listed(pages, "/guides/install");
+    assert_eq!(install["depth"], json!(2));
+    assert_eq!(install["title"], json!("Install"));
+
     let routes: Vec<&str> = pages
         .iter()
         .filter_map(|page| page["route"].as_str())
         .collect();
-    assert_eq!(routes, ["/", "/guides/install"]);
-    assert_eq!(pages[0]["depth"], json!(0));
-    assert_eq!(pages[1]["depth"], json!(2));
-    assert_eq!(pages[1]["title"], json!("Install"));
+
+    // The insertion this test is hardened against is really present: without
+    // it the two lookups above would sit at indices 0 and 1 and this file
+    // would pass just as well written positionally, proving nothing.
+    let gap = routes
+        .iter()
+        .position(|route| *route == "/guides/appendix")
+        .expect("the fixture's middle page is missing, so nothing was inserted");
+    let root_at = routes.iter().position(|r| *r == "/").expect("the root");
+    let install_at = routes
+        .iter()
+        .position(|r| *r == "/guides/install")
+        .expect("the install page");
+    assert!(
+        root_at < gap && gap < install_at,
+        "the middle page must fall between the two this test asserts on: {routes:?}"
+    );
+
+    // The ordering contract, which survives any number of insertions: route
+    // order, so an agent paging through a large site sees a stable sequence.
+    let mut sorted = routes.clone();
+    sorted.sort_unstable();
+    assert_eq!(routes, sorted, "the listing is not in route order");
+
+    // And the filter still bites: a restricted page is absent whatever else
+    // the build generated. Without this the assertions above would be
+    // satisfied by a listing that returned everything.
+    assert!(
+        !routes.contains(&"/internal/runbook"),
+        "a restricted page is listed to an anonymous agent: {routes:?}"
+    );
 }
 
 #[tokio::test]
@@ -377,13 +446,27 @@ async fn resources_are_llms_txt_and_every_page_addressed_by_their_own_urls() {
         .iter()
         .filter_map(|entry| entry["uri"].as_str())
         .collect();
-    assert_eq!(
-        uris,
-        [
-            "https://docs.acme.com/llms.txt",
-            "https://docs.acme.com/index.md",
-            "https://docs.acme.com/guides/install.md"
-        ]
+    // By membership, not by an exact set: the pages a build produces are not
+    // this package's to fix, and a generator in another package adding one
+    // must not fail this. What the test is about is that `llms.txt` is a
+    // resource and that a page is addressed by its own public URL.
+    for expected in [
+        "https://docs.acme.com/llms.txt",
+        "https://docs.acme.com/index.md",
+        "https://docs.acme.com/guides/install.md",
+    ] {
+        assert!(
+            uris.contains(&expected),
+            "`{expected}` is missing: {uris:?}"
+        );
+    }
+    // The index comes first, because an agent reading the listing top-down
+    // should meet the map before the territory.
+    assert_eq!(uris.first(), Some(&"https://docs.acme.com/llms.txt"));
+    // And a restricted page is not addressable here either.
+    assert!(
+        !uris.iter().any(|uri| uri.contains("internal/runbook")),
+        "{uris:?}"
     );
 
     let read = rpc(
