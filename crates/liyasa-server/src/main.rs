@@ -403,6 +403,24 @@ async fn run_serve(options: Options) -> Result<(), String> {
                 if let Some(index) = routes::search::open(&options.dist()) {
                     state = state.with_search_index(Arc::new(index));
                 }
+                // API-41. Decided once here rather than per request: the specs
+                // this reads are the ones the build published, and they do not
+                // change while the process runs.
+                // `PlaygroundConfig` had no reader anywhere in the tree —
+                // another complete type with nothing calling it. It derives
+                // `Deserialize` with `default`, so an absent or partial block
+                // reads as the documented defaults rather than failing.
+                let playground: liyasa_openapi::config::PlaygroundConfig = state
+                    .config
+                    .site_config
+                    .get("playground")
+                    .cloned()
+                    .and_then(|value| serde_json::from_value(value).ok())
+                    .unwrap_or_default();
+                let env = state.config.env.clone();
+                let proxy =
+                    routes::proxy::ProxyState::open(&options.dist(), &playground.proxy, &env);
+                state = state.with_proxy(Arc::new(proxy));
             }
             Err(error) => {
                 return Err(format!(
@@ -411,6 +429,9 @@ async fn run_serve(options: Options) -> Result<(), String> {
                 ));
             }
         }
+    }
+    if !offline && let Some(client) = outbound_client() {
+        state = state.with_http(client);
     }
     let state = Arc::new(state.with_store(store));
 
@@ -528,6 +549,25 @@ async fn run_serve(options: Options) -> Result<(), String> {
                 .map_err(|e| e.to_string())
         }
         _ => Err("--tls-cert and --tls-key are given together".to_owned()),
+    }
+}
+
+/// One outbound client for this instance's own requests (API-41).
+///
+/// `None` when it cannot be built, which leaves the proxy answering with a
+/// reason rather than the server refusing to start over a feature most sites
+/// do not use.
+fn outbound_client() -> Option<Arc<dyn liyasa_core::net::HttpClient>> {
+    match liyasa_net::client::Client::new(liyasa_net::client::ClientOptions::default()) {
+        Ok(client) => Some(Arc::new(client)),
+        Err(error) => {
+            tracing::warn!(
+                target: "liyasa_server",
+                %error,
+                "no outbound client; the playground proxy is unavailable"
+            );
+            None
+        }
     }
 }
 

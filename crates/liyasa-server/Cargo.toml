@@ -19,6 +19,8 @@ liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
 liyasa-config = { path = "../liyasa-config", version = "0.1.0" }
 liyasa-build = { path = "../liyasa-build", version = "0.1.0" }
 liyasa-net = { path = "../liyasa-net", version = "0.1.0" }
+# API-41: the proxy's allow list is derived from the published specs.
+liyasa-openapi = { path = "../liyasa-openapi", version = "0.1.0" }
 # AST-10: this crate supplies the assistant's read-only tools. The trait's doc
 # comment says "What the server supplies", and §34.7 already has the server
 # depending on ai.

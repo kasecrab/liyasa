@@ -313,12 +313,6 @@ const UNROUTED_TODAY: &[(&str, &str)] = &[
          feeds `ChunkQuery.groups` and the store applies it during retrieval (RFC 1807) — \
          but `ReaderContext` is constructed only in tests, because no handler builds one.",
     ),
-    (
-        "/_liyasa/proxy",
-        "defect 150: API-41's playground proxy. `ProxySource::of`, `allow_list`, \
-         `forwardable` and `ProxyEvent` all exist in `liyasa-openapi`; `git grep \
-         playground` over this crate returns nothing.",
-    ),
 ];
 
 /// The `starts_with("/_liyasa/...")` prefixes `pool_for` claims.

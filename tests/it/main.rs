@@ -207,3 +207,5 @@ mod ana_02_dashboard_mount;
 mod rest_04_search;
 #[path = "../server/work_registry_union.rs"]
 mod work_registry_union;
+#[path = "../server/api_41_proxy.rs"]
+mod api_41_proxy;

@@ -8,6 +8,7 @@
 
 pub mod acme;
 pub mod analytics;
+pub mod proxy;
 pub mod search;
 pub mod api;
 pub mod bundle;
@@ -116,6 +117,13 @@ pub struct AppState {
     pub scrubber: Scrubber,
     /// The ACME tokens this replica is answering for (HOST-02).
     pub challenges: Arc<acme::Challenges>,
+    /// What the playground proxy will forward, decided once at startup
+    /// (API-41). `None` on an instance with no site.
+    pub proxy: Option<Arc<proxy::ProxyState>>,
+    /// The outbound client. `None` when one could not be built, which leaves
+    /// the proxy answering 503 with a reason rather than the server failing to
+    /// start.
+    pub http: Option<Arc<dyn liyasa_core::net::HttpClient>>,
     /// The built search index, read once from `dist/search-index/` (REST-04).
     ///
     /// `None` on a site built without one, and on a collector. Held beside the
@@ -190,6 +198,8 @@ impl AppState {
             started: Instant::now(),
             mounted: std::sync::OnceLock::new(),
             self_arc: std::sync::OnceLock::new(),
+            proxy: None,
+            http: None,
             search_index: None,
             analytics: std::sync::OnceLock::new(),
             auth_state: std::sync::OnceLock::new(),
@@ -247,6 +257,26 @@ impl AppState {
     /// above all — takes it from here and never constructs its own.
     pub fn auth_state(&self) -> Option<&Arc<crate::auth::state::AuthState>> {
         self.auth_state.get()
+    }
+
+    /// What this instance will forward for the playground.
+    pub fn proxy(&self) -> Option<&Arc<proxy::ProxyState>> {
+        self.proxy.as_ref()
+    }
+
+    pub fn with_proxy(mut self, proxy: Arc<proxy::ProxyState>) -> Self {
+        self.proxy = Some(proxy);
+        self
+    }
+
+    /// The outbound client, for the one route that makes an outbound request.
+    pub fn http(&self) -> Option<&Arc<dyn liyasa_core::net::HttpClient>> {
+        self.http.as_ref()
+    }
+
+    pub fn with_http(mut self, http: Arc<dyn liyasa_core::net::HttpClient>) -> Self {
+        self.http = Some(http);
+        self
     }
 
     /// The search index this instance serves queries from.
@@ -885,6 +915,9 @@ pub fn router(state: Arc<AppState>) -> Router {
             // text of every page including the restricted ones, so what a
             // reader may see is decided per query and never by serving it.
             .route("/_liyasa/search", get(search::handler))
+            // API-41. The pool for this prefix was built before the endpoint
+            // and pointed at nothing for weeks (defect 150).
+            .route("/_liyasa/proxy", post(proxy::handler))
             .route("/_liyasa/api/v1/content", get(content))
             .route("/_liyasa/api/v1/jobs", get(jobs::list))
             .route("/_liyasa/api/v1/jobs/{id}", get(jobs::get))
