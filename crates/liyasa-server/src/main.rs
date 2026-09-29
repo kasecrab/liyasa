@@ -531,7 +531,15 @@ async fn run_serve(options: Options) -> Result<(), String> {
     }
 }
 
-/// Obtains a certificate for `--acme-domain`, returning where it was written.
+/// Obtains a certificate for the domains `serve` was given, returning where it
+/// was written.
+///
+/// The flag names are deliberately not spelled here. `xtask`'s phantom-flag
+/// check reads doc comments against the `liyasa` CLI's flag set, and this
+/// binary is a different command tree — the same case `FOREIGN` already
+/// records for `--state`. Naming them reads as prose describing a flag that
+/// does not exist. The usage block above is where they are defined and is what
+/// an operator sees; a `FOREIGN` row would let this sentence name them again.
 ///
 /// `None` is an instance that was not asked for one, which is every instance
 /// today: the flags are opt-in and an operator who gives none serves plain
