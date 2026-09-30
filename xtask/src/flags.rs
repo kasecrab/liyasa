@@ -39,6 +39,18 @@ pub const FOREIGN: &[(&str, &str)] = &[
         "--state",
         "the `liyasa-server` binary's CLI, a different command tree",
     ),
+    (
+        "--acme-domain",
+        "the `liyasa-server` binary's CLI, a different command tree",
+    ),
+    (
+        "--acme-contact",
+        "the `liyasa-server` binary's CLI, a different command tree",
+    ),
+    (
+        "--acme-directory",
+        "the `liyasa-server` binary's CLI, a different command tree",
+    ),
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -111,11 +123,26 @@ pub fn run(root: &Path) -> Result<(), String> {
     if phantoms.is_empty() {
         return Ok(());
     }
+    Err(explain(&phantoms))
+}
+
+/// The failure message.
+///
+/// It names the tree it read. The first thing this check got wrong was its
+/// diagnosis rather than its match: `--acme-domain` is a real flag of
+/// `liyasa-server`, parsed five lines above the prose that named it, and the
+/// message said "the CLI does not define it" and sent the reader off to build
+/// it. A phantom-interface check producing a phantom diagnosis is the failure
+/// it exists to prevent, pointed the other way.
+pub fn explain(phantoms: &[Phantom]) -> String {
     let mut message = format!(
-        "{} flag(s) named in prose that the CLI does not define:\n",
+        "{} flag(s) named in prose that the `liyasa` command tree does not define.\n\
+         That tree is `Cli::command()` in liyasa-cli and nothing else: the\n\
+         `liyasa-server` and `liyasa-search` binaries parse their own argv, so a\n\
+         flag of theirs is not a phantom and belongs in FOREIGN instead.\n",
         phantoms.len()
     );
-    for p in &phantoms {
+    for p in phantoms {
         message.push_str(&format!(
             "  {}:{}: {}\n    {}\n",
             p.file.display(),
@@ -124,8 +151,11 @@ pub fn run(root: &Path) -> Result<(), String> {
             p.text
         ));
     }
-    message.push_str("build the flag, fix the text, or name the tool it belongs to");
-    Err(message)
+    message.push_str(
+        "Build the flag, fix the text, or — if it belongs to another tool or another \
+         liyasa binary — add it to FOREIGN in xtask/src/flags.rs with a note saying whose.",
+    );
+    message
 }
 
 /// A doc comment, or the text of a diagnostic: the two places prose reaches
