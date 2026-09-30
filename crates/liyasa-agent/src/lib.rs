@@ -22,6 +22,7 @@
 //! testable against a mock and the address policy of §30.2.3 applies.
 
 pub mod agents_md;
+pub mod bug;
 pub mod config;
 pub mod diff;
 pub mod dispatch;
