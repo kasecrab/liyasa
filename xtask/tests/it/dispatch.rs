@@ -83,8 +83,8 @@ fn every_arm_for_a_gated_module_is_gated_too() {
                  Under wasm the name is not in scope and the arm references it, which is a\n\
                  compile error no local gate reaches: bin/gate does not build for\n\
                  wasm32-wasip1. Reproduce with\n\
-                 \x20 RUSTFLAGS=' ' cargo build -p xtask --target wasm32-wasip1\n\
-                 (the space defeats bin/buildenv's mold flag, which rust-lld rejects)."
+                 \x20 RUSTFLAGS= cargo build -p xtask --target wasm32-wasip1\n\
+                 (empty, to drop the host's mold flag, which rust-lld rejects)."
             ),
         }
     }
