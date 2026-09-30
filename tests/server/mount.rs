@@ -726,6 +726,13 @@ fn a_subtree_that_declares_no_permission_is_saying_something_deliberate() {
                 subtree.permission.is_none(),
                 "the MCP tools authorize per page, not per subtree"
             ),
+            // AST-11: the assistant answers readers a dashboard credential
+            // would exclude, so it authorizes per request inside `ask`
+            // against `config.assistant.availability` rather than here.
+            "assistant" => assert!(
+                subtree.permission.is_none(),
+                "the assistant gates on availability per reader, not on one subtree permission"
+            ),
             // Every analytics read is somebody's traffic, search queries or
             // feedback text, so the subtree is gated as a whole rather than
             // per handler.

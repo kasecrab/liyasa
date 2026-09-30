@@ -147,6 +147,23 @@ pub fn subtrees() -> &'static [Subtree] {
             mount: crate::mcp::mount,
         },
         Subtree {
+            // AST-11. `permission: None` is the "authorizes inside its own
+            // handlers" case this field's doc comment describes, not a
+            // shortcut: `ask` reads the `Principal` out of the request
+            // extensions and calls `may_use(config.assistant.availability)`
+            // before it retrieves anything, which is finer than one permission
+            // for the whole subtree — a site may offer the assistant to
+            // readers it does not offer a dashboard to.
+            //
+            // WP-18 built and merged the handler, the gate, the router and the
+            // pool. This line is what `routes::application` needs to compose
+            // any of it, and it is in this package's file, which is why the
+            // endpoint sat complete and unserved through a merge round.
+            name: "assistant",
+            permission: None,
+            mount: crate::assistant::mount,
+        },
+        Subtree {
             name: "analytics",
             permission: Some(Permission::DashboardRead),
             mount: analytics,
