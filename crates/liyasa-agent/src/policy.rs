@@ -23,10 +23,11 @@ use serde::{Deserialize, Serialize};
 use crate::trust::Restrictions;
 
 /// `ai.agent.policy`, or an automation's own.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Policy {
     /// Always open a pull request or a workspace draft for review. The default.
+    #[default]
     Proposal,
     /// Merge when validation, verification, CI and the output gates pass and the
     /// change is within limits.
@@ -34,12 +35,6 @@ pub enum Policy {
     /// Push to the deploy branch. Only with an admin's consent and branch
     /// protection's.
     Direct,
-}
-
-impl Default for Policy {
-    fn default() -> Self {
-        Self::Proposal
-    }
 }
 
 impl Policy {

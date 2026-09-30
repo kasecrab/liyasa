@@ -29,6 +29,7 @@ pub mod hosts;
 pub mod injection;
 pub mod policy;
 pub mod record;
+pub mod repos;
 pub mod scope;
 pub mod secrets;
 pub mod tools;
