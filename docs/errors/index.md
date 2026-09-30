@@ -116,7 +116,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`E0314`](/errors/E0314) | Error | Missing required prop |
 | [`E0315`](/errors/E0315) | Error | Prop type mismatch |
 | [`W0316`](/errors/W0316) | Warning | Unknown prop |
-| [`E0317`](/errors/E0317) | Error | Directive inside an inline context |
+| [`E0317`](/errors/E0317) | Error | Component written in the wrong directive form |
 | [`E0318`](/errors/E0318) | Error | Explicit block ID duplicated on the page |
 | [`W0319`](/errors/W0319) | Warning | Literal directive marker prefix (`<!--ly:`) found in source; escaped |
 | [`E0320`](/errors/E0320) | Error | Untrusted (below `operator`) value contains a line break and was rejected from interpolation |

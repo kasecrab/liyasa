@@ -82,7 +82,7 @@ E0313 = { severity = "error", crate = "liyasa-markdown", title = "Unknown compon
 E0314 = { severity = "error", crate = "liyasa-markdown", title = "Missing required prop" }
 E0315 = { severity = "error", crate = "liyasa-markdown", title = "Prop type mismatch" }
 W0316 = { severity = "warning", crate = "liyasa-markdown", title = "Unknown prop" }
-E0317 = { severity = "error", crate = "liyasa-markdown", title = "Directive inside an inline context" }
+E0317 = { severity = "error", crate = "liyasa-markdown", title = "Component written in the wrong directive form" }
 E0318 = { severity = "error", crate = "liyasa-markdown", title = "Explicit block ID duplicated on the page" }
 W0319 = { severity = "warning", crate = "liyasa-markdown", title = "Literal directive marker prefix (`<!--ly:`) found in source; escaped" }
 E0320 = { severity = "error", crate = "liyasa-markdown", title = "Untrusted (below `operator`) value contains a line break and was rejected from interpolation" }

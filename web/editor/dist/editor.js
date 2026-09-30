@@ -4628,7 +4628,7 @@ const MESSAGES                               = {
   E0313: { plain: "There is no component by this name in the project.", fix: { label: "Use the suggested name", action: "rename-to-suggestion" } },
   E0314: { plain: "This component needs a setting that was not given.", fix: { label: "Add it", action: "add-required-prop" } },
   E0315: { plain: "This setting was given as the wrong kind of value — a number where text was expected, or the other way round." },
-  E0317: { plain: "A `:::` block cannot sit in the middle of a sentence; it has to start on its own line." },
+  E0317: { plain: "This component was written in the wrong form. One that wraps content needs `:::name` with a closing `:::`; one that stands alone needs `::name`; one that goes inside a sentence needs `:name[text]`. The message says which kind this one is." },
   E0318: { plain: "Two blocks on this page were given the same `{#id}`, so links to it would be ambiguous." },
   E0320: { plain: "A value from outside the project has a line break in it, which would break the page apart. It was refused." },
   E0322: { plain: "This page nests things inside each other more deeply than Liyasa will read. Flatten part of it." },
