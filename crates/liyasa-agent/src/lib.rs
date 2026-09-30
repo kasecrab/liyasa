@@ -23,4 +23,5 @@
 
 pub mod frontmatter;
 pub mod scope;
+pub mod secrets;
 pub mod trust;
