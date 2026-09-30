@@ -1,0 +1,28 @@
+[package]
+name = "liyasa-agent"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The writing agent: trust levels, the tool surface, the output gates, and the policy engine (PRD §30.2.2, §31)."
+
+[lints]
+workspace = true
+
+[dependencies]
+liyasa-ai = { path = "../liyasa-ai", version = "0.1.0" }
+liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+jsonschema.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"
