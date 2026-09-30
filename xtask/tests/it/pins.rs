@@ -1,6 +1,6 @@
-//! The two pinned sets are current (RFC 0008).
+//! The pinned sets are current (RFC 0008).
 //!
-//! Both should only shrink. The data lives in `tests/pins/`, which
+//! Each should only shrink. The data lives in `tests/pins/`, which
 //! `bin/path-guard` lets every package write, so whoever fixes a flag or makes
 //! a code emit lowers the pin in the same commit rather than leaving it for
 //! WP-00 to chase.
@@ -23,7 +23,11 @@ fn the_pinned_sets_match_the_tree() {
 #[test]
 fn the_pin_files_carry_their_own_instructions() {
     // A bare list of codes teaches nobody what to do when the test fails.
-    for file in [pins::UNRAISED_CODES, pins::PHANTOM_FLAGS] {
+    for file in [
+        pins::UNRAISED_CODES,
+        pins::PHANTOM_FLAGS,
+        pins::PID_FIXTURES,
+    ] {
         let text = std::fs::read_to_string(root().join(file)).expect("the pin file is readable");
         assert!(
             text.contains("pins --update"),
@@ -38,7 +42,11 @@ fn the_pin_files_carry_their_own_instructions() {
 
 #[test]
 fn a_pin_file_holds_only_entries() {
-    for file in [pins::UNRAISED_CODES, pins::PHANTOM_FLAGS] {
+    for file in [
+        pins::UNRAISED_CODES,
+        pins::PHANTOM_FLAGS,
+        pins::PID_FIXTURES,
+    ] {
         for entry in pins::read(&root(), file).expect("the pin file parses") {
             assert!(
                 !entry.contains(char::is_whitespace),

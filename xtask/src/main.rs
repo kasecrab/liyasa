@@ -11,7 +11,7 @@ use xtask::{
     workflows,
 };
 #[cfg(not(target_family = "wasm"))]
-use xtask::{flags, pins, preflight};
+use xtask::{fixtures, flags, pins, preflight};
 
 const USAGE: &str = "\
 usage: cargo run -p xtask -- <command>
@@ -20,7 +20,11 @@ usage: cargo run -p xtask -- <command>
       Regenerate schemas/ from the frozen Rust types.
 
   flags
-      Report prose naming a flag the CLI does not define.
+      Report prose naming a flag the `liyasa` command tree does not define.
+
+  fixtures
+      Report fixture paths keyed on process::id() alone, which collide under
+      `cargo test` and cannot collide under the gate's nextest.
 
   licences
       Check deny.toml against NFR-15's allow list and every bundled asset
@@ -93,6 +97,7 @@ fn dispatch(args: &[String]) -> Result<(), String> {
         }
         #[cfg(not(target_family = "wasm"))]
         Some("flags") => flags::run(&repo_root()),
+        Some("fixtures") => fixtures::run(&repo_root()),
         Some("licences") => licences::run(&repo_root()),
         Some("lints") => lints::run(&repo_root()),
         Some("notices") => notices::run(&repo_root()),

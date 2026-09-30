@@ -6,6 +6,7 @@ pub mod conformance;
 pub mod corpus;
 pub mod corpus_import;
 pub mod corpus_seed;
+pub mod fixtures;
 /// Native only: it reads the CLI's clap tree, and `liyasa-cli` does not build
 /// for wasm. See the target section in `Cargo.toml`.
 #[cfg(not(target_family = "wasm"))]

@@ -1,7 +1,8 @@
-//! The two pinned lists, and the command that re-derives them.
+//! The pinned lists, and the command that re-derives them.
 //!
-//! Both checks pin a set that should only shrink: the codes nothing raises
-//! (RFC 0008) and the flags prose names but the CLI does not define. The lists
+//! Each pins a set that should only shrink: the codes nothing raises
+//! (RFC 0008), the flags prose names but the CLI does not define, and the
+//! fixture paths keyed on the process id alone. The lists
 //! live under `tests/pins/` rather than beside their checks for one reason —
 //! `bin/path-guard`'s always-writable list covers top-level `tests/` but not
 //! `crates/liyasa-core/tests/` or `xtask/`. A package that fixes a flag or
@@ -16,6 +17,7 @@ use std::path::{Path, PathBuf};
 
 pub const UNRAISED_CODES: &str = "tests/pins/unraised-codes.txt";
 pub const PHANTOM_FLAGS: &str = "tests/pins/phantom-flags.txt";
+pub const PID_FIXTURES: &str = "tests/pins/pid-keyed-fixtures.txt";
 
 const CODES_HEADER: &str = "\
 # Codes registered in codes.toml that nothing in crates/*/src/ raises (RFC 0008).
@@ -38,6 +40,31 @@ const FLAGS_HEADER: &str = "\
 #
 # Regenerate with: cargo run -p xtask -- pins --update
 ";
+
+const FIXTURES_HEADER: &str = "\
+# Fixture paths built from `process::id()` and nothing else (defect 248).
+#
+# `bin/gate` runs nextest, one process per test, so two tests keyed on the pid
+# alone get different directories and the gate stays green. CI runs `cargo
+# test`, which threads them through ONE process, so they get the same directory
+# and one test's cleanup deletes what the other is asserting against. The gate
+# cannot see this class at all.
+#
+# Each line is safe only while exactly one test reaches it. DELETE a line by
+# interpolating something else as well — the test name, a counter, the thread
+# id — which is what every other fixture in the tree already does.
+#
+# Regenerate with: cargo run -p xtask -- pins --update
+";
+
+/// Said when the pid-fixture set GREW, because the pin file's own header is
+/// the second thing the reader meets and the mechanism is not guessable: the
+/// gate cannot reproduce this failure at all.
+const PID_FIXTURES_HINT: &str = "\
+  A fixture path keyed on process::id() alone collides on CI and cannot collide
+  under bin/gate: nextest is one process per test, `cargo test` is threads in
+  one process. Interpolate the test name or a counter as well. Pinning the new
+  line instead is only correct while exactly one test reaches it.";
 
 /// The entries of a pin file, comments and blanks dropped.
 pub fn read(root: &Path, file: &str) -> Result<BTreeSet<String>, String> {
@@ -80,6 +107,10 @@ pub fn run(root: &Path, update: bool) -> Result<(), String> {
         .into_iter()
         .map(|p| p.flag)
         .collect();
+    let fixtures: BTreeSet<String> = crate::fixtures::audit(root)?
+        .into_iter()
+        .map(|f| f.entry(root))
+        .collect();
 
     if update {
         let mut changed = Vec::new();
@@ -89,11 +120,15 @@ pub fn run(root: &Path, update: bool) -> Result<(), String> {
         if write(root, PHANTOM_FLAGS, FLAGS_HEADER, &flags)? {
             changed.push(PHANTOM_FLAGS);
         }
+        if write(root, PID_FIXTURES, FIXTURES_HEADER, &fixtures)? {
+            changed.push(PID_FIXTURES);
+        }
         if changed.is_empty() {
             println!(
-                "pins: already current ({} codes, {} flags)",
+                "pins: already current ({} codes, {} flags, {} pid fixtures)",
                 codes.len(),
-                flags.len()
+                flags.len(),
+                fixtures.len()
             );
         } else {
             println!("pins: rewrote {} — commit the diff", changed.join(" and "));
@@ -102,19 +137,27 @@ pub fn run(root: &Path, update: bool) -> Result<(), String> {
     }
 
     let mut stale = Vec::new();
-    for (file, actual) in [(UNRAISED_CODES, &codes), (PHANTOM_FLAGS, &flags)] {
+    for (file, actual, gained_hint) in [
+        (UNRAISED_CODES, &codes, ""),
+        (PHANTOM_FLAGS, &flags, ""),
+        (PID_FIXTURES, &fixtures, PID_FIXTURES_HINT),
+    ] {
         let pinned = read(root, file)?;
         let gained: Vec<&String> = actual.difference(&pinned).collect();
         let lost: Vec<&String> = pinned.difference(actual).collect();
         if !gained.is_empty() || !lost.is_empty() {
             stale.push(format!("{file}: new {gained:?}, gone {lost:?}"));
+            if !gained.is_empty() && !gained_hint.is_empty() {
+                stale.push(gained_hint.to_owned());
+            }
         }
     }
     if stale.is_empty() {
         println!(
-            "pins: current ({} codes, {} flags)",
+            "pins: current ({} codes, {} flags, {} pid fixtures)",
             codes.len(),
-            flags.len()
+            flags.len(),
+            fixtures.len()
         );
         return Ok(());
     }

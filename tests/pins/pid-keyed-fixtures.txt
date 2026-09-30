@@ -1,0 +1,37 @@
+# Fixture paths built from `process::id()` and nothing else (defect 248).
+#
+# `bin/gate` runs nextest, one process per test, so two tests keyed on the pid
+# alone get different directories and the gate stays green. CI runs `cargo
+# test`, which threads them through ONE process, so they get the same directory
+# and one test's cleanup deletes what the other is asserting against. The gate
+# cannot see this class at all.
+#
+# Each line is safe only while exactly one test reaches it. DELETE a line by
+# interpolating something else as well — the test name, a counter, the thread
+# id — which is what every other fixture in the tree already does.
+#
+# Regenerate with: cargo run -p xtask -- pins --update
+crates/liyasa-build/src/cache/index.rs:liyasa-build-index-corrupt
+crates/liyasa-build/src/cache/mod.rs:liyasa-build-cache-absent
+crates/liyasa-build/src/hosting/mod.rs:liyasa-hosting
+crates/liyasa-build/src/watch.rs:liyasa-watch
+crates/liyasa-cli/src/browser.rs:liyasa-browser
+crates/liyasa-cli/src/lock.rs:liyasa-lock
+crates/liyasa-cli/src/lock.rs:liyasa-lock-bad
+crates/liyasa-cli/src/update.rs:.liyasa-previous
+crates/liyasa-cli/src/update.rs:.liyasa-update
+crates/liyasa-cli/src/update.rs:liyasa-replace
+crates/liyasa-config/tests/it/vfs.rs:liyasa-outside
+crates/liyasa-openapi/tests/it/api_32_verify.rs:liyasa-api-32
+crates/liyasa-server/src/deploy/worker.rs:liyasa-settle
+crates/liyasa-server/src/deploy/worker.rs:liyasa-settle-same
+crates/liyasa-server/src/routes/acme.rs:liyasa-acme
+crates/liyasa-server/src/routes/acme.rs:liyasa-acme-age
+tests/build/cm_84_files.rs:liyasa-cm-84-headers
+tests/build/src_05_index_written.rs:liyasa-defect-72
+tests/build/src_05_index_written.rs:liyasa-defect-72b
+tests/server/mcp_01_server.rs:liyasa-mcp01-base
+xtask/tests/it/lints.rs:liyasa-nightly
+xtask/tests/it/lints.rs:liyasa-pin
+xtask/tests/it/preflight.rs:liyasa-preflight
+xtask/tests/it/preflight.rs:liyasa-preflight-empty
