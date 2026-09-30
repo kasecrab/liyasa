@@ -30,6 +30,7 @@ pub mod frontmatter;
 pub mod gates;
 pub mod hosts;
 pub mod injection;
+pub mod model;
 pub mod policy;
 pub mod proposal;
 pub mod record;
@@ -37,5 +38,7 @@ pub mod repos;
 pub mod run;
 pub mod scope;
 pub mod secrets;
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 pub mod tools;
 pub mod trust;

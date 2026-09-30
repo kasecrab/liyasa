@@ -13,6 +13,7 @@ workspace = true
 [dependencies]
 liyasa-ai = { path = "../liyasa-ai", version = "0.1.0" }
 liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+futures-core.workspace = true
 jsonschema.workspace = true
 regex.workspace = true
 serde.workspace = true
@@ -20,7 +21,15 @@ serde_json.workspace = true
 thiserror.workspace = true
 url.workspace = true
 
+[features]
+# A scripted model and an in-memory page tree, for this crate's own tests and for
+# the acceptance tests in `tests/agent/`. Behind a feature so neither reaches a
+# shipped binary; `tests/Cargo.toml` turns it on as a dev-dependency, the same way
+# it does for `liyasa-git`.
+testing = []
+
 [dev-dependencies]
+liyasa-agent = { path = ".", version = "0.1.0", features = ["testing"] }
 tokio = { workspace = true, features = ["rt", "macros"] }
 
 [[test]]

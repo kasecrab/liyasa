@@ -2544,7 +2544,9 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 name = "liyasa-agent"
 version = "0.1.0"
 dependencies = [
+ "futures-core",
  "jsonschema",
+ "liyasa-agent",
  "liyasa-ai",
  "liyasa-core",
  "regex",
