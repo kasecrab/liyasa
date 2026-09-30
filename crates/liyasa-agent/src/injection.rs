@@ -87,13 +87,25 @@ impl Phrase {
         Self { text, folded }
     }
 
-    /// Whether this phrase appears in already-folded text.
+    /// Whether this phrase appears in already-folded text, under either fold.
     pub fn found_in(&self, haystack: &Folded) -> bool {
-        if self.folded.squeezed.is_empty() {
-            return false;
-        }
-        haystack.spaced.contains(self.folded.spaced.as_str())
-            || haystack.squeezed.contains(self.folded.squeezed.as_str())
+        self.found_spaced(haystack) || self.found_squeezed(haystack)
+    }
+
+    /// The word-boundary fold only.
+    ///
+    /// This is the one a style rule wants. A forbidden phrase is often a single
+    /// word — `simply`, `just`, `easy` — and the squeezed fold would match
+    /// `simply` inside `simplify`. An attacker evading a style guide is not a
+    /// threat model; an attacker evading the injection corpus is, which is why
+    /// that one uses both.
+    pub fn found_spaced(&self, haystack: &Folded) -> bool {
+        !self.folded.squeezed.is_empty() && haystack.spaced.contains(self.folded.spaced.as_str())
+    }
+
+    fn found_squeezed(&self, haystack: &Folded) -> bool {
+        !self.folded.squeezed.is_empty()
+            && haystack.squeezed.contains(self.folded.squeezed.as_str())
     }
 }
 
@@ -323,6 +335,20 @@ Validation runs before a proposal is opened, and a reviewer sees the result.
                 "`{phrase}` is one word, which the squeezed fold would match inside other words"
             );
         }
+    }
+
+    #[test]
+    fn the_spaced_fold_alone_does_not_match_inside_a_word() {
+        // What `agents_md` relies on: a one-word style rule must not fire on a
+        // longer word that contains it.
+        let phrase = Phrase::new("simply");
+        assert!(phrase.found_spaced(&fold("simply run the installer")));
+        assert!(!phrase.found_spaced(&fold("this will simplify the setup")));
+        // And the squeezed fold, which the injection corpus also uses, matches
+        // across a boundary the spaced one keeps.
+        let two_words = Phrase::new("click here");
+        assert!(!two_words.found_spaced(&fold("clickhere to start")));
+        assert!(two_words.found_in(&fold("clickhere to start")));
     }
 
     #[test]
