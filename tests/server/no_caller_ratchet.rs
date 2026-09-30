@@ -306,12 +306,18 @@ fn a_test_only_caller_does_not_count_as_a_caller() {
 /// intentions that reads as a list of facts, and four entries sat in it for
 /// weeks pointing at nothing (defect 150). Each has its mechanism built and
 /// unit-tested; what is missing is the route.
-const UNROUTED_TODAY: &[(&str, &str)] = &[(
-    "/_liyasa/assistant",
-    "defect 146: the retrieval filter is written and tested — `ReaderContext.groups` \
-         feeds `ChunkQuery.groups` and the store applies it during retrieval (RFC 1807) — \
-         but `ReaderContext` is constructed only in tests, because no handler builds one.",
-)];
+///
+/// Empty since defect 146 closed: `crate::assistant::http` serves
+/// `/_liyasa/assistant` and builds the `ReaderContext` that was previously
+/// constructed only in tests.
+///
+/// **What that does not prove is what this census cannot see.** A `.route(`
+/// literal existing is not `routes::application` composing it, and the
+/// subtree line lives in `routes/mount.rs`. The other half is
+/// `ast_11_assistant_endpoint::the_application_the_binary_runs_serves_the_assistant_endpoint`,
+/// which asks the composed object and skips with its reason while that line is
+/// absent.
+const UNROUTED_TODAY: &[(&str, &str)] = &[];
 
 /// The `starts_with("/_liyasa/...")` prefixes `pool_for` claims.
 ///
