@@ -3,11 +3,19 @@ name: platforms
 # NFR-41: Linux (glibc and musl, x86_64 and aarch64), macOS 13+, Windows 10+
 # for the CLI, with the server on Windows best effort.
 #
-# `cargo check`, not `cargo test`: a target Liyasa cannot run its suite on —
-# every one of these but the host — would otherwise need an emulator per job to
-# prove nothing the host has not already proved. What this catches is a
-# dependency that does not exist off Linux, a `cfg` that forgot a platform, and
-# a path assumption in a build script.
+# `cargo check`, not `cargo test`: most of this matrix has no runner of its own
+# architecture, so running the suite would need an emulator per job to prove
+# nothing the host has not already proved. What this catches is a dependency
+# that does not exist off Linux, a `cfg` that forgot a platform, and a path
+# assumption in a build script.
+#
+# Two entries are the exception and `platforms-native.yml` covers them:
+# `macos-latest` IS aarch64-apple-darwin and `windows-latest` IS
+# x86_64-pc-windows-msvc, so on those two the suite can actually run. That
+# workflow is `workflow_dispatch` plus a weekly schedule rather than `push`,
+# because the suite has never run off Linux and the first run is likelier to
+# find path separators than to pass — findings worth having, but not worth
+# blocking every package's merge on while nobody owns them.
 
 on:
   push:

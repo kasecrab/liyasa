@@ -1,0 +1,81 @@
+name: platforms-native
+
+# NFR-41 asks for macOS 13+ and Windows 10+ as supported platforms. `platforms`
+# proves they COMPILE — `cargo check --target`, deliberately, because most of
+# that matrix has no runner of its own architecture and an emulator per job
+# would prove nothing the host has not.
+#
+# Two of them do have a native runner. `macos-latest` IS aarch64-apple-darwin
+# and `windows-latest` IS x86_64-pc-windows-msvc, so on those two the suite can
+# actually run, and "supported" can mean something stronger than "compiles".
+#
+# IT IS NOT ON THE PATH THAT GATES `main`, ON PURPOSE. This suite has never run
+# off Linux; the first run is far more likely to find path separators, line
+# endings and temp-directory assumptions than to pass. Those are real defects
+# and worth having — but they belong to the packages that own the code, and a
+# red `main` blocks eleven packages from merging anything. So this is
+# `workflow_dispatch` plus a weekly schedule: it produces evidence without
+# holding the fleet hostage to it.
+#
+# Promote it to `push` once it has been green for a few weeks and somebody owns
+# the failures. Until then a red run here is a finding to route, not a blocker.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays, early UTC: a weekly signal that costs two runners and blocks
+    # nobody. Frequent enough that a platform regression is caught in days
+    # rather than at a release, rare enough not to be noise.
+    - cron: "17 4 * * 1"
+
+env:
+  CARGO_TERM_COLOR: always
+  COMMONMARK_VERSION: "0.31.2"
+  GFM_SPEC_REF: "0.29.0.gfm.13"
+
+jobs:
+  native:
+    name: ${{ matrix.name }}
+    strategy:
+      # Both platforms report, always. `fail-fast` would hide Windows behind a
+      # macOS failure, and the whole point of this workflow is which platform.
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (aarch64, native)
+            runner: macos-latest
+            packages: "--workspace"
+          # "Windows 10+ (CLI; server on Windows is best effort)", so Windows
+          # runs the CLI's own suite and not the workspace's.
+          - name: Windows (x86_64, native)
+            runner: windows-latest
+            packages: "-p liyasa-cli"
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: native-${{ matrix.runner }}
+
+      # The same corpus ci.yml builds. Without it the markdown suites read an
+      # absent corpus and report that rather than running, so the platform
+      # would be reported as passing on the strength of tests that declined to
+      # run — which is the failure `bin/self-skips` exists to make visible.
+      - name: Fetch and import the upstream suites
+        shell: bash
+        run: |
+          curl -sSfLo spec.json "https://spec.commonmark.org/${COMMONMARK_VERSION}/spec.json"
+          curl -sSfLo gfm.txt "https://raw.githubusercontent.com/github/cmark-gfm/${GFM_SPEC_REF}/test/spec.txt"
+          cargo run -p xtask -- corpus import \
+            --commonmark spec.json --commonmark-version "${COMMONMARK_VERSION}" \
+            --gfm gfm.txt --out corpus
+
+      # Absolute, for defect 147's reason: a cargo test binary runs with its
+      # CRATE root as the working directory, not the workspace root, so a
+      # relative `corpus` resolves to nothing and the guard passes by finding
+      # no corpus. `github.workspace` is absolute on every runner.
+      - name: Run the suite on this platform
+        run: cargo test ${{ matrix.packages }} --no-fail-fast
+        env:
+          LIYASA_CORPUS: ${{ github.workspace }}/corpus
