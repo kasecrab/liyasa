@@ -123,13 +123,19 @@ pub struct Models {
     pub write: Option<liyasa_ai::ModelRef>,
 }
 
-/// `ai.agent`.
+/// `ai.agent`, plus the one key outside it the agent is bound by.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentConfig {
     pub limits: Limits,
     pub context_repos: Vec<ContextRepo>,
     pub models: Models,
     pub budget: Budget,
+    /// `security.allowHosts.agentFetch`: the hosts `web_fetch` may reach.
+    ///
+    /// Empty means none. The key exists in the schema and its absence is an
+    /// operator who has not allowed anything, which is the only reading under
+    /// which an allow list is one.
+    pub fetch_hosts: crate::hosts::KnownHosts,
     /// Extra injection phrases an operator maintains (AGT-06). No schema key;
     /// RFC 2500.
     pub injection_phrases: Vec<String>,
@@ -142,6 +148,7 @@ impl Default for AgentConfig {
             context_repos: Vec::new(),
             models: Models::default(),
             budget: default_budget(),
+            fetch_hosts: crate::hosts::KnownHosts::default(),
             injection_phrases: Vec::new(),
         }
     }
@@ -183,6 +190,15 @@ impl AgentConfig {
         }
         if let Some(phrases) = agent.and_then(|a| a.get("injectionPhrases")) {
             out.injection_phrases = serde_json::from_value(phrases.clone()).unwrap_or_default();
+        }
+        if let Some(hosts) = config
+            .get("security")
+            .and_then(|s| s.get("allowHosts"))
+            .and_then(|a| a.get("agentFetch"))
+            .and_then(serde_json::Value::as_array)
+        {
+            out.fetch_hosts =
+                crate::hosts::KnownHosts::new(hosts.iter().filter_map(serde_json::Value::as_str));
         }
         out.check()?;
         Ok(out)
@@ -313,6 +329,20 @@ mod tests {
             config.models.write.as_ref().map(ToString::to_string),
             Some("anthropic:claude-opus-5-5".to_owned())
         );
+    }
+
+    #[test]
+    fn the_fetch_allow_list_is_read_and_empty_means_none() {
+        let config = AgentConfig::load(&json!({})).expect("empty");
+        assert!(config.fetch_hosts.is_empty());
+        assert!(!config.fetch_hosts.contains("docs.example.com"));
+
+        let config = AgentConfig::load(&json!({
+            "security": { "allowHosts": { "agentFetch": ["docs.example.com"] } }
+        }))
+        .expect("hosts");
+        assert!(config.fetch_hosts.contains("docs.example.com"));
+        assert!(!config.fetch_hosts.contains("evil.example"));
     }
 
     #[test]

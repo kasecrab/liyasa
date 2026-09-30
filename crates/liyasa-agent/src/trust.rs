@@ -121,9 +121,19 @@ impl Trigger {
         }
     }
 
+    /// The pages the trigger names, normalised.
+    ///
+    /// A route that does not normalise is DROPPED rather than kept. It could
+    /// never match a normalised call anyway, and dropping it makes the scope
+    /// smaller, which is the safe direction for a set that decides what a
+    /// stranger may write.
     #[must_use]
     pub fn about(mut self, routes: impl IntoIterator<Item = Route>) -> Self {
-        self.pages.extend(routes);
+        self.pages.extend(
+            routes
+                .into_iter()
+                .filter_map(|route| crate::scope::normalise_route(route.as_str())),
+        );
         self
     }
 }
@@ -157,10 +167,14 @@ pub enum WriteScope {
 }
 
 impl WriteScope {
+    /// Whether `route` is in scope. The route is normalised first, so a caller
+    /// cannot dodge the set with `/a/./b` or a trailing slash — and a route that
+    /// does not normalise is never in scope.
     pub fn allows(&self, route: &Route) -> bool {
         match self {
-            WriteScope::Anywhere => true,
-            WriteScope::Pages(pages) => pages.contains(route),
+            WriteScope::Anywhere => crate::scope::normalise_route(route.as_str()).is_some(),
+            WriteScope::Pages(pages) => crate::scope::normalise_route(route.as_str())
+                .is_some_and(|route| pages.contains(&route)),
         }
     }
 }
@@ -250,9 +264,14 @@ impl Restrictions {
             // A trusted run is still refused a path that is not in the project:
             // that is not a trust question.
             return match target {
-                Target::Unknown => Err(Denial::NotInProject {
-                    path: "<unnormalisable>".to_owned(),
-                }),
+                Target::Unknown { path } => Err(Denial::NotInProject { path: path.clone() }),
+                // A trusted run may write anywhere in the project, and a route
+                // that does not normalise is not in it.
+                Target::Page(route) if crate::scope::normalise_route(route.as_str()).is_none() => {
+                    Err(Denial::NotInProject {
+                        path: route.as_str().to_owned(),
+                    })
+                }
                 _ => Ok(()),
             };
         }
@@ -274,9 +293,7 @@ impl Restrictions {
             Target::Other => Err(Denial::Forbidden {
                 what: "anything its trigger did not name",
             }),
-            Target::Unknown => Err(Denial::NotInProject {
-                path: "<unnormalisable>".to_owned(),
-            }),
+            Target::Unknown { path } => Err(Denial::NotInProject { path: path.clone() }),
         }
     }
 }
@@ -391,8 +408,15 @@ mod tests {
         ] {
             let r = Restrictions::for_run(trust, &Trigger::new(TriggerKind::Prompt, trust));
             assert!(
-                r.permits(&Target::Unknown).is_err(),
+                r.permits(&Target::Unknown {
+                    path: "../outside".to_owned()
+                })
+                .is_err(),
                 "an unnormalisable path was permitted at {trust:?}"
+            );
+            assert!(
+                r.permits(&Target::Page(route("/a/../b"))).is_err(),
+                "a route with a traversal was permitted at {trust:?}"
             );
         }
     }

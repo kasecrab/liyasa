@@ -116,14 +116,34 @@ pub enum Target {
     /// snippet, a theme file. Refused to a restricted run, like everything the
     /// trigger did not name.
     Other,
-    /// A path that could not be normalised, or that leaves the project.
-    Unknown,
+    /// A path or route that could not be normalised, or that leaves the project.
+    Unknown { path: String },
 }
 
-/// A path that does not normalise is [`Target::Unknown`] rather than an error,
-/// so a caller cannot forget to handle it: the one refusal covers both.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NotInProject;
+/// A site route, normalised, or `None` if it is not one.
+///
+/// A route is not a path — it has a leading slash and is what a reader sees — but
+/// it needs the same treatment: `/guides/../secret` must not compare equal to
+/// anything, and a write scope holding `/guides/install` must match a call that
+/// writes `/guides/./install`. Normalising both sides is what makes the
+/// comparison a comparison rather than a string match a caller can dodge.
+///
+/// The root is `/`. Everything else has no trailing slash, which is the form
+/// [`liyasa_core::ids::Route`] documents.
+pub fn normalise_route(route: &str) -> Option<Route> {
+    if !route.starts_with('/') || route.contains('\0') || route.contains('\\') {
+        return None;
+    }
+    let mut parts = Vec::new();
+    for part in route.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => return None,
+            other => parts.push(other),
+        }
+    }
+    Some(Route::new(format!("/{}", parts.join("/"))))
+}
 
 /// The path as a `/`-separated project-relative path, or `None` if it leaves the
 /// project or cannot be read as one.
@@ -153,9 +173,12 @@ pub fn normalise(path: &str) -> Option<String> {
 impl Layout {
     /// Classifies one repository-relative path.
     pub fn classify(&self, path: &str) -> Target {
-        let Some(path) = normalise(path) else {
-            return Target::Unknown;
+        let Some(normalised) = normalise(path) else {
+            return Target::Unknown {
+                path: path.to_owned(),
+            };
         };
+        let path = normalised;
         if path == self.config_file {
             return Target::Config(ConfigArea::Unspecified);
         }
@@ -228,7 +251,9 @@ mod tests {
         ] {
             assert_eq!(
                 layout.classify(hostile),
-                Target::Unknown,
+                Target::Unknown {
+                    path: hostile.to_owned()
+                },
                 "`{hostile}` classified as something a restricted run could write"
             );
         }
@@ -284,6 +309,36 @@ mod tests {
             Layout::default().classify("docs/AGENTS.md"),
             Target::AgentsMd
         );
+    }
+
+    #[test]
+    fn a_route_normalises_and_refuses_a_traversal() {
+        assert_eq!(
+            normalise_route("/guides/install"),
+            Some(Route::new("/guides/install"))
+        );
+        assert_eq!(
+            normalise_route("/guides/./install"),
+            Some(Route::new("/guides/install"))
+        );
+        assert_eq!(
+            normalise_route("/guides//install"),
+            Some(Route::new("/guides/install"))
+        );
+        assert_eq!(
+            normalise_route("/guides/install/"),
+            Some(Route::new("/guides/install"))
+        );
+        assert_eq!(normalise_route("/"), Some(Route::new("/")));
+        for hostile in [
+            "/guides/../secret",
+            "/..",
+            "guides/install",
+            "/a\\b",
+            "/a\0b",
+        ] {
+            assert_eq!(normalise_route(hostile), None, "`{hostile}` normalised");
+        }
     }
 
     #[test]

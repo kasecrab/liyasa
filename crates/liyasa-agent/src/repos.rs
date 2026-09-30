@@ -41,6 +41,26 @@ fn covers(prefix: &str, path: &str) -> bool {
     path == prefix || path.starts_with(&format!("{prefix}/"))
 }
 
+/// Whether a repository may be reached at all: configured, and with something in
+/// its allow list.
+///
+/// `search_repo` names no path, so this is the check it gets. The results it
+/// returns are filtered by [`permits`] per hit, where the path is known.
+pub fn permits_repo(repos: &[ContextRepo], repo: &str) -> Result<(), RepoDenial> {
+    let Some(configured) = repos.iter().find(|r| r.name == repo) else {
+        return Err(RepoDenial::Unknown {
+            repo: repo.to_owned(),
+        });
+    };
+    if configured.allow.is_empty() {
+        return Err(RepoDenial::NotAllowed {
+            repo: repo.to_owned(),
+            path: "anything".to_owned(),
+        });
+    }
+    Ok(())
+}
+
 /// Decides one read of one context repository.
 pub fn permits(repos: &[ContextRepo], repo: &str, path: &str) -> Result<(), RepoDenial> {
     let Some(configured) = repos.iter().find(|r| r.name == repo) else {
@@ -163,6 +183,18 @@ mod tests {
     fn a_normalised_path_still_matches_its_prefix() {
         assert_eq!(permits(&repos(), "acme/api", "./src/lib.rs"), Ok(()));
         assert_eq!(permits(&repos(), "acme/api", "src//lib.rs"), Ok(()));
+    }
+
+    #[test]
+    fn a_repo_level_check_needs_a_configured_repo_with_an_allow_list() {
+        assert_eq!(permits_repo(&repos(), "acme/api"), Ok(()));
+        assert!(permits_repo(&repos(), "acme/closed").is_err());
+        assert_eq!(
+            permits_repo(&repos(), "someone/else"),
+            Err(RepoDenial::Unknown {
+                repo: "someone/else".to_owned()
+            })
+        );
     }
 
     #[test]

@@ -23,6 +23,7 @@
 
 pub mod config;
 pub mod diff;
+pub mod dispatch;
 pub mod frontmatter;
 pub mod gates;
 pub mod hosts;
