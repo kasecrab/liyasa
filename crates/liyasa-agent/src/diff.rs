@@ -321,7 +321,7 @@ mod tests {
     fn a_caller_cannot_understate_the_size_of_a_change() {
         // There is no field to set. The only way to report a small change is to
         // make one.
-        let change = FileChange::modified("a.md", "", &"x\n".repeat(500));
+        let change = FileChange::modified("a.md", "", "x\n".repeat(500));
         assert_eq!(change.lines().added, 500);
     }
 

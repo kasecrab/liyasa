@@ -24,6 +24,7 @@
 pub mod config;
 pub mod diff;
 pub mod frontmatter;
+pub mod gates;
 pub mod hosts;
 pub mod injection;
 pub mod scope;

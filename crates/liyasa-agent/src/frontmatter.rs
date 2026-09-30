@@ -112,17 +112,27 @@ impl Access {
     }
 }
 
+/// The comparison could not be made: a block exists on one side and does not
+/// parse. A named type rather than `()`, because the gate turns this into a
+/// rejection and the reason it prints is this error's own words.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("the front matter no longer parses, so the access fields cannot be compared")]
+pub struct Unreadable;
+
 /// Which watched fields a change to a page touched.
 ///
 /// `Err` says the comparison could not be made, which the gate treats as a
 /// rejection rather than as no change.
-pub fn changed_access(before: Option<&str>, after: Option<&str>) -> Result<Vec<&'static str>, ()> {
+pub fn changed_access(
+    before: Option<&str>,
+    after: Option<&str>,
+) -> Result<Vec<&'static str>, Unreadable> {
     let read_side = |text: Option<&str>| match text {
         None => Some(Access::default()),
         Some(text) => Access::of(&read(text)),
     };
     let (Some(before), Some(after)) = (read_side(before), read_side(after)) else {
-        return Err(());
+        return Err(Unreadable);
     };
     Ok(Access::changed(&before, &after))
 }
@@ -191,7 +201,7 @@ mod tests {
     fn breaking_the_yaml_is_a_comparison_that_cannot_be_made() {
         let before = page("groups: [staff]\n");
         let after = page("groups: [staff\n");
-        assert_eq!(changed_access(Some(&before), Some(&after)), Err(()));
+        assert_eq!(changed_access(Some(&before), Some(&after)), Err(Unreadable));
     }
 
     #[test]
