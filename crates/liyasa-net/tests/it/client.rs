@@ -16,7 +16,35 @@ fn client() -> Client {
     Client::new(ClientOptions::default()).expect("a client")
 }
 
+/// The policy every test here shares, with a timeout no assertion depends on.
+///
+/// It was two seconds, and on 2026-09-30 that cost the fleet a merge: the
+/// integrate chain gate went RED on a branch touching only
+/// `crates/liyasa-analytics/`, because
+/// `a_redirect_that_leaves_the_allow_list_stops_at_that_hop` and
+/// `a_body_past_max_bytes_is_too_large_with_or_without_a_length_header` both
+/// returned `Err(Timeout)`. Re-run on the same tip under a HIGHER load average
+/// they passed in 0.024s — so it is not a gradient, it is a loopback fetch that
+/// never completed under five concurrent cargo builds at `--test-threads 2`.
+///
+/// Neither test is about timing. Both assert policy: a redirect leaving the
+/// allow list, a body past `max_bytes`. A wall-clock budget they do not need is
+/// a way for them to fail for a reason they are not testing, and a spurious
+/// chain-gate RED is indistinguishable from a real one until somebody re-runs
+/// it by hand — which spends other packages' escalations under the
+/// two-reds-for-one-cause rule.
+///
+/// [`impatient`] keeps the short budget for the one test that does assert it.
 fn policy(allow_private: bool, purpose: Purpose) -> HttpPolicy {
+    HttpPolicy {
+        timeout: Duration::from_secs(30),
+        ..impatient(allow_private, purpose)
+    }
+}
+
+/// The same policy with a budget short enough to assert against, for the test
+/// whose subject IS the timeout.
+fn impatient(allow_private: bool, purpose: Purpose) -> HttpPolicy {
     HttpPolicy {
         allow_hosts: HostSet(vec![HostPattern::Exact("127.0.0.1".to_owned())]),
         deny_hosts: HostSet::default(),
@@ -226,7 +254,10 @@ async fn the_total_timeout_covers_a_slow_body() {
     let server = server::start().await;
     let started = std::time::Instant::now();
     let result = client()
-        .fetch(get(server.url("/slow")), &policy(true, Purpose::LinkCheck))
+        .fetch(
+            get(server.url("/slow")),
+            &impatient(true, Purpose::LinkCheck),
+        )
         .await;
     assert!(matches!(result, Err(NetError::Timeout)), "{result:?}");
     assert!(started.elapsed() < Duration::from_secs(4));
