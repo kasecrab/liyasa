@@ -22,6 +22,7 @@
 //! testable against a mock and the address policy of §30.2.3 applies.
 
 pub mod frontmatter;
+pub mod hosts;
 pub mod injection;
 pub mod scope;
 pub mod secrets;
