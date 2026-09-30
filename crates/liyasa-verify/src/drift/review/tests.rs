@@ -347,3 +347,151 @@ fn a_date_before_the_epoch_is_read_rather_than_overflowing() {
         Duration::from_secs(DAY)
     );
 }
+
+/// The end of the seam WP-01 opened: config JSON in, cadences out, with the
+/// two schema forms unfolded by `liyasa_config::review::review_cadence` so
+/// nothing here branches on which one an operator wrote.
+fn from_json(config: serde_json::Value) -> Cadence {
+    Cadence::from_config(&liyasa_config::review::review_cadence(&config))
+}
+
+#[test]
+fn the_plain_string_form_sets_one_cadence_for_the_whole_site() {
+    let cadence = from_json(serde_json::json!({
+        "content": { "reviewCadence": "30d" }
+    }));
+    assert_eq!(cadence.default_cadence(), Duration::from_secs(30 * DAY));
+    assert_eq!(
+        cadence.for_route(&Route::new("/reference/api/pets")),
+        Duration::from_secs(30 * DAY),
+        "a plain string has no overrides to find"
+    );
+}
+
+#[test]
+fn the_object_form_reaches_with_override_and_the_longest_prefix_still_wins() {
+    let cadence = from_json(serde_json::json!({
+        "content": {
+            "reviewCadence": {
+                "default": "180d",
+                "overrides": { "reference": "30d", "reference/api": "7d" }
+            }
+        }
+    }));
+
+    assert_eq!(cadence.default_cadence(), DEFAULT_CADENCE);
+    assert_eq!(cadence.for_route(&Route::new("/pricing")), DEFAULT_CADENCE);
+    assert_eq!(
+        cadence.for_route(&Route::new("/reference/glossary")),
+        Duration::from_secs(30 * DAY)
+    );
+    assert_eq!(
+        cadence.for_route(&Route::new("/reference/api/pets")),
+        Duration::from_secs(7 * DAY),
+        "the deeper override tightens what the shallower one set"
+    );
+}
+
+#[test]
+fn an_override_key_is_normalized_the_way_w0140_normalizes_it() {
+    // The keys here are written three ways and name two directories. If this
+    // module normalized differently from `liyasa_config::review::normalize`, a
+    // key W0140 accepted could be one nothing here matches.
+    for key in ["reference", "/reference", "reference/", "/reference/"] {
+        let cadence = from_json(serde_json::json!({
+            "content": { "reviewCadence": { "default": "180d", "overrides": { key: "30d" } } }
+        }));
+        assert_eq!(
+            cadence.for_route(&Route::new("/reference/glossary")),
+            Duration::from_secs(30 * DAY),
+            "{key:?} is the same directory as the others"
+        );
+        assert_eq!(
+            cadence.for_route(&Route::new("/referendum")),
+            DEFAULT_CADENCE,
+            "{key:?} is a directory, not a string prefix"
+        );
+    }
+    // And the function itself is the one config exports, not a copy.
+    assert_eq!(liyasa_config::review::normalize("reference/"), "/reference");
+}
+
+#[test]
+fn a_duration_the_schema_would_have_rejected_falls_through_rather_than_becoming_zero() {
+    // `^\d+(ms|s|m|h|d)$` is on every duration in the key, so this shape is
+    // already `E0102` from validation. A consumer that ran anyway gets the
+    // site-wide default, not a cadence of nothing.
+    let cadence = from_json(serde_json::json!({
+        "content": {
+            "reviewCadence": {
+                "default": "180d",
+                "overrides": { "reference": "a fortnight", "reference/api": "7d" }
+            }
+        }
+    }));
+    assert_eq!(
+        cadence.for_route(&Route::new("/reference/glossary")),
+        DEFAULT_CADENCE,
+        "not Duration::ZERO, which would flag every page in the directory"
+    );
+    assert_ne!(
+        cadence.for_route(&Route::new("/reference/glossary")),
+        Duration::ZERO
+    );
+    assert_eq!(
+        cadence.for_route(&Route::new("/reference/api/pets")),
+        Duration::from_secs(7 * DAY),
+        "and the readable sibling is unaffected"
+    );
+
+    // The same for the default itself.
+    let bad_default = from_json(serde_json::json!({
+        "content": { "reviewCadence": { "default": "soon" } }
+    }));
+    assert_eq!(bad_default.default_cadence(), DEFAULT_CADENCE);
+}
+
+#[test]
+fn an_absent_key_is_ver_77s_180_days_and_so_is_a_shape_the_schema_rejects() {
+    assert_eq!(
+        from_json(serde_json::json!({})).default_cadence(),
+        DEFAULT_CADENCE
+    );
+    assert_eq!(
+        from_json(serde_json::json!({ "content": {} })).default_cadence(),
+        DEFAULT_CADENCE
+    );
+    // `review_cadence` reads a wrong-typed node as absent rather than panicking.
+    assert_eq!(
+        from_json(serde_json::json!({ "content": { "reviewCadence": 180 } })).default_cadence(),
+        DEFAULT_CADENCE
+    );
+}
+
+#[test]
+fn a_page_in_an_overridden_directory_is_flagged_on_the_tighter_cadence() {
+    // The whole point of the key, end to end: the same page and the same date,
+    // overdue under the override and not under the site default.
+    let cadence = from_json(serde_json::json!({
+        "content": {
+            "reviewCadence": { "default": "180d", "overrides": { "reference": "30d" } }
+        }
+    }));
+    let pages = [
+        page("/reference/api", Some("1970-01-02")),
+        page("/pricing", Some("1970-01-02")),
+    ];
+    let found = overdue(&pages, &docowners(), &cadence, at(1 + 40));
+
+    assert_eq!(found.candidates.len(), 1, "{:#?}", found.candidates);
+    assert_eq!(
+        found.candidates[0].pages,
+        vec![Route::new("/reference/api")]
+    );
+    assert!(matches!(
+        &found.candidates[0].kind,
+        DriftKind::Review { cadence, overdue_by, .. }
+            if *cadence == Duration::from_secs(30 * DAY)
+                && *overdue_by == Duration::from_secs(10 * DAY)
+    ));
+}

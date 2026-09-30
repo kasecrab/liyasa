@@ -23,6 +23,13 @@ fancy = ["dep:fancy-regex"]
 
 [dependencies]
 liyasa-core = { path = "../liyasa-core", version = "0.1.0" }
+# WP-20c: `content.reviewCadence` has two schema forms and `review_cadence`
+# unfolds both, so drift never branches on which one an operator wrote — and
+# `review::normalize` is the normalisation W0140's check uses, so an override
+# warned about there is the same route set matched here. Adds no crate to the
+# graph: liyasa-config's own dependencies are liyasa-core, jsonschema, schemars,
+# serde and serde_json, and this crate already has every one.
+liyasa-config = { path = "../liyasa-config", version = "0.1.0" }
 jsonschema.workspace = true
 schemars.workspace = true
 regex.workspace = true

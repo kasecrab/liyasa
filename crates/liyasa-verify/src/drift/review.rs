@@ -17,6 +17,12 @@
 use std::collections::BTreeMap;
 use std::time::{Duration, SystemTime};
 
+// `normalize` is imported rather than written again. `W0140` — an override that
+// names a directory with no pages — is raised by `liyasa validate` using that
+// function, so the prefix warned about there has to be the same prefix matched
+// here. The two agreed character for character when they were written
+// separately, which is exactly the state that decays without anyone noticing.
+use liyasa_config::review::{ReviewCadence, normalize};
 use liyasa_core::diagnostics::{Diagnostic, code};
 use liyasa_core::ids::Route;
 
@@ -55,13 +61,37 @@ impl Cadence {
         Self::new(setting.map_or(DEFAULT_CADENCE, DurationSetting::as_duration))
     }
 
+    /// `content.reviewCadence` in either of its schema forms, unfolded by
+    /// `liyasa_config::review::review_cadence` so this never branches on which
+    /// one the operator wrote.
+    ///
+    /// A duration this crate cannot read falls through rather than becoming a
+    /// cadence: every duration in the key carries
+    /// `^\d+(ms|s|m|h|d)$` in the schema, so an unreadable one is already
+    /// `E0102` from config validation, and a consumer that ran anyway should see
+    /// the site-wide default rather than half of something. An override naming a
+    /// directory with no pages is `W0140`, which `liyasa validate` raises
+    /// because it is the half that can see the page list — do not add a second
+    /// diagnostic for either.
+    pub fn from_config(cadence: &ReviewCadence) -> Self {
+        let mut out = Self::new(
+            cadence
+                .default
+                .as_deref()
+                .and_then(|text| DurationSetting::parse(text).ok())
+                .map_or(DEFAULT_CADENCE, DurationSetting::as_duration),
+        );
+        for (directory, text) in &cadence.overrides {
+            if let Ok(setting) = DurationSetting::parse(text) {
+                out = out.with_override(directory.as_str(), setting.as_duration());
+            }
+        }
+        out
+    }
+
     /// A per-directory override. The route prefix is a directory, not a glob:
     /// VER-77 says "per-directory overrides", and the longest matching prefix
     /// wins so a nested directory can tighten its parent.
-    ///
-    // TODO(rfc-2064): nothing populates this yet. `content.reviewCadence` is a
-    // single duration string in `schemas/liyasa.schema.json`, and the key that
-    // would express a map is WP-01's to add.
     #[must_use]
     pub fn with_override(mut self, prefix: impl Into<String>, cadence: Duration) -> Self {
         self.overrides.insert(normalize(&prefix.into()), cadence);
@@ -79,16 +109,6 @@ impl Cadence {
 
     pub fn default_cadence(&self) -> Duration {
         self.default
-    }
-}
-
-/// `/a/b/` and `a/b` both become `/a/b`, so a prefix written either way matches.
-fn normalize(path: &str) -> String {
-    let trimmed = path.trim_matches('/');
-    if trimmed.is_empty() {
-        String::from("/")
-    } else {
-        format!("/{trimmed}")
     }
 }
 
