@@ -74,6 +74,23 @@ pub struct Authored {
     pub body: String,
 }
 
+/// The `:::slot{name="after-params"}` blocks one authored page defines (API-04).
+///
+/// Beside [`Authored`] rather than a field on it, deliberately: `Authored` is
+/// constructed by a struct literal in `liyasa-build`'s engine, so a fourth field
+/// would stop that crate compiling the moment this one gained it, and the fix
+/// would be in a file this package may not write. An added type and an added
+/// entry point break nothing, and the two collapse into one when the call site
+/// is ready.
+#[derive(Debug, Clone, Default)]
+pub struct AuthoredSlots {
+    /// The authored page's route, matching [`Authored::route`].
+    pub route: String,
+    /// Slot name to Markdown. A name outside `page::SLOTS` is dropped; saying so
+    /// belongs to whoever parsed the block, with the list of names that exist.
+    pub slots: Vec<(String, String)>,
+}
+
 #[derive(Debug, Default)]
 pub struct Surface {
     pub pages: Vec<SpecPage>,
@@ -87,6 +104,16 @@ pub struct Surface {
 /// Mirrors [`crate::download`]'s inputs so one call at the same point in the
 /// engine serves both.
 pub fn surface(vfs: &dyn Vfs, config: &serde_json::Value, authored: &[Authored]) -> Surface {
+    surface_with_slots(vfs, config, authored, &[])
+}
+
+/// [`surface`], plus the slots each authored page fills (API-04).
+pub fn surface_with_slots(
+    vfs: &dyn Vfs,
+    config: &serde_json::Value,
+    authored: &[Authored],
+    slots: &[AuthoredSlots],
+) -> Surface {
     let mut out = Surface::default();
     let (specs, problems) = crate::config::specs(config.get("openapi"));
     for problem in problems {
@@ -104,7 +131,7 @@ pub fn surface(vfs: &dyn Vfs, config: &serde_json::Value, authored: &[Authored])
         let Some(model) = processed(vfs, spec, &siblings, &mut out.diagnostics) else {
             continue;
         };
-        let one = one(&model, spec, authored);
+        let one = one(&model, spec, authored, slots);
         out.pages.extend(one.pages);
         out.navigations.push(one.navigation);
         out.diagnostics.extend(one.diagnostics.as_slice().to_vec());
@@ -325,7 +352,7 @@ struct One {
     diagnostics: Diagnostics,
 }
 
-fn one(model: &Spec, config: &SpecConfig, authored: &[Authored]) -> One {
+fn one(model: &Spec, config: &SpecConfig, authored: &[Authored], slots: &[AuthoredSlots]) -> One {
     let node = Node {
         openapi: config.id.clone(),
         group_by: Some(config.group_by),
@@ -383,7 +410,23 @@ fn one(model: &Spec, config: &SpecConfig, authored: &[Authored]) -> One {
                         html: String::new(),
                         markdown: authored.body.clone(),
                     }),
-                    ..Augmentation::default()
+                    slots: slots
+                        .iter()
+                        .find(|filled| filled.route == authored.route)
+                        .map(|filled| filled.slots.as_slice())
+                        .unwrap_or_default()
+                        .iter()
+                        .filter(|(name, _)| Augmentation::is_slot(name))
+                        .map(|(name, markdown)| {
+                            (
+                                name.clone(),
+                                Rendered {
+                                    html: String::new(),
+                                    markdown: markdown.clone(),
+                                },
+                            )
+                        })
+                        .collect(),
                 })
                 .unwrap_or_default();
             let page = Page::build(
@@ -572,7 +615,9 @@ fn operation_body(page: &Page, spec: &str, operation_id: Option<&str>) -> String
             rows(&mut out, field, "", Some(location_of(section)));
         }
     }
+    slot(&mut out, page, "after-params");
 
+    slot(&mut out, page, "before-request");
     if let Some(body) = &page.body {
         out.push_str("## Body\n\n");
         if let Some(description) = &body.description {
@@ -591,6 +636,7 @@ fn operation_body(page: &Page, spec: &str, operation_id: Option<&str>) -> String
         }
     }
 
+    slot(&mut out, page, "before-responses");
     if !page.responses.is_empty() {
         out.push_str("## Responses\n\n");
         for response in &page.responses {
@@ -608,8 +654,23 @@ fn operation_body(page: &Page, spec: &str, operation_id: Option<&str>) -> String
             }
         }
     }
+    slot(&mut out, page, "after-responses");
 
     out
+}
+
+/// A slot an authored page filled, at one of `page::SLOTS`'s points (API-04).
+///
+/// `rail-top` and `rail-bottom` are deliberately not here: they are the right
+/// rail's, not the Markdown body's, so they travel in the `Augmentation` for the
+/// reader runtime rather than being written into the source.
+fn slot(out: &mut String, page: &Page, name: &str) {
+    if let Some(content) = page.augmentation.slots.get(name)
+        && !content.markdown.trim().is_empty()
+    {
+        out.push_str(content.markdown.trim());
+        out.push_str("\n\n");
+    }
 }
 
 fn location_of(section: &Section) -> &'static str {

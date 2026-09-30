@@ -616,3 +616,116 @@ fn the_description_goes_inside_the_endpoint_container() {
         "the container holds its prose rather than closing empty:\n{inside}"
     );
 }
+
+/// API-04's second clause: `:::slot{name="after-params"}` and its siblings
+/// inject content at defined points.
+///
+/// This was missing until 2026-09-30 and the miss was mine: `markdown::render`
+/// emitted the slots, and when the page SOURCE became component directives
+/// instead, the generator stopped emitting them. The clause quietly went from
+/// met to unmet with no test to notice.
+mod slots {
+    use super::*;
+
+    fn authored() -> Vec<Authored> {
+        vec![Authored {
+            route: "/guides/fetching".to_owned(),
+            selector: "api GET /widgets/{id}".to_owned(),
+            body: "Read this first.".to_owned(),
+        }]
+    }
+
+    fn page_source(slots: Vec<(String, String)>) -> String {
+        let filled = [build::AuthoredSlots {
+            route: "/guides/fetching".to_owned(),
+            slots,
+        }];
+        let surface = build::surface_with_slots(&vfs(), &config(""), &authored(), &filled);
+        surface
+            .pages
+            .iter()
+            .find(|page| page.route == "/guides/fetching")
+            .expect("the authored route is kept")
+            .source
+            .clone()
+    }
+
+    #[test]
+    fn after_params_lands_between_the_parameters_and_the_responses() {
+        let source = page_source(vec![(
+            "after-params".to_owned(),
+            "See the tenant guide.".to_owned(),
+        )]);
+        let injected = source
+            .find("See the tenant guide.")
+            .expect("it is injected");
+        let last_param = source.rfind(":::param").expect("there are parameters");
+        let responses = source.find("## Responses").expect("and responses");
+        assert!(
+            last_param < injected && injected < responses,
+            "after-params sits after the parameters and before the responses:\n{source}"
+        );
+    }
+
+    #[test]
+    fn every_documented_slot_reaches_the_source_at_its_own_point() {
+        let source = page_source(vec![
+            ("before-request".to_owned(), "BEFORE_REQUEST".to_owned()),
+            ("after-params".to_owned(), "AFTER_PARAMS".to_owned()),
+            ("before-responses".to_owned(), "BEFORE_RESPONSES".to_owned()),
+            ("after-responses".to_owned(), "AFTER_RESPONSES".to_owned()),
+        ]);
+        let at = |needle: &str| {
+            source
+                .find(needle)
+                .unwrap_or_else(|| panic!("{needle} missing:\n{source}"))
+        };
+        assert!(at("AFTER_PARAMS") < at("BEFORE_RESPONSES"));
+        assert!(at("BEFORE_RESPONSES") < at("AFTER_RESPONSES"));
+        assert!(
+            at("BEFORE_REQUEST") < at("BEFORE_RESPONSES"),
+            "before-request precedes the responses:\n{source}"
+        );
+    }
+
+    /// The rail's two slots are not body content, so they must NOT be written
+    /// into the source — they travel in the Augmentation for the reader.
+    #[test]
+    fn a_rail_slot_is_not_written_into_the_markdown() {
+        let source = page_source(vec![
+            ("rail-top".to_owned(), "RAIL_TOP".to_owned()),
+            ("rail-bottom".to_owned(), "RAIL_BOTTOM".to_owned()),
+        ]);
+        assert!(!source.contains("RAIL_TOP"), "{source}");
+        assert!(!source.contains("RAIL_BOTTOM"), "{source}");
+    }
+
+    #[test]
+    fn a_name_that_is_not_a_slot_is_dropped_rather_than_injected() {
+        let source = page_source(vec![("after-everything".to_owned(), "NOPE".to_owned())]);
+        assert!(
+            !source.contains("NOPE"),
+            "an unknown slot name injects nothing; reporting it is the caller's, \
+             with the list of names that exist:\n{source}"
+        );
+    }
+
+    #[test]
+    fn a_generated_page_with_no_authored_slots_is_unchanged() {
+        let with = page_source(Vec::new());
+        let plain = build::surface(&vfs(), &config(""), &[])
+            .pages
+            .iter()
+            .find(|page| page.selector == "GET /widgets/{id}")
+            .expect("the operation is there")
+            .source
+            .clone();
+        // The authored page carries an intro the plain one does not, so compare
+        // the part that should not move.
+        assert_eq!(
+            with.matches(":::param").count(),
+            plain.matches(":::param").count(),
+            "no slots means no change to the rows"
+        );
+    }
+}
