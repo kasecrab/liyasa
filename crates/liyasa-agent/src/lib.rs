@@ -30,6 +30,7 @@ pub mod gates;
 pub mod hosts;
 pub mod injection;
 pub mod policy;
+pub mod proposal;
 pub mod record;
 pub mod repos;
 pub mod scope;
