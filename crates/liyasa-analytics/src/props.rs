@@ -11,7 +11,9 @@
 //! (never URLs, headers, or bodies)", and [`Playground`] has no field that
 //! could hold one.
 
+use liyasa_store::records::EventRecord;
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 
 // Nothing in this module renames its fields, and that is deliberate. These
 // shapes are STORED, in the `props` column, and the queries in `search.rs` and
@@ -39,6 +41,116 @@ pub mod key {
     pub const THREAD: &str = "thread";
     pub const BUILD: &str = "build";
     pub const ENVIRONMENT: &str = "environment";
+}
+
+/// What a search contributes to an event, without the request half.
+///
+/// `liyasa-search` builds a `SearchEvent` on every query and `routes/search.rs`
+/// drops it, with a comment saying the mapping to `EventRecord` was not
+/// invented there. It was right not to: which field goes where is this crate's
+/// decision, because this crate reads them back in `search.rs`.
+///
+/// This carries only what the search knows. Everything else — the timestamp,
+/// the site, the route, the session key, the caller, the device — is the
+/// server's, and [`Emission::into_record`] leaves all of it untouched.
+///
+/// **There is deliberately no dependency on `liyasa-search` here.** Naming
+/// `SearchEvent` would put tantivy in this crate's graph for a forty-line
+/// mapping. Instead there is one constructor per variant, so the call site
+/// matches the enum and invents nothing:
+///
+/// ```text
+/// let emission = match event {
+///     SearchEvent::Query { query, results, locale, filters } =>
+///         props::search_event(query, *results, locale.as_deref(), filters),
+///     SearchEvent::NoResults { query, locale } =>
+///         props::search_no_results(query, locale.as_deref()),
+///     SearchEvent::Click { query, url, rank } =>
+///         props::search_click(query, url, *rank as u32),
+/// };
+/// state.ingest.push(emission.into_record(base));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Emission {
+    /// The event `type`.
+    pub kind: &'static str,
+    /// ANA-02's `variant`, which is what ANA-71 filters by.
+    pub variant: Value,
+    pub props: Value,
+}
+
+impl Emission {
+    /// Why `shown` is absent from a mapped search, named here so it is
+    /// findable rather than folklore.
+    pub const SHOWN_NEEDS: &'static str =
+        "liyasa-search::SearchEvent::Query carries no result routes";
+
+    /// Fills the search half of a record the caller has already built.
+    ///
+    /// Only `kind`, `variant` and `props` are set. A mapping that also touched
+    /// the session key or the caller would break unique-session counts and the
+    /// human-against-agent split without failing anything.
+    pub fn into_record(self, base: EventRecord) -> EventRecord {
+        EventRecord {
+            kind: self.kind.to_owned(),
+            variant: self.variant,
+            props: self.props,
+            ..base
+        }
+    }
+}
+
+/// `locale` is the only variant dimension a search knows. `null` rather than
+/// an omitted key, so the shape is the same either way.
+fn variant_of(locale: Option<&str>) -> Value {
+    json!({ "locale": locale })
+}
+
+/// A query that returned something (ANA-20).
+///
+/// `facets` are names only — `liyasa-search` never sends their values, because
+/// on a private site a facet value can name a reader's own group.
+pub fn search_event(
+    query: &str,
+    results: usize,
+    locale: Option<&str>,
+    facets: &[String],
+) -> Emission {
+    let mut props = json!({ "q": query, "results": results });
+    if !facets.is_empty() {
+        props["filters"] = json!(facets);
+    }
+    Emission {
+        kind: "search",
+        variant: variant_of(locale),
+        props,
+    }
+}
+
+/// A query that returned nothing.
+///
+/// `results: 0` is written explicitly. ANA-20's no-result list is
+/// `json_extract(props, '$.results') = 0`, and an omitted key is null rather
+/// than zero there — the row would drop out of the report that exists for it.
+pub fn search_no_results(query: &str, locale: Option<&str>) -> Emission {
+    Emission {
+        kind: "search",
+        variant: variant_of(locale),
+        props: json!({ "q": query, "results": 0 }),
+    }
+}
+
+/// A result opened from the overlay.
+///
+/// `position` is passed through unchanged: `SearchEvent::click` already
+/// converts to one-based, and adding one here would put every click one rank
+/// further down than it happened.
+pub fn search_click(query: &str, target: &str, position: u32) -> Emission {
+    Emission {
+        kind: "search_click",
+        variant: json!({ "locale": null }),
+        props: json!({ "q": query, "target": target, "position": position }),
+    }
 }
 
 /// `type: "search"` — one query run (ANA-20). The text is scrubbed before it
