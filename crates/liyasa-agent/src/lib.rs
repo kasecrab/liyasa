@@ -21,5 +21,6 @@
 //! [`liyasa_core::ai::ChatModel`], both injected, so the whole crate is
 //! testable against a mock and the address policy of §30.2.3 applies.
 
+pub mod frontmatter;
 pub mod scope;
 pub mod trust;
