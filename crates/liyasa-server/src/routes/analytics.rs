@@ -43,10 +43,26 @@ pub fn view(app: &Arc<AppState>) -> Option<Analytics> {
         app: store.clone_pool(),
         site: app.config.site.clone(),
         project: None,
-        retention: liyasa_analytics::retention::Policy::default(),
+        // ANA-06. The plan's ceiling narrows the operator's window and never
+        // widens it: `capped_by(None)` on an instance with no organization
+        // leaves the configured policy alone, and a plan more generous than
+        // the configuration changes nothing. Before this, `org/routes.rs:301`
+        // reported `analyticsRetentionDays` to an operator and nothing acted
+        // on it — a figure the system does not honour is worse than silence
+        // about it.
+        retention: liyasa_analytics::retention::Policy::default()
+            .capped_by(plan_retention_days(app)),
         integrations: serde_json::Value::Null,
         pages: Vec::new(),
     })
+}
+
+/// The plan's analytics-retention ceiling, or `None` when this instance serves
+/// no organization — a self-hosted server has no plan and no cap.
+fn plan_retention_days(app: &Arc<AppState>) -> Option<u32> {
+    let org = app.org_state()?;
+    let days = org.read().org.plan.analytics_retention_days;
+    days
 }
 
 const MS_PER_DAY: i64 = 24 * 60 * 60 * 1000;

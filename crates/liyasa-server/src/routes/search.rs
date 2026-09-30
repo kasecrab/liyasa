@@ -15,8 +15,12 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::response::{IntoResponse, Response};
 use http::{StatusCode, header};
+use liyasa_search::analytics::SearchEvent;
 use liyasa_search::idx::Index;
 use liyasa_search::idx::query::ReaderScope;
+
+/// The path this endpoint answers at, and the `route` every event carries.
+pub const PATH: &str = "/_liyasa/search";
 
 use super::AppState;
 use crate::auth::session::Principal;
@@ -66,10 +70,56 @@ fn scope(reader: Option<&Principal>) -> ReaderScope {
     }
 }
 
+/// One search event, mapped through `liyasa-analytics`' constructors.
+///
+/// The match is here rather than in that crate on purpose: naming
+/// `SearchEvent` there would pull tantivy into its dependency graph for a
+/// forty-line mapping, so WP-17 built three constructors and left the enum to
+/// the crate that already depends on both.
+///
+/// `into_record` sets only `kind`, `variant` and `props`. The timestamp, site,
+/// route, session key, caller and device come from the base record built here
+/// — a mapping that reset the session key would break unique-session counts
+/// and the human/agent split without failing anything.
+fn record(state: &Arc<AppState>, event: &SearchEvent, parts: &http::request::Parts) {
+    use liyasa_analytics::props;
+
+    let emission = match event {
+        SearchEvent::Query {
+            query,
+            results,
+            locale,
+            filters,
+        } => props::search_event(query, *results, locale.as_deref(), filters),
+        SearchEvent::NoResults { query, locale } => {
+            props::search_no_results(query, locale.as_deref())
+        }
+        SearchEvent::Click { query, url, rank } => props::search_click(query, url, *rank as u32),
+    };
+
+    let user_agent = parts
+        .headers
+        .get(header::USER_AGENT)
+        .and_then(|value| value.to_str().ok());
+    let base = liyasa_store::records::EventRecord {
+        ts: liyasa_store::now_ms(),
+        site: state.config.site.clone(),
+        env: state.config.env.clone(),
+        route: PATH.to_owned(),
+        format: "json".to_owned(),
+        session_key: state
+            .salt
+            .key(state.client_ip(parts), user_agent, &state.config.site),
+        ..Default::default()
+    };
+    let _ = state.ingest.push(emission.into_record(base));
+}
+
 pub async fn handler(
     State(state): State<Arc<AppState>>,
     request: http::Request<axum::body::Body>,
 ) -> Response {
+    let (parts, _body) = request.into_parts();
     let Some(index) = state.search_index() else {
         // `no-store` here too, not only on a result: whether this instance has
         // an index is a property of the instance, and a shared cache holding
@@ -84,18 +134,17 @@ pub async fn handler(
         )
             .into_response();
     };
-    let query_string = request.uri().query().unwrap_or_default().to_owned();
-    let reader = request.extensions().get::<Principal>();
+    let query_string = parts.uri.query().unwrap_or_default().to_owned();
+    let reader = parts.extensions.get::<Principal>();
     let settings = liyasa_search::config::SearchSettings::default();
 
-    // `rest` also returns a `SearchEvent`, `None` when the query never reached
-    // the index — so a refused call is not counted as something a reader
-    // searched for. It is dropped here rather than recorded: the ingest queue
-    // takes an `EventRecord`, and inventing the mapping from `SearchEvent` to
-    // one is WP-17's to write against ANA-01's schema, not mine to guess.
-    // Search's analytics series is unfed until it does.
-    let (response, _event) =
+    // `None` when the query never reached the index, so a refused call is not
+    // counted as something a reader searched for (ANA-01).
+    let (response, event) =
         liyasa_search::api::rest(index.as_ref(), &query_string, &settings, &scope(reader));
+    if let Some(event) = event {
+        record(&state, &event, &parts);
+    }
 
     let status = StatusCode::from_u16(response.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     // Reader-dependent by construction: the same query returns different
