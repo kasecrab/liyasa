@@ -211,3 +211,28 @@ mod rest_04_search;
 mod work_registry_union;
 #[path = "../server/api_41_proxy.rs"]
 mod api_41_proxy;
+
+// WP-25 Agent runtime. `support` is the shared fixture; the rest are one file per
+// acceptance row.
+#[path = "../agent/support.rs"]
+mod agent_support;
+#[path = "../agent/agt_01_inputs.rs"]
+mod agt_01_inputs;
+#[path = "../agent/agt_02_loop.rs"]
+mod agt_02_loop;
+#[path = "../agent/agt_03_tools.rs"]
+mod agt_03_tools;
+#[path = "../agent/agt_04_trust.rs"]
+mod agt_04_trust;
+#[path = "../agent/agt_05_record.rs"]
+mod agt_05_record;
+#[path = "../agent/agt_06_gates.rs"]
+mod agt_06_gates;
+#[path = "../agent/agt_20_policy.rs"]
+mod agt_20_policy;
+#[path = "../agent/agt_30_agentsmd.rs"]
+mod agt_30_agentsmd;
+#[path = "../agent/agt_41_followup.rs"]
+mod agt_41_followup;
+#[path = "../agent/agt_42_bugs.rs"]
+mod agt_42_bugs;

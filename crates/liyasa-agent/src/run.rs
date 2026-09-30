@@ -442,13 +442,18 @@ impl Run {
                 self.apply_write(pages, call);
             } else {
                 // Authorising records it. The effect is the caller's to serve.
-                let _ = self.gate_authorise(&call.name, &call.input);
+                let _ = self.authorise(&call.name, &call.input);
             }
         }
         Ok(turn)
     }
 
-    fn gate_authorise(
+    /// Authorises one tool call and records it.
+    ///
+    /// `self.gate().authorise(self.record_mut(), ..)` does not compile — the gate
+    /// borrows the run and the record borrows it mutably — and every caller would
+    /// otherwise have to work around that. This is the method they want.
+    pub fn authorise(
         &mut self,
         name: &str,
         input: &serde_json::Value,

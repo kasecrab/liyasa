@@ -81,6 +81,10 @@ liyasa-search = { path = "../crates/liyasa-search", version = "0.1.0" }
 [dev-dependencies]
 liyasa-core = { path = "../crates/liyasa-core", version = "0.1.0", features = ["conformance"] }
 ring.workspace = true   # WP-15 signs a JWT the way an operator's login application would (AUTH-03)
+# WP-25: the writing agent's acceptance tests drive its own types. `testing` is the
+# scripted model and the in-memory page tree they replay against, which is why this
+# is a dev-dependency rather than a dependency.
+liyasa-agent = { path = "../crates/liyasa-agent", version = "0.1.0", features = ["testing"] }
 
 [[bin]]
 name = "reference-site"
