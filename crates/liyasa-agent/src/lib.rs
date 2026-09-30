@@ -29,4 +29,5 @@ pub mod hosts;
 pub mod injection;
 pub mod scope;
 pub mod secrets;
+pub mod tools;
 pub mod trust;
