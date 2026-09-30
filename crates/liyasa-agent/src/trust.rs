@@ -24,13 +24,15 @@
 use std::collections::BTreeSet;
 
 use liyasa_core::ids::Route;
+use serde::{Deserialize, Serialize};
 
 pub use liyasa_core::ai::TrustLevel;
 
 use crate::scope::{ConfigArea, Target};
 
 /// What an input to a run is (AGT-01 lists them).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum InputKind {
     /// The prompt or typed signal that started the run.
     Task,
@@ -57,7 +59,7 @@ impl InputKind {
 }
 
 /// One input, with how far its content may travel.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Input {
     pub label: String,
     pub kind: InputKind,
@@ -75,7 +77,8 @@ impl Input {
 }
 
 /// What started a run (AGT-01), and the pages it named.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum TriggerKind {
     /// A person typed a prompt.
     Prompt,
@@ -99,7 +102,7 @@ impl TriggerKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Trigger {
     pub kind: TriggerKind,
     pub trust: TrustLevel,
@@ -144,7 +147,8 @@ pub fn effective_trust(inputs: &[Input]) -> TrustLevel {
 }
 
 /// Where a run may write.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum WriteScope {
     /// Any page in the project.
     Anywhere,

@@ -113,7 +113,8 @@ impl Signals {
 }
 
 /// What a run's output does.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Outcome {
     /// A branch and a pull request, or a workspace draft.
     Proposal,
@@ -124,7 +125,7 @@ pub enum Outcome {
 }
 
 /// The decision, with the reason it is not what was configured.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Decision {
     pub outcome: Outcome,
     pub configured: Policy,
