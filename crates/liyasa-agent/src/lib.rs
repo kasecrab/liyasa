@@ -34,6 +34,7 @@ pub mod policy;
 pub mod proposal;
 pub mod record;
 pub mod repos;
+pub mod run;
 pub mod scope;
 pub mod secrets;
 pub mod tools;
