@@ -99,7 +99,62 @@ impl ConfigArea {
             ConfigArea::Unspecified => "config",
         }
     }
+
+    /// The areas a change to the config file reached.
+    ///
+    /// AGT-04 and AGT-06 name `navigation`, `redirects` and `automations`
+    /// separately, and all three are keys in one file, so the only way to say
+    /// which of them a diff touched is to read the keys. Without this,
+    /// [`Self::from_key`] is a branch nothing can reach and every config change
+    /// reports as the generic `config` — which is refused identically but tells a
+    /// reviewer less than the requirement's own wording does.
+    ///
+    /// A side that does not parse is [`Err`]. It is NOT "no keys changed": a diff
+    /// that breaks the JSON would otherwise report nothing, and the gate would
+    /// pass a file it could not read. Same rule as the front matter.
+    ///
+    /// The result is sorted and never empty for a real change: a change the key
+    /// scan cannot attribute comes back as [`ConfigArea::Unspecified`], so a
+    /// caller never has to decide what an empty list means.
+    pub fn changed(
+        before: Option<&str>,
+        after: Option<&str>,
+    ) -> Result<Vec<ConfigArea>, Unparseable> {
+        let parse = |text: Option<&str>| -> Result<serde_json::Value, Unparseable> {
+            match text {
+                None => Ok(serde_json::Value::Null),
+                Some(text) if text.trim().is_empty() => Ok(serde_json::Value::Null),
+                Some(text) => serde_json::from_str(text).map_err(|_| Unparseable),
+            }
+        };
+        let (before, after) = (parse(before)?, parse(after)?);
+        if before == after {
+            return Ok(Vec::new());
+        }
+        let keys: BTreeSet<&str> = [&before, &after]
+            .into_iter()
+            .filter_map(serde_json::Value::as_object)
+            .flat_map(|object| object.keys().map(String::as_str))
+            .collect();
+        let mut areas: BTreeSet<ConfigArea> = keys
+            .into_iter()
+            .filter(|key| before.get(key) != after.get(key))
+            .map(ConfigArea::from_key)
+            .collect();
+        if areas.is_empty() {
+            // The file changed and no top-level key did — whitespace, key order,
+            // or a side that is not an object at all. Still a config change.
+            areas.insert(ConfigArea::Unspecified);
+        }
+        Ok(areas.into_iter().collect())
+    }
 }
+
+/// A config or front matter side that could not be parsed, so the comparison could
+/// not be made.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("the config file no longer parses, so the change cannot be attributed")]
+pub struct Unparseable;
 
 /// What one path in the project is.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -308,6 +363,75 @@ mod tests {
         assert_eq!(
             Layout::default().classify("docs/AGENTS.md"),
             Target::AgentsMd
+        );
+    }
+
+    #[test]
+    fn a_config_change_names_the_area_agt_04_words() {
+        for (key, area) in [
+            ("navigation", ConfigArea::Navigation),
+            ("navbar", ConfigArea::Navigation),
+            ("footer", ConfigArea::Navigation),
+            ("redirects", ConfigArea::Redirects),
+            ("automations", ConfigArea::Automations),
+            ("theme", ConfigArea::Unspecified),
+        ] {
+            let before = r#"{"name":"Acme"}"#;
+            let after = format!("{{\"name\":\"Acme\",\"{key}\":[]}}");
+            assert_eq!(
+                ConfigArea::changed(Some(before), Some(&after)),
+                Ok(vec![area]),
+                "a change to `{key}` was not attributed"
+            );
+        }
+    }
+
+    #[test]
+    fn a_change_to_two_areas_names_both() {
+        let before = r#"{"name":"Acme"}"#;
+        let after = r#"{"name":"Acme","navigation":[],"redirects":[]}"#;
+        assert_eq!(
+            ConfigArea::changed(Some(before), Some(after)),
+            Ok(vec![ConfigArea::Navigation, ConfigArea::Redirects])
+        );
+    }
+
+    #[test]
+    fn an_unchanged_config_names_nothing() {
+        let same = r#"{"name":"Acme","redirects":[]}"#;
+        assert_eq!(ConfigArea::changed(Some(same), Some(same)), Ok(Vec::new()));
+    }
+
+    #[test]
+    fn a_config_that_no_longer_parses_is_not_an_absence_of_change() {
+        // The same hole the front matter has: a diff that breaks the JSON would
+        // otherwise report no key as changed, and the gate would pass a file it
+        // could not read.
+        assert_eq!(
+            ConfigArea::changed(Some(r#"{"name":"Acme"}"#), Some(r#"{"name":"#)),
+            Err(Unparseable)
+        );
+    }
+
+    #[test]
+    fn a_change_no_key_scan_can_attribute_is_still_a_config_change() {
+        // Reordered keys, reformatted whitespace, or a side that is not an object.
+        // An empty list would make a caller decide what it meant.
+        assert_eq!(
+            ConfigArea::changed(Some(r#"{"a":1,"b":2}"#), Some(r#"[1,2]"#)),
+            Ok(vec![ConfigArea::Unspecified])
+        );
+    }
+
+    #[test]
+    fn adding_or_deleting_the_config_file_is_a_change() {
+        assert_eq!(
+            ConfigArea::changed(None, Some(r#"{"redirects":[]}"#)),
+            Ok(vec![ConfigArea::Redirects])
+        );
+        assert_eq!(
+            ConfigArea::changed(Some(r#"{"navigation":[]}"#), None),
+            Ok(vec![ConfigArea::Navigation])
         );
     }
 

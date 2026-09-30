@@ -277,9 +277,37 @@ fn deletions(inputs: &Inputs<'_>, out: &mut Vec<Finding>) {
 
 fn scope(inputs: &Inputs<'_>, file: &FileChange, out: &mut Vec<Finding>) {
     let target = inputs.layout.classify(&file.path);
+    // A config change is refused or flagged by AREA, because AGT-04 words its
+    // prohibitions that way and all three areas are keys in one file. The keys
+    // decide; the path only says it is the config.
+    let areas = match &target {
+        Target::Config(_) => {
+            match ConfigArea::changed(file.before.as_deref(), file.after.as_deref()) {
+                Ok(areas) => areas,
+                Err(unparseable) => {
+                    out.push(at(
+                        Check::ConfigChanged,
+                        Verdict::Reject,
+                        &file.path,
+                        None,
+                        unparseable.to_string(),
+                    ));
+                    // Refused on its own terms; the scope check below still runs,
+                    // on the generic area, so an untrusted run is refused twice
+                    // rather than let through by the unparseable one.
+                    vec![ConfigArea::Unspecified]
+                }
+            }
+        }
+        _ => Vec::new(),
+    };
     // A rename leaves the old path behind, and the old path has to be permitted
     // too: a run that may write `/a` and not `/b` must not move `/b` onto `/a`.
-    let mut targets = vec![target.clone()];
+    let mut targets: Vec<Target> = if areas.is_empty() {
+        vec![target.clone()]
+    } else {
+        areas.iter().map(|area| Target::Config(*area)).collect()
+    };
     if let ChangeKind::Renamed { from } = &file.kind {
         targets.push(inputs.layout.classify(from));
     }
@@ -300,22 +328,18 @@ fn scope(inputs: &Inputs<'_>, file: &FileChange, out: &mut Vec<Finding>) {
             ));
         }
     }
-    // A config change by a trusted run is legitimate and still worth saying.
-    if let Target::Config(area) = target
-        && !inputs.restrictions.is_untrusted_trigger()
-    {
-        let what = if area == ConfigArea::Unspecified {
-            "config".to_owned()
-        } else {
-            area.as_str().to_owned()
-        };
-        out.push(at(
-            Check::ConfigChanged,
-            Verdict::Flag,
-            &file.path,
-            None,
-            format!("this proposal changes {what}"),
-        ));
+    // A config change by a trusted run is legitimate and still worth saying, once
+    // per area it reached.
+    if !inputs.restrictions.is_untrusted_trigger() {
+        for area in &areas {
+            out.push(at(
+                Check::ConfigChanged,
+                Verdict::Flag,
+                &file.path,
+                None,
+                format!("this proposal changes {}", area.as_str()),
+            ));
+        }
     }
 }
 
@@ -760,6 +784,68 @@ mod tests {
             Some(Verdict::Flag)
         );
         assert!(!report.rejected());
+    }
+
+    #[test]
+    fn a_config_finding_names_the_area_rather_than_the_word_config() {
+        let diff = Diff::new([FileChange::modified(
+            "liyasa.json",
+            "{\"name\":\"Acme\"}\n",
+            "{\"name\":\"Acme\",\"redirects\":[]}\n",
+        )]);
+        let report = Harness::member().run(&diff);
+        let finding = find(&report, Check::ConfigChanged).expect("a config finding");
+        assert_eq!(finding.verdict, Verdict::Flag);
+        assert!(finding.reason.contains("redirects"), "{}", finding.reason);
+    }
+
+    #[test]
+    fn a_stranger_is_refused_by_the_area_the_requirement_names() {
+        for (key, word) in [
+            ("navigation", "navigation"),
+            ("redirects", "redirects"),
+            ("automations", "automations"),
+        ] {
+            let diff = Diff::new([FileChange::modified(
+                "liyasa.json",
+                "{\"name\":\"Acme\"}\n",
+                format!("{{\"name\":\"Acme\",\"{key}\":[]}}\n"),
+            )]);
+            let report = Harness::anonymous_about("/guides/install").run(&diff);
+            let reason = report.reason().expect("a rejection");
+            assert!(
+                reason.contains(word),
+                "a change to `{key}` was refused as something else: {reason}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_config_change_that_no_longer_parses_is_rejected() {
+        let diff = Diff::new([FileChange::modified(
+            "liyasa.json",
+            "{\"name\":\"Acme\"}\n",
+            "{\"name\":\n",
+        )]);
+        for harness in [
+            Harness::member(),
+            Harness::anonymous_about("/guides/install"),
+        ] {
+            let report = harness.run(&diff);
+            assert!(
+                report.rejected(),
+                "an unparseable config passed: {:?}",
+                report.findings()
+            );
+        }
+    }
+
+    #[test]
+    fn a_config_file_whose_content_did_not_change_is_not_a_finding() {
+        let same = "{\"name\":\"Acme\"}\n";
+        let diff = Diff::new([FileChange::modified("liyasa.json", same, same)]);
+        let report = Harness::member().run(&diff);
+        assert_eq!(find(&report, Check::ConfigChanged), None);
     }
 
     #[test]
