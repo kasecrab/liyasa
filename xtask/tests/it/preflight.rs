@@ -167,3 +167,63 @@ fn a_corpus_of_empty_suite_directories_counts_zero() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn the_cross_compiles_cover_every_package_and_target_ci_builds() {
+    use xtask::preflight::CROSS;
+
+    let ci = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root")
+            .join(".github/workflows/ci.yml"),
+    )
+    .expect("ci.yml");
+
+    // PACKAGE and target together, not the target alone. The first version of
+    // this compared targets only and passed with `liyasa-core` for
+    // wasm32-wasip1 deleted from CROSS, because xtask's entry for the same
+    // target satisfied it — a test that could not fail for the one case it was
+    // written to catch. Proved by removing that row and watching it stay green.
+    let mut wanted: Vec<(String, String)> = Vec::new();
+    for line in ci.lines() {
+        let (Some(p_at), Some(t_at)) = (line.find("-p "), line.find("--target ")) else {
+            continue;
+        };
+        let package = line[p_at + 3..].split_whitespace().next().unwrap_or("");
+        let target = line[t_at + 9..].split_whitespace().next().unwrap_or("");
+        if target.starts_with("${{") || package.is_empty() || target.is_empty() {
+            continue;
+        }
+        wanted.push((package.to_owned(), target.to_owned()));
+    }
+    assert!(
+        !wanted.is_empty(),
+        "ci.yml names no `-p ... --target ...` build; this test would pass over nothing"
+    );
+
+    for (package, target) in &wanted {
+        assert!(
+            CROSS.iter().any(|(_, p, t)| p == package && t == target),
+            "ci.yml builds {package} for {target} and preflight does not"
+        );
+    }
+
+    // And the one CI does NOT build directly, because nothing else compiles it
+    // without a corpus: `parity` builds xtask for WASI, and parity needs the
+    // upstream suites fetched.
+    assert!(
+        CROSS
+            .iter()
+            .any(|(_, p, t)| *p == "xtask" && *t == "wasm32-wasip1"),
+        "xtask for WASI is the binary parity runs the corpus through"
+    );
+
+    // Each label is distinct, or two steps report under one name and a reader
+    // cannot tell which failed.
+    let mut names: Vec<&str> = CROSS.iter().map(|(n, _, _)| *n).collect();
+    names.sort_unstable();
+    let before = names.len();
+    names.dedup();
+    assert_eq!(names.len(), before, "two cross steps share a label");
+}

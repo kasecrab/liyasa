@@ -14,7 +14,8 @@
 //!    magnitude more cases, with expected output from the reference
 //!    implementations rather than from us.
 //! 2. **Parity** under wasmtime, over that same imported corpus.
-//! 3. `wasm32-unknown-unknown`, which the editor's build target needs.
+//! 3. The cross-compiles: `liyasa-core` for both wasm targets, and `xtask` for
+//!    WASI, which is the binary `parity` runs the corpus through.
 //! 4. `--all-features`, which lints and builds the optional code.
 //!
 //! The suites are fetched with `curl`, the way `ci.yml` fetches them, rather
@@ -59,6 +60,30 @@ pub fn versions_in(text: &str) -> Option<(String, String)> {
     };
     Some((value("COMMONMARK_VERSION")?, value("GFM_SPEC_REF")?))
 }
+
+/// The cross-compiles CI does and `bin/gate` does not.
+///
+/// `bin/gate` builds for the host and nothing else, so a `cfg` mistake is
+/// invisible to it — including to the chain gate `bin/integrate` runs, which is
+/// the verdict that decides every merge. On 2026-09-30 `main` went red on
+/// `wasm32-wasip1` after a full green chain gate: a match arm added between two
+/// others inherited nothing from the `#[cfg(not(target_family = "wasm"))]`
+/// above it, because an attribute covers one item.
+///
+/// **These three need no network and no corpus**, which is what separates them
+/// from the rest of this command. The upstream suites need a fetch and
+/// `--all-features` is a second feature resolution, so `preflight` as a whole
+/// belongs off the default gate path — but this part does not, and it is the
+/// part that would have caught the red above.
+///
+/// `xtask` for WASI is the one that matters most and the one CI does not build
+/// directly: it is built by `parity`, which needs a corpus, so on a machine
+/// with no network nothing compiles it at all.
+pub const CROSS: &[(&str, &str, &str)] = &[
+    ("wasm-browser", "liyasa-core", "wasm32-unknown-unknown"),
+    ("wasm-wasi", "liyasa-core", "wasm32-wasip1"),
+    ("wasm-xtask", "xtask", "wasm32-wasip1"),
+];
 
 /// One check, and whether it is the reason to stop.
 struct Step {
@@ -140,20 +165,12 @@ pub fn run(root: &Path, refresh: bool, offline: bool) -> Result<(), String> {
         }
     }
 
-    steps.push(step(
-        "wasm32",
-        run_cargo(
-            root,
-            &[
-                "build",
-                "-q",
-                "-p",
-                "liyasa-core",
-                "--target",
-                "wasm32-unknown-unknown",
-            ],
-        ),
-    ));
+    for (name, package, target) in CROSS {
+        steps.push(step(
+            name,
+            run_cargo(root, &["build", "-q", "-p", package, "--target", target]),
+        ));
+    }
     steps.push(step(
         "all-features",
         run_cargo(
