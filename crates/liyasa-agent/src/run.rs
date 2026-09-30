@@ -175,6 +175,8 @@ pub struct Published {
 pub enum NotWritten {
     #[error(transparent)]
     Refused(#[from] Rejection),
+    #[error("this run has spent its wall-time budget of {budget:?}")]
+    OutOfTime { budget: std::time::Duration },
     #[error("`{path}` is not where `{route}` lives")]
     PathDisagrees { route: Route, path: String },
     #[error("a run writes in the `write` phase, not `{current:?}`")]
@@ -198,6 +200,13 @@ pub trait Pages: Send + Sync {
 /// One run.
 pub struct Run {
     record: RunRecord,
+    /// AGT-04's wall-time budget, as an instant rather than a duration.
+    ///
+    /// `Instant` and not a clock trait: a test sets `budget.wall` to
+    /// `Duration::ZERO` and the run is expired from the moment it starts, which
+    /// is deterministic without a clock to inject. The default is 20 minutes, so
+    /// zero can only be asked for.
+    deadline: std::time::Instant,
     restrictions: Restrictions,
     config: AgentConfig,
     layout: Layout,
@@ -243,8 +252,10 @@ pub fn start(
     // The surface is recorded, not merely accepted: "what started this run" has to
     // have an answer in the record (AGT-10).
     record.note(&format!("started from the {}", request.surface.as_str()));
+    let deadline = std::time::Instant::now() + config.budget.wall;
     Run {
         record,
+        deadline,
         restrictions,
         config,
         layout,
@@ -342,9 +353,9 @@ impl Run {
         }
         let markdown = markdown.into();
         let input = serde_json::json!({ "route": route.as_str(), "markdown": markdown });
-        // Authorising records the call, whichever way it goes.
-        let gate = ToolGate::new(&self.restrictions, &self.config, &self.layout);
-        gate.authorise(&mut self.record, crate::tools::WRITE_PAGE, &input)?;
+        // Through `authorise`, not through the gate directly, so the wall-time
+        // budget covers a write as well as a read.
+        self.authorise(crate::tools::WRITE_PAGE, &input)?;
         let change = match before {
             Some(before) => FileChange::modified(path, before, markdown),
             None => FileChange::added(path, markdown),
@@ -423,6 +434,15 @@ impl Run {
         pages: &dyn Pages,
         ask: &str,
     ) -> Result<crate::model::Turn, liyasa_core::ai::AiError> {
+        if self.out_of_time() {
+            // Before the request, not after: the point of a wall-time budget is
+            // not paying for the turn.
+            self.record.note(&format!(
+                "the wall-time budget of {:?} is spent; no further model turn was made",
+                self.config.budget.wall
+            ));
+            return Ok(crate::model::Turn::default());
+        }
         let trust = self.restrictions.trust();
         let request = crate::model::request(
             &self.agents_md.instructions,
@@ -448,16 +468,50 @@ impl Run {
         Ok(turn)
     }
 
+    /// Whether the run's wall-time budget is spent (AGT-04).
+    ///
+    /// The tool-call and token budgets are read off the record by
+    /// [`ToolGate`], because the record holds both. This one is here because the
+    /// record has no clock.
+    pub fn out_of_time(&self) -> bool {
+        std::time::Instant::now() >= self.deadline
+    }
+
+    /// How long the run has left, or `None` when it has none.
+    pub fn time_left(&self) -> Option<std::time::Duration> {
+        self.deadline
+            .checked_duration_since(std::time::Instant::now())
+    }
+
     /// Authorises one tool call and records it.
     ///
     /// `self.gate().authorise(self.record_mut(), ..)` does not compile — the gate
     /// borrows the run and the record borrows it mutably — and every caller would
     /// otherwise have to work around that. This is the method they want.
+    ///
+    /// Checks the wall-time budget first, and records the refusal like any other:
+    /// a run that ran out of time must leave a record saying so, or the operator
+    /// sees a run that simply stopped.
     pub fn authorise(
         &mut self,
         name: &str,
         input: &serde_json::Value,
     ) -> Result<&'static liyasa_core::ai::ToolSpec, Rejection> {
+        if self.out_of_time() {
+            let rejection = Rejection::BudgetExhausted {
+                tool: name.to_owned(),
+                budget: "wall-time",
+                limit: self.config.budget.wall.as_secs(),
+            };
+            self.record.record_call(
+                name,
+                input,
+                crate::record::CallOutcome::Rejected {
+                    reason: rejection.to_string(),
+                },
+            );
+            return Err(rejection);
+        }
         let gate = ToolGate::new(&self.restrictions, &self.config, &self.layout);
         gate.authorise(&mut self.record, name, input)
     }
@@ -1155,6 +1209,147 @@ mod tests {
         let text = serde_json::to_string(run.record()).expect("serializes");
         assert!(text.contains("anthropic:claude-opus-5-5"), "{text}");
         assert!(text.contains("nothing to do"), "{text}");
+    }
+
+    /// A run whose wall-time budget is zero, so it is expired the moment it
+    /// starts. No clock to inject: the budget is the knob, and the default is
+    /// twenty minutes, so zero can only be asked for.
+    fn expired_run() -> Run {
+        let mut config = AgentConfig::default();
+        config.budget.wall = std::time::Duration::ZERO;
+        start(
+            request(
+                Trigger::new(TriggerKind::Prompt, TrustLevel::Member),
+                "update",
+            ),
+            config,
+            Layout::default(),
+            AgentsMd::default(),
+            KnownHosts::default(),
+        )
+    }
+
+    #[test]
+    fn a_run_out_of_wall_time_is_refused_every_tool_call() {
+        let mut run = expired_run();
+        assert!(run.out_of_time());
+        assert_eq!(run.time_left(), None);
+        let rejection = run
+            .authorise("read_page", &serde_json::json!({ "route": "/a" }))
+            .expect_err("the wall-time budget is spent");
+        assert!(
+            matches!(
+                rejection,
+                Rejection::BudgetExhausted {
+                    budget: "wall-time",
+                    ..
+                }
+            ),
+            "{rejection:?}"
+        );
+    }
+
+    #[test]
+    fn a_run_out_of_wall_time_records_the_refusal_rather_than_just_stopping() {
+        // An operator looking at a run that produced nothing needs the record to
+        // say why.
+        let mut run = expired_run();
+        let _ = run.authorise("read_page", &serde_json::json!({ "route": "/a" }));
+        let (_, _, outcome) = run.record().calls().next().expect("an audit entry");
+        match outcome {
+            crate::record::CallOutcome::Rejected { reason } => {
+                assert!(reason.contains("wall-time"), "{reason}");
+            }
+            other => panic!("recorded as {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_run_out_of_wall_time_cannot_write_either() {
+        let mut run = expired_run();
+        walk_to_write(&mut run);
+        let error = run
+            .write(
+                &Route::new("/guides/install"),
+                "guides/install.md",
+                page("New."),
+                Some(page("Old.")),
+            )
+            .expect_err("out of time");
+        assert!(matches!(error, NotWritten::Refused(_)), "{error:?}");
+        assert_eq!(run.diff().files_changed(), 0);
+    }
+
+    #[tokio::test]
+    async fn a_run_out_of_wall_time_does_not_pay_for_another_model_turn() {
+        // Before the request, not after. The point of the budget is not spending.
+        let pages = crate::testing::MemoryPages::new(Layout::default());
+        let model = crate::testing::ScriptedModel::new([vec![
+            crate::testing::write_page("1", "/guides/install", &page("New.")),
+            liyasa_core::ai::ChatEvent::Done,
+        ]]);
+        let mut run = expired_run();
+        walk_to_write(&mut run);
+        let turn = run
+            .write_turn(&model, &pages, "do it")
+            .await
+            .expect("no error, just nothing done");
+        assert!(turn.calls.is_empty());
+        assert!(model.seen().is_empty(), "the model was called anyway");
+        assert_eq!(model.unused(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_run_that_has_spent_its_token_budget_is_refused_further_calls() {
+        let mut config = AgentConfig::default();
+        config.budget.max_tokens = 500;
+        let pages = crate::testing::MemoryPages::new(Layout::default());
+        let model = crate::testing::ScriptedModel::new([vec![
+            liyasa_core::ai::ChatEvent::Token("thinking".to_owned()),
+            liyasa_core::ai::ChatEvent::Usage {
+                input: 400,
+                output: 150,
+            },
+            liyasa_core::ai::ChatEvent::Done,
+        ]]);
+        let mut run = start(
+            request(
+                Trigger::new(TriggerKind::Prompt, TrustLevel::Member),
+                "update",
+            ),
+            config,
+            Layout::default(),
+            AgentsMd::default(),
+            KnownHosts::default(),
+        );
+        walk_to_write(&mut run);
+        run.write_turn(&model, &pages, "do it")
+            .await
+            .expect("answered");
+        assert_eq!(run.record().tokens_spent(), 550);
+        let rejection = run
+            .authorise("read_page", &serde_json::json!({ "route": "/a" }))
+            .expect_err("550 of a 500-token budget is spent");
+        assert!(
+            matches!(
+                rejection,
+                Rejection::BudgetExhausted {
+                    budget: "token",
+                    ..
+                }
+            ),
+            "{rejection:?}"
+        );
+    }
+
+    #[test]
+    fn a_run_inside_its_budgets_is_not_refused() {
+        // The other half: a budget that refuses everything is not a budget.
+        let mut run = member_run();
+        assert!(!run.out_of_time());
+        assert!(run.time_left().is_some());
+        run.authorise("read_page", &serde_json::json!({ "route": "/a" }))
+            .expect("well inside every budget");
     }
 
     #[test]

@@ -183,16 +183,103 @@ fn a_bulk_delete_is_capped_and_the_cap_needs_a_flag_to_lift() {
 }
 
 #[test]
-fn a_run_is_bounded_by_a_token_tool_call_and_wall_time_budget() {
-    let run = untrusted_run();
+fn all_three_of_agt_04s_budgets_are_enforced_and_not_merely_carried() {
+    // A budget that is stored and never read is the shape this checks against.
+    // Each one is driven to its limit and the refusal names which.
+    use liyasa_agent::record::Usage;
+
+    // Tool calls.
+    let mut config = support::config();
+    config.budget.max_tool_calls = 1;
+    let mut run = liyasa_agent::run::start(
+        support::request(support::feedback_trigger(), "wrong"),
+        config,
+        support::layout(),
+        support::agents_md(),
+        support::known_hosts(),
+    );
+    run.enter(Phase::Research).expect("research");
+    let query = json!({ "query": "install" });
+    run.authorise(tools::SEARCH_DOCS, &query)
+        .expect("the first");
+    match run
+        .authorise(tools::SEARCH_DOCS, &query)
+        .expect_err("the second")
+    {
+        Rejection::BudgetExhausted { budget, .. } => assert_eq!(budget, "tool-call"),
+        other => panic!("{other:?}"),
+    }
+
+    // Tokens.
+    let mut config = support::config();
+    config.budget.max_tokens = 100;
+    let mut run = liyasa_agent::run::start(
+        support::request(support::feedback_trigger(), "wrong"),
+        config,
+        support::layout(),
+        support::agents_md(),
+        support::known_hosts(),
+    );
+    run.enter(Phase::Research).expect("research");
+    run.record_mut().record_exchange(
+        "scripted",
+        &liyasa_agent::model::request(
+            "",
+            Vec::new(),
+            Vec::new(),
+            liyasa_agent::config::default_budget(),
+            "go",
+        ),
+        "done",
+        Some(Usage {
+            input: 90,
+            output: 40,
+        }),
+    );
+    match run
+        .authorise(tools::SEARCH_DOCS, &query)
+        .expect_err("130 of a 100-token budget is spent")
+    {
+        Rejection::BudgetExhausted { budget, .. } => assert_eq!(budget, "token"),
+        other => panic!("{other:?}"),
+    }
+
+    // Wall time.
+    let mut config = support::config();
+    config.budget.wall = std::time::Duration::ZERO;
+    let mut run = liyasa_agent::run::start(
+        support::request(support::feedback_trigger(), "wrong"),
+        config,
+        support::layout(),
+        support::agents_md(),
+        support::known_hosts(),
+    );
+    run.enter(Phase::Research).expect("research");
+    assert!(run.out_of_time());
+    match run
+        .authorise(tools::SEARCH_DOCS, &query)
+        .expect_err("out of time")
+    {
+        Rejection::BudgetExhausted { budget, .. } => assert_eq!(budget, "wall-time"),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn a_run_inside_every_budget_is_not_refused() {
+    // The other half: a budget that refuses everything is not a budget.
+    let mut run = untrusted_run();
     let budget = run.config().budget;
     assert!(budget.max_tokens > 0);
     assert!(budget.max_tool_calls > 0);
     assert!(budget.wall > std::time::Duration::ZERO);
+    assert!(!run.out_of_time());
+    run.authorise(tools::SEARCH_DOCS, &json!({ "query": "install" }))
+        .expect("well inside every budget");
 }
 
 #[test]
-fn the_tool_call_budget_actually_stops_a_run() {
+fn the_tool_call_budget_stops_a_run_at_exactly_its_limit() {
     let mut request = support::request(support::feedback_trigger(), "wrong");
     request.policy = liyasa_agent::policy::Policy::Proposal;
     let mut config = support::config();

@@ -361,6 +361,29 @@ impl RunRecord {
     pub fn call_count(&self) -> u16 {
         u16::try_from(self.calls().count()).unwrap_or(u16::MAX)
     }
+
+    /// Tokens spent across every exchange, input and output.
+    ///
+    /// Read off the record for the same reason the call count is: two gates over
+    /// one record must not each allow a full budget, and a counter one of them
+    /// holds is a counter the other does not see. An exchange whose provider
+    /// reported no usage contributes nothing — which under-counts, so
+    /// `max_tokens` is a cap on what is KNOWN to have been spent. Saying so is
+    /// better than guessing a number: the alternative is a cap that stops a run
+    /// on an estimate the operator cannot reconcile with their bill.
+    pub fn tokens_spent(&self) -> u32 {
+        self.entries
+            .iter()
+            .filter_map(|entry| match entry {
+                Entry::ModelExchange { usage, .. } => *usage,
+                _ => None,
+            })
+            .fold(0u32, |total, usage| {
+                total
+                    .saturating_add(usage.input)
+                    .saturating_add(usage.output)
+            })
+    }
 }
 
 /// Redacts every string in a JSON value, at any depth.
@@ -631,6 +654,24 @@ mod tests {
         let text = as_text(&record);
         let back: RunRecord = serde_json::from_str(&text).expect("it reads back");
         assert_eq!(back, record);
+    }
+
+    #[test]
+    fn tokens_spent_sums_every_exchange() {
+        let mut record = record();
+        for (input, output) in [(100u32, 20u32), (300, 40)] {
+            record.record_exchange("m", &request(), "ok", Some(Usage { input, output }));
+        }
+        assert_eq!(record.tokens_spent(), 460);
+    }
+
+    #[test]
+    fn an_exchange_with_no_usage_reported_counts_nothing() {
+        // Under-counting rather than guessing: a cap the operator cannot
+        // reconcile with their bill is worse than a cap that is slightly loose.
+        let mut record = record();
+        record.record_exchange("m", &request(), "ok", None);
+        assert_eq!(record.tokens_spent(), 0);
     }
 
     #[test]

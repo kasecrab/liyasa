@@ -64,8 +64,13 @@ pub enum Rejection {
     },
     #[error("`{tool}` cannot reach `{host}`: it is not in `security.allowHosts.agentFetch`")]
     HostNotAllowed { tool: String, host: String },
-    #[error("`{tool}` was refused: this run has made its {limit} tool calls")]
-    BudgetExhausted { tool: String, limit: u16 },
+    #[error("`{tool}` was refused: this run has spent its {budget} budget of {limit}")]
+    BudgetExhausted {
+        tool: String,
+        /// Which budget: `tool-call`, `token` or `wall-time` (AGT-04).
+        budget: &'static str,
+        limit: u64,
+    },
 }
 
 impl Rejection {
@@ -96,8 +101,8 @@ impl Rejection {
             Rejection::HostNotAllowed { .. } => {
                 "add the host to `security.allowHosts.agentFetch`".to_owned()
             }
-            Rejection::BudgetExhausted { .. } => {
-                "raise the run's tool-call budget, or split the task across runs".to_owned()
+            Rejection::BudgetExhausted { budget, .. } => {
+                format!("raise the run's {budget} budget, or split the task across runs")
             }
         });
         diagnostic
@@ -186,11 +191,23 @@ impl<'a> ToolGate<'a> {
             });
         }
         validate(spec, input)?;
-        let budget = self.config.budget.max_tool_calls;
-        if record.call_count() >= budget {
+        // AGT-04's three budgets. Wall time is not one of them here: the record
+        // has no clock, so `Run` holds the deadline and checks it before it gets
+        // this far. See `Run::authorise`.
+        let calls = self.config.budget.max_tool_calls;
+        if record.call_count() >= calls {
             return Err(Rejection::BudgetExhausted {
                 tool: name.to_owned(),
-                limit: budget,
+                budget: "tool-call",
+                limit: u64::from(calls),
+            });
+        }
+        let tokens = self.config.budget.max_tokens;
+        if record.tokens_spent() >= tokens {
+            return Err(Rejection::BudgetExhausted {
+                tool: name.to_owned(),
+                budget: "token",
+                limit: u64::from(tokens),
             });
         }
         self.per_tool(spec, input)?;
@@ -632,6 +649,7 @@ mod tests {
             rejection,
             Rejection::BudgetExhausted {
                 tool: "read_page".to_owned(),
+                budget: "tool-call",
                 limit: 2
             }
         );
