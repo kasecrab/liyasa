@@ -108,22 +108,35 @@ pub fn generate(spec: &Spec, config: &SpecConfig, node: &Node) -> (Reference, Di
     let wanted = node.operations.clone().unwrap_or(config.operations.clone());
 
     let mut groups: Vec<Group> = Vec::new();
+    let hidden_tags: Vec<String> = spec
+        .tags
+        .iter()
+        .filter(|tag| crate::model::XLiyasa::read(&tag.extensions).hidden)
+        .map(|tag| tag.name.clone())
+        .collect();
     // Declared tags first, in the order the spec declares them, so a spec that
     // has thought about its order keeps it.
     for tag in &spec.tags {
         if tag.name.is_empty() {
             continue;
         }
+        // A tag carries the same hints an operation does. `title` was already
+        // read here; `collapsed`, `description` and `hidden` were read into
+        // `XLiyasa` and used nowhere, so API-05 listed three keys that did
+        // nothing on a tag and API-51's "hidden on operations, tags, or schema
+        // properties" was true of only the first.
+        let hints = crate::model::XLiyasa::read(&tag.extensions);
+        if hints.hidden {
+            continue;
+        }
         groups.push(Group {
             name: tag.name.clone(),
-            title: tag
-                .extensions
-                .get(crate::model::ext::NAMESPACE)
-                .map(|_| crate::model::XLiyasa::read(&tag.extensions))
-                .and_then(|hints| hints.title)
-                .unwrap_or_else(|| tag.name.clone()),
-            description: tag.description.clone(),
-            collapsed: false,
+            title: hints.title.clone().unwrap_or_else(|| tag.name.clone()),
+            description: hints
+                .description
+                .clone()
+                .or_else(|| tag.description.clone()),
+            collapsed: hints.collapsed,
             pages: Vec::new(),
         });
     }
@@ -137,7 +150,7 @@ pub fn generate(spec: &Spec, config: &SpecConfig, node: &Node) -> (Reference, Di
             continue;
         }
         let entry = entry(&operation, &base, &mut taken);
-        for name in group_names(&operation, group_by) {
+        for name in group_names(&operation, group_by, &hidden_tags) {
             match groups.iter_mut().find(|group| group.name == name) {
                 Some(group) => group.pages.push(entry.clone()),
                 None => groups.push(Group {
@@ -203,7 +216,7 @@ fn missing(id: &str, selector: &str) -> Diagnostic {
 
 /// Which groups an operation belongs to. Tags may put it in several; a path
 /// prefix puts it in exactly one.
-fn group_names(operation: &OperationRef<'_>, group_by: GroupBy) -> Vec<String> {
+fn group_names(operation: &OperationRef<'_>, group_by: GroupBy, hidden: &[String]) -> Vec<String> {
     if let Some(forced) = &operation.operation.liyasa.group {
         return vec![forced.clone()];
     }
@@ -211,10 +224,23 @@ fn group_names(operation: &OperationRef<'_>, group_by: GroupBy) -> Vec<String> {
         GroupBy::None => vec![UNGROUPED.to_owned()],
         GroupBy::PathPrefix => vec![prefix(operation.path)],
         GroupBy::Tag => {
+            // A hidden tag takes its operations with it, but only the ones it
+            // is the ONLY tag for: an operation tagged `Internal, Widgets` is
+            // still a Widgets operation. Returning an empty list is what tells
+            // the caller to leave it out entirely rather than float it into the
+            // ungrouped bucket, which would put an internal operation in
+            // navigation under a different name.
+            let shown: Vec<String> = operation
+                .operation
+                .tags
+                .iter()
+                .filter(|tag| !hidden.iter().any(|name| name == *tag))
+                .cloned()
+                .collect();
             if operation.operation.tags.is_empty() {
                 vec![UNGROUPED.to_owned()]
             } else {
-                operation.operation.tags.clone()
+                shown
             }
         }
     }
