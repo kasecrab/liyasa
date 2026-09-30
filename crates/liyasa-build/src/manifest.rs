@@ -133,11 +133,15 @@ pub fn is_servable(path: &str) -> bool {
     ///
     /// `search-index/` is deliberately NOT here. The index holds the text of
     /// every indexed page, restricted ones included, in binary shards that
-    /// cannot be filtered per reader the way a listing can — and nothing
-    /// fetches it: there is no client-side search and no `/_liyasa/search`
-    /// route (defect 146). Serving it would be a leak in exchange for no
-    /// feature. When the search endpoint exists it answers with filtered
-    /// results rather than handing over the index.
+    /// cannot be filtered per reader the way a listing can.
+    ///
+    /// `/_liyasa/search` exists now — `routes::router`, which
+    /// `routes::application` composes — and it is the reason the shards stay
+    /// withheld rather than a reason they could be served. It answers with
+    /// results filtered by `ReaderScope` *inside* the query, so a hit a reader
+    /// may not see is never scored. Handing over the shards would hand over
+    /// the text that filtering exists to withhold, and the endpoint would be
+    /// the only thing honouring a restriction the file ignores.
     const DIRECTORIES: &[&str] = &["_liyasa/", ".well-known/", "openapi/"];
     /// Named files at the root. `404.html` is not here: it is served as the
     /// body of a 404 rather than at its own path, and `liyasa-manifest.json`,
