@@ -236,3 +236,93 @@ async fn a_report_serialises_to_the_audit_record_a_job_stores() {
     let back: retention::SweepReport = serde_json::from_value(value).expect("it round-trips");
     assert_eq!(back, report);
 }
+
+// ---- ORG-30: a plan caps what the operator configured (ANA-06) ----
+
+#[test]
+fn a_plan_cap_shortens_retention_and_never_lengthens_it() {
+    // `Plan::analytics_retention_days` documents `None` as "kept as long as
+    // the instance keeps it", so a plan without a number does not narrow
+    // anything. A plan WITH one is a ceiling, not a setting: an operator who
+    // configured less keeps less.
+    let generous = Policy {
+        raw_days: 365,
+        aggregate_months: 24,
+    };
+
+    assert_eq!(
+        generous.capped_by(None),
+        generous,
+        "no plan limit leaves the operator's configuration alone"
+    );
+
+    let free = generous.capped_by(Some(90));
+    assert_eq!(free.raw_days, 90);
+    assert_eq!(
+        free.aggregate_months, 2,
+        "90 days is two whole months of aggregate, not twenty-four: the cap is \
+         on analytics retention, not only on the raw rows"
+    );
+
+    // A plan more generous than the configuration does not widen it. The
+    // operator asked for less and that is also a decision.
+    let modest = Policy {
+        raw_days: 30,
+        aggregate_months: 3,
+    };
+    assert_eq!(modest.capped_by(Some(365)), modest);
+
+    // Idempotent: applying the same cap twice is the same policy.
+    assert_eq!(free.capped_by(Some(90)), free);
+}
+
+#[test]
+fn a_cap_of_zero_expires_everything_rather_than_underflowing() {
+    let capped = Policy::default().capped_by(Some(0));
+    assert_eq!(capped.raw_days, 0);
+    assert_eq!(capped.aggregate_months, 0);
+    // The boundary is `now`, so nothing older than this instant survives, and
+    // the arithmetic does not go backwards.
+    assert_eq!(capped.raw_boundary(T0), T0);
+    assert_eq!(capped.aggregate_boundary(T0), T0);
+}
+
+#[tokio::test]
+async fn a_narrower_plan_really_deletes_more() {
+    // The assertion that matters. Capping is only enforcement if a sweep under
+    // the cap removes rows a sweep under the configuration alone would keep.
+    let events = vec![
+        Event::new("page_view", "/a", T0 - 200 * DAY).build(),
+        Event::new("page_view", "/a", T0 - 120 * DAY).build(),
+        Event::new("page_view", "/a", T0 - 40 * DAY).build(),
+        Event::new("page_view", "/a", T0 - HOUR).build(),
+    ];
+    let configured = Policy {
+        raw_days: 365,
+        aggregate_months: 24,
+    };
+
+    // Without the cap, a 365-day window keeps all four.
+    let (_dir, writer) = analytics("retention-uncapped", events.clone()).await;
+    let report = retention::sweep(writer.pool(), configured, T0, None)
+        .await
+        .expect("a sweep");
+    assert_eq!(report.raw_deleted, 0);
+    assert_eq!(count(writer.pool(), "event").await, 4);
+
+    // The Free tier's 90 days removes the two that are older than that.
+    let (_dir2, writer2) = analytics("retention-capped", events).await;
+    let capped = configured.capped_by(Some(90));
+    let report = retention::sweep(writer2.pool(), capped, T0, None)
+        .await
+        .expect("a sweep");
+    assert_eq!(
+        report.raw_deleted, 2,
+        "the 200-day and 120-day rows are past the plan's ceiling"
+    );
+    assert_eq!(count(writer2.pool(), "event").await, 2);
+    assert_eq!(
+        report.policy, capped,
+        "the audit record names the policy that actually ran, not the configured one"
+    );
+}

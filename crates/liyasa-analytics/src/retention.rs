@@ -44,6 +44,33 @@ impl Default for Policy {
 }
 
 impl Policy {
+    /// This policy narrowed by a plan's `analytics_retention_days` (ORG-30).
+    ///
+    /// A plan's number is a **ceiling, not a setting**. `None` means "kept as
+    /// long as the instance keeps it", which is what an OSS operator's own
+    /// disk means, so it narrows nothing; a plan more generous than the
+    /// configuration does not widen it either, because an operator who asked
+    /// for less made a decision too. Retention is the shorter of the two in
+    /// both directions, which also makes this idempotent.
+    ///
+    /// The cap applies to the aggregate window as well as the raw one. The
+    /// plan field is one number for *analytics retention*, so a Free tier
+    /// capped at 90 days that kept thirteen months of hourly rollups would be
+    /// honouring the ceiling on the rows nobody queries and ignoring it on the
+    /// ones the dashboard draws from.
+    pub fn capped_by(self, plan_days: Option<u32>) -> Self {
+        let Some(days) = plan_days.map(i64::from) else {
+            return self;
+        };
+        // Rounded DOWN, so a cap can never buy a fraction of a month more
+        // retention than the plan allows.
+        let months = (days as f64 / DAYS_PER_MONTH).floor() as i64;
+        Self {
+            raw_days: self.raw_days.min(days).max(0),
+            aggregate_months: self.aggregate_months.min(months).max(0),
+        }
+    }
+
     /// The instant before which raw rows are deleted.
     pub fn raw_boundary(&self, now: i64) -> i64 {
         now - self.raw_days.max(0) * DAY_MS

@@ -83,8 +83,17 @@ impl Analytics {
         self
     }
 
-    /// An operator's `analytics.retention`, or a plan's
-    /// `analytics_retention_days` where one narrows it.
+    /// An operator's `analytics.retention`, narrowed by a plan's
+    /// `analytics_retention_days` where there is one:
+    ///
+    /// ```text
+    /// Policy::default().capped_by(plan.analytics_retention_days)
+    /// ```
+    ///
+    /// The caller has to apply the cap, because `Plan` lives in
+    /// `liyasa-server` and this crate cannot name it. Until something does,
+    /// a plan that narrows retention narrows nothing — the API reports a
+    /// number the system does not honour (ORG-30, ANA-06).
     pub fn with_retention(mut self, retention: retention::Policy) -> Self {
         self.retention = retention;
         self
