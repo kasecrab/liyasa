@@ -97,6 +97,9 @@ fn dispatch(args: &[String]) -> Result<(), String> {
         }
         #[cfg(not(target_family = "wasm"))]
         Some("flags") => flags::run(&repo_root()),
+        // An attribute covers ONE arm. This one was added between `flags` and
+        // `licences` and inherited nothing from the gate above it.
+        #[cfg(not(target_family = "wasm"))]
         Some("fixtures") => fixtures::run(&repo_root()),
         Some("licences") => licences::run(&repo_root()),
         Some("lints") => lints::run(&repo_root()),

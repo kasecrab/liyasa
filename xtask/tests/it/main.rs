@@ -4,6 +4,7 @@
 
 mod conformance_kits;
 mod corpus;
+mod dispatch;
 mod fixtures;
 mod flags;
 mod licences;

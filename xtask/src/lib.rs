@@ -6,6 +6,11 @@ pub mod conformance;
 pub mod corpus;
 pub mod corpus_import;
 pub mod corpus_seed;
+/// Native only, and for a different reason from its neighbours: it compiles for
+/// wasm perfectly well and simply has no caller there. `pins` reads it and is
+/// itself native only, and the wasm binary exists only so `parity` can run
+/// `conformance` through it.
+#[cfg(not(target_family = "wasm"))]
 pub mod fixtures;
 /// Native only: it reads the CLI's clap tree, and `liyasa-cli` does not build
 /// for wasm. See the target section in `Cargo.toml`.
