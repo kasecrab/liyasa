@@ -352,3 +352,82 @@ fn magic_link_sign_in_with_nowhere_to_send_is_w0138() {
     );
     assert_eq!(build(&with, &[]), Vec::<String>::new());
 }
+
+#[test]
+fn a_cadence_override_that_matches_no_directory_is_w0140() {
+    let config = r##"{ "name": "Acme", "seo": { "canonicalOrigin": "https://acme.dev" },
+      "content": { "reviewCadence": { "default": "180d",
+        "overrides": { "reference": "30d", "refrence": "7d" } } } }"##;
+    let codes = check(config, &["index", "reference/api"], Mode::Build);
+    assert_eq!(
+        codes,
+        ["W0140"],
+        "the typo is reported and the real directory is not"
+    );
+
+    let messages = messages(config);
+    let warning = messages
+        .iter()
+        .find(|message| message.contains("refrence"))
+        .expect("the warning names the directory as written");
+    assert!(warning.contains("never applies"), "{warning}");
+}
+
+#[test]
+fn a_glob_is_told_it_is_not_a_glob() {
+    // `reference/*` normalizes to a route no page can have, so the override
+    // silently never applies — which is the whole reason this rule exists.
+    let config = r##"{ "name": "Acme", "seo": { "canonicalOrigin": "https://acme.dev" },
+      "content": { "reviewCadence": { "overrides": { "reference/*": "30d" } } } }"##;
+    assert_eq!(check(config, &["reference/api"], Mode::Build), ["W0140"]);
+
+    let help_mentions_globs = {
+        let value: serde_json::Value = serde_json::from_str(config).expect("valid JSON");
+        let spans = SpanIndex::scan(SourceId(0), config);
+        let pages: Pages = ["reference/api"].iter().collect();
+        validate::validate(
+            &value,
+            &spans,
+            &Context {
+                pages: &pages,
+                mode: Mode::Build,
+            },
+        )
+        .iter()
+        .any(|diagnostic| {
+            diagnostic
+                .help
+                .as_deref()
+                .is_some_and(|help| help.contains("not a glob"))
+        })
+    };
+    assert!(help_mentions_globs, "the help says what to write instead");
+}
+
+#[test]
+fn a_directory_that_has_pages_is_silent() {
+    let config = r##"{ "name": "Acme", "seo": { "canonicalOrigin": "https://acme.dev" },
+      "content": { "reviewCadence": { "overrides": { "reference": "30d",
+        "reference/api": "7d", "/guides/": "90d" } } } }"##;
+    assert_eq!(
+        check(
+            config,
+            &["reference/api", "reference/api/auth", "guides/install"],
+            Mode::Build
+        ),
+        Vec::<String>::new(),
+        "a directory written with slashes, and a nested one, both resolve"
+    );
+}
+
+#[test]
+fn a_page_of_its_own_counts_as_a_directory() {
+    // `changelog` is one page rather than a directory of pages, and a cadence
+    // for it is a reasonable thing to write.
+    let config = r##"{ "name": "Acme", "seo": { "canonicalOrigin": "https://acme.dev" },
+      "content": { "reviewCadence": { "overrides": { "changelog": "30d" } } } }"##;
+    assert_eq!(
+        check(config, &["index", "changelog"], Mode::Build),
+        Vec::<String>::new()
+    );
+}

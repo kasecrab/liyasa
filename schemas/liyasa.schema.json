@@ -1046,9 +1046,37 @@
           "additionalProperties": false
         },
         "reviewCadence": {
-          "type": "string",
-          "pattern": "^\\d+(ms|s|m|h|d)$",
-          "description": "A duration such as `500ms`, `30s`, `180d`."
+          "description": "How long a page may go unreviewed before the editorial cadence reports it as overdue (VER-77). A page that has never recorded a review is overdue too, which is what the cadence exists to surface. Absent, the default is 180 days.",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d+(ms|s|m|h|d)$",
+              "description": "One cadence for every page, as a duration such as `180d`."
+            },
+            {
+              "type": "object",
+              "description": "A cadence for the site and a tighter or looser one for particular directories.",
+              "properties": {
+                "default": {
+                  "type": "string",
+                  "pattern": "^\\d+(ms|s|m|h|d)$",
+                  "description": "The cadence for any page no override covers. Absent, the 180 days VER-77 names."
+                },
+                "overrides": {
+                  "type": "object",
+                  "description": "A cadence per directory, keyed by the directory's route. The longest matching prefix wins, so `reference/api` can tighten what `reference` set, and leading or trailing slashes make no difference. A key is a directory and not a glob: `reference/*` is a route no page can have, so it would match nothing \u2014 `liyasa validate` reports any key with no pages under it as W0140 rather than the schema refusing the shape, because the check that can tell needs the project's page list and says which directory it is.",
+                  "additionalProperties": {
+                    "type": "string",
+                    "pattern": "^\\d+(ms|s|m|h|d)$",
+                    "description": "The cadence for pages in this directory."
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "minProperties": 1
+            }
+          ],
+          "x-liyasa-requirement": "CFG-80"
         },
         "customElements": {
           "type": "string",

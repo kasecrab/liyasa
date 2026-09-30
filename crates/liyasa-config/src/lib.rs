@@ -9,6 +9,7 @@ pub mod merge;
 pub mod migrate;
 pub mod pages;
 pub mod project;
+pub mod review;
 pub mod schema;
 pub mod trust;
 pub mod validate;

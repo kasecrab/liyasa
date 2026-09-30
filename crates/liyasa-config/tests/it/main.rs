@@ -8,6 +8,7 @@ mod load;
 mod migrate;
 mod model;
 mod project;
+mod review;
 mod schema;
 mod spans;
 mod trust;

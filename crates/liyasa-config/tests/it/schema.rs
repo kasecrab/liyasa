@@ -217,3 +217,37 @@ fn an_operator_needs_both_a_subject_and_a_role() {
         "`reader` carries no permission at all, so granting it is a no-op the schema refuses"
     );
 }
+
+#[test]
+fn a_review_cadence_is_one_duration_or_a_directory_map() {
+    for accepted in [
+        r#"{ "name": "Acme", "content": { "reviewCadence": "180d" } }"#,
+        r#"{ "name": "Acme", "content": { "reviewCadence": { "default": "180d" } } }"#,
+        r#"{ "name": "Acme", "content": { "reviewCadence": { "overrides": { "reference": "30d" } } } }"#,
+        r#"{ "name": "Acme", "content": { "reviewCadence": { "default": "180d",
+             "overrides": { "reference": "30d", "reference/api": "7d" } } } }"#,
+        // A glob is a shape the schema accepts and `liyasa validate` reports as
+        // W0140, so one mistake produces one diagnostic and it is the one that
+        // can name the directory.
+        r#"{ "name": "Acme", "content": { "reviewCadence": { "overrides": { "reference/*": "30d" } } } }"#,
+    ] {
+        assert_eq!(codes(&check(accepted)), Vec::<&str>::new(), "{accepted}");
+    }
+
+    for refused in [
+        // Not a duration.
+        r#"{ "name": "Acme", "content": { "reviewCadence": "soon" } }"#,
+        r#"{ "name": "Acme", "content": { "reviewCadence": { "default": "soon" } } }"#,
+        r#"{ "name": "Acme", "content": { "reviewCadence": { "overrides": { "reference": "soon" } } } }"#,
+        // An empty object says nothing; the string form or the key's absence do.
+        r#"{ "name": "Acme", "content": { "reviewCadence": {} } }"#,
+    ] {
+        assert_eq!(codes(&check(refused)), vec!["E0102"], "{refused}");
+    }
+
+    // A key the object form does not have is an unknown config key rather than
+    // a shape error, which is `E0103` and a warning (RFC 0102) — the rest of
+    // the config still loads.
+    let misspelt = r#"{ "name": "Acme", "content": { "reviewCadence": { "cadence": "30d" } } }"#;
+    assert_eq!(codes(&check(misspelt)), vec!["E0103"]);
+}

@@ -121,6 +121,7 @@ export const MESSAGES: Record<string, PlainMessage> = {
   W0137: { plain: "Somebody is listed as an operator under a way of signing in that cannot tell one person from another, so they will stay an ordinary reader.", fix: { label: "Open settings", action: "open-config" } },
   W0138: { plain: "This site signs people in by emailing them a link, and nothing says which mail server to send it from, so the sign-in page will accept an address and nothing will arrive.", fix: { label: "Open settings", action: "open-config" } },
   W0139: { plain: "Somebody is given dashboard access by the project's settings rather than by the team list, so taking them off the team will not take it away.", fix: { label: "Open settings", action: "open-config" } },
+  W0140: { plain: "A review reminder is set for a folder this project does not have, so those pages are never flagged for review. Check the folder name — it is a folder, not a pattern with a star in it.", fix: { label: "Open settings", action: "open-config" } },
   W0302: { plain: "This code block has a setting Liyasa does not recognise, so it was ignored.", fix: { label: "Remove it", action: "remove-unknown-prop" } },
   W0306: { plain: "This heading skips a level, which makes the page harder to navigate with a screen reader.", fix: { label: "Fix the level", action: "fix-heading-level" } },
   W0308: { plain: "This page is getting long. Readers and assistants both do better with shorter pages." },

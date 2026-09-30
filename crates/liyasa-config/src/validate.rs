@@ -48,6 +48,7 @@ pub fn validate(config: &Value, spans: &SpanIndex, context: &Context<'_>) -> Dia
     run.redirects();
     run.seo();
     run.auth();
+    run.review();
     run.diagnostics
 }
 
@@ -84,6 +85,48 @@ impl Run<'_> {
             .help("remove `public: false`, or host the built site behind your own access control"),
             "/public",
         );
+    }
+
+    /// CFG-80 and VER-77: a per-directory review cadence that names a
+    /// directory the project has no pages in silences itself. The consumer
+    /// matches by longest route prefix, so an override that matches nothing is
+    /// not an error — it simply never applies, which is the failure that looks
+    /// like success.
+    fn review(&mut self) {
+        let cadence = crate::review::review_cadence(self.config);
+        for directory in cadence.overrides.keys() {
+            let route = crate::review::normalize(directory);
+            if route == "/" || self.context.pages.has_directory(&route) {
+                continue;
+            }
+            // A page of its own, rather than a directory of pages under it, is
+            // a directory as far as the cadence is concerned.
+            if self.context.pages.contains(route.trim_start_matches('/')) {
+                continue;
+            }
+            let looks_like_a_glob = directory.contains('*');
+            let help = match looks_like_a_glob {
+                true => {
+                    "a cadence override is a directory route, not a glob: write `reference` \
+                         rather than `reference/*`"
+                }
+                false => {
+                    "check the spelling against the directories this project has, or drop \
+                          the override"
+                }
+            };
+            self.report(
+                Diagnostic::new(
+                    code::W0140,
+                    format!(
+                        "`content.reviewCadence` sets a cadence for `{directory}`, which has no \
+                         pages in this project, so it never applies to anything"
+                    ),
+                )
+                .help(help),
+                &format!("/content/reviewCadence/overrides/{directory}"),
+            );
+        }
     }
 
     /// CFG-96: an operator named in configuration has to be namable. The

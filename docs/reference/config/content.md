@@ -23,7 +23,7 @@ Specified by CFG-80.
 | `content.lastModified` | boolean | — | CFG-74: show the git or editor timestamp on every page. |
 | `content.math` | boolean \| `katex` \| `pulldown-latex` | — | Whether `$...$` and `$$...$$` are rendered as mathematics, and by which engine. |
 | `content.related.auto` | boolean | — | Choose related pages automatically when a page names none of its own. |
-| `content.reviewCadence` | string | — | A duration such as `500ms`, `30s`, `180d`. |
+| `content.reviewCadence` | string \| object | — | How long a page may go unreviewed before the editorial cadence reports it as overdue (VER-77). A page that has never recorded a review is overdue too, which is what the cadence exists to surface. Absent, the default is 180 days. |
 | `content.templating.limits.depth` | integer | — | How deep includes and blocks may nest. |
 | `content.templating.limits.iterations` | integer | — | How many loop iterations one page may run. |
 | `content.templating.limits.outputBytes` | string | — | A byte size such as `512MB`. |

@@ -71,6 +71,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0137`](/errors/W0137) | Warning | An `auth.operators` entry names a subject this `auth.mode` can never issue |
 | [`W0138`](/errors/W0138) | Warning | Magic-link sign-in is configured and `mail` is not, so no link can be sent |
 | [`W0139`](/errors/W0139) | Warning | A configured operator holds their role whatever the membership table says, and removing them from the organization does not revoke it |
+| [`W0140`](/errors/W0140) | Warning | A `content.reviewCadence` override names a directory this project has no pages in |
 
 ## Templating and Source Document
 
