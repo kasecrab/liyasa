@@ -27,6 +27,7 @@ pub mod frontmatter;
 pub mod gates;
 pub mod hosts;
 pub mod injection;
+pub mod policy;
 pub mod scope;
 pub mod secrets;
 pub mod tools;
