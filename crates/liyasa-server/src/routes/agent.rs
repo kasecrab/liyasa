@@ -14,7 +14,6 @@ use std::sync::Arc;
 
 use liyasa_agent::record::Phase;
 use liyasa_agent::run::{Request, Run, Surface};
-use liyasa_store::jobs::Enqueue;
 use liyasa_store::records::JobRecord;
 use serde_json::json;
 
