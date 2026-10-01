@@ -41,8 +41,10 @@ const UNCALLED_TODAY: &[(&str, &str)] = &[
          serde derives are on WP-20c's branch rather than on `main`; until they \
          land nothing can construct one. `reviews.digest` already READS through \
          `drift_records()` and skips with a reason while it answers `None`, so \
-         the gap is visible in a job row rather than silent. This entry leaving \
-         the list is the proof the store landed.",
+         the gap is visible in a job row rather than silent. This entry leaves \
+         the list when something CALLS the setter, which is downstream evidence \
+         rather than a signal about another package's merge: it proves a store \
+         was wired here, and that it could only have been.",
     ),
     (
         "with_limiter",
