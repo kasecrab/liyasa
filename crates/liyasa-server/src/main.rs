@@ -433,6 +433,12 @@ async fn run_serve(options: Options) -> Result<(), String> {
     if !offline && let Some(client) = outbound_client() {
         state = state.with_http(client);
     }
+    // VER-77's reminders are sent through this. Built here rather than taken
+    // from `AuthState`, because a public site returns from `auth::contribute`
+    // before its mailer exists and a reminder is not a sign-in.
+    if let Some(mail) = routes::mail::open(&state.config.site_config, Some(&store)) {
+        state = state.with_mail(mail);
+    }
     // VER-77's reminders read these. On the application pool rather than a
     // second one: WAL means readers never block the writer, and SQLite's
     // writer lock is per file, so a separate pool would buy nothing.

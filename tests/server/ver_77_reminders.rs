@@ -81,6 +81,16 @@ async fn with_a_record_store_the_digest_opens_rather_than_skipping() {
         result.get("skipped").is_none(),
         "an instance that keeps records does not skip: {result}"
     );
+    // The site configures no `mail` block, so nothing was sent and the row
+    // says which of the two it was. "Zero delivered" and "no sender" are
+    // different facts and must not read alike.
+    assert_eq!(result["sent"], 0, "{result}");
+    assert!(
+        result["reason"]
+            .as_str()
+            .is_some_and(|reason| reason.contains("mail")),
+        "the row names the missing sender rather than reporting a clean send: {result}"
+    );
     // An empty site has no owners and nothing unowned, and both fields are
     // present rather than absent — "no overdue pages" and "the digest did not
     // look" must not serialise the same.

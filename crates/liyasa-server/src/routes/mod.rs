@@ -10,6 +10,7 @@ pub mod acme;
 pub mod analytics;
 pub mod proxy;
 pub mod drift;
+pub mod mail;
 pub mod research;
 pub mod reviews;
 pub mod search;
@@ -120,6 +121,12 @@ pub struct AppState {
     pub scrubber: Scrubber,
     /// The ACME tokens this replica is answering for (HOST-02).
     pub challenges: Arc<acme::Challenges>,
+    /// This instance's mail sender, when the site configures one.
+    ///
+    /// Not the same object as `AuthState.mail`, and deliberately: a public
+    /// site never reaches the code that builds that one, and a reminder has
+    /// nothing to do with signing in. Both read the same `mail` block.
+    pub mail: Option<Arc<dyn crate::auth::state::Mail>>,
     /// The drift records this instance keeps, when it keeps any (VER-77).
     ///
     /// `None` until a persistent implementation exists: `DriftRecord` and
@@ -209,6 +216,7 @@ impl AppState {
             started: Instant::now(),
             mounted: std::sync::OnceLock::new(),
             self_arc: std::sync::OnceLock::new(),
+            mail: None,
             drift: None,
             proxy: None,
             http: None,
@@ -269,6 +277,16 @@ impl AppState {
     /// above all — takes it from here and never constructs its own.
     pub fn auth_state(&self) -> Option<&Arc<crate::auth::state::AuthState>> {
         self.auth_state.get()
+    }
+
+    /// The mail sender, or `None` on a site that configures none.
+    pub fn mail(&self) -> Option<&Arc<dyn crate::auth::state::Mail>> {
+        self.mail.as_ref()
+    }
+
+    pub fn with_mail(mut self, mail: Arc<dyn crate::auth::state::Mail>) -> Self {
+        self.mail = Some(mail);
+        self
     }
 
     /// The drift records, or `None` on an instance that keeps none.

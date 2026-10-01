@@ -60,8 +60,64 @@ pub fn run_digest<'a>(state: &'a Arc<AppState>, _job: &'a JobRecord) -> Run<'a> 
         // `DriftKind` is `#[non_exhaustive]` — filtering by kind here would
         // silently drop a kind added later.
         let digest = review::digest(&open);
-        Outcome::Done(summarise(&digest))
+        let sent = send(state, &digest).await;
+        Outcome::Done(summarise(&digest, &sent))
     })
+}
+
+/// What happened to each owner's reminder.
+#[derive(Debug, Default)]
+struct Sent {
+    delivered: usize,
+    failed: Vec<String>,
+    reason: Option<&'static str>,
+}
+
+/// Sends one message per owner.
+///
+/// `Mail::send` rather than `send_link`, and the difference is not stylistic.
+/// `send_link` is never awaited and reports nothing, because AUTH-09 needs the
+/// magic-link endpoint to answer identically whether or not the address is
+/// known — awaiting only when a link was minted is a timing oracle for exactly
+/// what the identical response hides. A reminder is under no such constraint:
+/// the address came from `DOCOWNERS`, and an operator wants to know whether it
+/// arrived. `auth/state.rs` says "do not tidy these into one shape".
+async fn send(state: &Arc<AppState>, digest: &Digest) -> Sent {
+    let Some(mail) = state.mail() else {
+        return Sent {
+            reason: Some("no `mail` block is configured, so no reminder was sent"),
+            ..Sent::default()
+        };
+    };
+    let mut sent = Sent::default();
+    for owner in &digest.owners {
+        let body = body_for(owner);
+        match mail.send(&owner.owner, "Pages due for review", &body).await {
+            Ok(()) => sent.delivered += 1,
+            // One owner's bad address does not stop the rest, and the failure
+            // is named rather than counted: "three failed" tells an operator
+            // nothing they can act on.
+            Err(error) => sent.failed.push(format!("{}: {error}", owner.owner)),
+        }
+    }
+    sent
+}
+
+/// One owner's reminder, worst-first as `review::digest` ordered it.
+fn body_for(owner: &review::OwnerDigest) -> String {
+    let mut body = String::from("These pages are past their review cadence:\n\n");
+    for (route, weight) in &owner.pages {
+        match weight {
+            Some(weight) => {
+                body.push_str(&format!("  {}  (traffic {weight:.0})\n", route.as_str()))
+            }
+            // No traffic figure sorts last rather than first, so this is the
+            // tail of the list and says so rather than showing a zero it does
+            // not know.
+            None => body.push_str(&format!("  {}  (no traffic data)\n", route.as_str())),
+        }
+    }
+    body
 }
 
 /// What the job row records, which is the audit of a send rather than the
@@ -71,7 +127,7 @@ pub fn run_digest<'a>(state: &'a Arc<AppState>, _job: &'a JobRecord) -> Run<'a> 
 /// overdue page nobody owns has no reminder to send, and dropping it silently
 /// would make a project with no `DOCOWNERS` produce an empty digest and read
 /// as fully reviewed — absent and empty must not serialise to the same thing.
-fn summarise(digest: &Digest) -> serde_json::Value {
+fn summarise(digest: &Digest, sent: &Sent) -> serde_json::Value {
     json!({
         "owners": digest
             .owners
@@ -79,10 +135,10 @@ fn summarise(digest: &Digest) -> serde_json::Value {
             .map(|owner| json!({ "owner": owner.owner, "pages": owner.pages.len() }))
             .collect::<Vec<_>>(),
         "unowned": digest.unowned.iter().map(|route| route.as_str()).collect::<Vec<_>>(),
-        // Nothing sends yet. Said here rather than left to be inferred from an
-        // absent field, so an operator reading the job row is not told that
-        // reminders went out.
-        "sent": false,
-        "reason": "no reminder destination is configured",
+        "sent": sent.delivered,
+        // Named rather than counted: a count tells an operator nothing they
+        // can act on, and an empty list is not the same as no attempt.
+        "failed": sent.failed,
+        "reason": sent.reason,
     })
 }
