@@ -59,6 +59,8 @@ mod cfg_90_validate;
 mod cli_13_schema;
 #[path = "../cli/cli_14_migrate.rs"]
 mod cli_14_migrate;
+#[path = "../cli/cfg_93_env.rs"]
+mod cfg_93_env;
 #[path = "../cli/cli_02_dev.rs"]
 mod cli_02_dev;
 #[path = "../cli/cli_03_build.rs"]
