@@ -524,7 +524,7 @@
                 },
                 {
                   "type": "string",
-                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as W0141."
+                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as E0136."
                 }
               ]
             },
@@ -540,7 +540,7 @@
                 },
                 {
                   "type": "string",
-                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as W0141."
+                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as E0136."
                 }
               ]
             }
@@ -3166,7 +3166,7 @@
                 },
                 {
                   "type": "string",
-                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as W0141."
+                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as E0136."
                 }
               ]
             },
@@ -3239,7 +3239,7 @@
                 },
                 {
                   "type": "string",
-                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as W0141."
+                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as E0136."
                 }
               ]
             },
@@ -3280,7 +3280,7 @@
                 },
                 {
                   "type": "string",
-                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as W0141."
+                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as E0136."
                 }
               ]
             }
@@ -3336,7 +3336,7 @@
                 },
                 {
                   "type": "string",
-                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as W0141."
+                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as E0136."
                 }
               ]
             }
@@ -3366,7 +3366,7 @@
                 },
                 {
                   "type": "string",
-                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as W0141."
+                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as E0136."
                 }
               ]
             }
@@ -3396,7 +3396,7 @@
                 },
                 {
                   "type": "string",
-                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as W0141."
+                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as E0136."
                 }
               ]
             }
@@ -3426,7 +3426,7 @@
                 },
                 {
                   "type": "string",
-                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as W0141."
+                  "description": "Path to a file holding this subtree, relative to the project root (CFG-34). The file holds what this key would have held: an array of navigation nodes. A file may name further files, up to four splices deep; beyond that, or in a cycle, the path is left as written and reported as E0136."
                 }
               ]
             }
