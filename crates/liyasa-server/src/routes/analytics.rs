@@ -61,8 +61,10 @@ pub fn view(app: &Arc<AppState>) -> Option<Analytics> {
 /// no organization — a self-hosted server has no plan and no cap.
 fn plan_retention_days(app: &Arc<AppState>) -> Option<u32> {
     let org = app.org_state()?;
-    let days = org.read().org.plan.analytics_retention_days;
-    days
+    // The binding on `org` stays: `org_state()` hands back an `Arc` that has to
+    // outlive the `read()` guard, and the field is `Option<u32>`, so returning
+    // it by value from the guarded expression is what `let_and_return` wants.
+    org.read().org.plan.analytics_retention_days
 }
 
 const MS_PER_DAY: i64 = 24 * 60 * 60 * 1000;
