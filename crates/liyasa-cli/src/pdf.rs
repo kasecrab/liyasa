@@ -85,18 +85,45 @@ fn read_page(output: &Path, path: &Path) -> Option<Page> {
         .filter(|text| !text.is_empty())?;
 
     let relative = path.strip_prefix(output).ok()?;
-    let route = match relative.to_string_lossy().as_ref() {
+    let route = route_of(&relative.to_string_lossy());
+
+    Some(Page { route, title, body })
+}
+
+/// The route an output file serves, from its path relative to the output root.
+///
+/// The separator is normalised **first**. It used to be normalised last, after
+/// `trim_end_matches("/index.html")` had already failed to match
+/// `guides\install\index.html`, so on Windows every directory index kept its
+/// `/index` segment — and every page whose route the navigation declares then
+/// missed its lookup and fell back to route order, which read as a sorting
+/// defect two layers away.
+fn route_of(relative: &str) -> String {
+    let relative = relative.replace('\\', "/");
+    match relative.as_str() {
         "index.html" => "/".to_owned(),
         other => format!(
             "/{}",
             other
                 .trim_end_matches("/index.html")
                 .trim_end_matches(".html")
-                .replace('\\', "/")
         ),
-    };
+    }
+}
 
-    Some(Page { route, title, body })
+/// `base` as a `file://` URL with a trailing slash.
+///
+/// Windows gives a `display()` string with `\` separators and no leading
+/// slash — `C:\site\dist` — and neither is a URL. A URL path is `/`-separated,
+/// and `file://C:/…` would read `C:` as the *host*; the path has to start at
+/// the root, so an absolute path that does not begin with `/` gains one.
+fn base_href(base: &Path) -> String {
+    let path = base.display().to_string().replace('\\', "/");
+    let path = path.trim_end_matches('/');
+    match path.starts_with('/') {
+        true => format!("file://{path}/"),
+        false => format!("file:///{path}/"),
+    }
 }
 
 /// The inner HTML of the first `<tag …>…</tag>`.
@@ -176,10 +203,7 @@ pub fn document(site: &str, pages: &[Page], stylesheet: Option<&str>, base: &Pat
     out.push_str("<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n");
     out.push_str(&format!("<title>{}</title>\n", escape(site)));
     // A trailing slash, or the last segment of the directory is dropped.
-    out.push_str(&format!(
-        "<base href=\"file://{}/\">\n",
-        base.display().to_string().trim_end_matches('/')
-    ));
+    out.push_str(&format!("<base href=\"{}\">\n", base_href(base)));
     if let Some(href) = stylesheet {
         out.push_str(&format!(
             "<link rel=\"stylesheet\" href=\"{}\">\n",
@@ -262,6 +286,49 @@ mod tests {
         // The chrome around the page is not part of the book.
         assert!(!pages[0].body.contains("ly-sidebar"));
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// The defect `platforms-native.yml` found on 2026-10-01, driven directly
+    /// because `bin/gate` cannot reproduce it: on Linux the separator is `/`,
+    /// the first `trim_end_matches` succeeds, and nothing shows.
+    ///
+    /// Both separators must give the same route, because a route is a URL and
+    /// a URL does not have a platform.
+    #[test]
+    fn a_windows_path_gives_the_same_route_as_a_unix_one() {
+        for (relative, route) in [
+            ("guides/install/index.html", "/guides/install"),
+            (r"guides\install\index.html", "/guides/install"),
+            ("index.html", "/"),
+            (r"guides\install.html", "/guides/install"),
+            ("guides/install.html", "/guides/install"),
+            (r"a\b\c\index.html", "/a/b/c"),
+        ] {
+            assert_eq!(route_of(relative), route, "{relative}");
+        }
+    }
+
+    /// A `file://` URL is `/`-separated and its path starts at the root.
+    /// `file://C:/site/` would read `C:` as the host.
+    #[test]
+    fn a_windows_base_is_still_a_file_url() {
+        assert_eq!(
+            base_href(Path::new(r"C:\site\dist")),
+            "file:///C:/site/dist/"
+        );
+        assert_eq!(
+            base_href(Path::new("/srv/site/dist")),
+            "file:///srv/site/dist/"
+        );
+        // A path that already ends in a separator does not gain a second one.
+        assert_eq!(
+            base_href(Path::new("/srv/site/dist/")),
+            "file:///srv/site/dist/"
+        );
+        assert_eq!(
+            base_href(Path::new(r"C:\site\dist\")),
+            "file:///C:/site/dist/"
+        );
     }
 
     #[test]
