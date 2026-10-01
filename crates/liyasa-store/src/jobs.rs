@@ -190,6 +190,12 @@ impl Jobs {
     /// Leases the next runnable job to `worker`: a queued job whose `run_at`
     /// has passed, or a leased job whose lease expired (its worker died),
     /// highest priority first, oldest first within a priority.
+    /// **A worker loop wants [`claim_runnable`](Self::claim_runnable), not
+    /// this.** This claims the top row whatever its name, and a caller that
+    /// cannot dispatch the name it gets starves the whole queue — see that
+    /// method for the mechanism. This one remains for callers that handle
+    /// every name by construction, and for tests that are about ordering
+    /// rather than about dispatch.
     pub async fn claim(
         &self,
         worker: &str,
@@ -204,6 +210,85 @@ impl Jobs {
             )
             .bind(now)
             .bind(now)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(sql_error)?;
+            let Some(row) = candidate else {
+                return Ok(None);
+            };
+            let id: String = row.try_get("id").map_err(sql_error)?;
+            let version: i64 = row.try_get("version").map_err(sql_error)?;
+            let lease_ms = lease.as_millis() as i64;
+            let updated = sqlx::query(
+                "UPDATE job SET state = 'leased', worker = ?, lease_ms = ?, lease_until = ?, \
+                 attempts = attempts + 1, updated_at = ?, version = version + 1 \
+                 WHERE id = ? AND version = ?",
+            )
+            .bind(worker)
+            .bind(lease_ms)
+            .bind(now + lease_ms)
+            .bind(now)
+            .bind(&id)
+            .bind(version)
+            .execute(&self.pool)
+            .await
+            .map_err(sql_error)?;
+            if updated.rows_affected() == 1 {
+                return self.get_text(&id).await;
+            }
+            // Another worker won the row; pick the next one.
+        }
+        Ok(None)
+    }
+
+    /// Claims the highest-priority job **this binary can run**.
+    ///
+    /// The unfiltered [`claim`](Self::claim) starves the queue when a name is
+    /// enqueued that the caller has no handler for. The worker claims the row,
+    /// cannot dispatch it, hands it back with `release_one` — which does not
+    /// touch `run_at` — and the next `claim` returns the same row. `attempts`
+    /// *decrements* on release, so the row never ages into `dead`, and every
+    /// job sorting below it is never examined. One operator action enqueuing
+    /// an unhandled name made retention, the reminder digest and deploys
+    /// unreachable on that instance until somebody deleted the row by hand.
+    ///
+    /// Filtering in SQL fixes it at the only point that can: the row is never
+    /// claimed, so nothing is released and nothing is deferred. The unhandled
+    /// row stays `queued` with its `attempts` untouched, visible to an
+    /// operator and runnable the moment a binary that handles it arrives —
+    /// which is what the release-rather-than-fail decision was protecting.
+    ///
+    /// An empty `handled` claims **nothing**. A caller with no registry can
+    /// run no job, and returning the whole queue to it would be the starvation
+    /// again with the filter inverted.
+    pub async fn claim_runnable(
+        &self,
+        worker: &str,
+        lease: Duration,
+        handled: &[&str],
+    ) -> Result<Option<JobRecord>, StoreError> {
+        if handled.is_empty() {
+            return Ok(None);
+        }
+        // The name set is one JSON array bind against `json_each`, not a
+        // generated list of placeholders. sqlx refuses a non-static query
+        // string ("dynamic SQL strings should be audited for possible
+        // injections"), and nothing else in this crate builds SQL at runtime —
+        // so the set travels as data rather than as syntax, which is the
+        // property that refusal is protecting.
+        let handled = serde_json::to_string(handled).map_err(|e| StoreError::Io(e.to_string()))?;
+        for _ in 0..8 {
+            let now = now_ms();
+            let candidate = sqlx::query(
+                "SELECT id, version FROM job \
+                 WHERE ((state = 'queued' AND run_at <= ?) \
+                        OR (state = 'leased' AND lease_until < ?)) \
+                   AND name IN (SELECT value FROM json_each(?)) \
+                 ORDER BY priority DESC, run_at ASC, id ASC LIMIT 1",
+            )
+            .bind(now)
+            .bind(now)
+            .bind(&handled)
             .fetch_optional(&self.pool)
             .await
             .map_err(sql_error)?;

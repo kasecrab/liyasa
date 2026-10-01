@@ -235,22 +235,32 @@ pub async fn run_up_to(
     let mut ran = 0;
 
     while ran < limit {
-        let Some(job) = jobs.claim(worker, lease).await? else {
+        // Only the names this binary handles. The unfiltered `claim` starved
+        // the queue: an enqueued name with no handler here was claimed,
+        // undispatchable, handed back by `release_one` — which does not touch
+        // `run_at` — and returned by the next `claim`, with `attempts`
+        // DECREMENTING on release so the row never aged into `dead`. The
+        // `break` below then ended the pass before a second row was examined,
+        // so every job sorting under it was unreachable. One operator action
+        // enqueuing `agent.create_page` made retention, the reminder digest
+        // and deploys unreachable on that instance (WP-17 drove it with a
+        // control: orphan plus a handled job gave `ran = 0`, the same test
+        // without the orphan gave 1).
+        let handled: Vec<&str> = kinds.iter().map(|k| k.name).collect();
+        let Some(job) = jobs.claim_runnable(worker, lease, &handled).await? else {
             break;
         };
         let Some(kind) = kinds.iter().find(|k| k.name == job.name) else {
+            // A backstop now rather than the normal path: `claim_runnable`
+            // cannot return a name outside `handled`. Reachable only if a row
+            // was leased by a binary that claimed without the filter, so it
+            // keeps the release-rather-than-fail decision — a binary older
+            // than the enqueuer should not burn somebody else's attempts.
             note_unknown(&job.name);
-            // Release rather than fail: the package that owns it may be
-            // merging right now, and failing it through its attempts because
-            // this binary is older would be a self-inflicted outage.
-            //
-            // Scoped to this job. `release` is by worker and would re-queue
-            // everything else this worker holds, which is harmless only while
-            // exactly one job is held at a time — a property of this loop
-            // that a later change could remove without noticing (WP-16).
             jobs.release_one(&job.id).await?;
-            // Nothing else is claimable that this binary can run: `claim`
-            // orders by priority and would hand back the same row.
+            // Still `break` rather than `continue`: `ran` counts handled jobs,
+            // so a `continue` would re-claim the released row until the limit
+            // without advancing. The loop exits and the next pass tries again.
             break;
         };
 

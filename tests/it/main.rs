@@ -219,6 +219,8 @@ mod ana_20_search_events;
 mod agt_02_research;
 #[path = "../server/agt_02_research_job.rs"]
 mod agt_02_research_job;
+#[path = "../server/work_orphan_starvation.rs"]
+mod work_orphan_starvation;
 #[path = "../server/ver_77_reminders.rs"]
 mod ver_77_reminders;
 
