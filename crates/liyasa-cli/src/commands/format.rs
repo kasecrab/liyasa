@@ -145,6 +145,16 @@ fn canonical_config(path: &Path) -> Option<String> {
     (canonical != text).then_some(canonical)
 }
 
+/// A relative path as `.liyasaignore` reads it.
+///
+/// A `VfsPath` is `/`-separated whatever the platform is, like a route. On
+/// Windows `strip_prefix` hands back `guides\\install.md`, which matches no
+/// rule an author ever writes, so without this every ignore rule is silently
+/// off there and excluded files get rewritten.
+fn vfs_path(relative: &Path) -> liyasa_core::vfs::VfsPath {
+    liyasa_core::vfs::VfsPath::new(relative.to_string_lossy().replace('\\', "/"))
+}
+
 /// Every `.md` under `root`, skipping the output directory, the never-format
 /// list, and anything `.liyasaignore` matches.
 fn walk(root: &Path, output: &Path) -> Vec<PathBuf> {
@@ -167,9 +177,15 @@ fn walk(root: &Path, output: &Path) -> Vec<PathBuf> {
                 }
                 stack.push(path);
             } else if path.extension().is_some_and(|extension| extension == "md") {
-                let relative = path.strip_prefix(root).unwrap_or(&path);
-                let vfs = liyasa_core::vfs::VfsPath::new(relative.to_string_lossy());
-                if !ignore.matches(&vfs) {
+                // Everything on the stack descends from `root`, so this cannot
+                // fail. It used to be `unwrap_or(&path)`, which answered a
+                // failure with an absolute path — and an absolute path matches
+                // no ignore rule, so a file nobody could place would have been
+                // formatted in spite of `.liyasaignore`.
+                let Ok(relative) = path.strip_prefix(root) else {
+                    continue;
+                };
+                if !ignore.matches(&vfs_path(relative)) {
                     out.push(path);
                 }
             }
@@ -177,4 +193,23 @@ fn walk(root: &Path, output: &Path) -> Vec<PathBuf> {
     }
     out.sort();
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Driven directly because the gate cannot: on Linux the separator is
+    /// already `/` and an ignore rule matches whatever this function does.
+    #[test]
+    fn a_windows_relative_path_is_still_a_slash_separated_vfs_path() {
+        let ignore = liyasa_markdown::source::route::Ignore::parse("guides/private/*\n");
+
+        assert!(ignore.matches(&vfs_path(Path::new("guides/private/notes.md"))));
+        assert!(
+            ignore.matches(&vfs_path(Path::new(r"guides\private\notes.md"))),
+            "a backslash path escaped the ignore rule"
+        );
+        assert!(!ignore.matches(&vfs_path(Path::new(r"guides\public\notes.md"))));
+    }
 }
