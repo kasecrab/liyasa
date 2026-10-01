@@ -142,7 +142,12 @@ impl Watch {
         Ok(Self {
             _debouncer: debouncer,
             events,
-            root: root.to_path_buf(),
+            // Once, not per event: `canonicalize` hits the filesystem, and the
+            // comparison in `relativise` has to be like for like. macOS
+            // symlinks `/var` to `/private/var`, so a root under `temp_dir()`
+            // and the path a filesystem event carries differ by that prefix —
+            // but any symlinked or bind-mounted root does the same anywhere.
+            root: root.canonicalize().unwrap_or_else(|_| root.to_path_buf()),
             ignore,
             output: output.to_owned(),
         })
@@ -165,14 +170,79 @@ impl Watch {
     }
 
     fn relative(&self, path: &Path) -> Option<VfsPath> {
-        let relative = path.strip_prefix(&self.root).unwrap_or(path);
-        Some(VfsPath::new(relative.to_str()?))
+        relativise(&self.root, path)
     }
+}
+
+/// A watched path as a project path, or `None` when it is not under `root`.
+///
+/// `None` rather than the path itself: a filesystem event can arrive for
+/// something outside the project — a root reached through a symlink, a bind
+/// mount, a case-insensitive volume — and handing back the absolute path turns
+/// "I could not place this" into a route the rest of the build believes. Every
+/// consumer reads a `VfsPath` as relative to the project, so an unplaceable
+/// event has to be dropped rather than relabelled.
+fn relativise(root: &Path, path: &Path) -> Option<VfsPath> {
+    let relative = path.strip_prefix(root).ok()?;
+    Some(VfsPath::new(relative.to_str()?))
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
     use super::*;
+
+    /// Beside the pid, not instead of it: `bin/gate` runs nextest, which gives
+    /// every test its own process, while CI runs `cargo test`, where the tests
+    /// of one binary are threads sharing one pid. A pid-only fixture name is
+    /// therefore unique locally and shared on CI.
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn a_path_outside_the_root_is_dropped_rather_than_relabelled() {
+        let root = Path::new("/project");
+        assert_eq!(
+            relativise(root, Path::new("/project/guides/install.md")),
+            Some(VfsPath::new("guides/install.md"))
+        );
+        // The defect: `unwrap_or(path)` answered `Some("elsewhere/x.md")` here,
+        // an absolute path with its leading slash gone, which every consumer
+        // reads as a project route.
+        assert_eq!(relativise(root, Path::new("/elsewhere/x.md")), None);
+        assert_eq!(relativise(root, Path::new("/projectile/x.md")), None);
+    }
+
+    /// The root is canonical from construction, so an event carrying the
+    /// resolved path still strips. Reproduces the macOS `/var` to
+    /// `/private/var` failure on any platform with symlinks.
+    #[test]
+    fn a_root_reached_through_a_symlink_still_relativises() {
+        let base = std::env::temp_dir().join(format!(
+            "liyasa-watch-symlink-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
+        let _ = std::fs::remove_dir_all(&base);
+        let real = base.join("real");
+        std::fs::create_dir_all(real.join("guides")).expect("a project directory");
+        std::fs::write(real.join("guides/install.md"), "# install").expect("a page");
+        let link = base.join("link");
+        std::os::unix::fs::symlink(&real, &link).expect("a symlink");
+
+        let watch = Watch::new(&link, Ignore::default(), "dist").expect("a watcher");
+        assert_eq!(
+            watch.root,
+            real.canonicalize().expect("the real path resolves"),
+            "the stored root is canonical, so an event's resolved path strips"
+        );
+        assert_eq!(
+            watch.relative(&real.join("guides/install.md")),
+            Some(VfsPath::new("guides/install.md"))
+        );
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     fn paths(items: &[&str]) -> Vec<VfsPath> {
         items.iter().map(VfsPath::new).collect()
