@@ -175,6 +175,20 @@ pub enum Entry {
         output: String,
         usage: Option<Usage>,
     },
+    /// What one tool returned.
+    ///
+    /// A separate entry from [`Entry::ToolCall`] rather than a field on it,
+    /// because the call is authorised and recorded BEFORE the tool runs — there
+    /// is no result to put there at the time. Pairing them is by order and by
+    /// `tool`, which is what a reviewer reading the transcript does anyway.
+    ToolResult {
+        seq: u32,
+        tool: String,
+        /// The result as the model was shown it, redacted.
+        value: Value,
+        /// How far it may travel. `external` is a third party's bytes.
+        trust: TrustLevel,
+    },
     Note {
         seq: u32,
         text: String,
@@ -191,6 +205,7 @@ impl Entry {
             Entry::Phase { seq, .. }
             | Entry::ToolCall { seq, .. }
             | Entry::ModelExchange { seq, .. }
+            | Entry::ToolResult { seq, .. }
             | Entry::Note { seq, .. }
             | Entry::Decided { seq, .. } => *seq,
         }
@@ -322,6 +337,27 @@ impl RunRecord {
             output: crate::secrets::redact(output),
             usage,
         });
+    }
+
+    /// Records what a tool returned, redacted like everything else.
+    pub fn record_result(&mut self, tool: &str, value: &Value, trust: TrustLevel) {
+        let seq = self.next_seq();
+        self.entries.push(Entry::ToolResult {
+            seq,
+            tool: tool.to_owned(),
+            value: redact_value(value),
+            trust,
+        });
+    }
+
+    /// Every tool result, in order.
+    pub fn results(&self) -> impl Iterator<Item = (&str, &Value, TrustLevel)> {
+        self.entries.iter().filter_map(|entry| match entry {
+            Entry::ToolResult {
+                tool, value, trust, ..
+            } => Some((tool.as_str(), value, *trust)),
+            _ => None,
+        })
     }
 
     pub fn note(&mut self, text: &str) {
@@ -672,6 +708,33 @@ mod tests {
         let mut record = record();
         record.record_exchange("m", &request(), "ok", None);
         assert_eq!(record.tokens_spent(), 0);
+    }
+
+    #[test]
+    fn a_tool_result_is_recorded_with_its_trust() {
+        // AGT-05 stores "every tool call"; a call whose result is absent is half
+        // stored, and the result is the half a reviewer reads.
+        let mut record = record();
+        record.record_result(
+            "search_docs",
+            &json!({ "passages": [{ "route": "/pricing" }] }),
+            TrustLevel::Member,
+        );
+        let (tool, value, trust) = record.results().next().expect("a result");
+        assert_eq!(tool, "search_docs");
+        assert_eq!(trust, TrustLevel::Member);
+        assert!(value.to_string().contains("/pricing"));
+    }
+
+    #[test]
+    fn a_secret_in_a_tool_result_is_not_stored() {
+        let mut record = record();
+        record.record_result(
+            "read_repo_file",
+            &json!({ "text": format!("const KEY = \"{SECRET}\";") }),
+            TrustLevel::Member,
+        );
+        assert!(!as_text(&record).contains(SECRET));
     }
 
     #[test]

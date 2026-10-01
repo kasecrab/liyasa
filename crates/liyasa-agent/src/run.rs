@@ -519,6 +519,9 @@ impl Run {
                  its policy says (RFC 2502)"
             ));
         }
+        // Into the record as well as into the next request. AGT-05 stores every
+        // tool call, and a call whose result is absent is half stored.
+        self.record.record_result(tool, value, trust);
         self.findings
             .push(crate::model::result_block(tool, label, value, trust));
         self.findings.last().expect("just pushed")
@@ -1446,6 +1449,36 @@ mod tests {
             "the finding did not reach the model: {:?}",
             seen[0].data.iter().map(|b| &b.label).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn a_recorded_result_is_in_the_run_record_as_well_as_the_next_request() {
+        let mut run = member_run();
+        run.enter(Phase::Research).expect("research");
+        run.record_result(
+            crate::tools::SEARCH_DOCS,
+            "installer",
+            &serde_json::json!({ "passages": [{ "route": "/guides/install" }] }),
+        );
+        let (tool, value, trust) = run.record().results().next().expect("a result entry");
+        assert_eq!(tool, crate::tools::SEARCH_DOCS);
+        assert_eq!(trust, TrustLevel::Member);
+        assert!(value.to_string().contains("/guides/install"));
+    }
+
+    #[test]
+    fn a_secret_a_tool_returned_is_redacted_in_the_record() {
+        // `read_repo_file` reads source, which is where a committed credential
+        // lives. The record must not become the second copy.
+        let mut run = member_run();
+        run.enter(Phase::Research).expect("research");
+        run.record_result(
+            crate::tools::READ_REPO_FILE,
+            "src/config.rs",
+            &serde_json::json!({ "text": "const KEY = \"AKIAQWERTYUIOPASDFGH\";" }),
+        );
+        let text = serde_json::to_string(run.record()).expect("serializes");
+        assert!(!text.contains("AKIAQWERTYUIOPASDFGH"), "{text}");
     }
 
     #[test]
