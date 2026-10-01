@@ -6,7 +6,7 @@
 //! that built its own state.
 
 use http::StatusCode;
-use liyasa_tests::server::{Harness, expect_status, header};
+use liyasa_tests::server::{Harness, header};
 
 #[tokio::test]
 async fn a_query_is_answered_as_json_rather_than_404() {
@@ -75,13 +75,22 @@ async fn an_instance_with_no_index_says_so_rather_than_looking_unmounted() {
     let (harness, _site) = Harness::serving("rest04-noindex").await;
 
     let response = harness.get("/_liyasa/search?q=install").await;
-    if response.status() == StatusCode::SERVICE_UNAVAILABLE {
-        let body = liyasa_tests::server::body_text(response).await;
-        assert!(
+    let status = response.status();
+    let body = liyasa_tests::server::body_text(response).await;
+
+    // Both branches assert. Written as `if 503 { .. } else { .. }` this
+    // silently stopped checking anything the day the harness gained an index:
+    // the false branch had no assertion, so a test about the 503's wording
+    // passed by not reaching it. WP-17 caught that while fixing the harness.
+    match status {
+        StatusCode::SERVICE_UNAVAILABLE => assert!(
             body.contains("search index"),
-            "503 names the missing index: {body}"
-        );
-    } else {
-        expect_status(response, StatusCode::OK);
+            "the 503 names the missing index rather than looking unmounted: {body}"
+        ),
+        StatusCode::OK => assert!(
+            body.contains("results") || body.contains("hits") || body.contains('{'),
+            "an instance with an index answers a result document: {body}"
+        ),
+        other => panic!("a query is answered or refused, not {other}: {body}"),
     }
 }

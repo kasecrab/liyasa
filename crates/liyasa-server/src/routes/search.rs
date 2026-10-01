@@ -18,6 +18,7 @@ use http::{StatusCode, header};
 use liyasa_search::analytics::SearchEvent;
 use liyasa_search::idx::Index;
 use liyasa_search::idx::query::ReaderScope;
+use serde_json::json;
 
 /// The path this endpoint answers at, and the `route` every event carries.
 pub const PATH: &str = "/_liyasa/search";
@@ -70,6 +71,15 @@ fn scope(reader: Option<&Principal>) -> ReaderScope {
     }
 }
 
+/// Who made this search, from the only thing that can tell.
+///
+/// Extracted so it can be asserted: the defect this replaced was an omitted
+/// field, and an omitted field is invisible to a test of the function that
+/// omits it. A unit test over this names the four answers.
+fn caller_of(user_agent: Option<&str>) -> (super::session::CallerKind, Option<String>) {
+    super::session::classify(user_agent, false)
+}
+
 /// One search event, mapped through `liyasa-analytics`' constructors.
 ///
 /// The match is here rather than in that crate on purpose: naming
@@ -101,11 +111,31 @@ fn record(state: &Arc<AppState>, event: &SearchEvent, parts: &http::request::Par
         .headers
         .get(header::USER_AGENT)
         .and_then(|value| value.to_str().ok());
+    // `structural: false`, which is the judgement in this call and not a
+    // default. `session::classify` takes it because the answer is per route:
+    // the MCP surface hardcodes `agent` because only agents reach it, and the
+    // browser beacon passes `false` because only readers do.
+    //
+    // `/_liyasa/search` is reached by BOTH — the reader's own search box and an
+    // agent working the REST surface — so the route discriminates nothing and
+    // the user agent is the only thing that can. `true` would file every
+    // reader's search as agent traffic, which is the majority case and the
+    // wrong answer; `false` still files a known agent UA as `Agent`, a bot as
+    // `Bot`, and an absent UA as `Integration` rather than as a person.
+    let (kind, agent_name) = caller_of(user_agent);
     let base = liyasa_store::records::EventRecord {
         ts: liyasa_store::now_ms(),
         site: state.config.site.clone(),
         env: state.config.env.clone(),
         route: PATH.to_owned(),
+        // Never `..Default::default()` for this field. `EventRecord` derives
+        // `Default`, so an omitted caller is `Value::Null`, and the dashboard
+        // groups on `json_extract(caller, '$.kind')` — a NULL kind folds into
+        // `human`, so an agent's search would be counted as a person's with no
+        // error and no empty table (WP-17 found this). The doc comment above
+        // guards the session key against exactly this and I left the caller
+        // half of the same sentence unguarded.
+        caller: json!({ "kind": kind.as_str(), "agent_name": agent_name }),
         format: "json".to_owned(),
         session_key: state
             .salt
@@ -159,4 +189,41 @@ pub async fn handler(
         serde_json::to_string(&response.body).unwrap_or_else(|_| "{}".to_owned()),
     )
         .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The four answers, and above all that none of them is absent.
+    ///
+    /// A null caller is not a fifth answer — the dashboard groups on
+    /// `json_extract(caller, '$.kind')` and folds an unknown kind into
+    /// `human`, so an omitted field counts every agent as a person with no
+    /// error anywhere (WP-17's finding).
+    #[test]
+    fn every_search_names_who_made_it() {
+        use super::super::session::CallerKind;
+
+        let (kind, name) = caller_of(Some("ClaudeBot/1.0"));
+        assert_eq!(kind, CallerKind::Agent);
+        assert_eq!(name.as_deref(), Some("claudebot"));
+
+        let (kind, _) = caller_of(Some(
+            "Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        ));
+        assert_eq!(kind, CallerKind::Human, "a reader's search box is a person");
+
+        // Not `Human`: a request with no user agent is a script.
+        let (kind, _) = caller_of(None);
+        assert_eq!(kind, CallerKind::Integration);
+
+        for agent in [Some("ClaudeBot/1.0"), Some("Chrome/120"), None] {
+            let (kind, _) = caller_of(agent);
+            assert!(
+                !kind.as_str().is_empty(),
+                "a search always records a caller kind"
+            );
+        }
+    }
 }
