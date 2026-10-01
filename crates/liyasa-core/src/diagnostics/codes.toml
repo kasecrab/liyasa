@@ -263,3 +263,4 @@ W0729 = { severity = "warning", crate = "liyasa-build", title = "A page's region
 W0639 = { severity = "warning", crate = "liyasa-verify", title = "A page's `reviewed:` date is not a date Liyasa can read" }
 W0818 = { severity = "warning", crate = "liyasa-server", title = "A site route is shadowed by the MCP server endpoint" }
 W0140 = { severity = "warning", crate = "liyasa-config", title = "A `content.reviewCadence` override names a directory this project has no pages in" }
+E0136 = { severity = "error", crate = "liyasa-config", title = "A navigation file names another navigation file in a cycle, or deeper than Liyasa resolves" }

@@ -7,6 +7,7 @@ mod command;
 mod load;
 mod migrate;
 mod model;
+mod pertab;
 mod project;
 mod review;
 mod schema;

@@ -67,6 +67,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`E0133`](/errors/E0133) | Error | Navigation binds a subtree to a version, locale, product, or spec that is not declared |
 | [`W0134`](/errors/W0134) | Warning | Trust-plane section read from the deploy branch, not from the branch being built |
 | [`E0135`](/errors/E0135) | Error | Remote spec source is not one the deploy branch's config names |
+| [`E0136`](/errors/E0136) | Error | A navigation file names another navigation file in a cycle, or deeper than Liyasa resolves |
 | [`W0136`](/errors/W0136) | Warning | `seo.canonicalOrigin` already carries `build.basePath`, so every absolute URL doubles it |
 | [`W0137`](/errors/W0137) | Warning | An `auth.operators` entry names a subject this `auth.mode` can never issue |
 | [`W0138`](/errors/W0138) | Warning | Magic-link sign-in is configured and `mail` is not, so no link can be sent |

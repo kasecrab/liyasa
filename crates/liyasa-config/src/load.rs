@@ -9,6 +9,8 @@ use liyasa_core::diagnostics::{Diagnostic, Diagnostics, code};
 use liyasa_core::source_map::SourceMap;
 use liyasa_core::span::{LineCol, SourceId, Span};
 use liyasa_core::vfs::{Vfs, VfsError, VfsPath};
+use std::collections::BTreeSet;
+
 use serde_json::Value;
 
 use crate::json::SpanIndex;
@@ -123,6 +125,14 @@ pub fn load(vfs: &dyn Vfs, sources: &mut SourceMap, options: &Options) -> Load {
 }
 
 /// `navigation: "navigation.json"` names a file holding the tree (CFG-34).
+/// How many files deep a navigation tree may be split (RFC 0111). Counted from
+/// `liyasa.json`, so the top-level `"navigation": "navigation.json"` is one.
+const MAX_SPLICE_DEPTH: usize = 4;
+
+/// The subtree keys a node may name a file with. `pages` is an array
+/// everywhere else, so a string there can only be a file.
+const SUBTREE_KEYS: &[&str] = &["pages", "items", "tabs"];
+
 fn splice_navigation(
     vfs: &dyn Vfs,
     sources: &mut SourceMap,
@@ -131,17 +141,132 @@ fn splice_navigation(
     spans: &mut SpanIndex,
     diagnostics: &mut Diagnostics,
 ) {
-    let Some(name) = value.get("navigation").and_then(Value::as_str) else {
-        return;
-    };
-    let path = options.root.join(name);
-    let Some((tree, tree_spans)) = read_json(vfs, sources, &path, diagnostics, true) else {
-        return;
-    };
-    if let Some(object) = value.as_object_mut() {
-        object.insert("navigation".to_owned(), tree);
+    let mut visited: BTreeSet<String> = BTreeSet::new();
+    let mut depth = 0;
+
+    if let Some(name) = value.get("navigation").and_then(Value::as_str) {
+        let path = options.root.join(name);
+        visited.insert(path.as_str().to_owned());
+        depth = 1;
+        let Some((tree, tree_spans)) = read_json(vfs, sources, &path, diagnostics, true) else {
+            return;
+        };
+        if let Some(object) = value.as_object_mut() {
+            object.insert("navigation".to_owned(), tree);
+        }
+        spans.graft_root("/navigation", &tree_spans);
     }
-    spans.graft_root("/navigation", &tree_spans);
+
+    let Some(navigation) = value.get_mut("navigation") else {
+        return;
+    };
+    splice_subtrees(
+        &mut Splice {
+            vfs,
+            sources,
+            options,
+            spans,
+            diagnostics,
+            visited,
+        },
+        navigation,
+        "/navigation",
+        depth,
+    );
+}
+
+/// Everything the walk needs, so the recursion carries one argument rather
+/// than seven.
+struct Splice<'a> {
+    vfs: &'a dyn Vfs,
+    sources: &'a mut SourceMap,
+    options: &'a Options,
+    spans: &'a mut SpanIndex,
+    diagnostics: &'a mut Diagnostics,
+    visited: BTreeSet<String>,
+}
+
+/// CFG-34: a node's subtree may be a path to the file holding it. Resolved
+/// here rather than in each consumer so the file's spans are grafted at the
+/// pointer it was spliced into, and a diagnostic inside it points at the right
+/// line of the right file.
+fn splice_subtrees(splice: &mut Splice<'_>, node: &mut Value, at: &str, depth: usize) {
+    match node {
+        Value::Array(entries) => {
+            for (index, entry) in entries.iter_mut().enumerate() {
+                splice_subtrees(splice, entry, &format!("{at}/{index}"), depth);
+            }
+        }
+        Value::Object(object) => {
+            for key in SUBTREE_KEYS {
+                let Some(child) = object.get(*key) else {
+                    continue;
+                };
+                let pointer = format!("{at}/{key}");
+                // A splice is what the depth counts, so the nodes a file
+                // brought in are one deeper than the nodes beside it.
+                let mut spliced = false;
+                if let Some(name) = child.as_str() {
+                    let name = name.to_owned();
+                    if !resolve_subtree(splice, object, key, &pointer, &name, depth) {
+                        continue;
+                    }
+                    spliced = true;
+                }
+                if let Some(child) = object.get_mut(*key) {
+                    splice_subtrees(splice, child, &pointer, depth + usize::from(spliced));
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Reads one subtree file into `object[key]`. Returns whether the key now
+/// holds what the file held.
+///
+/// A refusal is `E0136`, an **error**, and leaves the path as written. It has
+/// to be an error: adding the string branch to the schema (RFC 0111) means a
+/// leftover path now validates, so nothing downstream would object to a tab
+/// whose pages are the string `nav/guides.json` — it would render as a tab with
+/// nothing in it. The first draft of this relied on `E0102` catching it, which
+/// was true before the schema branch this same change added.
+fn resolve_subtree(
+    splice: &mut Splice<'_>,
+    object: &mut serde_json::Map<String, Value>,
+    key: &str,
+    pointer: &str,
+    name: &str,
+    depth: usize,
+) -> bool {
+    let path = splice.options.root.join(name);
+    let seen = splice.visited.contains(path.as_str());
+    if depth + 1 > MAX_SPLICE_DEPTH || seen {
+        let why = match seen {
+            true => format!("`{path}` is already part of this navigation tree"),
+            false => format!("`{path}` is more than {MAX_SPLICE_DEPTH} files deep"),
+        };
+        let diagnostic =
+            Diagnostic::new(code::E0136, format!("navigation was not read from {why}")).help(
+                "split the tree across fewer files, and check that no navigation file names one \
+             that names it back",
+            );
+        splice.diagnostics.push(match splice.spans.value(pointer) {
+            Some(span) => diagnostic.at(span),
+            None => diagnostic,
+        });
+        return false;
+    }
+
+    splice.visited.insert(path.as_str().to_owned());
+    let Some((subtree, subtree_spans)) =
+        read_json(splice.vfs, splice.sources, &path, splice.diagnostics, true)
+    else {
+        return false;
+    };
+    object.insert(key.to_owned(), subtree);
+    splice.spans.graft_root(pointer, &subtree_spans);
+    true
 }
 
 /// Reads one JSON file and indexes its spans. `required` decides whether a

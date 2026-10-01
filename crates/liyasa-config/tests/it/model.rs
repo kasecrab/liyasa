@@ -37,6 +37,11 @@ fn navigation_keeps_every_node_form() {
         panic!("the first node is a tab");
     };
     assert_eq!(tab, "Guides");
+    // Since RFC 0111 a subtree is either the nodes or the path to the file
+    // holding them, so the generated type is an enum rather than a list.
+    let Some(liyasa_config::model::TabPages::List(pages)) = pages else {
+        panic!("the example writes the tab's pages inline");
+    };
     assert!(matches!(pages[0], NavigationNode::Group { .. }));
     assert!(matches!(pages[1], NavigationNode::Directory { .. }));
     assert!(matches!(tabs[2], NavigationNode::Tab { .. }));
