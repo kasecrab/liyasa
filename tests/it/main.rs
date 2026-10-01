@@ -246,3 +246,6 @@ mod agt_30_agentsmd;
 mod agt_41_followup;
 #[path = "../agent/agt_42_bugs.rs"]
 mod agt_42_bugs;
+
+#[path = "../hosting/fixture_isolation.rs"]
+mod fixture_isolation;

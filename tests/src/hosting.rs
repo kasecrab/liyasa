@@ -6,6 +6,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use liyasa_build::engine::{self, Options, Report};
 use liyasa_build::git::NoGit;
@@ -14,6 +15,16 @@ use liyasa_config::vfs::OsVfs;
 use liyasa_core::ids::Route;
 use liyasa_core::source_map::SourceMap;
 use liyasa_core::vfs::VfsPath;
+
+/// Distinguishes the fixtures of tests that run as parallel threads in one
+/// process. `build` opens with `remove_dir_all` and `Drop` closes with it, so
+/// two `Site`s rooted at one path delete each other's files; the pid alone is
+/// not enough, because `cargo test` runs the whole suite in one process while
+/// `bin/gate` runs nextest and gives every test its own. Nor is a distinct
+/// `name` per call site enough: one helper that several tests call is one call
+/// site and several concurrent fixtures. The pattern is
+/// `tests/build/cmp_82_variants.rs`'s.
+static COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// The fixture's `liyasa.json`: a redirect, a frame-ancestors list, an extra
 /// image host, and one analytics integration.
@@ -56,8 +67,11 @@ impl Site {
     /// Builds the fixture with the given config and options, then generates
     /// and writes the host files into `dist/`.
     pub fn build(name: &str, config: &str, options: Options) -> Self {
-        let root =
-            std::env::temp_dir().join(format!("liyasa-hosting-{name}-{}", std::process::id()));
+        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let root = std::env::temp_dir().join(format!(
+            "liyasa-hosting-{name}-{}-{n}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("a project directory");
         write(&root, "liyasa.json", config);
