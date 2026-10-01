@@ -141,6 +141,10 @@ impl<'a> Engine<'a> {
         let drift = DriftPolicy::new(self.config);
         let mut report = DriftReport::default();
         let mut seen = BTreeSet::new();
+        // Subjects whose class is off: exempt from closing, not evidence.
+        let mut unwatched = BTreeSet::new();
+        // Subjects that reached no page: they close, as `Vanished`.
+        let mut vanished = BTreeSet::new();
         // Every write this reconciliation makes, handed to the store in one
         // call at the end. A run is one logical operation: a store that can
         // make it one transaction should be able to, and under the previous
@@ -149,10 +153,27 @@ impl<'a> Engine<'a> {
         let mut pending: Vec<DriftRecord> = Vec::new();
 
         for candidate in candidates {
-            if !recordable(candidate, policy) {
+            let key = candidate.key();
+            if !watched(&candidate.kind, policy) {
+                // Not watched. Exempt from closing, so an existing record is
+                // left exactly as it is: no write at all, so it keeps its
+                // `first_seen` and never records a resolution nobody earned.
+                //
+                // It is NOT distinguishable from a watched record that simply
+                // has not changed — an unchanged record is not rewritten
+                // either (RFC 2063), so `last_seen` is identical in both
+                // cases. Only the config says which it is, and the dashboard
+                // has the config.
+                unwatched.insert(key);
                 continue;
             }
-            let key = candidate.key();
+            if candidate.pages.is_empty() {
+                // The subject moved and no page states it any more. There is
+                // nothing to fix, so the record closes — but as `Vanished`,
+                // because nobody corrected anything.
+                vanished.insert(key);
+                continue;
+            }
             seen.insert(key.clone());
             match self.records.find(&key)? {
                 Some(stored) => {
@@ -182,7 +203,15 @@ impl<'a> Engine<'a> {
         // yet. That is safe rather than lucky: every key it would skip is one
         // in `seen`, and `seen` holds every candidate's key whether or not the
         // candidate produced a write.
-        report.resolved = self.close_absent(&seen, drift.auto_resolves(), &mut pending)?;
+        report.resolved = self.close_absent(
+            &Absence {
+                seen: &seen,
+                unwatched: &unwatched,
+                vanished: &vanished,
+            },
+            drift.auto_resolves(),
+            &mut pending,
+        )?;
         self.records.save_all(&pending)?;
         Ok(report)
     }
@@ -190,14 +219,14 @@ impl<'a> Engine<'a> {
     /// An open record whose condition no longer holds, in a run that looked.
     fn close_absent(
         &self,
-        seen: &BTreeSet<DriftKey>,
+        absence: &Absence<'_>,
         auto: bool,
         pending: &mut Vec<DriftRecord>,
     ) -> Result<u32, StoreError> {
         let mut closed: u32 = 0;
         for mut record in self.records.open_records()? {
             let key = record.key();
-            if seen.contains(&key) || !self.coverage.covers(&key) {
+            if absence.observed(&key) || !self.coverage.covers(&key) {
                 continue;
             }
             if record.gone_since.is_none() {
@@ -206,7 +235,7 @@ impl<'a> Engine<'a> {
             if auto {
                 record.state = DriftState::Resolved;
                 record.resolved_at = Some(self.now);
-                record.resolution = Some(Resolution::Fixed);
+                record.resolution = Some(absence.resolution(&key));
                 closed = closed.saturating_add(1);
             }
             pending.push(record);
@@ -303,18 +332,52 @@ impl liyasa_core::verify::DriftEngine for Engine<'_> {
     }
 }
 
-/// Whether the check class this kind belongs to is on.
+/// What one reconciliation observed about each subject, which is what decides
+/// whether an open record closes and as what.
+///
+/// Three sets rather than one, because "absent from the candidates" has three
+/// different meanings and only one of them is "fixed".
+struct Absence<'a> {
+    /// Produced a candidate: still drifting, so nothing closes.
+    seen: &'a BTreeSet<DriftKey>,
+    /// Class turned off: not looked for, so nothing closes either.
+    unwatched: &'a BTreeSet<DriftKey>,
+    /// Reached no page: closes, but nobody corrected anything.
+    vanished: &'a BTreeSet<DriftKey>,
+}
+
+impl Absence<'_> {
+    /// Whether this run says anything that should stop the record closing.
+    fn observed(&self, key: &DriftKey) -> bool {
+        self.seen.contains(key) || self.unwatched.contains(key)
+    }
+
+    /// `Vanished` when the claim went away, `Fixed` when the subject stopped
+    /// drifting. Read from which set the key is in rather than inferred from an
+    /// absence, so the engine never guesses why something disappeared.
+    fn resolution(&self, key: &DriftKey) -> Resolution {
+        if self.vanished.contains(key) {
+            Resolution::Vanished
+        } else {
+            Resolution::Fixed
+        }
+    }
+}
+
+/// Whether this kind's check class is on.
+///
+/// Deliberately *not* fused with "does this candidate reach a page". Those were
+/// one predicate called `recordable` until 2026-10-01, and because both answers
+/// took the same early exit, both closed the record — right for one of them and
+/// wrong for the other. A reader asking "does an off class close records?" had
+/// to already know which of the two reasons they were looking at (RFC 2060).
 ///
 /// A class set to `off` reports nothing, and a drift record is a report
-/// (RFC 2061). A review has no class, so nothing turns it off but
+/// (RFC 2061) — so an unwatched subject's record is left frozen rather than
+/// resolved. A review has no class, so nothing turns it off but
 /// `content.reviewCadence`.
-fn recordable(candidate: &Candidate, policy: &Policy) -> bool {
-    // A subject that reaches no page is a real answer and not a record: there
-    // is nothing to fix and nothing to show (RFC 2060).
-    if candidate.pages.is_empty() {
-        return false;
-    }
-    class_of(&candidate.kind).is_none_or(|class| policy.level(class) != PolicyLevel::Off)
+fn watched(kind: &DriftKind, policy: &Policy) -> bool {
+    class_of(kind).is_none_or(|class| policy.level(class) != PolicyLevel::Off)
 }
 
 pub fn class_of(kind: &DriftKind) -> Option<CheckClass> {

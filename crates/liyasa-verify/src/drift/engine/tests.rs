@@ -613,3 +613,175 @@ fn closing_a_record_joins_the_same_batch_as_the_candidates() {
     );
     assert_eq!(saves, 0);
 }
+
+// ---- what absence means, per reason (RFC 2060, amended) ----
+
+#[test]
+fn a_class_turned_off_freezes_its_records_rather_than_resolving_them() {
+    let store = Counting::new();
+    let auto = DriftConfig {
+        auto_resolve: true,
+        ..DriftConfig::default()
+    };
+    let routes = Pairs;
+    let key = DriftKey::Link("https://example.com/gone".to_owned());
+
+    // Open a link record while links are watched.
+    Engine::new(&store, &auto, &routes)
+        .at(at(100))
+        .record(&[link("https://example.com/gone")], &Policy::new())
+        .expect("a write");
+    let opened = store.find(&key).expect("a read").expect("the record");
+    assert_eq!(opened.first_seen, at(100));
+
+    // Now turn the class off and sweep everything. `autoResolve` is on, so the
+    // only thing standing between this record and `Resolved` is the amendment.
+    let off = Policy::new().with(CheckClass::Links, PolicyLevel::Off);
+    let report = Engine::new(&store, &auto, &routes)
+        .at(at(200))
+        .covering(Coverage::Everything)
+        .record(&[link("https://example.com/gone")], &off)
+        .expect("a write");
+
+    assert_eq!(report.resolved, 0, "an unwatched subject is not fixed");
+    let frozen = store.find(&key).expect("a read").expect("still there");
+    assert!(frozen.is_open());
+    assert_eq!(frozen.resolution, None);
+    assert_eq!(
+        frozen.gone_since, None,
+        "nor does it look fixed — nothing looked"
+    );
+    assert_eq!(frozen, opened, "the record was not written at all");
+    // `last_seen` is unchanged — but that does NOT make a frozen record
+    // distinguishable from a watched one that has not changed, because an
+    // unchanged record is not rewritten either (RFC 2063). Only the config
+    // tells them apart. Asserted here so nobody reads freezing as a signal.
+    assert_eq!(frozen.last_seen, at(100));
+    let (saves, batches, sizes) = store.counts();
+    assert_eq!((saves, batches), (0, 2), "two runs, two batch calls");
+    assert_eq!(sizes, vec![1, 0], "and the second batch was empty");
+
+    // The irreversibility argument: turning the class back on must continue the
+    // same episode, not start a new one. A page wrong since `at(100)` must not
+    // read as having drifted today.
+    let back = Engine::new(&store, &auto, &routes)
+        .at(at(300))
+        .record(&[link("https://example.com/gone")], &Policy::new())
+        .expect("a write");
+    assert_eq!(
+        (back.created, back.updated),
+        (0, 0),
+        "nothing a reader would see changed, so there is nothing to report"
+    );
+    let resumed = store.find(&key).expect("a read").expect("the record");
+    assert_eq!(
+        resumed.first_seen,
+        at(100),
+        "the history an operator needs survived the config edit"
+    );
+    assert_eq!(
+        store.all().expect("a read").len(),
+        1,
+        "and it is one record"
+    );
+}
+
+#[test]
+fn a_claim_that_went_away_closes_as_vanished_and_a_fixed_one_as_fixed() {
+    let store = MemoryDrift::new();
+    let auto = DriftConfig {
+        auto_resolve: true,
+        ..DriftConfig::default()
+    };
+    let routes = Pairs;
+    let policy = Policy::new();
+    let gone = DriftKey::Fact(FactId::new("plan.pro.price"));
+    let corrected = DriftKey::Fact(FactId::new("plan.team.price"));
+
+    Engine::new(&store, &auto, &routes)
+        .at(at(100))
+        .record(
+            &[
+                fact("plan.pro.price", 25.0, ChangeKind::Changed),
+                fact("plan.team.price", 15.0, ChangeKind::Changed),
+            ],
+            &policy,
+        )
+        .expect("a write");
+
+    // `plan.pro.price` still moves but no page states it any more; nothing is
+    // said about `plan.team.price`, which is the ordinary "stopped drifting".
+    let mut orphan = fact("plan.pro.price", 25.0, ChangeKind::Changed);
+    orphan.pages.clear();
+    let report = Engine::new(&store, &auto, &routes)
+        .at(at(200))
+        .covering(Coverage::Everything)
+        .record(&[orphan], &policy)
+        .expect("a write");
+
+    assert_eq!(report.resolved, 2, "both closed");
+    assert_eq!(
+        store
+            .find(&gone)
+            .expect("a read")
+            .expect("the record")
+            .resolution,
+        Some(Resolution::Vanished),
+        "the claim is gone, and nobody corrected anything"
+    );
+    assert_eq!(
+        store
+            .find(&corrected)
+            .expect("a read")
+            .expect("the record")
+            .resolution,
+        Some(Resolution::Fixed),
+        "this one stopped drifting, which is somebody's work"
+    );
+}
+
+#[test]
+fn an_unwatched_class_does_not_suppress_a_watched_one_in_the_same_run() {
+    // The two sets are separate, so one kind being off must not exempt another.
+    let store = MemoryDrift::new();
+    let auto = DriftConfig {
+        auto_resolve: true,
+        ..DriftConfig::default()
+    };
+    let routes = Pairs;
+
+    Engine::new(&store, &auto, &routes)
+        .at(at(100))
+        .record(
+            &[
+                link("https://example.com/gone"),
+                fact("plan.pro.price", 25.0, ChangeKind::Changed),
+            ],
+            &Policy::new(),
+        )
+        .expect("a write");
+
+    // Links off, facts on, and the fact has stopped drifting.
+    let off = Policy::new().with(CheckClass::Links, PolicyLevel::Off);
+    let report = Engine::new(&store, &auto, &routes)
+        .at(at(200))
+        .covering(Coverage::Everything)
+        .record(&[link("https://example.com/gone")], &off)
+        .expect("a write");
+
+    assert_eq!(report.resolved, 1, "the fact closed; the link did not");
+    assert!(
+        store
+            .find(&DriftKey::Link("https://example.com/gone".to_owned()))
+            .expect("a read")
+            .expect("frozen")
+            .is_open()
+    );
+    assert!(
+        !store
+            .find(&DriftKey::Fact(FactId::new("plan.pro.price")))
+            .expect("a read")
+            .expect("closed")
+            .is_open()
+    );
+}
