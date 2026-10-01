@@ -21,6 +21,7 @@ pub mod record;
 pub mod review;
 pub mod spec;
 pub mod store;
+pub mod wire;
 
 pub use engine::{Coverage, Engine, GraphRoutes, Routes};
 pub use entries::entries;

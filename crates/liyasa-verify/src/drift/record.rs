@@ -18,6 +18,7 @@ use std::time::{Duration, SystemTime};
 use liyasa_core::document::{Edge, EdgeOrigin};
 use liyasa_core::ids::{CheckId, FactId, Fingerprint, JobId, Route};
 use liyasa_core::verify::{ChangeKind, FactValue};
+use serde::{Deserialize, Serialize};
 
 use crate::core::config::DriftSeverity;
 
@@ -27,7 +28,8 @@ use crate::core::config::DriftSeverity;
 /// key does not name a page and the pages travel in
 /// [`DriftRecord::pages`]. A review is a property of one page, so its key is
 /// the route.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum DriftKey {
     Fact(FactId),
     Operation { spec: String, op: String },
@@ -62,7 +64,8 @@ impl DriftKey {
 }
 
 /// What drifted, with everything specific to that kind of drift.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
 #[non_exhaustive]
 pub enum DriftKind {
     /// VER-23. `old` and `new` are the values the record has to show.
@@ -82,6 +85,7 @@ pub enum DriftKind {
     Link {
         url: String,
         reason: String,
+        #[serde(with = "liyasa_core::serde_time::system_time_ms")]
         failing_since: SystemTime,
     },
     /// A verified example that does not pass. `CheckOutcome::Error` is
@@ -98,8 +102,11 @@ pub enum DriftKind {
         /// as the fallback. Empty when neither source answered, which is a
         /// state the digest has to show rather than drop.
         owners: Vec<String>,
+        #[serde(with = "super::wire::option_system_time_ms")]
         reviewed: Option<SystemTime>,
+        #[serde(with = "liyasa_core::serde_time::duration_ms")]
         cadence: Duration,
+        #[serde(with = "liyasa_core::serde_time::duration_ms")]
         overdue_by: Duration,
     },
 }
@@ -168,7 +175,8 @@ pub fn escalated(severity: DriftSeverity) -> DriftSeverity {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum DriftState {
     #[default]
     Open,
@@ -178,7 +186,8 @@ pub enum DriftState {
 /// Why a record closed. VER-73 hands open records to the maintenance agent as
 /// tasks, so which of these closed a record is the difference between "the
 /// docs were fixed" and "someone said it was fine".
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Resolution {
     /// The condition no longer holds in a run that covered it.
     Fixed,
@@ -191,7 +200,8 @@ pub enum Resolution {
 }
 
 /// A subject that has drifted, the pages it affects, and the evidence.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DriftRecord {
     pub kind: DriftKind,
     pub severity: DriftSeverity,
@@ -200,12 +210,16 @@ pub struct DriftRecord {
     pub pages: Vec<Route>,
     /// VER-23's "affected blocks", each with the edge path that proves it.
     pub blocks: Vec<(EdgeOrigin, Vec<Edge>)>,
+    #[serde(with = "liyasa_core::serde_time::system_time_ms")]
     pub first_seen: SystemTime,
+    #[serde(with = "liyasa_core::serde_time::system_time_ms")]
     pub last_seen: SystemTime,
     /// When a covered run first found that the condition no longer holds. Set
     /// whether or not `autoResolve` closes the record, so a dashboard can offer
     /// "this looks fixed" and an owner's approval can close it (RFC 2063).
+    #[serde(with = "super::wire::option_system_time_ms")]
     pub gone_since: Option<SystemTime>,
+    #[serde(with = "super::wire::option_system_time_ms")]
     pub resolved_at: Option<SystemTime>,
     pub resolution: Option<Resolution>,
     /// VER-77's traffic weight, and `None` for a kind or a deployment with no
@@ -220,7 +234,8 @@ pub struct DriftRecord {
 /// [`super::links`], [`super::checks`], [`super::review`] — returns these, and
 /// [`super::policy`] is the only thing that grades them. Keeping the two apart
 /// is what stops each producer inventing its own threshold.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Candidate {
     pub kind: DriftKind,
     pub pages: Vec<Route>,
