@@ -13,7 +13,6 @@ use std::sync::Arc;
 use liyasa_store::jobs::Enqueue;
 use liyasa_store::records::JobRecord;
 use liyasa_verify::drift::review::{self, Digest};
-use liyasa_verify::drift::store::RecordStore;
 use serde_json::json;
 
 use super::AppState;
