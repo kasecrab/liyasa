@@ -141,6 +141,12 @@ impl<'a> Engine<'a> {
         let drift = DriftPolicy::new(self.config);
         let mut report = DriftReport::default();
         let mut seen = BTreeSet::new();
+        // Every write this reconciliation makes, handed to the store in one
+        // call at the end. A run is one logical operation: a store that can
+        // make it one transaction should be able to, and under the previous
+        // shape a failure halfway left some of the run's records written and
+        // some not (RFC 2066).
+        let mut pending: Vec<DriftRecord> = Vec::new();
 
         for candidate in candidates {
             if !recordable(candidate, policy) {
@@ -153,7 +159,7 @@ impl<'a> Engine<'a> {
                     if let Some((next, reopened)) =
                         self.updated(stored, candidate, drift.grade(candidate))
                     {
-                        self.records.save(&next)?;
+                        pending.push(next);
                         let counter = if reopened {
                             &mut report.created
                         } else {
@@ -166,19 +172,28 @@ impl<'a> Engine<'a> {
                     let Some(severity) = drift.grade(candidate) else {
                         continue;
                     };
-                    self.records
-                        .save(&candidate.clone().opened(severity, self.now))?;
+                    pending.push(candidate.clone().opened(severity, self.now));
                     report.created = report.created.saturating_add(1);
                 }
             }
         }
 
-        report.resolved = self.close_absent(&seen, drift.auto_resolves())?;
+        // `close_absent` reads the store, which has not seen this run's writes
+        // yet. That is safe rather than lucky: every key it would skip is one
+        // in `seen`, and `seen` holds every candidate's key whether or not the
+        // candidate produced a write.
+        report.resolved = self.close_absent(&seen, drift.auto_resolves(), &mut pending)?;
+        self.records.save_all(&pending)?;
         Ok(report)
     }
 
     /// An open record whose condition no longer holds, in a run that looked.
-    fn close_absent(&self, seen: &BTreeSet<DriftKey>, auto: bool) -> Result<u32, StoreError> {
+    fn close_absent(
+        &self,
+        seen: &BTreeSet<DriftKey>,
+        auto: bool,
+        pending: &mut Vec<DriftRecord>,
+    ) -> Result<u32, StoreError> {
         let mut closed: u32 = 0;
         for mut record in self.records.open_records()? {
             let key = record.key();
@@ -194,7 +209,7 @@ impl<'a> Engine<'a> {
                 record.resolution = Some(Resolution::Fixed);
                 closed = closed.saturating_add(1);
             }
-            self.records.save(&record)?;
+            pending.push(record);
         }
         Ok(closed)
     }

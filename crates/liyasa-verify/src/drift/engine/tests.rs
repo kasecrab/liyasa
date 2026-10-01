@@ -462,3 +462,154 @@ fn the_frozen_entry_point_refuses_a_store_it_is_not_the_engine_for() {
             .is_ok()
     );
 }
+
+/// Counts which store method the engine actually calls.
+///
+/// `save_all` delegates to the *inner* store, so a `save` counted here can only
+/// have come from the engine. Without this, batching is invisible: every
+/// assertion about records in the store passes either way, which is how a seam
+/// gets added and then quietly bypassed.
+struct Counting {
+    inner: MemoryDrift,
+    saves: std::sync::atomic::AtomicUsize,
+    batches: std::sync::atomic::AtomicUsize,
+    sizes: std::sync::Mutex<Vec<usize>>,
+}
+
+impl Counting {
+    fn new() -> Self {
+        Self {
+            inner: MemoryDrift::new(),
+            saves: std::sync::atomic::AtomicUsize::new(0),
+            batches: std::sync::atomic::AtomicUsize::new(0),
+            sizes: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+
+    fn counts(&self) -> (usize, usize, Vec<usize>) {
+        use std::sync::atomic::Ordering::Relaxed;
+        (
+            self.saves.load(Relaxed),
+            self.batches.load(Relaxed),
+            self.sizes.lock().expect("not poisoned").clone(),
+        )
+    }
+}
+
+impl RecordStore for Counting {
+    fn all(&self) -> Result<Vec<crate::drift::record::DriftRecord>, StoreError> {
+        self.inner.all()
+    }
+
+    fn find(
+        &self,
+        key: &DriftKey,
+    ) -> Result<Option<crate::drift::record::DriftRecord>, StoreError> {
+        self.inner.find(key)
+    }
+
+    fn save(&self, record: &crate::drift::record::DriftRecord) -> Result<(), StoreError> {
+        self.saves
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.inner.save(record)
+    }
+
+    fn save_all(&self, records: &[crate::drift::record::DriftRecord]) -> Result<(), StoreError> {
+        self.batches
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.sizes.lock().expect("not poisoned").push(records.len());
+        self.inner.save_all(records)
+    }
+}
+
+#[test]
+fn a_reconciliation_is_one_store_write_call_however_many_records_it_touches() {
+    let store = Counting::new();
+    let config = DriftConfig::default();
+    let routes = Pairs;
+    let policy = Policy::new();
+
+    let report = Engine::new(&store, &config, &routes)
+        .at(at(100))
+        .record(
+            &[
+                fact("plan.pro.price", 25.0, ChangeKind::Changed),
+                fact("plan.team.price", 15.0, ChangeKind::Changed),
+                link("https://example.com/gone"),
+            ],
+            &policy,
+        )
+        .expect("a write");
+
+    assert_eq!(report.created, 3);
+    let (saves, batches, sizes) = store.counts();
+    assert_eq!(batches, 1, "one call per reconciliation, not per record");
+    assert_eq!(sizes, vec![3], "and it carried all three");
+    assert_eq!(
+        saves, 0,
+        "the engine must not reach past the batch to the per-record method"
+    );
+}
+
+#[test]
+fn a_reconciliation_that_changes_nothing_still_makes_exactly_one_call() {
+    // An empty batch rather than no call: a store that opens a transaction in
+    // `save_all` gets a consistent shape on every run, and a caller counting
+    // reconciliations is not left guessing.
+    let store = Counting::new();
+    let config = DriftConfig::default();
+    let routes = Pairs;
+
+    Engine::new(&store, &config, &routes)
+        .at(at(100))
+        .record(&[], &Policy::new())
+        .expect("a write");
+
+    let (saves, batches, sizes) = store.counts();
+    assert_eq!((saves, batches), (0, 1));
+    assert_eq!(sizes, vec![0]);
+}
+
+#[test]
+fn closing_a_record_joins_the_same_batch_as_the_candidates() {
+    let store = Counting::new();
+    let auto = DriftConfig {
+        auto_resolve: true,
+        ..DriftConfig::default()
+    };
+    let routes = Pairs;
+    let policy = Policy::new();
+
+    // Open two.
+    Engine::new(&store, &auto, &routes)
+        .at(at(100))
+        .record(
+            &[
+                fact("plan.pro.price", 25.0, ChangeKind::Changed),
+                fact("plan.team.price", 15.0, ChangeKind::Changed),
+            ],
+            &policy,
+        )
+        .expect("a write");
+
+    // One still drifting, one covered and gone: one update, one close, and both
+    // in a single call.
+    let report = Engine::new(&store, &auto, &routes)
+        .at(at(200))
+        .covering(Coverage::Everything)
+        .record(
+            &[fact("plan.pro.price", 30.0, ChangeKind::Changed)],
+            &policy,
+        )
+        .expect("a write");
+
+    assert_eq!((report.created, report.updated, report.resolved), (0, 1, 1));
+    let (saves, batches, sizes) = store.counts();
+    assert_eq!(batches, 2, "one per reconciliation");
+    assert_eq!(
+        sizes,
+        vec![2, 2],
+        "the second holds the update and the close"
+    );
+    assert_eq!(saves, 0);
+}

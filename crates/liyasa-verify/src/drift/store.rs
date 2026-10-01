@@ -34,6 +34,19 @@ pub trait RecordStore: Send + Sync {
     /// Insert or replace by [`DriftRecord::key`].
     fn save(&self, record: &DriftRecord) -> Result<(), StoreError>;
 
+    /// Every write one reconciliation makes, in one call.
+    ///
+    /// `Engine::record` calls this once rather than `save` per record, because
+    /// a run is one logical operation: a store backed by SQL should be able to
+    /// make it one transaction, and under autocommit the alternative is a
+    /// separate commit per record — fine at ten and not at a thousand.
+    ///
+    /// The default is a loop, so an implementation that only has `save` needs
+    /// no change and gains nothing. Override it to get the transaction.
+    fn save_all(&self, records: &[DriftRecord]) -> Result<(), StoreError> {
+        records.iter().try_for_each(|record| self.save(record))
+    }
+
     /// The open ones, which is what a dashboard and the maintenance agent read.
     fn open_records(&self) -> Result<Vec<DriftRecord>, StoreError> {
         Ok(self
