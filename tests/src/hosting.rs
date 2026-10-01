@@ -68,10 +68,8 @@ impl Site {
     /// and writes the host files into `dist/`.
     pub fn build(name: &str, config: &str, options: Options) -> Self {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let root = std::env::temp_dir().join(format!(
-            "liyasa-hosting-{name}-{}-{n}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("liyasa-hosting-{name}-{}-{n}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("a project directory");
         write(&root, "liyasa.json", config);
