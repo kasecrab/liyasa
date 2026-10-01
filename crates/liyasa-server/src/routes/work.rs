@@ -183,6 +183,8 @@ pub fn kinds() -> &'static [JobKind] {
         // WP-16, rationale in `crate::deploy::jobs`.
         crate::deploy::jobs::BUILD,
         crate::deploy::jobs::RETENTION,
+        // VER-77's review reminders, rationale in `super::reviews`.
+        super::reviews::DIGEST,
         // WP-17, rationale in `super::analytics`.
         super::analytics::RETENTION,
         super::analytics::DIGEST,

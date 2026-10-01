@@ -215,6 +215,8 @@ mod api_41_proxy;
 mod ana_20_search_events;
 #[path = "../server/agt_02_research.rs"]
 mod agt_02_research;
+#[path = "../server/ver_77_reminders.rs"]
+mod ver_77_reminders;
 
 // WP-25 Agent runtime. `support` is the shared fixture; the rest are one file per
 // acceptance row.

@@ -10,6 +10,7 @@ pub mod acme;
 pub mod analytics;
 pub mod proxy;
 pub mod research;
+pub mod reviews;
 pub mod search;
 pub mod api;
 pub mod bundle;
@@ -118,6 +119,14 @@ pub struct AppState {
     pub scrubber: Scrubber,
     /// The ACME tokens this replica is answering for (HOST-02).
     pub challenges: Arc<acme::Challenges>,
+    /// The drift records this instance keeps, when it keeps any (VER-77).
+    ///
+    /// `None` until a persistent implementation exists: `DriftRecord` and
+    /// `DriftKind` derive no serde and `DriftKind` is `#[non_exhaustive]`, so
+    /// a SQLite row cannot be written without either serde on those types or a
+    /// hand-rolled mapping that silently loses a kind added later. Both are
+    /// WP-20c's to decide.
+    pub drift: Option<Arc<dyn liyasa_verify::drift::store::RecordStore>>,
     /// What the playground proxy will forward, decided once at startup
     /// (API-41). `None` on an instance with no site.
     pub proxy: Option<Arc<proxy::ProxyState>>,
@@ -199,6 +208,7 @@ impl AppState {
             started: Instant::now(),
             mounted: std::sync::OnceLock::new(),
             self_arc: std::sync::OnceLock::new(),
+            drift: None,
             proxy: None,
             http: None,
             search_index: None,
@@ -258,6 +268,19 @@ impl AppState {
     /// above all — takes it from here and never constructs its own.
     pub fn auth_state(&self) -> Option<&Arc<crate::auth::state::AuthState>> {
         self.auth_state.get()
+    }
+
+    /// The drift records, or `None` on an instance that keeps none.
+    pub fn drift_records(&self) -> Option<&Arc<dyn liyasa_verify::drift::store::RecordStore>> {
+        self.drift.as_ref()
+    }
+
+    pub fn with_drift_records(
+        mut self,
+        records: Arc<dyn liyasa_verify::drift::store::RecordStore>,
+    ) -> Self {
+        self.drift = Some(records);
+        self
     }
 
     /// What this instance will forward for the playground.
