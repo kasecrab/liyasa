@@ -225,7 +225,7 @@ fn splice_subtrees(splice: &mut Splice<'_>, node: &mut Value, at: &str, depth: u
 /// Reads one subtree file into `object[key]`. Returns whether the key now
 /// holds what the file held.
 ///
-/// A refusal is `E0136`, an **error**, and leaves the path as written. It has
+/// A refusal is `E0141`, an **error**, and leaves the path as written. It has
 /// to be an error: adding the string branch to the schema (RFC 0111) means a
 /// leftover path now validates, so nothing downstream would object to a tab
 /// whose pages are the string `nav/guides.json` — it would render as a tab with
@@ -247,7 +247,7 @@ fn resolve_subtree(
             false => format!("`{path}` is more than {MAX_SPLICE_DEPTH} files deep"),
         };
         let diagnostic =
-            Diagnostic::new(code::E0136, format!("navigation was not read from {why}")).help(
+            Diagnostic::new(code::E0141, format!("navigation was not read from {why}")).help(
                 "split the tree across fewer files, and check that no navigation file names one \
              that names it back",
             );

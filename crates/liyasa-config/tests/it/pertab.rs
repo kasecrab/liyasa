@@ -113,7 +113,7 @@ fn a_file_that_names_itself_is_e0136_and_keeps_the_path() {
         ),
     ]);
     let codes = codes(&load);
-    assert!(codes.contains(&"E0136"), "{codes:?}");
+    assert!(codes.contains(&"E0141"), "{codes:?}");
 
     // The path is left as written rather than replaced by an empty array.
     assert_eq!(
@@ -165,7 +165,7 @@ fn deeper_than_four_files_is_e0136() {
     let (load, _) = read(&borrowed);
     let codes = codes(&load);
     assert!(
-        codes.contains(&"E0136"),
+        codes.contains(&"E0141"),
         "the fourth splice is past the cap: {codes:?}"
     );
 }

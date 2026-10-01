@@ -4599,7 +4599,7 @@ const MESSAGES                               = {
   E0132: { plain: "This is not a colour Liyasa can read. Try a hex value such as `#0a84ff`.", fix: { label: "Open settings", action: "open-config" } },
   E0133: { plain: "This part of the navigation is tied to a version, language or product the project has not declared.", fix: { label: "Open navigation", action: "open-navigation" } },
   E0135: { plain: "This API description is fetched from an address the published settings do not list.", fix: { label: "Open settings", action: "open-config" } },
-  E0136: { plain: "One navigation file points at another in a loop, or the files are nested too deeply, so this part of the menu has nothing to show. Follow the file the message names and point it at pages instead.", fix: { label: "Open navigation", action: "open-navigation" } },
+  E0141: { plain: "One navigation file points at another in a loop, or the files are nested too deeply, so this part of the menu has nothing to show. Follow the file the message names and point it at pages instead.", fix: { label: "Open navigation", action: "open-navigation" } },
 
   // Templating and the Source Document — liyasa-markdown
   E0201: { plain: "This page uses a value the project does not define. Check the spelling, or add it to the project's variables." },
