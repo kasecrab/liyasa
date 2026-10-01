@@ -226,6 +226,8 @@ mod agent_support;
 mod agt_01_inputs;
 #[path = "../agent/agt_02_loop.rs"]
 mod agt_02_loop;
+#[path = "../agent/agt_02_research_seam.rs"]
+mod agt_02_research_seam;
 #[path = "../agent/agt_03_tools.rs"]
 mod agt_03_tools;
 #[path = "../agent/agt_04_trust.rs"]
