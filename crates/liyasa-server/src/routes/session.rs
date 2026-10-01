@@ -112,75 +112,54 @@ fn today() -> i64 {
         .unwrap_or(0)
 }
 
-/// Who is asking (ANA-05). The maintained agent list belongs to the analytics
-/// package; this is the set the server has to recognise to classify its own
-/// request log, plus the structural rule that Markdown and MCP traffic is
-/// agent traffic whatever the header says.
-const AGENTS: &[&str] = &[
-    "chatgpt-user",
-    "claudebot",
-    "claude-user",
-    "claude-web",
-    "gptbot",
-    "perplexitybot",
-    "google-extended",
-    "devin",
-    "cursor",
-    "cline",
-    "oai-searchbot",
-    "anthropic-ai",
-];
+/// One `CallerKind`, not two. This used to be declared here as well, and two
+/// enums with the same variants are two things to keep in step — the dashboard
+/// groups on the string, so a divergence would show up as a traffic change
+/// rather than as a type error.
+pub use liyasa_analytics::agents::CallerKind;
 
-const BOTS: &[&str] = &[
-    "googlebot",
-    "bingbot",
-    "duckduckbot",
-    "yandexbot",
-    "baiduspider",
-    "slurp",
-    "ahrefsbot",
-    "semrushbot",
-    "crawler",
-    "spider",
-];
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CallerKind {
-    Human,
-    Agent,
-    Bot,
-    Integration,
-}
-
-impl CallerKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Human => "human",
-            Self::Agent => "agent",
-            Self::Bot => "bot",
-            Self::Integration => "integration",
-        }
-    }
-}
-
-/// `structural` is true for a `.md` route or an MCP call, which is agent
-/// traffic regardless of the header.
+/// Who is asking (ANA-05).
+///
+/// Delegates to `liyasa_analytics::agents::classify`, which is the maintained
+/// catalogue the requirement asks for. This file used to carry its own
+/// twelve-token list; WP-17 diffed the two and found the analytics one a
+/// **strict superset** of twenty-two — nothing was here that was not there, so
+/// delegating cannot classify anything worse, and ten agents that were being
+/// filed as human now are not. `perplexity-user` was one of them.
+///
+/// Two things come with it that a local list cannot have: a `Purpose` per
+/// entry, which is the split an operator wants once "agent traffic" turns out
+/// to be mostly training crawlers, and one place to maintain. A second list
+/// here would drift from it silently, and the drift would read as a change in
+/// traffic rather than as a change in the list.
+///
+/// The signature stays `(CallerKind, Option<String>)` so the beacon and the
+/// search endpoint are untouched; [`classify_full`] is for a caller that wants
+/// the purpose too.
 pub fn classify(user_agent: Option<&str>, structural: bool) -> (CallerKind, Option<String>) {
-    let lower = user_agent.unwrap_or_default().to_ascii_lowercase();
-    if let Some(name) = AGENTS.iter().find(|a| lower.contains(*a)) {
-        return (CallerKind::Agent, Some((*name).to_owned()));
-    }
-    if structural {
-        return (CallerKind::Agent, None);
-    }
-    if BOTS.iter().any(|b| lower.contains(*b)) {
-        return (CallerKind::Bot, None);
-    }
-    if lower.is_empty() {
-        // No user agent at all is a script, not a reader.
-        return (CallerKind::Integration, None);
-    }
-    (CallerKind::Human, None)
+    let caller = classify_full(user_agent, structural);
+    (caller.kind, caller.agent_name.map(str::to_owned))
+}
+
+/// The whole classification, including the purpose and the headless hint.
+pub fn classify_full(
+    user_agent: Option<&str>,
+    structural: bool,
+) -> liyasa_analytics::agents::Caller {
+    use liyasa_analytics::agents::{Signals, Structural};
+
+    liyasa_analytics::agents::classify(&Signals {
+        user_agent,
+        accept_language: None,
+        accept: None,
+        sec_fetch_mode: None,
+        // `Markdown` rather than `Mcp`: this flag is set by the `.md` surface,
+        // and `mcp/http.rs` records its own `agent` caller directly.
+        structural: match structural {
+            true => Structural::Markdown,
+            false => Structural::None,
+        },
+    })
 }
 
 /// The user agent reduced to a family name, which is all that is ever stored
@@ -306,6 +285,36 @@ mod tests {
             (CallerKind::Agent, Some("claudebot".to_owned()))
         );
         assert_eq!(classify(Some("Googlebot/2.1"), false).0, CallerKind::Bot);
+
+        // The ten this file used to file as human, because its own list was a
+        // subset of the catalogue's. WP-17 diffed them; `perplexity-user` is
+        // the case they named, and a search by it was being counted as a
+        // person's.
+        for agent in [
+            "perplexity-user",
+            "ccbot",
+            "bytespider",
+            "meta-externalagent",
+            "cohere-ai",
+            "windsurf",
+        ] {
+            let (kind, name) = classify(Some(&format!("{agent}/1.0")), false);
+            assert_eq!(kind, CallerKind::Agent, "{agent}");
+            assert_eq!(name.as_deref(), Some(agent), "{agent}");
+        }
+
+        // The purpose comes with the catalogue and a local list cannot have
+        // it: "agent traffic" that is mostly training crawlers is a different
+        // report from one that is mostly assistants answering questions.
+        use liyasa_analytics::agents::Purpose;
+        assert_eq!(
+            classify_full(Some("CCBot/2.0"), false).purpose,
+            Some(Purpose::Crawl)
+        );
+        assert_eq!(
+            classify_full(Some("perplexity-user/1.0"), false).purpose,
+            Some(Purpose::Assistant)
+        );
         assert_eq!(
             classify(Some("Mozilla/5.0 Chrome/141"), false).0,
             CallerKind::Human
