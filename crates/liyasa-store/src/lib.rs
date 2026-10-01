@@ -6,6 +6,7 @@
 
 pub mod backup;
 pub mod db;
+pub mod drift;
 pub mod facade;
 pub mod ingest;
 pub mod jobs;

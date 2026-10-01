@@ -15,7 +15,14 @@ use sqlx::{Connection, Row};
 pub type Migration = (i64, &'static str, &'static str);
 
 /// The application schema, `migrations/NNNN_*.sql`. Append; never edit.
-pub const APP: &[Migration] = &[(1, "init", include_str!("../../../migrations/0001_init.sql"))];
+pub const APP: &[Migration] = &[
+    (1, "init", include_str!("../../../migrations/0001_init.sql")),
+    (
+        2,
+        "drift_record",
+        include_str!("../../../migrations/0002_drift_record.sql"),
+    ),
+];
 
 /// The analytics schema, `migrations/analytics/NNNN_*.sql`.
 pub const ANALYTICS: &[Migration] = &[(

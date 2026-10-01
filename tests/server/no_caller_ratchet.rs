@@ -35,18 +35,6 @@ const UNCALLED_TODAY: &[(&str, &str)] = &[
          five-second export timer. The loop is what production runs.",
     ),
     (
-        "with_drift_records",
-        "VER-77's seam, waiting on a value to pass it rather than on a caller. \
-         A SQLite `RecordStore` needs `DriftRecord` to be serialisable, and the \
-         serde derives are on WP-20c's branch rather than on `main`; until they \
-         land nothing can construct one. `reviews.digest` already READS through \
-         `drift_records()` and skips with a reason while it answers `None`, so \
-         the gap is visible in a job row rather than silent. This entry leaves \
-         the list when something CALLS the setter, which is downstream evidence \
-         rather than a signal about another package's merge: it proves a store \
-         was wired here, and that it could only have been.",
-    ),
-    (
         "with_limiter",
         "deliberate: a test-only builder. `main` configures pools through \
          `state.limiter.configure` instead, so there is nothing to replace.",

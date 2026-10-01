@@ -54,6 +54,14 @@ pub struct Setup {
     /// way `Runtime::spawn_ingest_at` does. Off by default: most tests want
     /// the shape of an instance that opened none.
     pub analytics: bool,
+    /// Attaches a persistent drift `RecordStore` on the application pool, the
+    /// way `main` does. Off by default, because an instance that keeps no
+    /// records is a shape worth testing and is what most tests want.
+    ///
+    /// A test that turns this on needs a multi-threaded runtime:
+    /// `RecordStore` is synchronous and `SqliteDrift` bridges with
+    /// `block_in_place`, which panics on a current-thread runtime.
+    pub drift: bool,
 }
 
 impl Setup {
@@ -66,6 +74,7 @@ impl Setup {
             with_store: true,
             site_config: None,
             analytics: false,
+            drift: false,
         }
     }
 }
@@ -129,6 +138,11 @@ impl Harness {
             )
             .await
             .expect("a store");
+            if setup.drift {
+                state = state.with_drift_records(Arc::new(
+                    liyasa_server::routes::drift::SqliteDrift::new(store.clone_pool()),
+                ));
+            }
             state = state.with_store(Arc::new(store));
         }
         let state = Arc::new(state);

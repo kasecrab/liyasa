@@ -5,7 +5,23 @@
 //! drift records says so rather than reporting a clean site.
 
 use liyasa_server::routes::{reviews, work};
-use liyasa_tests::server::Harness;
+use liyasa_tests::server::{Harness, Setup};
+
+/// The job row this digest wrote, whichever way it ended.
+async fn digest_result(harness: &Harness) -> serde_json::Value {
+    let store = harness.state.store.clone().expect("a store");
+    let rows = store
+        .jobs_typed()
+        .list(&Default::default(), liyasa_core::store::Page::default())
+        .await
+        .expect("the jobs are listable");
+    rows.iter()
+        .find(|job| job.name == reviews::DIGEST_JOB)
+        .expect("the digest ran")
+        .result
+        .clone()
+        .unwrap_or_default()
+}
 
 #[test]
 fn the_digest_is_registered_and_spelled_once() {
@@ -32,6 +48,44 @@ async fn a_second_replicas_tick_adds_no_second_digest() {
         .await
         .expect("a second replica's tick");
     assert_eq!((first, second), (1, 0), "rows added, not ticks taken");
+}
+
+/// With a store, the job opens a digest rather than skipping.
+///
+/// This is the half that makes the clause met: the job existing and running is
+/// not the automation opening a digest, and until `main` constructed a
+/// `RecordStore` every run of it reported "this instance keeps no drift
+/// records" — a skip that is a pass in a green gate.
+///
+/// Multi-threaded on purpose: `RecordStore` is synchronous and `SqliteDrift`
+/// bridges to the async pool with `block_in_place`, which panics on a
+/// current-thread runtime.
+#[tokio::test(flavor = "multi_thread")]
+async fn with_a_record_store_the_digest_opens_rather_than_skipping() {
+    let setup = Setup {
+        drift: true,
+        ..Setup::new("ver77-withstore")
+    };
+    let (harness, _site) = Harness::new(setup).await;
+    let kinds = [reviews::DIGEST];
+
+    work::fire_timers(&harness.state, &kinds)
+        .await
+        .expect("a tick");
+    work::run_once(&harness.state, &kinds, "replica-a")
+        .await
+        .expect("a pass");
+
+    let result = digest_result(&harness).await;
+    assert!(
+        result.get("skipped").is_none(),
+        "an instance that keeps records does not skip: {result}"
+    );
+    // An empty site has no owners and nothing unowned, and both fields are
+    // present rather than absent — "no overdue pages" and "the digest did not
+    // look" must not serialise the same.
+    assert!(result.get("owners").is_some(), "{result}");
+    assert!(result.get("unowned").is_some(), "{result}");
 }
 
 /// An instance with no record store reports that it cannot see drift. It must
