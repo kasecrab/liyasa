@@ -606,6 +606,38 @@ fn operation_body(page: &Page, spec: &str, operation_id: Option<&str>) -> String
         out.push_str(&format!("{}\n\n", intro.markdown));
     }
 
+    if !page.servers.is_empty() {
+        out.push_str("## Servers\n\n");
+        for server in &page.servers {
+            match &server.description {
+                Some(text) => out.push_str(&format!("- `{}` — {text}\n", server.url)),
+                None => out.push_str(&format!("- `{}`\n", server.url)),
+            }
+        }
+        out.push('\n');
+    }
+
+    // Each entry is one ALTERNATIVE, not a requirement: a spec listing two
+    // schemes under `security` accepts either, and a reader told "both" would
+    // go looking for a second credential they do not need.
+    if !page.auth.is_empty() {
+        out.push_str("## Authentication\n\n");
+        if page.auth.len() > 1 {
+            out.push_str("Any one of:\n\n");
+        }
+        for option in &page.auth {
+            let mut row = format!("- `{}` ({})", option.scheme, option.kind);
+            if let Some(description) = &option.description {
+                row.push_str(&format!(" — {description}"));
+            }
+            if !option.scopes.is_empty() {
+                row.push_str(&format!(" (scopes: `{}`)", option.scopes.join("`, `")));
+            }
+            out.push_str(&format!("{row}\n"));
+        }
+        out.push('\n');
+    }
+
     for section in &page.parameters {
         if section.fields.is_empty() {
             continue;
@@ -652,9 +684,42 @@ fn operation_body(page: &Page, spec: &str, operation_id: Option<&str>) -> String
                     fence(&mut out, &media.media_type, example);
                 }
             }
+            if !response.links.is_empty() {
+                out.push_str("Links:\n\n");
+                for link in &response.links {
+                    let described = match (&link.operation, &link.description) {
+                        (Some(operation), Some(text)) => {
+                            format!("`{}` to `{operation}` — {text}", link.name)
+                        }
+                        (Some(operation), None) => format!("`{}` to `{operation}`", link.name),
+                        (None, Some(text)) => format!("`{}` — {text}", link.name),
+                        (None, None) => format!("`{}`", link.name),
+                    };
+                    out.push_str(&format!("- {described}\n"));
+                }
+                out.push('\n');
+            }
         }
     }
     slot(&mut out, page, "after-responses");
+
+    if !page.callbacks.is_empty() {
+        out.push_str("## Callbacks\n\n");
+        for callback in &page.callbacks {
+            let described = match &callback.summary {
+                Some(summary) => format!(
+                    "`{}`: `{} {}` — {summary}",
+                    callback.name, callback.method, callback.expression
+                ),
+                None => format!(
+                    "`{}`: `{} {}`",
+                    callback.name, callback.method, callback.expression
+                ),
+            };
+            out.push_str(&format!("- {described}\n"));
+        }
+        out.push('\n');
+    }
 
     out
 }

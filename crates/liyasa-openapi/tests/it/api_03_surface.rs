@@ -729,3 +729,129 @@ mod slots {
         );
     }
 }
+
+/// API-10 names four sections the generated page did not have: "authentication
+/// requirements", "callbacks", "webhooks, and links", and the servers the
+/// operation is called against.
+///
+/// They were all present on `page::Page` and all dropped by `operation_body`,
+/// which is why reading the struct rather than the emitter would say the clause
+/// was met. Found while walking the row, not by a test failing.
+mod layout {
+    use super::*;
+
+    const FULL: &str = r##"
+openapi: 3.1.0
+info: { title: Widgets, version: "1" }
+servers:
+  - url: https://api.example.com
+    description: Production.
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, description: A signed token. }
+    key: { type: apiKey, in: header, name: X-Key }
+paths:
+  /widgets:
+    post:
+      operationId: createWidget
+      summary: Make a widget
+      security:
+        - bearer: []
+        - key: []
+      responses:
+        "201":
+          description: Made
+          content:
+            application/json:
+              schema: { type: object, properties: { id: { type: string } } }
+          links:
+            GetWidget:
+              operationId: getWidget
+              description: Fetch the widget just made.
+      callbacks:
+        onComplete:
+          "{$request.body#/callbackUrl}":
+            post:
+              operationId: onComplete
+              summary: We call you back.
+              responses: { "204": { description: ok } }
+  /widgets/{id}:
+    get:
+      operationId: getWidget
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses: { "200": { description: ok } }
+"##;
+
+    fn source(selector: &str) -> String {
+        let surface = build::surface(
+            &MemoryVfs::new().with("openapi/api.yaml", FULL),
+            &config(""),
+            &[],
+        );
+        assert!(
+            !surface.diagnostics.has_errors(),
+            "{:?}",
+            surface.diagnostics.as_slice()
+        );
+        surface
+            .pages
+            .iter()
+            .find(|page| page.selector == selector)
+            .unwrap_or_else(|| panic!("no page for {selector}"))
+            .source
+            .clone()
+    }
+
+    #[test]
+    fn the_authentication_requirements_are_on_the_page() {
+        let s = source("POST /widgets");
+        assert!(s.contains("Authentication"), "{s}");
+        assert!(s.contains("bearer"), "both alternatives are listed:\n{s}");
+        assert!(s.contains("key"), "{s}");
+        assert!(
+            s.contains("A signed token."),
+            "and a scheme's own description reaches the reader:\n{s}"
+        );
+    }
+
+    #[test]
+    fn the_servers_the_operation_is_called_against_are_on_the_page() {
+        let s = source("POST /widgets");
+        assert!(s.contains("Servers"), "{s}");
+        assert!(s.contains("https://api.example.com"), "{s}");
+        assert!(s.contains("Production."), "{s}");
+    }
+
+    #[test]
+    fn a_response_link_is_on_the_page() {
+        let s = source("POST /widgets");
+        assert!(s.contains("GetWidget"), "the link's name:\n{s}");
+        assert!(
+            s.contains("Fetch the widget just made."),
+            "and its description:\n{s}"
+        );
+    }
+
+    #[test]
+    fn a_callback_is_on_the_page() {
+        let s = source("POST /widgets");
+        assert!(s.contains("Callbacks"), "{s}");
+        assert!(s.contains("onComplete"), "{s}");
+        assert!(
+            s.contains("We call you back."),
+            "a callback's summary reaches the reader:\n{s}"
+        );
+    }
+
+    #[test]
+    fn an_operation_with_none_of_them_gains_no_empty_headings() {
+        let s = source("GET /widgets/{id}");
+        for heading in ["## Authentication", "## Callbacks"] {
+            assert!(
+                !s.contains(heading),
+                "`{heading}` is written only when there is something under it:\n{s}"
+            );
+        }
+    }
+}
