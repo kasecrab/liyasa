@@ -164,3 +164,73 @@ paths:
     assert!(operation.extensions.get("x-mint").is_some());
     assert!(operation.extensions.get(NAMESPACE).is_some());
 }
+
+/// API-05 says `x-liyasa` applies "on operations **and schemas**", and on a
+/// schema it does — but not where you would look for it. `schemas::pages` reads
+/// `schema.title` and `schema.description` with no mention of hints, which reads
+/// like a gap; the override happens earlier, at `read.rs:1019`, which folds the
+/// hints into those fields as the schema is read.
+///
+/// This pins that, so nobody "fixes" `schemas::pages` by adding a second
+/// override and quietly makes the hint win twice.
+const SCHEMAS: &str = r##"
+openapi: 3.1.0
+info: { title: Widgets, version: "1" }
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Widget" }
+components:
+  schemas:
+    Widget:
+      type: object
+      title: The spec's title
+      description: The spec's prose.
+      x-liyasa:
+        title: The operator's title
+        description: The operator's prose.
+      properties:
+        id: { type: string }
+    Plain:
+      type: object
+      title: Untouched
+      description: Also untouched.
+      properties:
+        id: { type: string }
+"##;
+
+#[test]
+fn a_schemas_hints_override_what_the_spec_wrote() {
+    let spec = support::spec(SCHEMAS);
+    let pages = liyasa_openapi::schemas::pages(&spec, "api-reference", &[]);
+
+    let widget = pages
+        .iter()
+        .find(|page| page.name == "Widget")
+        .expect("the component has a page");
+    assert_eq!(
+        widget.title, "The operator's title",
+        "`x-liyasa.title` outranks the spec's own title"
+    );
+    assert_eq!(
+        widget.description.as_deref(),
+        Some("The operator's prose."),
+        "and so does `x-liyasa.description`, which the row calls Markdown"
+    );
+
+    let plain = pages
+        .iter()
+        .find(|page| page.name == "Plain")
+        .expect("the other component has a page");
+    assert_eq!(
+        plain.title, "Untouched",
+        "a schema with no hints keeps what the spec wrote"
+    );
+    assert_eq!(plain.description.as_deref(), Some("Also untouched."));
+}
