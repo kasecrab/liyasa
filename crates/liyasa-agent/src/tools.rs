@@ -66,6 +66,29 @@ pub const NAMES: [&str; 16] = [
     ASK_REVIEWER,
 ];
 
+/// How far a tool's OUTPUT may travel.
+///
+/// Every tool's output is untrusted — that is AST-10's rule for the reader's
+/// assistant and it applies here for the same reason: a page body is content
+/// somebody wrote, and a run that pasted it into a prompt as instructions would
+/// be taking dictation from whoever last edited the page.
+///
+/// So no tool returns `Operator`, and a test asserts it. The distinction that
+/// matters is between the site's own data and a third party's:
+///
+/// - `Member` for anything this project owns — its pages, its specs, its facts,
+///   its source, its own validation output, and a reviewer's answer.
+/// - `External` for [`WEB_FETCH`], which is a third party's bytes however
+///   carefully the host was allow-listed. It is the one tool whose result can
+///   carry an instruction written by someone with no relationship to this
+///   project, and RFC 2502 records what that costs the run.
+pub fn result_trust(name: &str) -> TrustLevel {
+    match name {
+        WEB_FETCH => TrustLevel::External,
+        _ => TrustLevel::Member,
+    }
+}
+
 /// The tools that write something, as opposed to reading or asking.
 ///
 /// Named so the per-call scope check in [`crate::dispatch`] cannot be forgotten
@@ -421,6 +444,45 @@ mod tests {
         // `gopher://` from reaching the code that checks it.
         let schema = &spec(WEB_FETCH).expect("web_fetch").input_schema;
         assert_eq!(schema["properties"]["url"]["pattern"], "^https?://");
+    }
+
+    #[test]
+    fn no_tools_output_is_ever_operator_text() {
+        // The one rule that cannot bend: operator text is the only thing that may
+        // reach a system prompt, and nothing a tool returns is written by the
+        // operator at the time it is returned.
+        for spec in specs() {
+            assert_ne!(
+                result_trust(&spec.name),
+                TrustLevel::Operator,
+                "`{}`'s output would be eligible for the system prompt",
+                spec.name
+            );
+        }
+    }
+
+    #[test]
+    fn only_web_fetch_returns_a_third_partys_bytes() {
+        for spec in specs() {
+            let expected = if spec.name == WEB_FETCH {
+                TrustLevel::External
+            } else {
+                TrustLevel::Member
+            };
+            assert_eq!(
+                result_trust(&spec.name),
+                expected,
+                "`{}` is classified as the wrong kind of source",
+                spec.name
+            );
+        }
+    }
+
+    #[test]
+    fn an_unknown_tools_output_is_not_trusted_either() {
+        // Fail-closed: a tool added without a row here gets `Member`, never
+        // `Operator`, so forgetting this function cannot widen anything.
+        assert_eq!(result_trust("something_new"), TrustLevel::Member);
     }
 
     #[test]

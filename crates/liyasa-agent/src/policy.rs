@@ -134,6 +134,29 @@ impl Decision {
     }
 }
 
+/// The decision for a run that read a page from another host (RFC 2502).
+///
+/// A separate function rather than a `Signals` field, because it is not a check
+/// that passed or failed: there is nothing a reviewer can fix to make it merge
+/// itself, and a reason sitting in the same list as "verification did not pass"
+/// would send them looking for one.
+///
+/// It costs the run its automerge eligibility and not its write scope. AGT-04's
+/// write-scope restriction answers "which pages is this trigger about", and a
+/// fetched page is not a trigger; the no-automerge rule answers "may this reach
+/// the deploy branch unread", which is exactly what external content is about.
+pub fn external_content_downgrade(configured: Policy) -> Decision {
+    Decision {
+        outcome: Outcome::Proposal,
+        configured,
+        downgraded: Some(format!(
+            "`{}` is unavailable to a run that read a page from another host: \
+             external content means a person reviews the proposal (RFC 2502)",
+            configured.as_str()
+        )),
+    }
+}
+
 /// Applies AGT-20.
 pub fn decide(configured: Policy, restrictions: &Restrictions, signals: &Signals) -> Decision {
     let downgrade = |reason: String| Decision {
@@ -411,6 +434,34 @@ mod tests {
         // safe rather than a merge.
         let decision = decide(Policy::Direct, &member(), &Signals::default());
         assert_eq!(decision.outcome, Outcome::Proposal);
+    }
+
+    #[test]
+    fn a_run_that_read_external_content_ends_in_review_under_every_policy() {
+        for policy in [
+            Policy::Proposal,
+            Policy::AutomergeIfVerified,
+            Policy::Direct,
+        ] {
+            let decision = external_content_downgrade(policy);
+            assert!(decision.ends_in_review(), "{policy:?}");
+            let reason = decision.downgraded.expect("a reason");
+            assert!(reason.contains("another host"), "{reason}");
+            // And it must not read as a failed check, or a reviewer goes looking
+            // for one to fix.
+            assert!(!reason.contains("validation"), "{reason}");
+            assert!(!reason.contains("CI"), "{reason}");
+        }
+    }
+
+    #[test]
+    fn the_external_downgrade_says_which_policy_it_replaced() {
+        let decision = external_content_downgrade(Policy::Direct);
+        assert_eq!(decision.configured, Policy::Direct);
+        assert!(
+            decision.downgraded.expect("a reason").contains("direct"),
+            "the reviewer has to know what was configured"
+        );
     }
 
     #[test]
