@@ -84,7 +84,10 @@ async fn a_dead_workers_lease_expires_and_another_replica_re_claims_it() {
         .expect("the schedule fires");
 
     let first = jobs
-        .claim("replica-a", Duration::from_millis(40))
+        // One second, not forty milliseconds: the assertion below it is that
+        // the lease is LIVE, which a slow runner breaks. The sleep that
+        // follows is sized past it, and that direction slowness only helps.
+        .claim("replica-a", Duration::from_secs(1))
         .await
         .expect("a claim")
         .expect("a job");
@@ -97,7 +100,7 @@ async fn a_dead_workers_lease_expires_and_another_replica_re_claims_it() {
     );
 
     // replica-a stops heartbeating.
-    tokio::time::sleep(Duration::from_millis(80)).await;
+    tokio::time::sleep(Duration::from_millis(1200)).await;
 
     let second = jobs
         .claim("replica-b", Duration::from_secs(60))
@@ -119,13 +122,28 @@ async fn a_heartbeat_renews_the_lease_and_is_refused_once_it_has_expired() {
     jobs.enqueue(&Enqueue::new("build", "project:a"))
         .await
         .expect("a job");
+    // Ten seconds, against a 50ms sleep. The assertion is that a renewed
+    // lease cannot be stolen, which is a claim about the queue and not about
+    // the clock — so the window is sized to make the clock irrelevant.
+    //
+    // It was 120ms against a 60ms sleep, leaving roughly 60ms for a
+    // heartbeat, a read and a claim. On 2026-10-01 that failed on CI: the
+    // thief's claim succeeded, two lines after the renewal assertion passed,
+    // which means the renewed lease had already expired. **`bin/gate` cannot
+    // reproduce it** — nextest gives each test its own process, while CI runs
+    // `cargo test --workspace --all-features` as threads sharing one runtime
+    // and the whole workspace's load.
+    //
+    // Expiry is asserted separately below, because the two halves want
+    // opposite things from a slow runner: slowness breaks this one and can
+    // only help that one.
     let job = jobs
-        .claim("worker", Duration::from_millis(120))
+        .claim("worker", Duration::from_secs(10))
         .await
         .expect("a claim")
         .expect("a job");
 
-    tokio::time::sleep(Duration::from_millis(60)).await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
     jobs.heartbeat(&job.id).await.expect("a live lease renews");
     let renewed = jobs.get(&job.id).await.expect("a read").expect("the job");
     assert!(renewed.lease_until > job.lease_until);
@@ -137,8 +155,25 @@ async fn a_heartbeat_renews_the_lease_and_is_refused_once_it_has_expired() {
             .expect("a claim attempt")
             .is_none()
     );
+}
 
-    tokio::time::sleep(Duration::from_millis(200)).await;
+#[tokio::test]
+async fn an_expired_lease_is_not_renewed() {
+    let (_dir, pool) = app_db("jobs-heartbeat-expired").await;
+    let jobs = Jobs::new(pool);
+    jobs.enqueue(&Enqueue::new("build", "project:a"))
+        .await
+        .expect("a job");
+    // A short lease and a sleep well past it. This is the half where a slow
+    // runner only makes the expectation more true, so the margin goes the
+    // other way from its sibling above.
+    let job = jobs
+        .claim("worker", Duration::from_millis(50))
+        .await
+        .expect("a claim")
+        .expect("a job");
+
+    tokio::time::sleep(Duration::from_millis(400)).await;
     assert!(
         jobs.heartbeat(&job.id).await.is_err(),
         "an expired lease is not renewed; another replica may hold it"
