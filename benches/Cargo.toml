@@ -38,6 +38,9 @@ path = "tests/it/main.rs"
 # The engine under measurement, reached exactly as `liyasa build` reaches it.
 liyasa-build = { path = "../crates/liyasa-build", version = "0.1.0" }
 liyasa-config = { path = "../crates/liyasa-config", version = "0.1.0" }
+# NFR-05 measures the editor's own renderer. Native build of the same crate the
+# browser runs as wasm: it can falsify the browser budget, never confirm it.
+liyasa-wasm = { path = "../crates/liyasa-wasm", version = "0.1.0" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 

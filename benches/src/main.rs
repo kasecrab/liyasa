@@ -4,8 +4,13 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use liyasa_benches::budget::SIZES;
+use liyasa_benches::editor;
 use liyasa_benches::measure::{self, Measurement};
 use liyasa_benches::report;
+
+/// Preview samples for NFR-05's lower bound. Twenty renders of a 4,900-word page
+/// cost well under a second, so it is cheap enough to run on every report.
+const EDITOR_SAMPLES: usize = 20;
 
 const USAGE: &str = "\
 usage: cargo run --release -p liyasa-benches --bin bench -- <command>
@@ -151,6 +156,12 @@ fn print(runs: &[Measurement]) {
     println!("{}", report::table(runs));
     println!("{}", report::budgets(runs));
     println!("{}", report::unmeasured());
+    // NFR-05's lower bound. Printed even when it cannot be taken, because a row
+    // that silently vanishes from a release table reads as a row nobody set.
+    match editor::measure(EDITOR_SAMPLES) {
+        Ok((preview, slowest)) => println!("{}", report::editor_lower_bound(&preview, slowest)),
+        Err(why) => println!("editor preview lower bound: not measured — {why}\n"),
+    }
     println!("{}", report::provenance(runs));
 }
 

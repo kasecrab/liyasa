@@ -2603,6 +2603,7 @@ version = "0.1.0"
 dependencies = [
  "liyasa-build",
  "liyasa-config",
+ "liyasa-wasm",
  "serde",
  "serde_json",
 ]

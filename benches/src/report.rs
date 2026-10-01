@@ -5,6 +5,7 @@
 //! release compares against.
 
 use std::fmt::Write as _;
+use std::time::Duration;
 
 use crate::budget::{Budget, Limit, Metric, SIX_SIX, THIRTY_ONE};
 use crate::measure::Measurement;
@@ -153,6 +154,37 @@ pub fn unmeasured() -> String {
             runtime.needs
         );
     }
+    out
+}
+
+/// The editor preview's native lower bound (NFR-05).
+///
+/// Its own table, deliberately NOT a row in `budgets()` and NOT a row in
+/// `unmeasured()`. It is neither: the budget is a browser figure and this is a
+/// native one, so presenting it as the row's measurement would overclaim, and
+/// presenting it as unmeasured would throw away a number that can falsify the
+/// budget. The `Verdict` column says which of the two things a reader is looking
+/// at, in words, because a number beside a budget gets read as that budget.
+pub fn editor_lower_bound(preview: &crate::editor::Preview, slowest: Duration) -> String {
+    let budget = Duration::from_millis(50);
+    let verdict = if preview.elapsed > budget {
+        "**misses** — the browser cannot be faster than this"
+    } else {
+        "not lost here; the browser layer is untested"
+    };
+    let mut out = String::from(
+        "| Editor preview, native lower bound | Browser budget | Median | Slowest | Verdict |\n\
+         |---|---|---|---|---|\n",
+    );
+    let _ = writeln!(
+        out,
+        "| {} words, {} bytes of HTML | {} | {} | {} | {verdict} |",
+        thousands(preview.words),
+        thousands(preview.html_bytes),
+        show(Limit::Time(budget)),
+        show(Limit::Time(preview.elapsed)),
+        show(Limit::Time(slowest))
+    );
     out
 }
 

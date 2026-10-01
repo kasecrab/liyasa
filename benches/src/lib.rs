@@ -6,6 +6,7 @@
 //! tests drive the same code the release runs, rather than a second copy of it.
 
 pub mod budget;
+pub mod editor;
 pub mod measure;
 pub mod report;
 pub mod site;

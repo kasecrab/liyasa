@@ -2,3 +2,4 @@
 //! line for a new file rather than a `[[test]]` row (RFC 0007).
 
 mod suite;
+mod editor;
