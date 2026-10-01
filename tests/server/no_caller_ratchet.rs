@@ -61,13 +61,6 @@ const UNCALLED_TODAY: &[(&str, &str)] = &[
          The seam that would close it is WP-06's.",
     ),
     (
-        "research::execute",
-        "AGT-02's read tools, reported by WP-25 and the eighth instance of the \
-         defect this file's doc opens with. The dispatch is written and tested; \
-         no HTTP route reaches it. Being mounted in this packet — this row is \
-         the one that should go first.",
-    ),
-    (
         "webhooks::verify",
         "REST-10's reference verification, deliberately. The doc comment says \
          it: `ours is the reference an operator copies`. The SERVER signs and \

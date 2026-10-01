@@ -215,6 +215,8 @@ mod api_41_proxy;
 mod ana_20_search_events;
 #[path = "../server/agt_02_research.rs"]
 mod agt_02_research;
+#[path = "../server/agt_02_research_job.rs"]
+mod agt_02_research_job;
 #[path = "../server/ver_77_reminders.rs"]
 mod ver_77_reminders;
 

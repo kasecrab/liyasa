@@ -7,6 +7,7 @@
 //! store is the only thing that persists.
 
 pub mod acme;
+pub mod agent;
 pub mod analytics;
 pub mod proxy;
 pub mod drift;
