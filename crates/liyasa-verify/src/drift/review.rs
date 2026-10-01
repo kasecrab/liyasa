@@ -55,8 +55,14 @@ impl Cadence {
         }
     }
 
-    /// `content.reviewCadence` as config gives it, falling back to the default
-    /// VER-77 names when the key is absent.
+    /// One site-wide cadence from a duration already in hand, falling back to
+    /// the default VER-77 names when there is none.
+    ///
+    /// **Not the way to read config.** This takes a single duration and so has
+    /// no overrides, and a caller that reached for it to read
+    /// `content.reviewCadence` would get a cadence that silently ignores every
+    /// per-directory override an operator wrote. [`Self::from_config`] is the
+    /// config path.
     pub fn from_setting(setting: Option<DurationSetting>) -> Self {
         Self::new(setting.map_or(DEFAULT_CADENCE, DurationSetting::as_duration))
     }
