@@ -213,6 +213,8 @@ mod work_registry_union;
 mod api_41_proxy;
 #[path = "../server/ana_20_search_events.rs"]
 mod ana_20_search_events;
+#[path = "../server/agt_02_research.rs"]
+mod agt_02_research;
 
 // WP-25 Agent runtime. `support` is the shared fixture; the rest are one file per
 // acceptance row.

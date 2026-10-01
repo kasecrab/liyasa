@@ -9,6 +9,7 @@
 pub mod acme;
 pub mod analytics;
 pub mod proxy;
+pub mod research;
 pub mod search;
 pub mod api;
 pub mod bundle;
