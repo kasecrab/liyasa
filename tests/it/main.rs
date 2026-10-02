@@ -236,6 +236,8 @@ mod agt_01_inputs;
 mod agt_02_loop;
 #[path = "../agent/agt_02_research_seam.rs"]
 mod agt_02_research_seam;
+#[path = "../agent/agt_02_research_retrieval.rs"]
+mod agt_02_research_retrieval;
 #[path = "../agent/agt_03_tools.rs"]
 mod agt_03_tools;
 #[path = "../agent/agt_04_trust.rs"]
