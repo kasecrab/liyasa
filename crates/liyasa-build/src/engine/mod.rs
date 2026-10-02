@@ -2117,7 +2117,10 @@ fn site_meta(settings: &Settings) -> SiteMeta {
     }
 }
 
-fn markdown_url(base_path: &str, route: &Route) -> String {
+/// The manifest's `markdown` path for a route. `RouteEntry::new` calls this
+/// with an empty base path, so a fixture built from the constructor carries the
+/// value a real build would emit rather than one that merely looks similar.
+pub(crate) fn markdown_url(base_path: &str, route: &Route) -> String {
     let base = base_path.trim_end_matches('/');
     let trimmed = route.as_str().trim_matches('/');
     match trimmed.is_empty() {

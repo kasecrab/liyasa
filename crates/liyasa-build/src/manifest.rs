@@ -285,11 +285,10 @@ impl RouteEntry {
     /// and its loop skips a level whose `groups` is empty. Defaulting to one
     /// open level is what a real entry looks like, not what keeps a reader out.
     pub fn new(route: Route, source: impl Into<String>) -> Self {
-        let trimmed = route.as_str().trim_matches('/').to_owned();
-        let markdown = match trimmed.is_empty() {
-            true => "/index.md".to_owned(),
-            false => format!("/{trimmed}.md"),
-        };
+        // Delegated rather than reimplemented: the engine emits this field
+        // through `markdown_url`, and a fixture whose value only happens to
+        // match is a fixture that drifts the first time one of them changes.
+        let markdown = crate::engine::markdown_url("", &route);
         Self {
             route,
             source: source.into(),
