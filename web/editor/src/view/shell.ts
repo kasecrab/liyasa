@@ -21,6 +21,12 @@ import { html } from "../escape.ts";
 import type { Fragment } from "../escape.ts";
 import { TOUR } from "../help.ts";
 import { renderHelp, renderTaskForm, renderTaskList, renderTemplatePicker, renderTourStep, renderVocabulary } from "./guides.ts";
+import { renderProperties } from "./properties.ts";
+import { renderSourcePopover, opaqueReason } from "./source-mode.ts";
+import { renderFrontmatterForm } from "./form.ts";
+import { formFields, parseFrontmatter, validateFrontmatter } from "../frontmatter.ts";
+import { flatten } from "../model.ts";
+import type { EditorModel, EditorNode } from "../model.ts";
 
 /** Which panel the shell is showing, and its own state. */
 export type Panel =
@@ -30,7 +36,13 @@ export type Panel =
   | { kind: "templates"; chosen?: string }
   | { kind: "tasks" }
   | { kind: "task"; id: string }
-  | { kind: "vocabulary" };
+  | { kind: "vocabulary" }
+  // The four below need the open draft to draw. They carry the id of what the
+  // author acted on, never the data — `reduce` stays pure and the draft is
+  // passed to `renderPanel` instead, so the machine cannot go stale against it.
+  | { kind: "properties"; block: string }
+  | { kind: "source"; block: string }
+  | { kind: "frontmatter" };
 
 export interface ShellState {
   panel: Panel;
@@ -68,7 +80,10 @@ export type Action =
   | { do: "toggle-advanced" }
   | { do: "close" }
   | { do: "first-visit"; seen: boolean }
-  | { do: "context"; topic: string };
+  | { do: "context"; topic: string }
+  | { do: "open-properties"; block: string }
+  | { do: "edit-source"; block: string }
+  | { do: "open-frontmatter" };
 
 /**
  * The next state.
@@ -139,6 +154,21 @@ export function reduce(state: ShellState, action: Action): ShellState {
       return action.seen || state.tourSeen || state.panel.kind !== "none"
         ? { ...state, tourSeen: action.seen || state.tourSeen }
         : { ...state, panel: { kind: "tour", step: 0 }, focus: "[data-tour-next]" };
+    case "open-properties":
+      // Re-pressing the same block's handle closes, as everywhere else; pressing
+      // a *different* block's swaps rather than closing, because the author is
+      // moving along the page rather than dismissing a panel.
+      return state.panel.kind === "properties" && state.panel.block === action.block
+        ? closed(state)
+        : { ...state, panel: { kind: "properties", block: action.block }, focus: "[data-prop]" };
+    case "edit-source":
+      return state.panel.kind === "source" && state.panel.block === action.block
+        ? closed(state)
+        : { ...state, panel: { kind: "source", block: action.block }, focus: "[data-source-popover] [data-source-editor]" };
+    case "open-frontmatter":
+      return state.panel.kind === "frontmatter"
+        ? closed(state)
+        : { ...state, panel: { kind: "frontmatter" }, focus: "[data-frontmatter] input, [data-frontmatter] select, [data-frontmatter] textarea" };
     case "context":
       // Changing what the author is looking at re-points open help at it, and
       // leaves every other panel alone.
@@ -161,8 +191,29 @@ function closed(state: ShellState): ShellState {
   return { ...state, panel: { kind: "none" }, focus: "[data-panel-opener]" };
 }
 
+/**
+ * What the shell knows about the draft on screen.
+ *
+ * Passed to `renderPanel` rather than held in `ShellState`, so the machine has
+ * nothing to keep in step with the document and `reduce` stays a pure function
+ * of actions. `null` is the state the editor is in until a draft arrives.
+ */
+export interface OpenDraft {
+  model: EditorModel;
+  source: string;
+  /** `schemas/frontmatter.json`, fetched once; `null` until it has loaded. */
+  schema: Parameters<typeof formFields>[0] | null;
+}
+
+/** The node an action named, or nothing when the draft does not have it. */
+export function blockIn(open: OpenDraft | null, id: string): EditorNode | undefined {
+  if (!open) return undefined;
+  const found = flatten(open.model).find((each) => "kind" in each && each.id === id);
+  return found as EditorNode | undefined;
+}
+
 /** The panel, drawn. */
-export function renderPanel(state: ShellState): Fragment {
+export function renderPanel(state: ShellState, open: OpenDraft | null = null): Fragment {
   switch (state.panel.kind) {
     case "none":
       return html``;
@@ -178,7 +229,58 @@ export function renderPanel(state: ShellState): Fragment {
       return renderTaskForm(state.panel.id);
     case "vocabulary":
       return renderVocabulary(true);
+    case "properties": {
+      const node = blockIn(open, state.panel.block);
+      if (!node) return noDraft("the properties of a block", state.panel.block);
+      return renderProperties({
+        component: node.name ?? node.kind,
+        props: node.props ?? {},
+        block: node.id,
+      });
+    }
+    case "source": {
+      const node = blockIn(open, state.panel.block);
+      if (!node) return noDraft("the source of a block", state.panel.block);
+      return renderSourcePopover({
+        block: node.id,
+        text: node.text,
+        reason: opaqueReason(node.kind, node.text),
+      });
+    }
+    case "frontmatter": {
+      if (!open) return noDraft("the page settings", "frontmatter");
+      if (!open.schema) return noSchema();
+      const values = parseFrontmatter(open.model.frontmatter).fields;
+      return renderFrontmatterForm({
+        fields: formFields(open.schema),
+        values,
+        validation: validateFrontmatter(open.schema, values),
+        advanced: state.advanced,
+      });
+    }
   }
+}
+
+/**
+ * What a panel says when the draft it needs is not there.
+ *
+ * The same distinction `panes.ts` draws: this is not an empty form, it is an
+ * unknown one. A blank properties panel would read as "this component has no
+ * properties", which is a claim about the component rather than about the build.
+ */
+function noDraft(what: string, id: string): Fragment {
+  return html`<p class="empty unserved" data-unserved="ED-20" data-wanted="${id}">
+    Nothing has opened a draft in this build yet, so ${what} is not available. The
+    editor's draft route is not served.
+  </p>`;
+}
+
+/** The schema is fetched, so it can be absent for a moment or for good. */
+function noSchema(): Fragment {
+  return html`<p class="empty unserved" data-unserved="ED-11">
+    The page settings form is generated from the project's schema, and the schema
+    has not loaded. Nothing is shown rather than a form with no rules behind it.
+  </p>`;
 }
 
 /**
@@ -195,6 +297,10 @@ export function landmarkFor(panel: Panel): string | null {
       return null;
     case "tour":
       return "[data-editor]";
+    case "source":
+      // ED-03(c) calls it a popover: it belongs over the block whose bytes it
+      // shows, not in a column somewhere else on the page.
+      return `[data-block="${panel.block}"]`;
     default:
       return "[data-panel]";
   }
@@ -206,7 +312,7 @@ export function landmarkFor(panel: Panel): string | null {
  * A panel that appears silently is a panel a screen reader user does not know
  * about: the visual change is the announcement for everybody else.
  */
-export function announcementFor(state: ShellState): string {
+export function announcementFor(state: ShellState, open: OpenDraft | null = null): string {
   switch (state.panel.kind) {
     case "none":
       return "Closed.";
@@ -222,6 +328,17 @@ export function announcementFor(state: ShellState): string {
       return `${state.panel.id} opened. Nothing changes until you submit it.`;
     case "vocabulary":
       return "Word list opened.";
+    case "properties": {
+      // Named, because moving the pane from one block to the next is a change a
+      // screen reader is otherwise told nothing about: "Properties opened."
+      // twice in a row says the same thing about two different blocks.
+      const node = blockIn(open, state.panel.block);
+      return node ? `Properties for ${node.name ?? node.kind}.` : "Properties opened.";
+    }
+    case "source":
+      return "Editing this block as source.";
+    case "frontmatter":
+      return "Page settings opened.";
   }
 }
 
@@ -246,6 +363,11 @@ export function actionFor(attributes: Record<string, string>): Action | null {
   if ("data-cancel-task" in attributes) return { do: "cancel-task" };
   if ("data-open-vocabulary" in attributes) return { do: "open-vocabulary" };
   if ("data-advanced" in attributes) return { do: "toggle-advanced" };
+  if ("data-open-properties" in attributes) {
+    return { do: "open-properties", block: attributes["data-open-properties"] ?? "" };
+  }
+  if ("data-edit-source" in attributes) return { do: "edit-source", block: attributes["data-edit-source"] ?? "" };
+  if ("data-open-frontmatter" in attributes) return { do: "open-frontmatter" };
   if ("data-close-panel" in attributes) return { do: "close" };
   return null;
 }

@@ -299,3 +299,159 @@ test("every action that is not a focus move still says where focus goes", () => 
     assert.ok(reduce(START, action).focus !== null, `${action.do} lost its focus target`);
   }
 });
+
+// --- the four panels that need the open draft ---------------------------------
+//
+// These are the panels whose renderers existed for days with nothing opening
+// them. The machine's job here is narrow — which panel, for which block, and
+// what it says when the draft is absent — and the absence case is the one worth
+// the most, because every editor route is `unbuilt` and absent is the state the
+// editor is actually in.
+
+import type { OpenDraft } from "../src/view/shell.ts";
+import { blockIn } from "../src/view/shell.ts";
+
+function draft(path = "limits.md"): OpenDraft {
+  const page = CORPUS.find((each: { path: string }) => each.path === path) ?? CORPUS[0];
+  return { model: buildModel(page.document, page.source), source: page.source, schema: SCHEMA };
+}
+
+function firstOfKind(open: OpenDraft, kind: string): string {
+  const node = open.model.nodes.find((each) => each.kind === kind);
+  assert.ok(node, `the fixture has a ${kind} node`);
+  return node.id;
+}
+
+test("a panel that needs a draft says the draft is missing, not that it is empty", () => {
+  // An empty properties form reads as "this component has no properties", which
+  // is a claim about the component. The honest claim is about the build.
+  for (const action of [
+    { do: "open-properties", block: "0" } as const,
+    { do: "edit-source", block: "0" } as const,
+    { do: "open-frontmatter" } as const,
+  ]) {
+    const markup = String(renderPanel(reduce(START, action), null));
+    assert.match(markup, /data-unserved=/, `${action.do} claims nothing about the content`);
+    assert.ok(!markup.includes("<form"), `${action.do} draws no form`);
+    assert.ok(!markup.includes("data-prop="), `${action.do} draws no fields`);
+  }
+});
+
+test("ED-01: a component's handle opens its properties, from the draft's own props", () => {
+  const open = draft();
+  const id = firstOfKind(open, "component");
+  const node = open.model.nodes.find((each) => each.id === id)!;
+  const markup = String(renderPanel(reduce(START, { do: "open-properties", block: id }), open));
+  assert.ok(markup.includes(`data-properties="${id}"`), `the pane is bound to block ${id}`);
+  assert.ok(markup.includes(node.name ?? ""), "the pane names the component it is for");
+  assert.ok(!markup.includes("data-unserved"), "and claims nothing is missing");
+});
+
+test("a second block's handle swaps the pane rather than closing it", () => {
+  // Pressing the same handle twice closes, because that control is a toggle.
+  // Pressing a different one is the author moving along the page, and closing
+  // there would make the pane feel like it was fighting them.
+  const first = reduce(START, { do: "open-properties", block: "0" });
+  assert.deepEqual(first.panel, { kind: "properties", block: "0" });
+  assert.deepEqual(reduce(first, { do: "open-properties", block: "1" }).panel, {
+    kind: "properties",
+    block: "1",
+  });
+  assert.equal(reduce(first, { do: "open-properties", block: "0" }).panel.kind, "none");
+});
+
+test("ED-03(c): the source popover goes over its block, not into the side column", () => {
+  const open = draft();
+  const id = firstOfKind(open, "component");
+  const state = reduce(START, { do: "edit-source", block: id });
+  assert.equal(landmarkFor(state.panel), `[data-block="${id}"]`);
+  const markup = String(renderPanel(state, open));
+  assert.match(markup, /data-source-popover=/);
+  assert.match(markup, /<textarea[^>]*data-source-editor/);
+  assert.ok(!markup.includes("data-prop="), "an opaque block gets bytes, not a form");
+});
+
+test("the popover carries the block's own bytes and its reason", () => {
+  const open = draft();
+  const id = firstOfKind(open, "component");
+  const node = open.model.nodes.find((each) => each.id === id)!;
+  const markup = String(renderPanel(reduce(START, { do: "edit-source", block: id }), open));
+  const shown = markup.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  assert.ok(shown.includes(node.text.trimEnd()), "the bytes are the block's, unchanged");
+  assert.match(markup, /class="why"/, "and it says why it is source rather than a form");
+});
+
+test("ED-11: page settings draws the schema's fields with the draft's values", () => {
+  const open = draft();
+  const markup = String(renderPanel(reduce(START, { do: "open-frontmatter" }), open));
+  assert.match(markup, /data-frontmatter/);
+  assert.match(markup, /data-field="title"/);
+  assert.ok(!markup.includes("data-unserved"));
+});
+
+test("page settings with no schema says so rather than drawing a form with no rules", () => {
+  // The schema is fetched, so "not yet" and "not at all" are both reachable, and
+  // a form generated from nothing would accept anything while looking strict.
+  const open = { ...draft(), schema: null };
+  const markup = String(renderPanel(reduce(START, { do: "open-frontmatter" }), open));
+  assert.match(markup, /data-unserved="ED-11"/);
+  assert.ok(!markup.includes("<form"));
+});
+
+test("blockIn finds a node by id and returns nothing for one the draft lacks", () => {
+  const open = draft();
+  const id = firstOfKind(open, "component");
+  assert.equal(blockIn(open, id)?.id, id);
+  assert.equal(blockIn(open, "no-such-block"), undefined);
+  assert.equal(blockIn(null, id), undefined);
+});
+
+test("every new control maps to an action, and every new panel is announced", () => {
+  assert.deepEqual(actionFor({ "data-open-properties": "2/1" }), { do: "open-properties", block: "2/1" });
+  assert.deepEqual(actionFor({ "data-edit-source": "0" }), { do: "edit-source", block: "0" });
+  assert.deepEqual(actionFor({ "data-open-frontmatter": "" }), { do: "open-frontmatter" });
+  for (const action of [
+    { do: "open-properties", block: "0" } as const,
+    { do: "edit-source", block: "0" } as const,
+    { do: "open-frontmatter" } as const,
+  ]) {
+    const state = reduce(START, action);
+    assert.notEqual(announcementFor(state), "", `${action.do} is silent`);
+    assert.ok(state.focus !== null, `${action.do} says nothing about focus`);
+  }
+});
+
+test("a change within a panel kind is still a change the author should hear", () => {
+  // The bug this pins lived in `editor.ts`'s `apply`, which compared
+  // `shell.panel.kind` to decide whether to announce. Advancing the tour keeps
+  // the kind `"tour"`, so the step changed on screen and nothing was said; the
+  // same for choosing a template and for moving the properties pane to another
+  // block. The machine's job here is that the *announcement text* differs, so a
+  // caller comparing the whole panel has something to say.
+  const first = after(START, { do: "open-tour" });
+  const second = after(first, { do: "tour-next" });
+  assert.equal(first.panel.kind, second.panel.kind, "the kind is unchanged");
+  assert.notEqual(announcementFor(first), announcementFor(second), "and the announcement is not");
+
+  const blank = after(START, { do: "open-templates" });
+  const chosen = after(blank, { do: "choose-template", id: "how-to" });
+  assert.equal(blank.panel.kind, chosen.panel.kind);
+  assert.notEqual(announcementFor(blank), announcementFor(chosen));
+
+  // And for the properties pane the words themselves differ, once the draft is
+  // there to name the component: two "Properties opened." in a row would say the
+  // same thing about two different blocks.
+  const open = draft();
+  const ids = open.model.nodes.filter((node) => node.kind === "component").map((node) => node.id);
+  assert.ok(ids.length >= 2, `the fixture has ${ids.length} components`);
+  const one = after(START, { do: "open-properties", block: ids[0]! });
+  const other = after(one, { do: "open-properties", block: ids[1]! });
+  assert.equal(one.panel.kind, other.panel.kind);
+  assert.notDeepEqual(one.panel, other.panel, "the block changed even though the kind did not");
+  assert.match(announcementFor(one, open), /^Properties for \w/);
+  assert.equal(
+    announcementFor(one, null),
+    "Properties opened.",
+    "and it falls back when there is no draft to name",
+  );
+});
