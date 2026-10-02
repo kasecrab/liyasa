@@ -87,6 +87,8 @@ mod cm_82_redirects;
 mod cm_84_files;
 #[path = "../git/git_01_github.rs"]
 mod git_01_github;
+#[path = "../git/ver_77_last_author.rs"]
+mod ver_77_last_author;
 #[path = "../server/git_20_deploy.rs"]
 mod git_20_deploy;
 #[path = "../server/git_21.rs"]
