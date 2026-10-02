@@ -45,20 +45,29 @@ async fn results_are_never_stored_by_a_shared_cache() {
 #[tokio::test]
 async fn a_request_with_no_query_is_refused_and_says_what_is_missing() {
     let (harness, _site) = Harness::serving("rest04-noquery").await;
-    // The fixture site is built without an index, so this instance answers
-    // 503 to every query and the refusal below is not the one under test.
-    // Skipped with the reason rather than asserted around (RFC 1402); it
-    // starts running the day the fixture builds an index, with no edit here.
-    if harness.state.search_index().is_none() {
-        eprintln!(
-            "rest_04_search: not asserting the query refusal — this instance has no \
-             search index, so every query is answered 503 before the parser sees it."
-        );
-        return;
-    }
+    // This was a skip-with-reason: the fixture site had no index, so every
+    // query was answered 503 before the parser saw it and the refusal below
+    // was not the one under test. The harness builds an index now (WP-17), so
+    // the skip can no longer fire and an assertion is what belongs here — a
+    // branch nothing can reach is worse than no branch, because it reads as
+    // coverage. Asserted rather than skipped for the same reason it was
+    // skipped: without an index the 503 pre-empts the refusal, and the test
+    // has to say so instead of passing on the wrong status.
+    assert!(
+        harness.state.search_index().is_some(),
+        "this instance has no search index, so a 503 pre-empts the refusal \
+         under test; `an_instance_with_no_index_says_so_rather_than_looking_\
+         unmounted` is the test for that shape"
+    );
 
     let response = harness.get("/_liyasa/search").await;
-    assert_ne!(response.status(), StatusCode::OK, "a search needs a query");
+    // 400, not merely "not 200". `assert_ne!(status, OK)` is satisfied by the
+    // 503 this test exists to tell itself apart from, and by a 500.
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "a missing query is the caller's mistake and is refused as one"
+    );
     let body = liyasa_tests::server::body_text(response).await;
     assert!(
         body.contains("q=") || body.to_lowercase().contains("query"),
