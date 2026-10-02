@@ -25,9 +25,29 @@ pub fn env_file(env: &str) -> String {
     format!("liyasa.{env}.json")
 }
 
+/// What one load is told to do.
+///
+/// **Write `..Options::default()` at a call site rather than every field.** The
+/// `Default` is hand-written, below, so the `derive` attribute says nothing
+/// about it; on 2026-10-02 two packages read that attribute and concluded there
+/// was none, and one of them believed it could not protect its seven call sites
+/// against a field being added here. It can. The default is the vfs's own root
+/// with no overlay, which is what all ten literals in the workspace pass.
+///
+/// **That protection only covers a field callers do not set.** A spread is
+/// available to a call site that is content to take *some* field from the
+/// default; a struct every caller fills completely has nothing to omit, and
+/// `clippy::needless_update` denies the spread outright there. So the ten
+/// literals are protected against a field like `env`, and a new field that every
+/// caller must supply would reopen the hole while their `..Options::default()`
+/// kept compiling — which is a reason to reconsider the shape rather than to
+/// trust the spread. WP-09's point, worth keeping where the field would be
+/// added.
 #[derive(Debug, Clone)]
 pub struct Options {
-    /// The directory holding `liyasa.json`.
+    /// The directory holding `liyasa.json`, as a prefix joined onto it. Empty
+    /// means the vfs's own root, which is legal and usual: an `OsVfs` is built
+    /// on the project directory and a `MemVfs`'s keys are already relative.
     pub root: VfsPath,
     /// The environment whose overlay is merged, if any.
     pub env: Option<String>,
