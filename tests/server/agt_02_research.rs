@@ -65,25 +65,53 @@ async fn a_permitted_search_is_answered_from_this_instances_index() {
 /// The two tools this server cannot serve say so by name rather than
 /// answering empty. An empty drift list and a server that cannot see drift are
 /// the same JSON otherwise, and the agent would read "nothing is wrong".
+///
+/// **This test used to assert the reason named a package — and both package
+/// names it pinned were wrong.** It required `get_fact`'s reason to contain
+/// "WP-13", who own `core/` and `report/` while the truth graph is `graph/`
+/// (RFC 1300 gives that to WP-20a); and `list_drift`'s to contain "WP-20c",
+/// when this instance *does* read drift through `AppState::drift_records` and
+/// the gap is the tool seam. WP-13 traced it after a reviewer followed the
+/// first one to them and they had nothing to give.
+///
+/// So the assertion enforced the wrong contract. **A package name in a refusal
+/// is a routing instruction**, and a test that only checks one is present
+/// cannot tell a right route from a wrong one — it passed for a year of being
+/// wrong twice. What a refusal owes is what is *missing*: the absent producer
+/// for `get_fact`, the absent seam method for `list_drift`. The negative
+/// assertion below is the ratchet that stops the package label coming back.
 #[tokio::test]
-async fn a_tool_whose_data_lives_elsewhere_names_the_owner() {
+async fn a_tool_this_server_cannot_serve_says_what_is_missing() {
     let (tools_impl, filter) = instance_tools().await;
+    let mut reasons = Vec::new();
 
-    for (tool, owner) in [(tools::GET_FACT, "WP-13"), (tools::LIST_DRIFT, "WP-20c")] {
+    for tool in [tools::GET_FACT, tools::LIST_DRIFT] {
         let unavailable = research::execute(&tools_impl, &filter, tool, &json!({}))
             .await
-            .expect_err("this server holds no reader for it");
+            .expect_err("not reachable from the research seam on this instance");
         assert_eq!(unavailable.tool, tool);
         assert!(
-            unavailable.reason.contains(owner),
-            "the refusal names whose data it is: {}",
+            !unavailable.reason.trim().is_empty(),
+            "a refusal with no reason is the empty result it exists to differ from"
+        );
+        assert!(
+            !unavailable.reason.contains("WP-"),
+            "a refusal names what is missing, not a package to go and ask — the two \
+             labels this once pinned were both the wrong package: {}",
             unavailable.reason
         );
         assert!(
             unavailable.as_json()["unavailable"] == tool,
             "the audit records the refusal rather than a gap"
         );
+        reasons.push(unavailable.reason.to_owned());
     }
+
+    assert_ne!(
+        reasons[0], reasons[1],
+        "the two tools are unavailable for different reasons and must not read \
+         alike: an unpopulated store and an unexposed seam want different work"
+    );
 }
 
 /// `authorise` is the gate and `execute` does not second-guess it. Two gates

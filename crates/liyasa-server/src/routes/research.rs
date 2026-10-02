@@ -14,12 +14,24 @@
 //! needs one because only the caller knows the route-to-path mapping, and
 //! nothing here needs the agent to call back.
 //!
-//! Two of the four are served. `get_fact` and `list_drift` read
-//! `liyasa-verify`'s truth graph and drift records, which are WP-13's and
-//! WP-20c's data and not reachable from this crate — they answer
-//! [`Unavailable`] naming the owner rather than an empty result, because an
-//! empty result is indistinguishable from "nothing matched" and would read as
-//! a site with no drift.
+//! Two of the four are served. `get_fact` and `list_drift` answer
+//! [`Unavailable`] rather than an empty result, because an empty result is
+//! indistinguishable from "nothing matched" and would read as a site with no
+//! drift.
+//!
+//! **Their reasons used to name a package, and both named the wrong one.**
+//! WP-13 traced `get_fact` and reported that it owns `core/` and `report/`
+//! while the truth graph is `graph/`, which RFC 1300 assigns to WP-20a — so a
+//! reviewer acting on the old sentence went to a package with nothing to give
+//! them. Verified here rather than taken on their word: RFC 1300's table, and
+//! `git grep '\.for_fact('` finding only `graph/claims.rs:146` plus two tests,
+//! and `git grep '\.observe('` outside that module finding only
+//! `routes/metrics.rs` and two theme scripts.
+//!
+//! So the reader is not missing, it is **unpopulated**, and the floor is
+//! `crates/liyasa-verify/src/scan/` — which does not exist. A reason naming a
+//! missing reader points at work that is already done; a reason naming the
+//! absent producer points at the work.
 
 use liyasa_ai::assistant::tools::Tools;
 use liyasa_ai::index::ChunkQuery;
@@ -138,15 +150,28 @@ pub async fn execute(
                 }),
             }
         }
+        // Not "no reader": `graph::claims::MemoryClaims::for_fact` is real and
+        // answers. Nothing ever puts a claim in its table — `scan/`, the module
+        // that would observe claims from pages, is unbuilt — so the honest
+        // refusal names the absent producer. A delegating implementation at any
+        // layer below this would pass its own structural check and leave the
+        // effect absent (WP-13, six layers verified individually).
         "get_fact" => Err(Unavailable {
             tool: "get_fact",
-            reason: "the truth graph lives in liyasa-verify (WP-13) and this server holds no \
-                     reader for it",
+            reason: "no populated claim store: nothing observes claims from pages yet, so the \
+                     truth graph is empty rather than unreadable",
         }),
+        // Also not "no reader", and for a different reason than `get_fact`:
+        // this instance has one. `AppState::drift_records` returns a persisted
+        // `SqliteDrift`, and `routes/reviews.rs` reads it every scheduled pass.
+        // What is missing is a way to reach it from here — `execute` is handed
+        // a `&dyn Tools` and nothing else, and that trait has no drift method.
+        // The gap is the seam, not the store, and saying "no reader" sends a
+        // reviewer to look for one that is already wired.
         "list_drift" => Err(Unavailable {
             tool: "list_drift",
-            reason: "drift records live in liyasa-verify (WP-20c) and this server holds no \
-                     reader for them",
+            reason: "this instance records drift but the research tool seam exposes no method \
+                     that reads it",
         }),
         _ => Err(Unavailable {
             tool: "unknown",

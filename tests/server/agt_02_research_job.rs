@@ -96,11 +96,23 @@ async fn a_tool_this_instance_cannot_serve_is_recorded_rather_than_dropped() {
         answer["unavailable"], "list_drift",
         "the refusal is in the record, not an empty list: {result}"
     );
+    // Was `reason.contains("WP-20c")`, which was wrong twice: this instance
+    // reads drift through `AppState::drift_records`, and the gap is that the
+    // research tool seam exposes no method for it. A package label in a
+    // refusal is a routing instruction, and a test that only checks one is
+    // present cannot tell a right route from a wrong one.
+    let reason = answer["reason"].as_str().unwrap_or_default();
     assert!(
-        answer["reason"]
-            .as_str()
-            .is_some_and(|reason| reason.contains("WP-20c")),
-        "the refusal names whose data is missing: {result}"
+        !reason.trim().is_empty(),
+        "a refusal with no reason is the empty list it exists to differ from: {result}"
+    );
+    assert!(
+        !reason.contains("WP-"),
+        "the refusal says what is missing rather than who to go and ask: {result}"
+    );
+    assert!(
+        reason.contains("seam") || reason.contains("tool"),
+        "and for `list_drift` what is missing is the seam, not the records: {result}"
     );
 }
 

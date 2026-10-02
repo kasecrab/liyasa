@@ -104,7 +104,7 @@ async fn an_unavailable_tool_is_recorded_as_a_refusal_rather_than_a_gap() {
             .unwrap_or_else(|e| panic!("`{tool}` should be permitted: {e}"));
         let unavailable = research::execute(&tools_impl, &filter, tool, &input)
             .await
-            .expect_err("this instance holds no reader for it");
+            .expect_err("neither tool is reachable from the research seam");
         // The refusal goes into the run as the result, so the transcript shows it.
         run.record_result(tool, "unavailable", &unavailable.as_json());
     }
@@ -149,9 +149,25 @@ async fn an_unavailable_result_does_not_read_as_an_empty_answer_to_the_model() {
         .expect("the refusal did not reach the model")
         .clone();
     assert!(block.content.contains("unavailable"), "{}", block.content);
+    // Was `contains("WP-20c")`, and that was the worst of the three places this
+    // pattern lived: it put an internal package label into a **prompt**. A
+    // model has no use for "WP-20c" — it cannot route work to a package, and
+    // the label was the wrong one anyway, because this instance does read
+    // drift and what is missing is the tool seam. What the model needs is that
+    // the call did not happen and a reason in terms of the world.
     assert!(
-        block.content.contains("WP-20c"),
-        "the model is not told whose data is missing: {}",
+        !block.content.contains("WP-"),
+        "a prompt carries no package labels: {}",
+        block.content
+    );
+    assert!(
+        block.content.contains("reason"),
+        "and the refusal reaches the model with its reason rather than bare: {}",
+        block.content
+    );
+    assert!(
+        !block.content.contains("\"passages\""),
+        "an unavailable block must not look like a search that matched nothing: {}",
         block.content
     );
 }

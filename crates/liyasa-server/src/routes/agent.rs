@@ -127,6 +127,12 @@ fn open_run(payload: &Payload) -> Run {
         // would overstate what the run could reach. WP-25 caught the
         // overstatement; it is the record's own claim about itself, and a
         // reviewer reads it.
+        //
+        // Still `None` after WP-13's trace, and worth saying because the reason
+        // changed: drift IS readable here (`AppState::drift_records`), it is
+        // the tool seam that cannot reach it. So `Read` would be wrong for the
+        // narrower reason that the run cannot reach the graph rather than that
+        // the instance cannot.
         graph: liyasa_agent::record::GraphAccess::None,
         retention_days: 90,
         branch: format!("agent/{id}"),
