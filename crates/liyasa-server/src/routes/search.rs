@@ -95,11 +95,43 @@ fn record(state: &Arc<AppState>, event: &SearchEvent, parts: &http::request::Par
     use liyasa_analytics::props;
 
     let emission = match event {
+        // `shown: _` rather than `..`, and rather than passing it on.
+        //
+        // WP-07's `807c186` adds `shown` — the page routes a result list
+        // displayed, after `ReaderScope` filtering, so on a private site it can
+        // name pages gated to the reader's groups. Naming the field keeps the
+        // NEXT addition a compile error, which is the property WP-07 went out
+        // of their way to preserve; `..` would swallow it.
+        //
+        // Not passed on for two independent reasons, either of which alone
+        // decides it:
+        //
+        // TODO(rfc-1405): the record this builds also carries `session_key`, a
+        // per-reader pseudonym stable inside its daily salt window, and
+        // `insights.rs` already groups and self-joins on it. Writing `shown`
+        // here would put "which gated pages was this session shown" one query
+        // away. RFC 1405 chooses to split the row — session identity without
+        // page identity, page identity without session identity — and that is
+        // sequenced with WP-17 because every query over `event` is theirs.
+        // Until then the widening stays out of the record, which costs ANA-20
+        // nothing today.
+        //
+        // The chain also forbids it today, for a mechanism worth naming
+        // correctly: not a new parameter on `props::search_event`, which keeps
+        // its four, but `Emission::with_shown` — a builder WP-17 added instead,
+        // so that a prefix merging their change without this call site still
+        // compiles. It is in `liyasa-analytics`, WP-17's crate, which chains
+        // ABOVE wp/14, so calling it would put this prefix under integrate's
+        // bisect for a dependency not in it.
+        //
+        // That reason expires when their commit merges. The RFC's does not,
+        // which is why it is the one written first.
         SearchEvent::Query {
             query,
             results,
             locale,
             filters,
+            shown: _,
         } => props::search_event(query, *results, locale.as_deref(), filters),
         SearchEvent::NoResults { query, locale } => {
             props::search_no_results(query, locale.as_deref())
