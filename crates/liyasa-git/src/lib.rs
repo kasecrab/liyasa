@@ -14,6 +14,7 @@ pub mod bitbucket;
 pub mod clone;
 pub mod event;
 pub mod generic;
+pub mod history;
 pub mod github;
 pub mod gitlab;
 pub mod mounts;
