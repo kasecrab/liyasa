@@ -71,6 +71,9 @@ impl Default for Thresholds {
     }
 }
 
+/// Has a hand-written [`Default`] below rather than a derived one — which is
+/// also what `#[serde(default)]` fills an absent key from — so write
+/// `..Options::default()` in a literal that does not set every field.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Options {

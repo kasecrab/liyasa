@@ -121,6 +121,34 @@ pub struct PageRecord {
 }
 
 impl PageRecord {
+    /// One published page, with the identity and navigation fields a caller
+    /// usually leaves alone. Spread from it, for the reason given on
+    /// [`crate::manifest::RouteEntry::new`]: `Route` and `Locale` have no
+    /// `Default`, so this struct cannot have one either, and `liyasa-cli` builds
+    /// all thirteen fields by hand.
+    ///
+    /// `indexable` is true and `personalized` false, so the record is published.
+    /// The opposite defaults would read as safer and are not: a spread that
+    /// omitted them would silently drop the page from every agent surface, which
+    /// is a wrong answer rather than a missing one.
+    pub fn new(route: Route, locale: Locale, title: impl Into<String>) -> Self {
+        Self {
+            id: None,
+            route,
+            title: title.into(),
+            description: None,
+            locale,
+            version: None,
+            tab: None,
+            group: None,
+            indexable: true,
+            personalized: false,
+            markdown: String::new(),
+            updated: None,
+            changelog: false,
+        }
+    }
+
     /// Whether this page reaches a shared agent surface at all.
     pub fn is_published(&self) -> bool {
         self.indexable && !self.personalized
@@ -275,6 +303,24 @@ pub struct SiteInput {
 }
 
 impl SiteInput {
+    /// A site with the three values that have no default — the origin is parsed
+    /// and its fields are private, and `Locale` has no `Default` — and empty or
+    /// default values for the rest. Spread from it, for the reason given on
+    /// [`crate::manifest::RouteEntry::new`].
+    pub fn new(name: impl Into<String>, origin: CanonicalOrigin, locale: Locale) -> Self {
+        Self {
+            name: name.into(),
+            summary: None,
+            origin,
+            locale,
+            version: None,
+            pages: Vec::new(),
+            nav: Vec::new(),
+            agents: AgentsSettings::default(),
+            feeds: FeedsSettings::default(),
+        }
+    }
+
     /// The frozen §34.9 view of the same data, for callers that take a
     /// [`SiteMeta`].
     pub fn meta(&self) -> Option<SiteMeta> {

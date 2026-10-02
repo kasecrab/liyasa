@@ -38,6 +38,9 @@ pub const SNIPPET_DIR: &str = "snippets";
 
 const MAX_DEPTH: u8 = 32;
 
+/// Has a hand-written [`Default`] below rather than a derived one, so write
+/// `..Options::default()` in a literal that does not set every field — the
+/// derive list above is not where to look for it.
 #[derive(Debug, Clone)]
 pub struct Options {
     /// `build.output`, which the walk must not read back in.

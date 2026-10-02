@@ -362,6 +362,30 @@ pub struct ImageVariantEntry {
 }
 
 impl Manifest {
+    /// A manifest with the three values that cannot be guessed and empty
+    /// collections for the rest. Spread from it, for the reason given on
+    /// [`RouteEntry::new`] — `liyasa-server` builds this struct in three places
+    /// and has no other way to survive a field being added here.
+    ///
+    /// For a **fixture**. The engine's own literal in
+    /// [`build_retaining`](crate::engine::build_retaining) stays exhaustive on
+    /// purpose: there, a field added to this struct should be a compile error
+    /// that asks what to write, not a default that quietly ships.
+    pub fn new(build_id: BuildId, liyasa_version: impl Into<String>, built_at: i64) -> Self {
+        Self {
+            build_id,
+            liyasa_version: liyasa_version.into(),
+            built_at,
+            base_path: String::new(),
+            routes: Vec::new(),
+            assets: Vec::new(),
+            images: Vec::new(),
+            redirects: Vec::new(),
+            served: Vec::new(),
+            inputs: BTreeMap::new(),
+        }
+    }
+
     pub fn route(&self, route: &Route) -> Option<&RouteEntry> {
         self.routes.iter().find(|entry| &entry.route == route)
     }
@@ -425,20 +449,8 @@ mod tests {
 
     fn manifest() -> Manifest {
         Manifest {
-            build_id: build_id(&BTreeMap::new(), 0, None),
-            liyasa_version: crate::cache::VERSION.to_owned(),
-            built_at: 1_789_473_600,
-            base_path: String::new(),
             routes: vec![
                 RouteEntry {
-                    route: Route::new("/guides/install"),
-                    source: "guides/install.md".to_owned(),
-                    markdown: "/guides/install.md".to_owned(),
-                    hidden: false,
-                    dynamic: false,
-                    reviewed: None,
-                    source_updated_unix: None,
-                    description: None,
                     variants: vec![
                         VariantEntry {
                             key: "g=admin".to_owned(),
@@ -457,25 +469,15 @@ mod tests {
                         AccessLevel::new(["staff".to_owned()], false),
                         AccessLevel::new([], false),
                     ],
+                    ..RouteEntry::new(Route::new("/guides/install"), "guides/install.md")
                 },
-                RouteEntry {
-                    route: Route::new("/"),
-                    source: "index.md".to_owned(),
-                    markdown: "/index.md".to_owned(),
-                    hidden: false,
-                    dynamic: false,
-                    reviewed: None,
-                    source_updated_unix: None,
-                    description: None,
-                    variants: Vec::new(),
-                    access: vec![AccessLevel::new([], false)],
-                },
+                RouteEntry::new(Route::new("/"), "index.md"),
             ],
-            assets: Vec::new(),
-            images: Vec::new(),
-            redirects: Vec::new(),
-            served: Vec::new(),
-            inputs: BTreeMap::new(),
+            ..Manifest::new(
+                build_id(&BTreeMap::new(), 0, None),
+                crate::cache::VERSION,
+                1_789_473_600,
+            )
         }
     }
 
@@ -484,6 +486,19 @@ mod tests {
         let sorted = manifest().sorted();
         assert_eq!(sorted.routes[0].route.as_str(), "/");
         assert_eq!(sorted.routes[1].variants[0].key, "default");
+    }
+
+    #[test]
+    fn a_new_entry_derives_the_markdown_path_from_the_route() {
+        for (route, markdown) in [
+            ("/guides/install", "/guides/install.md"),
+            ("/", "/index.md"),
+            ("", "/index.md"),
+            ("/guides/", "/guides.md"),
+        ] {
+            let entry = RouteEntry::new(Route::new(route), "x.md");
+            assert_eq!(entry.markdown, markdown, "route {route:?}");
+        }
     }
 
     #[test]
