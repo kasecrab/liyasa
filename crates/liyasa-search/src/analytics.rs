@@ -19,7 +19,10 @@ pub enum SearchEvent {
         query: String,
         results: usize,
         locale: Option<String>,
-        #[serde(skip_serializing_if = "Vec::is_empty")]
+        /// `default` as well as `skip_serializing_if`: without it an event
+        /// with no facets serializes to JSON that will not deserialize, which
+        /// is the common case rather than an edge one.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         filters: Vec<String>,
     },
     /// A query that returned nothing: the list ANA-20 turns into "create a
@@ -150,6 +153,24 @@ mod tests {
                 locale: Some("en".to_owned()),
                 filters: Vec::new(),
             }
+        );
+    }
+
+    /// The case the `skip_serializing_if`/`default` pair exists for, and the
+    /// one that was broken: a search with no facets omits `filters` on the way
+    /// out, so without `default` it could not be read back. Every real query
+    /// on a site that declares no facets takes this path.
+    #[test]
+    fn an_event_with_no_facets_survives_a_round_trip() {
+        let event = SearchEvent::of("limits", Some("en"), &Filters::default(), &[hit("/a")]);
+        let json = serde_json::to_string(&event).expect("serializes");
+        assert!(
+            !json.contains("filters"),
+            "an empty list stays off the wire"
+        );
+        assert_eq!(
+            serde_json::from_str::<SearchEvent>(&json).expect("reads back"),
+            event
         );
     }
 
