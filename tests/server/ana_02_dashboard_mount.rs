@@ -18,15 +18,37 @@ fn with_analytics(name: &str) -> Setup {
     }
 }
 
+/// Two statements, because neither alone says the dashboard is mounted.
+///
+/// This asserted only `status != 404`, and the status it was getting was
+/// **401**: the subtree sits behind `Permission::DashboardRead`, a fixture site
+/// configures no auth so no session layer is mounted, and the guard denies a
+/// request carrying no grant. So the assertion passed on a router that had
+/// mounted the subtree and on one that had mounted a guard over nothing, and it
+/// would have gone on passing had the mount been removed and the guard left —
+/// `!= 404` is satisfied by every failure mode there is.
+///
+/// The record is the direct claim. The exact 401 is the second half: it says
+/// the credential is the only thing between the caller and the dashboard,
+/// which is what distinguishes this from a 404 (nothing mounted) and from a
+/// 500 (mounted and broken).
 #[tokio::test]
 async fn the_dashboard_endpoints_are_mounted_when_there_is_a_database() {
     let (harness, _site) = Harness::new(with_analytics("ana02-mounted")).await;
 
-    let response = harness.get("/_liyasa/api/v1/analytics/totals").await;
-    assert_ne!(
-        response.status(),
-        StatusCode::NOT_FOUND,
-        "the analytics subtree did not mount; the dashboard is unreachable"
+    let record = harness
+        .mounted
+        .iter()
+        .find(|record| record.name == "analytics")
+        .expect("the analytics subtree is declared");
+    assert!(
+        record.mounted && record.skipped.is_none(),
+        "an instance with an analytics database must mount the dashboard: {record:?}"
+    );
+
+    expect_status(
+        harness.get("/_liyasa/api/v1/analytics/totals").await,
+        StatusCode::UNAUTHORIZED,
     );
 }
 
