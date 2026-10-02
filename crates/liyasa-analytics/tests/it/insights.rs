@@ -249,8 +249,8 @@ async fn the_three_cards_that_need_build_facts_appear_only_when_they_are_given()
 
     let pages = [PageFacts {
         route: "/old-popular".to_owned(),
-        updated_at: T0 - 200 * DAY,
-        has_description: false,
+        updated_at: Some(T0 - 200 * DAY),
+        has_description: Some(false),
         open_drift: 2,
     }];
     let with = insights::compute(
@@ -296,8 +296,8 @@ async fn a_page_that_is_stale_but_unread_is_not_a_card() {
     let (_ddir, pool) = app("insight-quiet-app").await;
     let pages = [PageFacts {
         route: "/quiet".to_owned(),
-        updated_at: T0 - 900 * DAY,
-        has_description: false,
+        updated_at: Some(T0 - 900 * DAY),
+        has_description: Some(false),
         open_drift: 5,
     }];
     let cards = insights::compute(
@@ -566,8 +566,8 @@ async fn a_route_that_looks_like_markup_does_not_reach_the_html_as_markup() {
     let (_ddir, pool) = app("digest-escaping-app").await;
     let pages = [PageFacts {
         route: route.to_owned(),
-        updated_at: T0 - 900 * DAY,
-        has_description: true,
+        updated_at: Some(T0 - 900 * DAY),
+        has_description: Some(true),
         open_drift: 0,
     }];
     let digest = digest::weekly(
@@ -619,8 +619,8 @@ fn the_classes_that_cannot_be_evaluated_are_named_rather_than_implied() {
     let supplied = [PageFacts {
         route: "/guides/install".to_owned(),
         open_drift: 0,
-        updated_at: T0,
-        has_description: true,
+        updated_at: Some(T0),
+        has_description: Some(true),
     }];
     assert!(
         insights::not_assessed(&supplied).is_empty(),
@@ -641,5 +641,100 @@ fn the_unassessed_classes_serialise_as_the_dashboard_reads_them() {
             "stale_popular_pages",
             "missing_descriptions"
         ])
+    );
+}
+
+// ---- a field nobody can supply must not be guessed ----
+//
+// `PageFacts` is assembled on the server side, and of its four fields only two
+// are reachable there: `route` from the build manifest's `RouteEntry`, and
+// `open_drift` from `RecordStore::open_records()`. The manifest records
+// neither a per-route modification time nor whether the page has a
+// description — it carries `built_at` for the whole build and a fingerprint
+// per input, and nothing else.
+//
+// So a server wiring `with_pages` has to leave two fields unknown, and the
+// cards that read them must say so rather than take a placeholder. With
+// `updated_at: 0` every popular page is twenty thousand days stale; with
+// `has_description: false` every page is missing one. Two classes of false
+// card on every instance is worse than the silence it replaced.
+
+fn facts(route: &str) -> PageFacts {
+    PageFacts {
+        route: route.to_owned(),
+        updated_at: None,
+        has_description: None,
+        open_drift: 0,
+    }
+}
+
+#[test]
+fn an_unknown_modification_time_produces_no_staleness_card() {
+    let unknown = [facts("/guides/install")];
+    assert!(
+        insights::not_assessed(&unknown).contains(&CardKind::StalePopularPages),
+        "a page whose age is unknown leaves the staleness class unassessed"
+    );
+    assert!(
+        !insights::not_assessed(&unknown).contains(&CardKind::DriftOnPopularPages),
+        "drift is reachable from the record store, so that class IS assessed"
+    );
+}
+
+#[test]
+fn an_unknown_description_produces_no_missing_description_card() {
+    let unknown = [facts("/guides/install")];
+    assert!(
+        insights::not_assessed(&unknown).contains(&CardKind::MissingDescriptions),
+        "`has_description: None` is not `Some(false)`; absent is not missing"
+    );
+
+    let present = [PageFacts {
+        has_description: Some(true),
+        ..facts("/guides/install")
+    }];
+    assert!(
+        !insights::not_assessed(&present).contains(&CardKind::MissingDescriptions),
+        "a page that answered the question leaves the class assessed"
+    );
+}
+
+/// The whole point of the `Option`: the drift card ships from data the server
+/// already holds while the other two stay honestly unassessed.
+#[tokio::test]
+async fn the_drift_card_fires_on_facts_that_know_nothing_else() {
+    let events = views("/guides/install", 40, T0 + HOUR);
+    let (_adir, writer) = analytics("insights-partial", events).await;
+    let (_ddir, pool) = app("insights-partial-app").await;
+
+    let pages = [PageFacts {
+        open_drift: 3,
+        ..facts("/guides/install")
+    }];
+    let cards = insights::compute(
+        &Inputs {
+            analytics: writer.pool(),
+            app: &pool,
+            pages: &pages,
+        },
+        week(),
+        &Filters::default(),
+        T0 + 7 * DAY,
+    )
+    .await
+    .expect("the cards compute");
+
+    let kinds: Vec<CardKind> = cards.iter().map(|card| card.kind).collect();
+    assert!(
+        kinds.contains(&CardKind::DriftOnPopularPages),
+        "the one class whose inputs exist did not fire: {kinds:?}"
+    );
+    assert!(
+        !kinds.contains(&CardKind::StalePopularPages),
+        "an unknown modification time was treated as an old one: {kinds:?}"
+    );
+    assert!(
+        !kinds.contains(&CardKind::MissingDescriptions),
+        "an unknown description was treated as a missing one: {kinds:?}"
     );
 }

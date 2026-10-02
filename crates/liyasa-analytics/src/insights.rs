@@ -34,10 +34,19 @@ pub const STALE_DAYS: i64 = 180;
 #[serde(rename_all = "camelCase")]
 pub struct PageFacts {
     pub route: String,
-    /// When the page's source last changed.
-    pub updated_at: i64,
-    pub has_description: bool,
-    /// Open drift findings against the page (§21).
+    /// When the page's source last changed, or `None` where nothing can say.
+    ///
+    /// `Option` because the server assembling these has no source for it: the
+    /// build manifest carries `built_at` for the whole build and a fingerprint
+    /// per input, and no per-route modification time. A placeholder would make
+    /// every popular page twenty thousand days stale, so the staleness card
+    /// skips instead and the class is reported unassessed.
+    pub updated_at: Option<i64>,
+    /// `None` where nothing can say, which is not the same as `Some(false)`.
+    /// Absent is not missing, and only one of the two is a finding.
+    pub has_description: Option<bool>,
+    /// Open drift findings against the page (§21). Not optional: the server
+    /// reads these from `RecordStore::open_records()`, so zero means zero.
     pub open_drift: i64,
 }
 
@@ -142,7 +151,18 @@ pub fn not_assessed(pages: &[PageFacts]) -> Vec<CardKind> {
             CardKind::MissingDescriptions,
         ];
     }
-    Vec::new()
+    // Per class rather than per call, because the three read different fields
+    // and two of them are optional. A class counts as assessed once any page
+    // answered the question it asks; a caller that fills `updated_at` for some
+    // pages and not others has assessed staleness for those it filled.
+    let mut out = Vec::new();
+    if pages.iter().all(|page| page.updated_at.is_none()) {
+        out.push(CardKind::StalePopularPages);
+    }
+    if pages.iter().all(|page| page.has_description.is_none()) {
+        out.push(CardKind::MissingDescriptions);
+    }
+    out
 }
 
 /// How much traffic a page needs before a card claims anything about it. One
@@ -430,8 +450,15 @@ fn page_fact_cards(routes: &[traffic::RouteCount], pages: &[PageFacts], now: i64
                 }),
             });
         }
-        let age_days = (now - facts.updated_at) / DAY_MS;
-        if age_days >= STALE_DAYS {
+        // Scoped to the `Some` rather than defaulted: any number standing for
+        // "unknown age" is also a real age, so there must not be one. The
+        // original read `(now - facts.updated_at)` over a plain `i64`, which
+        // made an unset date twenty thousand days stale.
+        if let Some(age_days) = facts
+            .updated_at
+            .map(|updated| (now - updated) / DAY_MS)
+            .filter(|age| *age >= STALE_DAYS)
+        {
             out.push(Card {
                 kind: CardKind::StalePopularPages,
                 title: format!("{} has not changed in {age_days} days", route.route),
@@ -445,7 +472,7 @@ fn page_fact_cards(routes: &[traffic::RouteCount], pages: &[PageFacts], now: i64
                 }),
             });
         }
-        if !facts.has_description {
+        if facts.has_description == Some(false) {
             out.push(Card {
                 kind: CardKind::MissingDescriptions,
                 title: format!("{} has no description", route.route),
