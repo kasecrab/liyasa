@@ -507,6 +507,32 @@ impl AppState {
 /// Which budget a request is charged to (§30.2.5). Operations endpoints are
 /// deliberately unlimited: a monitoring system polls them, and refusing a
 /// probe turns a healthy replica unhealthy.
+/// A path at or under an endpoint prefix, on a **segment** boundary.
+///
+/// `starts_with` alone charges a build asset to an endpoint's pool, and it did:
+/// `liyasa-theme` emits `_liyasa/assistant.{hash}.js` into every build, so
+/// `GET /_liyasa/assistant.9c4d1e.js` matched the assistant arm and **every
+/// reader loading a page with the assistant enabled spent their ask budget on
+/// a script fetch** — while the sibling `_liyasa/theme.{hash}.js` fell through
+/// to `Pages`. Two assets of the same kind bucketed differently, chosen by
+/// nobody (WP-18).
+///
+/// Fixed for the class rather than for that filename: today
+/// `assistant.{hash}.js` is the only emitted asset whose name collides with an
+/// endpoint prefix — checked against every `_liyasa/` literal in
+/// `liyasa-theme` and `liyasa-build` — but the next one would be silent too.
+/// `.` is not `/`, so an asset beside an endpoint no longer reads as under it.
+///
+/// `no_caller_ratchet` could not have found this: `mounted_paths` reads
+/// `.route(` literals and that asset is served by `.fallback(page)` out of the
+/// bundle, so the census is blind to everything the bundle serves.
+fn under(path: &str, prefix: &str) -> bool {
+    path == prefix
+        || path
+            .strip_prefix(prefix)
+            .is_some_and(|rest| rest.starts_with('/'))
+}
+
 pub fn pool_for(path: &str, wants_markdown: bool) -> Option<RateLimitPool> {
     match path {
         "/_liyasa/health" | "/_liyasa/ready" | "/_liyasa/metrics" => None,
@@ -514,18 +540,18 @@ pub fn pool_for(path: &str, wants_markdown: bool) -> Option<RateLimitPool> {
         // certificate would fail to issue.
         p if p.starts_with("/.well-known/acme-challenge/") => None,
         "/_liyasa/e" => Some(RateLimitPool::Pages),
-        p if p.starts_with("/_liyasa/feedback") => Some(RateLimitPool::Feedback),
-        p if p.starts_with("/_liyasa/api/") => Some(RateLimitPool::Rest),
+        p if under(p, "/_liyasa/feedback") => Some(RateLimitPool::Feedback),
+        p if under(p, "/_liyasa/api") => Some(RateLimitPool::Rest),
         // `/mcp` is canonical: MCP-01's text is literal and every generated
         // `llms.txt` publishes `<origin>/mcp`, so an agent is told to connect
         // there. Without this arm that traffic falls through to the page pool
         // and an agent is charged against a human's budget.
-        p if p == "/mcp" || p.starts_with("/mcp/") => Some(RateLimitPool::Mcp),
-        p if p.starts_with("/_liyasa/mcp") => Some(RateLimitPool::Mcp),
-        p if p.starts_with("/_liyasa/search") => Some(RateLimitPool::Search),
-        p if p.starts_with("/_liyasa/assistant") => Some(RateLimitPool::Assistant),
-        p if p.starts_with("/_liyasa/proxy") => Some(RateLimitPool::PlaygroundProxy),
-        p if p.starts_with("/_liyasa/auth") => Some(RateLimitPool::Auth),
+        p if under(p, "/mcp") => Some(RateLimitPool::Mcp),
+        p if under(p, "/_liyasa/mcp") => Some(RateLimitPool::Mcp),
+        p if under(p, "/_liyasa/search") => Some(RateLimitPool::Search),
+        p if under(p, "/_liyasa/assistant") => Some(RateLimitPool::Assistant),
+        p if under(p, "/_liyasa/proxy") => Some(RateLimitPool::PlaygroundProxy),
+        p if under(p, "/_liyasa/auth") => Some(RateLimitPool::Auth),
         // `.md` and negotiated Markdown have their own, higher pool: agent
         // fetching is a goal, not abuse (AUTH-14).
         p if p.ends_with(".md") || wants_markdown => Some(RateLimitPool::AgentPages),
@@ -1032,6 +1058,68 @@ mod tests {
             pool_for("/_liyasa/api/v1/jobs", false),
             Some(RateLimitPool::Rest)
         );
+    }
+
+    /// A build asset beside an endpoint is a page fetch, not a call to the
+    /// endpoint.
+    ///
+    /// `liyasa-theme` emits `_liyasa/assistant.{hash}.js` into every build, so
+    /// under `starts_with` every reader loading a page with the assistant
+    /// enabled spent their ask budget on a script fetch — while
+    /// `_liyasa/theme.{hash}.js` fell through to `Pages`. The endpoint and its
+    /// script are asserted together, because charging the script correctly
+    /// while losing the endpoint is the other half of the same mistake and a
+    /// test of one side cannot see it.
+    #[test]
+    fn a_hashed_asset_beside_an_endpoint_is_charged_to_pages() {
+        assert_eq!(
+            pool_for("/_liyasa/assistant", false),
+            Some(RateLimitPool::Assistant),
+            "the endpoint itself"
+        );
+        for asset in [
+            "/_liyasa/assistant.9c4d1e.js",
+            "/_liyasa/theme.9c4d1e.js",
+            "/_liyasa/theme.9c4d1e.css",
+        ] {
+            assert_eq!(
+                pool_for(asset, false),
+                Some(RateLimitPool::Pages),
+                "{asset} is a build asset served out of the bundle"
+            );
+        }
+    }
+
+    /// Every endpoint prefix answers on its own path and one segment below it.
+    ///
+    /// Swept rather than spot-checked: `assistant` was the only emitted asset
+    /// whose name collided with a prefix today, so a test naming only that one
+    /// would pass while the next `_liyasa/<endpoint>.{hash}.js` repeated the
+    /// defect silently.
+    #[test]
+    fn an_endpoint_prefix_matches_on_a_segment_boundary() {
+        for (prefix, pool) in [
+            ("/_liyasa/feedback", RateLimitPool::Feedback),
+            ("/_liyasa/api", RateLimitPool::Rest),
+            ("/_liyasa/mcp", RateLimitPool::Mcp),
+            ("/mcp", RateLimitPool::Mcp),
+            ("/_liyasa/search", RateLimitPool::Search),
+            ("/_liyasa/assistant", RateLimitPool::Assistant),
+            ("/_liyasa/proxy", RateLimitPool::PlaygroundProxy),
+            ("/_liyasa/auth", RateLimitPool::Auth),
+        ] {
+            assert_eq!(pool_for(prefix, false), Some(pool), "{prefix}");
+            assert_eq!(
+                pool_for(&format!("{prefix}/below"), false),
+                Some(pool),
+                "{prefix}/below"
+            );
+            assert_eq!(
+                pool_for(&format!("{prefix}.9c4d1e.js"), false),
+                Some(RateLimitPool::Pages),
+                "{prefix}.9c4d1e.js must read as an asset, not as the endpoint"
+            );
+        }
     }
 
     #[test]
