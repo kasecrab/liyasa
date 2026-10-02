@@ -81,6 +81,8 @@ pub fn read(root: &Path, output: &Path) -> Result<Snapshot, Missing> {
         },
     );
 
+    let personalized = personalized_routes(output);
+
     let mut records = Vec::new();
     let mut pages = Vec::new();
     for page in &tree.pages {
@@ -105,7 +107,7 @@ pub fn read(root: &Path, output: &Path) -> Result<Snapshot, Missing> {
             tab: None,
             group: None,
             indexable: page.indexing.ai && !page.draft,
-            personalized: false,
+            personalized: personalized.contains(&route),
             markdown: markdown.clone(),
             updated: page.front.updated.clone(),
             changelog: liyasa_build::changelog::is_entry_file(page.path.as_str()),
@@ -135,6 +137,35 @@ pub fn read(root: &Path, output: &Path) -> Result<Snapshot, Missing> {
         surfaces: surfaces(output),
         pages,
     })
+}
+
+/// The routes the build marked dynamic, from the manifest it wrote.
+///
+/// `PageRecord::personalized` is what keeps a personalized page out of
+/// `llms.txt`, the skill's key pages and every feed (RX-70, RX-73, RX-83):
+/// `indexable()` is `self.indexable && !self.personalized`. The engine sets
+/// it from the render's own `dynamic` outcome, which this path does not have
+/// — it reads a finished site — so the manifest is where it comes from here.
+/// Hard-coding `false`, as this used to, graded a site as though no page were
+/// personalized and credited pages that the real surfaces leave out.
+///
+/// An unreadable or absent manifest yields an empty set, which is the same
+/// answer as before and the only one available: the rest of the snapshot is
+/// still worth grading.
+fn personalized_routes(output: &Path) -> std::collections::BTreeSet<Route> {
+    let path = output.join(liyasa_build::manifest::FILE);
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return std::collections::BTreeSet::new();
+    };
+    let Ok(manifest) = serde_json::from_str::<liyasa_build::manifest::Manifest>(&text) else {
+        return std::collections::BTreeSet::new();
+    };
+    manifest
+        .routes
+        .iter()
+        .filter(|entry| entry.dynamic)
+        .map(|entry| entry.route.clone())
+        .collect()
 }
 
 /// The generated agent surfaces, read back from the output rather than
@@ -282,6 +313,52 @@ mod tests {
         assert_eq!(route_of("index").as_str(), "/");
         assert_eq!(route_of("guides/install").as_str(), "/guides/install");
         assert_eq!(route_of("/guides/install").as_str(), "/guides/install");
+    }
+
+    /// A dynamic page must be marked personalized, because that flag is what
+    /// `PageRecord::indexable` uses to keep it out of `llms.txt`, the skill's
+    /// key pages and the feeds (RX-70, RX-73, RX-83). This path grades a
+    /// finished site and has no render outcome to read it from, so it comes
+    /// from the manifest the build wrote.
+    #[test]
+    fn a_dynamic_route_is_personalized_and_a_static_one_is_not() {
+        let output = std::env::temp_dir().join(format!(
+            "liyasa-built-manifest-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&output);
+        std::fs::create_dir_all(&output).expect("a directory");
+        std::fs::write(
+            output.join(liyasa_build::manifest::FILE),
+            r#"{
+              "buildId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "liyasaVersion": "0.1.0",
+              "builtAt": 0,
+              "basePath": "",
+              "routes": [
+                {"route":"/pricing","source":"pricing.md","markdown":"/pricing.md",
+                 "hidden":false,"dynamic":true,"variants":[],"access":[]},
+                {"route":"/guides","source":"guides.md","markdown":"/guides.md",
+                 "hidden":false,"dynamic":false,"variants":[],"access":[]}
+              ],
+              "assets": [], "images": [], "redirects": [], "served": [], "inputs": {}
+            }"#,
+        )
+        .expect("a manifest");
+
+        let personalized = personalized_routes(&output);
+
+        assert!(personalized.contains(&Route::new("/pricing")));
+        assert!(!personalized.contains(&Route::new("/guides")));
+        let _ = std::fs::remove_dir_all(&output);
+    }
+
+    /// No manifest is not an error: the rest of the snapshot is still worth
+    /// grading, and an empty set is the answer this path gave before.
+    #[test]
+    fn a_missing_manifest_personalizes_nothing() {
+        assert!(personalized_routes(Path::new("/nonexistent-dist")).is_empty());
     }
 
     #[test]
