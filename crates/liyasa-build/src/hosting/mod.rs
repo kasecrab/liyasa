@@ -211,18 +211,13 @@ pub(crate) mod fixture {
             ),
         };
         RouteEntry {
-            route: Route::new(route),
-            source,
             markdown,
-            hidden: false,
-            dynamic: false,
-            reviewed: None,
             variants: vec![VariantEntry {
                 key: "default".to_owned(),
                 path,
                 hash: Fingerprint::of(route),
             }],
-            access: vec![crate::manifest::AccessLevel::new([], false)],
+            ..RouteEntry::new(Route::new(route), source)
         }
     }
 

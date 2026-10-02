@@ -85,6 +85,83 @@ fn the_manifest_carries_a_reviewed_date_and_says_nothing_when_there_is_none() {
     assert_eq!(reviewed("/guides/install"), None);
 }
 
+/// ANA-40's two inputs. `description` is carried as the value, not as a
+/// `has_description` predicate, because an author who typed the key and left it
+/// blank is a different finding from one who never typed it — and a `bool`
+/// cannot say which.
+#[test]
+fn an_empty_description_is_not_an_absent_one() {
+    let project = site();
+    fs::write(
+        project.0.join("guides/blank.md"),
+        "---\ntitle: Blank\ndescription: \"\"\n---\n# Blank\n\nTyped the key, left it empty.\n",
+    )
+    .expect("a page with an empty description");
+    fs::write(
+        project.0.join("guides/written.md"),
+        "---\ntitle: Written\ndescription: A real summary.\n---\n# Written\n\nBody.\n",
+    )
+    .expect("a page with a description");
+
+    let vfs = OsVfs::new(&project.0);
+    let report = engine::build(
+        &vfs,
+        &NoGit,
+        &project.0,
+        &Options {
+            build_time: Some(1_789_473_600),
+            ..Options::default()
+        },
+    );
+    assert!(!report.failed(false), "{:?}", report.diagnostics);
+    let manifest = report.manifest.as_ref().expect("a manifest");
+    let described = |route: &str| {
+        manifest
+            .routes
+            .iter()
+            .find(|entry| entry.route.as_str() == route)
+            .unwrap_or_else(|| panic!("no entry for {route}"))
+            .description
+            .clone()
+    };
+
+    assert_eq!(described("/guides/written"), Some("A real summary.".to_owned()));
+    assert_eq!(described("/guides/blank"), Some(String::new()));
+    assert_eq!(described("/guides/install"), None);
+}
+
+/// `NoGit` answers nothing, so the field is absent rather than zero. A `0` here
+/// would date every page to 1970 and fire `StalePopularPages` on every page of
+/// every instance, with no test failing.
+#[test]
+fn a_project_outside_a_repository_has_no_source_date_rather_than_the_epoch() {
+    let project = site();
+    let vfs = OsVfs::new(&project.0);
+    let report = engine::build(
+        &vfs,
+        &NoGit,
+        &project.0,
+        &Options {
+            build_time: Some(1_789_473_600),
+            ..Options::default()
+        },
+    );
+    assert!(!report.failed(false), "{:?}", report.diagnostics);
+    let manifest = report.manifest.as_ref().expect("a manifest");
+    assert!(
+        manifest
+            .routes
+            .iter()
+            .all(|entry| entry.source_updated_unix.is_none()),
+        "no git, no dates: {:?}",
+        manifest
+            .routes
+            .iter()
+            .map(|entry| (entry.route.as_str(), entry.source_updated_unix))
+            .collect::<Vec<_>>()
+    );
+}
+
 /// The field has to survive the JSON the server actually reads, not only the
 /// in-process `Report` — `Bundle` deserialises `liyasa-manifest.json`.
 #[test]

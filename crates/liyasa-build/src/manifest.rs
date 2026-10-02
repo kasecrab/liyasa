@@ -202,6 +202,26 @@ pub struct RouteEntry {
     /// Skipped when absent so a site that reviews nothing adds no bytes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reviewed: Option<String>,
+    /// When the page's **source** last changed, in seconds since the epoch —
+    /// the same unit as `built_at`, and deliberately not the milliseconds a
+    /// consumer computing day counts will want. From the git snapshot taken
+    /// once at build start (§6.6.2 rule 2), so it is reproducible; `None` when
+    /// the project is not in a repository or the file is untracked.
+    ///
+    /// Not interchangeable with `reviewed`: that is when a human last looked,
+    /// this is when the text last moved.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_updated_unix: Option<i64>,
+    /// The front matter `description`, carried as the value rather than as a
+    /// `has_description` predicate.
+    ///
+    /// A predicate computed here would freeze a policy in the producer that
+    /// belongs to the consumer: `description: ""` is a page whose author typed
+    /// the key and left it blank, which is a different finding from a page with
+    /// no key at all, and a `bool` cannot carry which. `None` is absent,
+    /// `Some("")` is empty — ANA-40's card decides whether both count.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     /// Who may see this page: the navigation ancestors that declared a
     /// restriction, root-first, and then the page itself as the last element
     /// (AUTH-07, AUTH-10, §7.6).
@@ -233,6 +253,56 @@ pub struct AccessLevel {
     /// `access: public` (§7.6). Only a page sets this; a navigation node has
     /// no such key, so an ancestor's flag is always false.
     pub public: bool,
+}
+
+impl RouteEntry {
+    /// An entry with the two fields that have no sensible default, and defaults
+    /// for the rest. Spread from it rather than naming every field:
+    ///
+    /// ```ignore
+    /// RouteEntry { hidden: true, ..RouteEntry::new(route, "guides/x.md") }
+    /// ```
+    ///
+    /// **This exists because callers of this struct have no other remedy.** A
+    /// caller can future-proof a literal of a struct deriving `Default` by
+    /// spreading `..Default::default()`, so a field added there costs the
+    /// upstream nothing. `RouteEntry` cannot derive `Default`: `Route` comes
+    /// from `string_id!` and has none, and giving it one would make an empty
+    /// route constructible — invalid by that type's own documentation. So every
+    /// field added here used to be a break a downstream crate could not have
+    /// prepared for. Spreading from this is the preparation.
+    ///
+    /// `access` defaults to one open level (no groups, not marked
+    /// `access: public`) rather than to nothing, because `access_chain` pushes
+    /// the page's own level last for every route it emits — including a route
+    /// with no page — so a real entry's chain is never empty, and the last
+    /// element is always the page's own. A fixture with an empty chain would be
+    /// a shape no build produces, and `liyasa_server::auth::groups::decide`
+    /// reads the page's `public` flag off `chain.last()`.
+    ///
+    /// It is shape fidelity and not safety: `decide` denies nothing extra for an
+    /// empty chain, because `groups.rs:87` reads `public` through `is_some_and`
+    /// and its loop skips a level whose `groups` is empty. Defaulting to one
+    /// open level is what a real entry looks like, not what keeps a reader out.
+    pub fn new(route: Route, source: impl Into<String>) -> Self {
+        let trimmed = route.as_str().trim_matches('/').to_owned();
+        let markdown = match trimmed.is_empty() {
+            true => "/index.md".to_owned(),
+            false => format!("/{trimmed}.md"),
+        };
+        Self {
+            route,
+            source: source.into(),
+            markdown,
+            hidden: false,
+            dynamic: false,
+            reviewed: None,
+            source_updated_unix: None,
+            description: None,
+            variants: Vec::new(),
+            access: vec![AccessLevel::new([], false)],
+        }
+    }
 }
 
 impl AccessLevel {
@@ -367,6 +437,8 @@ mod tests {
                     hidden: false,
                     dynamic: false,
                     reviewed: None,
+                    source_updated_unix: None,
+                    description: None,
                     variants: vec![
                         VariantEntry {
                             key: "g=admin".to_owned(),
@@ -393,6 +465,8 @@ mod tests {
                     hidden: false,
                     dynamic: false,
                     reviewed: None,
+                    source_updated_unix: None,
+                    description: None,
                     variants: Vec::new(),
                     access: vec![AccessLevel::new([], false)],
                 },

@@ -569,6 +569,13 @@ pub fn build_retaining(
             reviewed: tree
                 .page(&outcome.route)
                 .and_then(|page| page.front.reviewed.clone()),
+            source_updated_unix: snapshot
+                .last_modified_unix
+                .get(outcome.source.as_str())
+                .copied(),
+            description: tree
+                .page(&outcome.route)
+                .and_then(|page| page.front.description.clone()),
             access: access_chain(&ancestors, &tree, &outcome.route),
         });
     }
