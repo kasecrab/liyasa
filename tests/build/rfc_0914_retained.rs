@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 
 use liyasa_build::engine::{self, Options};
 use liyasa_build::git::NoGit;
-use liyasa_build::retained::PageHook;
+use liyasa_build::retained::{PageHook, Retain};
 use liyasa_config::vfs::OsVfs;
 use liyasa_core::ids::Route;
 
@@ -56,22 +56,26 @@ fn site() -> Project {
     Project(root)
 }
 
-fn build(project: &Project, options: Options) -> engine::Report {
+fn with(project: &Project, retain: Retain) -> engine::Report {
     let vfs = OsVfs::new(&project.0);
-    engine::build(&vfs, &NoGit, &project.0, &options)
-}
-
-fn with(project: &Project, options: Options) -> engine::Report {
-    let report = build(project, options);
+    let report = engine::build_retaining(
+        &vfs,
+        &NoGit,
+        &project.0,
+        &Options {
+            build_time: Some(1_789_473_600),
+            ..Options::default()
+        },
+        &retain,
+    );
     assert!(!report.failed(false), "{:?}", report.diagnostics);
     report
 }
 
-fn opts(retain: bool) -> Options {
-    Options {
-        build_time: Some(1_789_473_600),
-        retain_documents: retain,
-        ..Options::default()
+fn keeping(documents: bool) -> Retain {
+    Retain {
+        documents,
+        on_page: None,
     }
 }
 
@@ -81,14 +85,14 @@ fn opts(retain: bool) -> Options {
 #[test]
 fn not_asking_is_a_different_answer_from_nothing_to_give() {
     let project = site();
-    let silent = with(&project, opts(false));
+    let silent = with(&project, keeping(false));
     assert!(
         silent.documents.is_none(),
         "a build nobody asked holds nothing"
     );
 
     let project = site();
-    let asked = with(&project, opts(true));
+    let asked = with(&project, keeping(true));
     let documents = asked.documents.expect("asking is answered");
     assert_eq!(
         documents.keys().map(Route::as_str).collect::<Vec<_>>(),
@@ -102,8 +106,8 @@ fn not_asking_is_a_different_answer_from_nothing_to_give() {
 #[test]
 fn a_warm_build_hands_back_the_same_set_as_a_cold_one() {
     let project = site();
-    let cold = with(&project, opts(true)).documents.expect("cold");
-    let warm_report = with(&project, opts(true));
+    let cold = with(&project, keeping(true)).documents.expect("cold");
+    let warm_report = with(&project, keeping(true));
     assert_eq!(warm_report.cache_misses, 0, "the second build is warm");
     let warm = warm_report.documents.expect("warm");
 
@@ -129,14 +133,14 @@ fn the_hook_sees_every_page_without_the_map() {
     let sink = Arc::clone(&seen);
     let report = with(
         &project,
-        Options {
+        Retain {
             on_page: Some(PageHook::new(move |route, record| {
                 sink.lock().expect("the sink").insert(
                     route.as_str().to_owned(),
                     !record.document.root.children.is_empty(),
                 );
             })),
-            ..opts(false)
+            ..keeping(false)
         },
     );
     assert!(

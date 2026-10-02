@@ -19,6 +19,24 @@ use liyasa_core::document::Document;
 use liyasa_core::ids::Route;
 use liyasa_core::markdown::ExpansionRecord;
 
+/// What a caller wants handed back, kept out of `Options` deliberately.
+///
+/// Two reasons, and the second is the binding one. It describes the caller's
+/// needs rather than the build's configuration — `Options` is how to build, this
+/// is what to return. And a new field on `Options` breaks every exhaustive
+/// literal of it in the workspace, which a downstream crate **cannot pre-empt**:
+/// `clippy::needless_update` denies the `..Default::default()` that would
+/// future-proof a literal while every field is still named, so there is no
+/// version of a caller that compiles both before and after such a change. A
+/// separate argument costs nobody a red window on `main`.
+#[derive(Debug, Clone, Default)]
+pub struct Retain {
+    /// Fill `Report.documents`.
+    pub documents: bool,
+    /// Called per page as its render becomes available.
+    pub on_page: Option<PageHook>,
+}
+
 /// One page's render, as the build produced it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PageRecord {

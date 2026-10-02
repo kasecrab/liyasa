@@ -69,17 +69,6 @@ pub struct Options {
     pub build_time: Option<i64>,
     /// `--profile`: keep a timing per phase.
     pub profile: bool,
-    /// Keep every page's render in `Report.documents` (RFC 0914).
-    ///
-    /// Off by default because a 5,000-page build would hold 5,000 ASTs for a
-    /// consumer that is usually not there. `liyasa verify` and the deploy
-    /// worker set it; `liyasa build` does not.
-    pub retain_documents: bool,
-    /// Called once per page as its render becomes available, rendered or read
-    /// back from the cache. The primitive `retain_documents` collects over:
-    /// a changed-set verify wants three pages of five thousand, so it discards
-    /// on arrival rather than holding the set.
-    pub on_page: Option<crate::retained::PageHook>,
     /// `--images`: run the image pre-pass in this build.
     pub eager_images: bool,
     /// The nonce every page is rendered with (RX-110).
@@ -124,7 +113,7 @@ pub struct Report {
     pub rewritten: usize,
     pub timings: Vec<(&'static str, Duration)>,
     pub manifest: Option<Manifest>,
-    /// Every page's render, when `Options::retain_documents` asked for it
+    /// Every page's render, when `retained::Retain::documents` asked for it
     /// (RFC 0914).
     ///
     /// `None` means nobody asked, `Some` with no entries means the build placed
@@ -169,6 +158,21 @@ impl Phase {
 
 /// Builds the project rooted at `root`, reading through `vfs`.
 pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -> Report {
+    build_retaining(vfs, git, root, options, &crate::retained::Retain::default())
+}
+
+/// `build`, plus what the caller wants handed back (RFC 0914).
+///
+/// A separate entry point rather than two more fields on `Options`: see
+/// `retained::Retain` for why a field there cannot be added without a red
+/// window in every crate that builds an `Options` literal.
+pub fn build_retaining(
+    vfs: &dyn Vfs,
+    git: &dyn GitMeta,
+    root: &Path,
+    options: &Options,
+    retain: &crate::retained::Retain,
+) -> Report {
     let mut report = Report::default();
     let mut phase = Phase::new();
     let mut sources = SourceMap::new();
@@ -498,8 +502,8 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
     // `.expansion` are read back from the cache on a hit, so this fires for
     // every page the build placed either way.
     let mut retained: Option<BTreeMap<Route, crate::retained::PageRecord>> =
-        options.retain_documents.then(BTreeMap::new);
-    if options.on_page.is_some() || retained.is_some() {
+        retain.documents.then(BTreeMap::new);
+    if retain.on_page.is_some() || retained.is_some() {
         for outcome in &pages {
             let (Some(document), Some(expansion)) = (&outcome.document, &outcome.expansion) else {
                 continue;
@@ -508,7 +512,7 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
                 document: document.clone(),
                 expansion: expansion.clone(),
             };
-            if let Some(hook) = &options.on_page {
+            if let Some(hook) = &retain.on_page {
                 hook.call(&outcome.route, &record);
             }
             if let Some(map) = retained.as_mut() {
