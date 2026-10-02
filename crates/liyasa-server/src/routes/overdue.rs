@@ -29,7 +29,7 @@ use liyasa_core::verify::{DriftReport, StoreError};
 use liyasa_verify::core::policy::Policy;
 use liyasa_verify::drift::engine::{Coverage, Engine, Routes};
 use liyasa_verify::drift::owners::Docowners;
-use liyasa_verify::drift::record::DriftKey;
+use liyasa_verify::drift::record::{DriftKey, DriftKind};
 use liyasa_verify::drift::review::{self, Cadence, PageReview};
 use liyasa_verify::drift::store::RecordStore;
 
@@ -125,7 +125,43 @@ pub fn flag(
     let cadence = Cadence::from_config(&liyasa_config::review::review_cadence(
         &state.config.site_config,
     ));
-    let over = review::overdue(&pages, &owners, &cadence, now);
+    let mut over = review::overdue(&pages, &owners, &cadence, now);
+
+    // **This pass must not destroy owner information it cannot produce.**
+    //
+    // `Engine::updated` replaces a stored record's kind with the candidate's
+    // wholesale (`kind: candidate.kind.clone()`), and
+    // `DriftKind::Review.owners` is a `Vec<String>` with no way to say
+    // "unknown" — so a pass that resolves no owner asserts *no owners* rather
+    // than *I could not tell*, and the second observation of a page silently
+    // blanked an owner something else had recorded. Caught by
+    // `ver_77_reminders::with_a_record_store_the_digest_opens_rather_than_skipping`,
+    // whose owned record this pass wiped on its first real run.
+    //
+    // Carried forward rather than guessed: the owners come from the stored
+    // record for the same page, and only when this pass found none. Once
+    // something reads a `DOCOWNERS` the lookup wins and this becomes dead
+    // weight — a `find` per overdue page, which is the overdue set and not the
+    // site.
+    for candidate in &mut over.candidates {
+        let DriftKind::Review { page, owners, .. } = &mut candidate.kind else {
+            continue;
+        };
+        if !owners.is_empty() {
+            continue;
+        }
+        let stored = match records.find(&DriftKey::Review(page.clone())) {
+            Ok(stored) => stored,
+            Err(error) => return Some(Err(error)),
+        };
+        if let Some(DriftKind::Review {
+            owners: recorded, ..
+        }) = stored.map(|record| record.kind)
+            && !recorded.is_empty()
+        {
+            *owners = recorded;
+        }
+    }
 
     // Every route examined, not every route flagged. This is what lets a page
     // that has since been reviewed close its record: `close_absent` closes an
@@ -412,6 +448,58 @@ mod tests {
             record.gone_since.is_some(),
             "the pass covered this page and it produced no candidate, so the condition \
              no longer holds: {record:?}"
+        );
+    }
+
+    /// A stored owner survives a pass that cannot resolve one.
+    ///
+    /// `Engine::updated` replaces the stored kind with the candidate's
+    /// wholesale, and `DriftKind::Review.owners` cannot say "unknown" — so
+    /// without carrying it forward the second observation of an owned page
+    /// blanks the owner, and the reminder that page existed to send stops
+    /// being sent. There is no error and no count: `owners` is still a valid
+    /// empty list.
+    ///
+    /// Found by the integration test rather than here, on this pass's first
+    /// real run against a store that already held an owned record.
+    #[test]
+    fn a_stored_owner_survives_a_pass_that_resolves_none() {
+        let records = store();
+        let route = Route::new("/owned");
+        let owned = liyasa_verify::drift::record::Candidate::new(
+            DriftKind::Review {
+                page: route.clone(),
+                owners: vec!["docs@example.com".to_owned()],
+                reviewed: None,
+                cadence: Duration::from_secs(90 * 86_400),
+                overdue_by: Duration::from_secs(30 * 86_400),
+            },
+            vec![route],
+        )
+        .opened(
+            liyasa_verify::core::config::DriftSeverity::Medium,
+            now() - Duration::from_secs(86_400),
+        );
+        records.save(&owned).expect("the record saves");
+
+        let app = state(
+            vec![page("/owned", Some("2020-01-01"))],
+            serde_json::json!({ "name": "docs" }),
+        );
+        flag(&app, &records, now()).expect("a bundle").expect("ok");
+
+        let stored = records
+            .find(&DriftKey::Review(Route::new("/owned")))
+            .expect("readable")
+            .expect("the record survives");
+        let DriftKind::Review { owners, .. } = &stored.kind else {
+            panic!("a review record: {stored:?}");
+        };
+        assert_eq!(
+            owners,
+            &["docs@example.com".to_owned()],
+            "the pass resolves no owner and must not overwrite one that is \
+             recorded: {stored:?}"
         );
     }
 

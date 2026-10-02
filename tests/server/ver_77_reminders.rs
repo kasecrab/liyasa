@@ -1,20 +1,33 @@
 //! VER-77's review reminders (the send side).
 //!
 //! The content is `liyasa-verify`'s; what is asserted here is the automation:
-//! that it is registered, that it runs, and that an instance which cannot read
-//! drift records says so rather than reporting a clean site.
+//! that it is registered, that it runs, that it reads the manifest rather than
+//! an empty set, and that an instance which cannot read drift records says so
+//! rather than reporting a clean site.
 
 use liyasa_server::routes::{reviews, work};
 use liyasa_tests::server::{Harness, Setup};
 
-/// A zero with no reason is unreadable, so an empty digest carries one.
+/// A send of zero names which of three things it was.
 ///
-/// `"sent": 0, "reason": null` cannot distinguish "nothing was overdue" from
-/// "nothing is being checked", and today it is always the second — no
-/// production path writes a `Review` record. WP-20c found this one field over
-/// from where `unowned` closed the same rule.
+/// `"sent": 0, "reason": null` cannot distinguish them, and the set has grown
+/// rather than shrunk now that `review::overdue` has a caller:
+///
+///   nothing was overdue          the good case
+///   overdue but nobody owns it   today's case for every page, because
+///                                nothing in the workspace reads a `DOCOWNERS`
+///   overdue and owned, no mail   the case the second test below covers
+///
+/// This test used to assert the reason contained "records yet" — a disclaimer
+/// that no production path wrote a `Review` record. WP-20c wrote that as
+/// self-retiring and it has retired: the caller exists, so the wording is gone
+/// and this asserts the distinction that replaced it. The fixture site's pages
+/// carry no `reviewed:` front matter, so **the digest is no longer empty on
+/// this instance** — every page is overdue and unowned, which is why the
+/// assertions below are about `examined` and `unowned` rather than about a
+/// zero.
 #[tokio::test(flavor = "multi_thread")]
-async fn an_empty_digest_says_why_rather_than_reporting_a_bare_zero() {
+async fn a_send_of_zero_says_which_of_the_three_reasons_it_was() {
     let setup = Setup {
         drift: true,
         ..Setup::new("ver77-empty")
@@ -22,7 +35,9 @@ async fn an_empty_digest_says_why_rather_than_reporting_a_bare_zero() {
     let (harness, _site) = Harness::new(setup).await;
     let kinds = [reviews::DIGEST];
 
-    // No record written: the digest is structurally empty.
+    // Nothing written by hand: whatever the row holds, the production pass put
+    // it there. That is the whole of what changed — this ran over an empty set
+    // on every instance until the caller existed.
     work::fire_timers(&harness.state, &kinds)
         .await
         .expect("a tick");
@@ -31,24 +46,56 @@ async fn an_empty_digest_says_why_rather_than_reporting_a_bare_zero() {
         .expect("a pass");
 
     let result = digest_result(&harness).await;
-    assert_eq!(result["sent"], 0, "{result}");
-    let reason = result["reason"].as_str().unwrap_or_default();
+
+    // The denominator first. Without it `"owners": []` cannot be told apart
+    // from a pass that read no pages, which is exactly what every run of this
+    // job did before `routes::overdue::flag` existed — and it reported the
+    // same `"sent": 0`.
     assert!(
-        reason.contains("overdue"),
-        "an empty digest names its cause rather than leaving a bare zero: {result}"
+        result["examined"].as_u64().is_some_and(|n| n > 0),
+        "the pass read the manifest rather than nothing: {result}"
     );
     assert!(
-        reason.contains("records yet"),
-        "and says the absence is not evidence the site is reviewed: {result}"
+        result["flagged"]["created"].as_u64().is_some_and(|n| n > 0),
+        "and recorded what it found; the fixture's pages carry no `reviewed:` \
+         date, so every one of them is past its cadence: {result}"
+    );
+
+    // Zero sent, and the reason is the second of the three: overdue pages
+    // exist and are named, and none of them has an owner to send to.
+    assert_eq!(result["sent"], 0, "{result}");
+    assert!(
+        result["owners"]
+            .as_array()
+            .is_some_and(|owners| owners.is_empty()),
+        "nothing reads a `DOCOWNERS`, so no page resolves an owner: {result}"
+    );
+    assert!(
+        !result["unowned"]
+            .as_array()
+            .expect("an unowned array")
+            .is_empty(),
+        "the overdue pages are reported rather than dropped — an owner-keyed \
+         digest that folded them in would read as a reviewed site: {result}"
+    );
+    let reason = result["reason"].as_str().unwrap_or_default();
+    assert!(
+        reason.contains("overdue") && reason.contains("unowned"),
+        "the reason names where the pages went rather than leaving a bare \
+         zero: {result}"
     );
 }
 
-/// One open `Review` record for a page a month past its cadence.
+/// One open `Review` record for a page a month past its cadence, **with an
+/// owner**.
 ///
-/// Written through `RecordStore` rather than through `Engine`, because the
-/// engine's caller is what does not exist: `review::overdue` is reached only
-/// from its own tests, so no production path produces a candidate. This is the
-/// state the digest is for, standing in for the step nobody has written.
+/// Written through `RecordStore` rather than through `Engine`, and the reason
+/// has changed: it used to be that `review::overdue` had no caller at all, so
+/// nothing in production produced a candidate. The caller exists now and
+/// produces candidates for every overdue page — but it cannot give any of them
+/// an owner, because nothing in the workspace reads a `DOCOWNERS` file. So
+/// this still stands in for a step nobody has written, and that step is now the
+/// owner lookup rather than the flagging.
 async fn write_overdue_review(harness: &Harness) {
     use liyasa_verify::core::config::DriftSeverity;
     use liyasa_verify::drift::record::{Candidate, DriftKind};
@@ -136,10 +183,11 @@ async fn with_a_record_store_the_digest_opens_rather_than_skipping() {
     let (harness, _site) = Harness::new(setup).await;
     let kinds = [reviews::DIGEST];
 
-    // One overdue page, written directly into the store. Nothing in
-    // production writes a `Review` record yet — the caller for
-    // `review::overdue` does not exist — so without this the digest is empty
-    // and every assertion below it passes on nothing.
+    // One overdue page with an owner, written directly into the store. The
+    // production pass flags the fixture's pages too, but every one of them
+    // comes out unowned, so without this the `owners` assertions below would
+    // pass on an empty array — the shape this file was already repaired for
+    // once.
     write_overdue_review(&harness).await;
 
     work::fire_timers(&harness.state, &kinds)
@@ -154,13 +202,14 @@ async fn with_a_record_store_the_digest_opens_rather_than_skipping() {
         result.get("skipped").is_none(),
         "an instance that keeps records does not skip: {result}"
     );
-    // The owner that was written below must be NAMED, not merely counted. The
-    // earlier version asserted `owners` and `unowned` were present, which an
-    // empty digest satisfies — and an empty digest is what this instance
-    // produces today, because nothing in production flags an overdue page
-    // (WP-20c: `review::overdue` is called only from its own tests). So the
-    // assertion was passing on nothing, the same shape as `passages.is_array()`
-    // passing on an index that cannot exist.
+    // The owner that was written above must be NAMED, not merely counted. An
+    // earlier version asserted `owners` and `unowned` were merely present,
+    // which an empty digest satisfies — and an empty digest was what this
+    // instance produced, because nothing in production flagged an overdue
+    // page. That assertion was passing on nothing, the same shape as
+    // `passages.is_array()` passing on an index that cannot exist. The
+    // flagging is wired now; the owner lookup is not, which is why the owned
+    // record is still supplied by hand.
     let owners = result["owners"].as_array().expect("an owners array");
     assert_eq!(owners.len(), 1, "one record, one owner: {result}");
     assert_eq!(owners[0]["owner"], "docs@example.com", "{result}");
