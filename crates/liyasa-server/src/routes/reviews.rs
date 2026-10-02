@@ -9,6 +9,7 @@
 //! anything is worse than no ledger, because it looks like one.
 
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use liyasa_store::jobs::Enqueue;
 use liyasa_store::records::JobRecord;
@@ -16,6 +17,7 @@ use liyasa_verify::drift::review::{self, Digest};
 use serde_json::json;
 
 use super::AppState;
+use super::overdue::Flagged;
 use super::work::{JobKind, Outcome, Run};
 
 pub const DIGEST_JOB: &str = "reviews.digest";
@@ -51,6 +53,27 @@ pub fn run_digest<'a>(state: &'a Arc<AppState>, _job: &'a JobRecord) -> Run<'a> 
                     .to_owned(),
             );
         };
+        // Flag first, then read. The pass is what produces the records this
+        // job then digests, so reading before flagging would digest
+        // yesterday's set and report today's send against it. Before this
+        // existed `review::overdue` had no caller at all and the digest below
+        // ran over an empty set on every instance.
+        let flagged = match super::overdue::flag(state, records, SystemTime::now()) {
+            Some(Ok(flagged)) => flagged,
+            Some(Err(error)) => {
+                return Outcome::Failed(format!("recording the overdue pages: {error}"));
+            }
+            // A collector serves no bundle, so there is no manifest and no
+            // page to have an opinion about. Not a failure, and distinct
+            // below from "nothing was overdue".
+            None => {
+                return Outcome::Skipped(
+                    "this instance serves no bundle, so there is no manifest to read review                      dates from"
+                        .to_owned(),
+                );
+            }
+        };
+
         let open = match records.open_records() {
             Ok(open) => open,
             Err(error) => return Outcome::Failed(format!("reading the drift records: {error}")),
@@ -61,7 +84,7 @@ pub fn run_digest<'a>(state: &'a Arc<AppState>, _job: &'a JobRecord) -> Run<'a> 
         // silently drop a kind added later.
         let digest = review::digest(&open);
         let sent = send(state, &digest).await;
-        Outcome::Done(summarise(&digest, &sent))
+        Outcome::Done(summarise(&digest, &sent, &flagged))
     })
 }
 
@@ -87,17 +110,25 @@ async fn send(state: &Arc<AppState>, digest: &Digest) -> Sent {
     // `"sent": 0, "reason": null`, which cannot tell an operator apart:
     //
     //   nothing was overdue        the good case
-    //   nothing is being checked   today's case — no production path writes a
-    //                              `Review` record, because the caller for
-    //                              `review::overdue` does not exist yet
+    //   nothing is being checked   what every instance did until the caller
+    //                              for `review::overdue` existed
     //
     // WP-20c found this one field over from where `unowned` closed the same
-    // rule. It is self-retiring: once a caller exists, this reason firing
-    // means genuinely nothing is overdue, which is information.
+    // rule, and said it was self-retiring: once a caller exists, this reason
+    // firing means genuinely nothing is overdue. It has retired, so the
+    // wording no longer disclaims the absent caller — `summarise` carries
+    // `examined` and `flagged` instead, which say how many pages the pass
+    // looked at and what it recorded, so an empty digest is readable as a
+    // result rather than taken on trust.
+    //
+    // Still not "no owner" alone: a page can be overdue and unowned, which is
+    // every page today because nothing reads `DOCOWNERS`. That is why the
+    // reason names the distinction instead of claiming the site is reviewed.
     if digest.owners.is_empty() {
         return Sent {
             reason: Some(
-                "no owner had an overdue page; note that nothing writes review records yet,                  so this is not evidence that the site is reviewed",
+                "no owner had an overdue page; any overdue page nobody owns is in `unowned`, \
+                 and `examined` says how many pages the pass read",
             ),
             ..Sent::default()
         };
@@ -150,8 +181,29 @@ fn body_for(owner: &review::OwnerDigest) -> String {
 /// overdue page nobody owns has no reminder to send, and dropping it silently
 /// would make a project with no `DOCOWNERS` produce an empty digest and read
 /// as fully reviewed — absent and empty must not serialise to the same thing.
-fn summarise(digest: &Digest, sent: &Sent) -> serde_json::Value {
+fn summarise(digest: &Digest, sent: &Sent, flagged: &Flagged) -> serde_json::Value {
     json!({
+        // The pass, not the send. `examined` is the denominator for every
+        // count here: without it `{"owners": [], "unowned": []}` cannot be
+        // told apart from a pass that read no pages at all, which is what
+        // every run of this job did before the caller existed.
+        "examined": flagged.examined,
+        "flagged": {
+            "created": flagged.report.created,
+            "updated": flagged.report.updated,
+            // `verify.drift.autoResolve` is false by default, so a page that
+            // came back inside its cadence gets `gone_since` set and waits for
+            // an owner's approval rather than closing itself. A zero here with
+            // a non-zero `examined` is that, not a pass that looked at nothing.
+            "resolved": flagged.report.resolved,
+        },
+        // `W0639`, one per page whose `reviewed:` is not a date. Such a page is
+        // also flagged, so this is not a list of pages that were skipped.
+        "unreadableDates": flagged
+            .problems
+            .iter()
+            .map(|problem| problem.message.clone())
+            .collect::<Vec<_>>(),
         "owners": digest
             .owners
             .iter()

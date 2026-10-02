@@ -13,6 +13,7 @@ pub mod proxy;
 pub mod drift;
 pub mod mail;
 pub mod research;
+pub mod overdue;
 pub mod reviews;
 pub mod search;
 pub mod api;
