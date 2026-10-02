@@ -24,6 +24,13 @@ pub enum SearchEvent {
         /// is the common case rather than an edge one.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         filters: Vec<String>,
+        /// The distinct page routes this result list showed, in rank order —
+        /// ANA-20's per-page impressions. Anchors are dropped, so a query that
+        /// showed three sections of one page showed that page once
+        /// (`plan/rfcs/0706-what-shown-carries.md`). `serde(default)` reads an
+        /// event written before the field existed.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        shown: Vec<String>,
     },
     /// A query that returned nothing: the list ANA-20 turns into "create a
     /// page for this query".
@@ -53,6 +60,7 @@ impl SearchEvent {
             results: hits.len(),
             locale,
             filters: named(filters),
+            shown: shown_pages(hits),
         }
     }
 
@@ -92,6 +100,22 @@ fn named(filters: &Filters) -> Vec<String> {
 
 /// Masks what a reader sometimes pastes into a search box: an address, and a
 /// long opaque run that is far more likely to be a key than a word.
+/// The distinct pages a result list showed, in rank order.
+///
+/// By route rather than by `url`: `results` already counts the hits, and what
+/// ANA-20 wants is the pages, so several sections of one page collapse to one
+/// impression (RFC 0706). First appearance keeps its rank, so a consumer can
+/// read position as well as presence.
+fn shown_pages(hits: &[Hit]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::with_capacity(hits.len());
+    for hit in hits {
+        if !out.iter().any(|seen| seen == &hit.route) {
+            out.push(hit.route.clone());
+        }
+    }
+    out
+}
+
 pub fn scrub(query: &str) -> String {
     query
         .split_whitespace()
@@ -137,6 +161,15 @@ mod tests {
         }
     }
 
+    /// A hit on one section of a page, which is what a real result list is
+    /// mostly made of.
+    fn section(route: &str, anchor: &str) -> Hit {
+        let mut hit = hit(&format!("{route}#{anchor}"));
+        hit.route = route.to_owned();
+        hit.anchor = anchor.to_owned();
+        hit
+    }
+
     #[test]
     fn a_query_with_results_records_their_count() {
         let event = SearchEvent::of(
@@ -152,25 +185,8 @@ mod tests {
                 results: 2,
                 locale: Some("en".to_owned()),
                 filters: Vec::new(),
+                shown: vec!["/a".to_owned(), "/b".to_owned()],
             }
-        );
-    }
-
-    /// The case the `skip_serializing_if`/`default` pair exists for, and the
-    /// one that was broken: a search with no facets omits `filters` on the way
-    /// out, so without `default` it could not be read back. Every real query
-    /// on a site that declares no facets takes this path.
-    #[test]
-    fn an_event_with_no_facets_survives_a_round_trip() {
-        let event = SearchEvent::of("limits", Some("en"), &Filters::default(), &[hit("/a")]);
-        let json = serde_json::to_string(&event).expect("serializes");
-        assert!(
-            !json.contains("filters"),
-            "an empty list stays off the wire"
-        );
-        assert_eq!(
-            serde_json::from_str::<SearchEvent>(&json).expect("reads back"),
-            event
         );
     }
 
@@ -250,5 +266,119 @@ mod tests {
     fn scrubbing_keeps_the_shape_of_the_query() {
         assert_eq!(scrub("version:v2 rate limits"), "version:v2 rate limits");
         assert_eq!(scrub(""), "");
+    }
+
+    /// ANA-20 counts per-page impressions, so three sections of one page are
+    /// one impression. Counting them separately would give a page a click rate
+    /// divided by however many sections it happens to have — a property of the
+    /// page's structure, not of anything a reader did.
+    #[test]
+    fn sections_of_one_page_are_one_impression() {
+        let event = SearchEvent::of(
+            "rate limits",
+            Some("en"),
+            &Filters::default(),
+            &[
+                section("/guides/limits", "burst"),
+                hit("/guides/limits"),
+                section("/guides/limits", "sustained"),
+            ],
+        );
+        let SearchEvent::Query { shown, results, .. } = &event else {
+            panic!("three hits is a query event: {event:?}");
+        };
+        assert_eq!(shown, &["/guides/limits"], "one page, shown once");
+        assert_eq!(*results, 3, "`results` still counts the hits themselves");
+    }
+
+    #[test]
+    fn shown_is_in_rank_order_and_keeps_the_first_appearance() {
+        let event = SearchEvent::of(
+            "limits",
+            None,
+            &Filters::default(),
+            &[
+                hit("/v2/guides/limits"),
+                section("/guides/limits", "burst"),
+                hit("/v1/guides/limits"),
+                hit("/guides/limits"),
+            ],
+        );
+        let SearchEvent::Query { shown, .. } = &event else {
+            panic!("expected a query event");
+        };
+        assert_eq!(
+            shown,
+            &["/v2/guides/limits", "/guides/limits", "/v1/guides/limits"],
+            "rank order, and `/guides/limits` keeps the position its section won"
+        );
+    }
+
+    /// A version is a different page, not a duplicate of one.
+    #[test]
+    fn versions_of_a_page_are_separate_impressions() {
+        let event = SearchEvent::of(
+            "limits",
+            None,
+            &Filters::default(),
+            &[hit("/v1/guides/limits"), hit("/v2/guides/limits")],
+        );
+        let SearchEvent::Query { shown, .. } = &event else {
+            panic!("expected a query event");
+        };
+        assert_eq!(shown.len(), 2);
+    }
+
+    #[test]
+    fn a_query_that_showed_nothing_carries_no_shown_list() {
+        let event = SearchEvent::of("quinoa", None, &Filters::default(), &[]);
+        // `NoResults` has no `shown` field at all: an empty list would be its
+        // only possible value, so the type says so instead of the data.
+        assert!(matches!(event, SearchEvent::NoResults { .. }));
+    }
+
+    /// The case the `skip_serializing_if`/`default` pair exists for, and the
+    /// one that was broken: a search with no facets omits `filters` on the way
+    /// out, so without `default` it could not be read back. Every real query
+    /// on a site that declares no facets takes this path.
+    #[test]
+    fn an_event_with_no_facets_survives_a_round_trip() {
+        let event = SearchEvent::of("limits", Some("en"), &Filters::default(), &[hit("/a")]);
+        let json = serde_json::to_string(&event).expect("serializes");
+        assert!(
+            !json.contains("filters"),
+            "an empty list stays off the wire"
+        );
+        assert_eq!(
+            serde_json::from_str::<SearchEvent>(&json).expect("reads back"),
+            event
+        );
+    }
+
+    /// The wire shape, because a consumer reads JSON and not the enum. An
+    /// empty list stays off the wire and `serde(default)` reads an event that
+    /// predates the field, so ingest can take both while producers catch up.
+    #[test]
+    fn shown_round_trips_and_an_older_event_still_reads() {
+        let event = SearchEvent::of(
+            "limits",
+            None,
+            &Filters::default(),
+            &[section("/guides/limits", "burst")],
+        );
+        let json = serde_json::to_value(&event).expect("serializes");
+        assert_eq!(json["shown"], serde_json::json!(["/guides/limits"]));
+
+        let older = serde_json::json!({
+            "event": "query",
+            "query": "limits",
+            "results": 1,
+            "locale": null
+        });
+        let parsed: SearchEvent = serde_json::from_value(older).expect("an older event reads");
+        let SearchEvent::Query { shown, .. } = &parsed else {
+            panic!("expected a query event");
+        };
+        assert!(shown.is_empty(), "absent reads as empty, not as an error");
     }
 }
