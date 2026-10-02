@@ -249,7 +249,7 @@ async fn the_three_cards_that_need_build_facts_appear_only_when_they_are_given()
 
     let pages = [PageFacts {
         route: "/old-popular".to_owned(),
-        updated_at: Some(T0 - 200 * DAY),
+        source_updated_ms: Some(T0 - 200 * DAY),
         has_description: Some(false),
         open_drift: 2,
     }];
@@ -296,7 +296,7 @@ async fn a_page_that_is_stale_but_unread_is_not_a_card() {
     let (_ddir, pool) = app("insight-quiet-app").await;
     let pages = [PageFacts {
         route: "/quiet".to_owned(),
-        updated_at: Some(T0 - 900 * DAY),
+        source_updated_ms: Some(T0 - 900 * DAY),
         has_description: Some(false),
         open_drift: 5,
     }];
@@ -566,7 +566,7 @@ async fn a_route_that_looks_like_markup_does_not_reach_the_html_as_markup() {
     let (_ddir, pool) = app("digest-escaping-app").await;
     let pages = [PageFacts {
         route: route.to_owned(),
-        updated_at: Some(T0 - 900 * DAY),
+        source_updated_ms: Some(T0 - 900 * DAY),
         has_description: Some(true),
         open_drift: 0,
     }];
@@ -619,7 +619,7 @@ fn the_classes_that_cannot_be_evaluated_are_named_rather_than_implied() {
     let supplied = [PageFacts {
         route: "/guides/install".to_owned(),
         open_drift: 0,
-        updated_at: Some(T0),
+        source_updated_ms: Some(T0),
         has_description: Some(true),
     }];
     assert!(
@@ -662,7 +662,7 @@ fn the_unassessed_classes_serialise_as_the_dashboard_reads_them() {
 fn facts(route: &str) -> PageFacts {
     PageFacts {
         route: route.to_owned(),
-        updated_at: None,
+        source_updated_ms: None,
         has_description: None,
         open_drift: 0,
     }
@@ -736,5 +736,117 @@ async fn the_drift_card_fires_on_facts_that_know_nothing_else() {
     assert!(
         !kinds.contains(&CardKind::MissingDescriptions),
         "an unknown description was treated as a missing one: {kinds:?}"
+    );
+}
+
+// ---- the two mappings a caller must not be left to guess ----
+//
+// WP-06 landed the fields this card needs on `RouteEntry`, and neither matches
+// what this struct wants:
+//
+//     source_updated_unix: Option<i64>   SECONDS, like Manifest.built_at
+//     description:         Option<String>  the value, not a predicate
+//
+// A caller assigning the first straight across is out by a factor of 1000 and
+// dates every page to roughly 1970, firing `StalePopularPages` on everything.
+// The second needs a judgement that belongs to the card and not to the
+// producer. Both now live here, so the call site cannot hold either wrong.
+
+#[test]
+fn a_unix_second_date_is_converted_rather_than_assigned() {
+    let two_hundred_days_ago_secs = (T0 - 200 * DAY) / 1000;
+    let facts =
+        PageFacts::new("/guides/install").with_source_updated_unix(Some(two_hundred_days_ago_secs));
+
+    assert_eq!(
+        facts.source_updated_ms,
+        Some(T0 - 200 * DAY),
+        "seconds must be scaled to the milliseconds the staleness arithmetic uses"
+    );
+
+    // The failure the conversion prevents, stated as a number rather than as a
+    // warning: assigned straight across, the same value is this far out.
+    let misassigned = PageFacts {
+        source_updated_ms: Some(two_hundred_days_ago_secs),
+        ..PageFacts::new("/guides/install")
+    };
+    let assigned = misassigned
+        .source_updated_ms
+        .expect("the literal above set it");
+    let wrong_age_days = (T0 - assigned) / (24 * 60 * 60 * 1000);
+    assert!(
+        wrong_age_days > 20_000,
+        "a seconds value in a milliseconds field should read as ~1970, not {wrong_age_days} days"
+    );
+}
+
+#[test]
+fn an_absent_date_stays_absent_through_the_builder() {
+    let facts = PageFacts::new("/guides/install").with_source_updated_unix(None);
+    assert_eq!(facts.source_updated_ms, None, "no date is not epoch");
+    assert!(insights::not_assessed(&[facts]).contains(&CardKind::StalePopularPages));
+}
+
+/// ANA-40's judgement, made here because WP-06 was right to refuse it: the
+/// producer cannot know whether a blank counts.
+///
+/// A blank description counts as **missing**. The card exists to get a useful
+/// one written, and an empty string serves a reader and a search engine exactly
+/// as well as no key at all. `None` remains unknown, because nothing looked.
+#[test]
+fn a_blank_description_counts_as_missing_and_an_absent_one_as_unknown() {
+    let blank = PageFacts::new("/a").with_description(Some(""));
+    assert_eq!(
+        blank.has_description,
+        Some(false),
+        "an empty value is missing"
+    );
+
+    let spaces = PageFacts::new("/a").with_description(Some("   \n"));
+    assert_eq!(
+        spaces.has_description,
+        Some(false),
+        "whitespace is as useful to a reader as nothing"
+    );
+
+    let written = PageFacts::new("/a").with_description(Some("How Acme works"));
+    assert_eq!(written.has_description, Some(true));
+
+    let no_key = PageFacts::new("/a").with_description(None);
+    assert_eq!(
+        no_key.has_description, None,
+        "no key is unknown, not missing — only one of the two is a finding"
+    );
+    assert!(insights::not_assessed(&[no_key]).contains(&CardKind::MissingDescriptions));
+}
+
+#[tokio::test]
+async fn a_page_whose_description_is_blank_gets_the_card() {
+    let events = views("/guides/install", 40, T0 + HOUR);
+    let (_adir, writer) = analytics("insights-blank-desc", events).await;
+    let (_ddir, pool) = app("insights-blank-desc-app").await;
+
+    let pages = [PageFacts::new("/guides/install").with_description(Some(""))];
+    let cards = insights::compute(
+        &Inputs {
+            analytics: writer.pool(),
+            app: &pool,
+            pages: &pages,
+        },
+        week(),
+        &Filters::default(),
+        T0 + 7 * DAY,
+    )
+    .await
+    .expect("the cards compute");
+
+    let kinds: Vec<CardKind> = cards.iter().map(|card| card.kind).collect();
+    assert!(
+        kinds.contains(&CardKind::MissingDescriptions),
+        "a blank description is the finding this card is for: {kinds:?}"
+    );
+    assert!(
+        !kinds.contains(&CardKind::StalePopularPages),
+        "no date was supplied, so staleness must stay silent: {kinds:?}"
     );
 }

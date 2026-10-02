@@ -149,23 +149,27 @@ async fn the_schema_is_served_once_something_mounts_it() {
     // Whether the subtree mounted is the application's answer, not this
     // test's guess: `mounted` is what `routes::application` recorded while
     // composing, and a skipped subtree carries its own reason.
+    //
+    // This was a skip-with-reason while the subtree line was WP-14's to write
+    // and not mine. It landed, so the branch stopped firing — checked rather
+    // than assumed, with the command the gate's own listing prescribes:
+    //
+    //     cargo nextest run -E 'test(the_schema_is_served_once_something_mounts_it)' \
+    //       --no-capture 2>&1 | grep SKIPPED
+    //
+    // No marker on stdout, so the `else` was unreachable code reading as
+    // coverage. An assert carrying the same reason keeps the regression loud
+    // instead of letting it go quiet again.
     let record = harness
         .mounted
         .iter()
-        .find(|record| record.name.contains("analytics") && record.name.contains("schema"));
-    let Some(record) = record.filter(|record| record.mounted) else {
-        let reason = record
-            .and_then(|record| record.skipped.clone())
-            .unwrap_or_else(|| {
-                "no analytics-schema subtree is registered in this build".to_owned()
-            });
-        eprintln!(
-            "ana_02_public_schema: not asserting the body — {reason}. \
-             The half that does not depend on mounting ran in the test above."
-        );
-        return;
-    };
-    assert!(record.mounted);
+        .find(|record| record.name.contains("analytics") && record.name.contains("schema"))
+        .expect("no analytics-schema subtree is registered in this build");
+    assert!(
+        record.mounted,
+        "the analytics-schema subtree is registered and did not mount: {:?}",
+        record.skipped
+    );
 
     let response = harness.get("/_liyasa/schema/event.json").await;
     assert_eq!(response.status(), StatusCode::OK);

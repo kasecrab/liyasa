@@ -41,20 +41,63 @@ pub const STALE_DAYS: i64 = 180;
 #[serde(rename_all = "camelCase")]
 pub struct PageFacts {
     pub route: String,
-    /// When the page's source last changed, or `None` where nothing can say.
+    /// When the page's source last changed, in **milliseconds**, or `None`
+    /// where nothing can say.
     ///
-    /// `Option` because the server assembling these has no source for it: the
-    /// build manifest carries `built_at` for the whole build and a fingerprint
-    /// per input, and no per-route modification time. A placeholder would make
-    /// every popular page twenty thousand days stale, so the staleness card
-    /// skips instead and the class is reported unassessed.
-    pub updated_at: Option<i64>,
+    /// The unit is in the name because the value's source is not in it:
+    /// `RouteEntry::source_updated_unix` is seconds, matching
+    /// `Manifest.built_at`, and the staleness arithmetic here divides by
+    /// `DAY_MS`. Assigning one to the other straight across is out by a factor
+    /// of 1000 and dates every page to roughly 1970. Use
+    /// [`PageFacts::with_source_updated_unix`], which converts.
+    ///
+    /// `Option` because a caller may have no source for it, and a placeholder
+    /// would make every popular page twenty thousand days stale.
+    pub source_updated_ms: Option<i64>,
     /// `None` where nothing can say, which is not the same as `Some(false)`.
     /// Absent is not missing, and only one of the two is a finding.
+    ///
+    /// `RouteEntry.description` carries the value rather than this predicate,
+    /// deliberately: `Some("")` is an author who typed the key and left it
+    /// blank, `None` is no key, and a `bool` cannot hold which. Deciding
+    /// whether a blank counts is this card's judgement, so it lives in
+    /// [`PageFacts::with_description`] rather than at a call site.
     pub has_description: Option<bool>,
     /// Open drift findings against the page (§21). Not optional: the server
     /// reads these from `RecordStore::open_records()`, so zero means zero.
     pub open_drift: i64,
+}
+
+impl PageFacts {
+    /// A page nothing is yet known about beyond its route.
+    pub fn new(route: impl Into<String>) -> Self {
+        Self {
+            route: route.into(),
+            source_updated_ms: None,
+            has_description: None,
+            open_drift: 0,
+        }
+    }
+
+    pub fn with_open_drift(mut self, open: i64) -> Self {
+        self.open_drift = open;
+        self
+    }
+
+    /// Takes `RouteEntry::source_updated_unix` — **seconds** — and scales it.
+    pub fn with_source_updated_unix(mut self, seconds: Option<i64>) -> Self {
+        self.source_updated_ms = seconds.map(|s| s * 1000);
+        self
+    }
+
+    /// Takes `RouteEntry.description` and applies ANA-40's judgement: a value
+    /// that is blank or only whitespace counts as **missing**, because an empty
+    /// description serves a reader and a search engine exactly as well as no key
+    /// at all. `None` stays unknown — nothing looked, so there is no finding.
+    pub fn with_description(mut self, description: Option<&str>) -> Self {
+        self.has_description = description.map(|d| !d.trim().is_empty());
+        self
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -160,10 +203,10 @@ pub fn not_assessed(pages: &[PageFacts]) -> Vec<CardKind> {
     }
     // Per class rather than per call, because the three read different fields
     // and two of them are optional. A class counts as assessed once any page
-    // answered the question it asks; a caller that fills `updated_at` for some
+    // answered the question it asks; a caller that fills the date for some
     // pages and not others has assessed staleness for those it filled.
     let mut out = Vec::new();
-    if pages.iter().all(|page| page.updated_at.is_none()) {
+    if pages.iter().all(|page| page.source_updated_ms.is_none()) {
         out.push(CardKind::StalePopularPages);
     }
     if pages.iter().all(|page| page.has_description.is_none()) {
@@ -459,10 +502,10 @@ fn page_fact_cards(routes: &[traffic::RouteCount], pages: &[PageFacts], now: i64
         }
         // Scoped to the `Some` rather than defaulted: any number standing for
         // "unknown age" is also a real age, so there must not be one. The
-        // original read `(now - facts.updated_at)` over a plain `i64`, which
+        // original read `(now - facts.source_updated_ms)` over a plain `i64`,
         // made an unset date twenty thousand days stale.
         if let Some(age_days) = facts
-            .updated_at
+            .source_updated_ms
             .map(|updated| (now - updated) / DAY_MS)
             .filter(|age| *age >= STALE_DAYS)
         {
