@@ -374,13 +374,17 @@ mod tests {
     /// there was no downstream remedy until `new` existed, and spreading from
     /// it is the preparation.
     ///
-    /// `markdown` stays explicit. `new` derives it from the route and the two
-    /// disagree at the root: this gives `/.md` for `"/"`, `new` gives
-    /// `/index.md`. `restricted_bundle` and `bundle` both pass `"/"`, so
-    /// dropping the line would change fixture data in the same edit that
-    /// changes how it is built. `new`'s value is the realistic one — no build
-    /// emits `/.md` — so this is worth a separate commit with its own test run,
-    /// not a silent ride-along.
+    /// `markdown` comes from `new` too, and that is a fixture-data change this
+    /// helper used to get wrong. It built `format!("{path}.md")`, which gives
+    /// `/.md` for the root — and `bundle()` and `restricted_bundle()` both pass
+    /// `"/"`, so every test here ran against a root entry **no build emits**.
+    /// `engine::markdown_url` has trimmed to `/index.md` since it was written,
+    /// and `RouteEntry::new` now delegates to that same function (WP-06,
+    /// `c66edcc`), so this default is the producer's output by construction
+    /// rather than by two copies agreeing. Nothing failed on the old value
+    /// because `Bundle::lookup` strips `/index.md` and `.md` alike, which is
+    /// why it survived: the production code was indifferent and only the
+    /// fixture was unreal.
     ///
     /// `hidden`, `dynamic`, `reviewed`, `source_updated_unix`, `description`
     /// and `access` all come from `new` and match what this set explicitly.
@@ -389,7 +393,6 @@ mod tests {
     /// the same value this fixture was writing by hand.
     fn route(path: &str) -> RouteEntry {
         RouteEntry {
-            markdown: format!("{path}.md"),
             variants: vec![VariantEntry {
                 key: String::new(),
                 path: format!("{}/index.html", path.trim_end_matches('/')),
@@ -506,6 +509,51 @@ mod tests {
             ),
             Decision::Allow
         );
+    }
+
+    /// The root's Markdown twin, and the assertion that was missing.
+    ///
+    /// `markdown` is what `resolve` hands back as the served `path`, and nothing
+    /// asserted it for the root — which is how this fixture carried `/.md`, a
+    /// path no build emits and no file would exist at, without anything
+    /// failing. The twin test below covers `/guides/install` and pins its
+    /// `path`; the root was simply never asked.
+    ///
+    /// Written after changing the fixture rather than before, which is the wrong
+    /// order and worth admitting: nothing failed when the value was corrected,
+    /// and "nothing failed" is evidence of absent coverage as readily as of
+    /// correctness. This is the test that makes the new value load-bearing — it
+    /// fails on `/.md`, which the old fixture produced.
+    #[test]
+    fn the_root_is_reachable_as_index_markdown() {
+        let bundle = bundle("");
+
+        match bundle.resolve("/", false) {
+            Target::Page { route, format, .. } => {
+                assert_eq!(route, "/");
+                assert_eq!(format, Format::Html);
+            }
+            other => panic!("the root serves HTML: {other:?}"),
+        }
+
+        match bundle.resolve("/index.md", false) {
+            Target::Page {
+                route,
+                path,
+                format,
+                negotiated,
+            } => {
+                assert_eq!(route, "/");
+                assert_eq!(format, Format::Markdown);
+                assert!(!negotiated, "the URL said so, not the header");
+                assert_eq!(
+                    path, "/index.md",
+                    "the served path is the entry's `markdown`, so a fixture \
+                     holding `/.md` would point at a file no build writes"
+                );
+            }
+            other => panic!("the root has a Markdown twin (RX-60): {other:?}"),
+        }
     }
 
     #[test]
