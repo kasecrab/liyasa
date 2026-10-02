@@ -7795,6 +7795,8 @@ function mount()       {
   document.addEventListener("click", onClick);
   document.addEventListener("keydown", onKey);
   document.addEventListener("focusin", onFocus);
+  document.addEventListener("input", onFormInput);
+  document.addEventListener("change", onFormInput);
   apply({ do: "first-visit", seen: shell.tourSeen });
   openEmbeddedDraft();
 
@@ -7973,6 +7975,11 @@ function onClick(event            )       {
     switchMode();
     return;
   }
+  if (target.closest("[data-action='save']")) {
+    event.preventDefault();
+    onSave();
+    return;
+  }
   // `closest` rather than the target itself: the control may be a `<strong>`
   // inside the button, which is what a template choice is.
   const control = target.closest("button, [data-choose-template], [data-choose-task]");
@@ -8016,6 +8023,108 @@ function onKey(event               )       {
  * it is the thing a screen reader user moves. Panes inside the panel column are
  * skipped, or opening the help would re-point the help at the help.
  */
+/**
+ * ED-11's "is edited through a form": an edit reaches the document.
+ *
+ * `valueFromControl` converts what the control holds, `writeFrontmatter` puts it
+ * back into the front matter block touching no other line, and `serializeModel`
+ * rebuilds the source. All three were written and tested with no caller, so an
+ * author could open the form, type, and have the keystroke discarded.
+ *
+ * What it does not do is *persist*. `drafts.save` is `servedBy: "unbuilt"`, so
+ * `onSave` says so rather than letting the button look like it worked.
+ */
+function onFormInput(event       )       {
+  const control = event.target;
+  if (
+    !(
+      control instanceof HTMLInputElement ||
+      control instanceof HTMLSelectElement ||
+      control instanceof HTMLTextAreaElement
+    )
+  ) {
+    return;
+  }
+  if (!control.closest("[data-frontmatter]")) return;
+  const name = control.getAttribute("name");
+  if (!name || !state.model || !open?.schema) return;
+  const field = formFields(open.schema).find((each) => each.name === name);
+  if (!field) return;
+
+  const raw = control instanceof HTMLInputElement && control.type === "checkbox" ? String(control.checked) : control.value;
+  state.model.frontmatter = writeFrontmatter(state.model.frontmatter, {
+    [name]: valueFromControl(field, raw),
+  });
+  state.source = serializeModel(state.model);
+  open = { ...open, model: state.model, source: state.source };
+  repaintForm();
+}
+
+/**
+ * Redraws the form and puts the caret back.
+ *
+ * The error paragraph and `data-invalid` are conditional markup, so showing a
+ * new validation result means re-rendering — and re-rendering under a typing
+ * author moves their caret to the first field, which is worse than showing the
+ * error late. Restoring the control by `name` and the offset by `selectionStart`
+ * is smaller than syncing six attributes per field by hand, and it is the part
+ * that has a test.
+ */
+function repaintForm()       {
+  const active = document.activeElement;
+  const name = active instanceof HTMLElement ? active.getAttribute("name") : null;
+  const caret =
+    active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement ? active.selectionStart : null;
+  // The disclosure's open state lives in the DOM, not in `ShellState`, so a
+  // repaint closed it — and every advanced field is inside it, so typing in one
+  // shut it under the author between keystrokes. It is deliberately not folded
+  // into `shell.advanced`: that flag also turns on the git vocabulary, and
+  // opening a field group is not asking for that.
+  const disclosed =
+    document.querySelector("[data-frontmatter] [data-advanced-frontmatter]") instanceof HTMLDetailsElement
+      ? (document.querySelector("[data-frontmatter] [data-advanced-frontmatter]")                      ).open
+      : null;
+
+  paint();
+
+  if (disclosed !== null) {
+    const details = document.querySelector("[data-frontmatter] [data-advanced-frontmatter]");
+    if (details instanceof HTMLDetailsElement) details.open = disclosed;
+  }
+
+  if (name === null) return;
+  const restored = document.querySelector(`[data-frontmatter] [name="${CSS.escape(name)}"]`);
+  if (!(restored instanceof HTMLElement)) return;
+  restored.focus();
+  if ((restored instanceof HTMLInputElement || restored instanceof HTMLTextAreaElement) && caret !== null) {
+    // `setSelectionRange` throws on an input type that has no selection, such as
+    // a checkbox or a colour well, so it is guarded by the type rather than by a
+    // try block that would hide a real failure.
+    if (/^(text|search|url|tel|password)$/.test(restored.type) || restored instanceof HTMLTextAreaElement) {
+      restored.setSelectionRange(caret, caret);
+    }
+  }
+}
+
+/**
+ * ED-21's save, which nothing serves.
+ *
+ * The button exists because the form needs one to describe its own state — the
+ * save gate is ED-11's clause and is tested. Pressing it has to say that the
+ * route is absent; a button that silently does nothing teaches an author that
+ * their edit was taken.
+ */
+function onSave()       {
+  const endpoint = findEndpoint("drafts.save");
+  if (!endpoint || endpoint.servedBy === "unbuilt") {
+    announce(
+      "This edit is in the page but not saved: the editor's save route is not built yet. Nothing has been written.",
+    );
+    return;
+  }
+  announce("Saving.");
+}
+
 function onFocus(event            )       {
   const target = event.target;
   if (!(target instanceof Element)) return;

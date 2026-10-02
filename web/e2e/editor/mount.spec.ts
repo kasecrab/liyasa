@@ -314,3 +314,128 @@ test("ED-74: the tour does not block the controls it is describing", async ({ pa
   await expect(page.locator("[data-tour-step]")).toHaveAttribute("data-tour-step", /\S/);
   await expect(page.locator("[data-announce]")).toContainText("Tour step 2");
 });
+
+// --- the layer behind the panes: an edit has to reach the document -------------
+//
+// Mounting a pane makes it visible, not effective. `valueFromControl`,
+// `writeFrontmatter` and `serializeModel` were all written, tested and called by
+// nobody, so an author could open the form, type into it, and have the keystroke
+// discarded with nothing saying so. These tests type.
+
+test("ED-11: typing an invalid value shows the schema error and blocks the save", async ({ page }) => {
+  // `facts` is the field this is driven through, and finding that out was the
+  // work. Of the schema's 38 fields exactly one can produce a value the
+  // validator rejects: `facts` is an `object` control, so text that is not JSON
+  // falls through as a string where an object is wanted. Every `text`, `list`
+  // and `boolean` control can only produce what the schema already accepts, so
+  // for those the row's criterion is unreachable by construction — not untested.
+  //
+  // It is also advanced, so reaching it drives the third clause: the disclosure.
+  await openWithDraft(page);
+  await page.locator("[data-open-frontmatter]").click();
+  const form = page.locator("[data-panel] [data-frontmatter]");
+  await expect(form.locator("[data-field-error]")).toHaveCount(0);
+  await expect(form.locator("[name='facts']")).toBeHidden();
+
+  await form.locator("[data-advanced-frontmatter] > summary").click();
+  await expect(form.locator("[name='facts']")).toBeVisible();
+
+  await form.locator("[name='facts']").fill("not an object");
+  await expect(form.locator("[data-field-error='facts']")).toHaveCount(1);
+  await expect(form.locator("[data-field-error='facts']")).toContainText("expects object");
+  await expect(form.locator("[data-field='facts']")).toHaveAttribute("data-invalid", "true");
+  await expect(form.locator("[data-action='save']")).toBeDisabled();
+  await expect(page.locator("#frontmatter-save-reason")).toContainText(/to fix before this can be saved/);
+});
+
+test("the advanced disclosure stays open while an advanced field is being typed in", async ({ page }) => {
+  // It did not. The disclosure's open state is DOM state and the repaint rebuilt
+  // the form closed, so the second keystroke in any advanced field landed on a
+  // hidden control — every advanced field is inside that `<details>`.
+  await openWithDraft(page);
+  await page.locator("[data-open-frontmatter]").click();
+  const form = page.locator("[data-panel] [data-frontmatter]");
+  await form.locator("[data-advanced-frontmatter] > summary").click();
+  const facts = form.locator("[name='facts']");
+  await facts.fill("x");
+  await expect(form.locator("[data-advanced-frontmatter]")).toHaveAttribute("open", "");
+  await facts.fill("xy");
+  await expect(facts).toBeVisible();
+  await expect(facts).toBeFocused();
+});
+
+test("a valid value clears the error and unblocks the save", async ({ page }) => {
+  await openWithDraft(page);
+  await page.locator("[data-open-frontmatter]").click();
+  const form = page.locator("[data-panel] [data-frontmatter]");
+  await form.locator("[data-advanced-frontmatter] > summary").click();
+  await form.locator("[name='facts']").fill("not an object");
+  await expect(form.locator("[data-action='save']")).toBeDisabled();
+  await form.locator("[name='facts']").fill('{ "price": 9 }');
+  await expect(form.locator("[data-field-error='facts']")).toHaveCount(0);
+  await expect(form.locator("[data-action='save']")).toBeEnabled();
+});
+
+test("the form says which fields it does not check, because it checks types only", async ({ page }) => {
+  // The limit, asserted rather than left implicit. `validateFrontmatter` checks
+  // types; it does not check patterns, so a malformed ULID in `id` passes this
+  // form and fails the build. That is why ED-11 is `partial` and not
+  // `implemented`, and why the live region names a count instead of staying
+  // silent — silence here would read as "all checked".
+  await openWithDraft(page);
+  await page.locator("[data-open-frontmatter]").click();
+  const form = page.locator("[data-panel] [data-frontmatter]");
+  await form.locator("[data-advanced-frontmatter] > summary").click();
+
+  await form.locator("[name='id']").fill("plainly-not-a-ulid");
+  await expect(form.locator("[data-field-error='id']")).toHaveCount(0);
+  await expect(page.locator("#frontmatter-save-reason")).toContainText(
+    /fields? the build checks rather than this form/,
+  );
+});
+
+test("the edit reaches the document, and only the line it changed", async ({ page }) => {
+  // `writeFrontmatter` is byte-preserving for every untouched line, and the
+  // round trip through `serializeModel` is what puts the change in the source.
+  // Read it back out of source mode rather than trusting the form.
+  await openWithDraft(page);
+  await page.locator("[data-open-frontmatter]").click();
+  await page.locator("[data-panel] [data-frontmatter] [name='title']").fill("A changed title");
+  await page.keyboard.press("Escape");
+  await page.locator("[data-mode-switch]").first().click();
+
+  const source = await page.locator("[data-source-mode] textarea[data-source-editor]").inputValue();
+  expect(source).toContain("A changed title");
+  expect(source).not.toContain("title: Limits");
+  // Every other front matter line survives untouched.
+  expect(source).toMatch(/^---\n/);
+  expect(source.split("\n").filter((line) => line.startsWith("description:")).length).toBe(1);
+});
+
+test("typing does not move the caret to another field", async ({ page }) => {
+  // Showing a new validation result means re-rendering conditional markup, and
+  // re-rendering under a typing author is how a form becomes unusable. The
+  // restore is by control name and `selectionStart`.
+  await openWithDraft(page);
+  await page.locator("[data-open-frontmatter]").click();
+  const title = page.locator("[data-panel] [data-frontmatter] [name='title']");
+  await title.click();
+  await title.press("End");
+  await title.pressSequentially("XY");
+  await expect(title).toBeFocused();
+  const caret = await title.evaluate((node) => (node as HTMLInputElement).selectionStart);
+  const value = await title.inputValue();
+  expect(caret).toBe(value.length);
+  expect(value).toMatch(/XY$/);
+});
+
+test("ED-21: Save says the route is not built rather than looking like it worked", async ({ page }) => {
+  // `drafts.save` is `servedBy: "unbuilt"`. A button that silently does nothing
+  // teaches an author that their edit was taken.
+  await openWithDraft(page);
+  await page.locator("[data-open-frontmatter]").click();
+  await page.locator("[data-panel] [data-frontmatter] [name='title']").fill("Another title");
+  await page.locator("[data-panel] [data-action='save']").click();
+  await expect(page.locator("[data-announce]")).toContainText("not built yet");
+  await expect(page.locator("[data-announce]")).toContainText("Nothing has been written");
+});
