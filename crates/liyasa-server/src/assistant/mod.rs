@@ -14,6 +14,7 @@
 //! what RFC 1404 added `Skipped` for. The same shape `routes::tools` already
 //! uses for its `Option<Arc<dyn VectorStore>>`.
 
+pub mod embed;
 pub mod gate;
 pub mod http;
 

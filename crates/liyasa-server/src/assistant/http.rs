@@ -27,16 +27,18 @@ use http::{StatusCode, header};
 use liyasa_ai::assistant::ReaderContext;
 use liyasa_ai::assistant::tools::Tools;
 use liyasa_ai::config::AiConfig;
+use liyasa_ai::index::VectorStore;
 use liyasa_core::ids::{Locale, Route, Version};
 use serde::Deserialize;
 use serde_json::json;
 
+use crate::assistant::embed::ModelEmbed;
 use crate::assistant::gate::GatedTools;
 use crate::auth::session::Principal;
 use crate::routes::AppState;
 use crate::routes::bundle::Bundle;
 use crate::routes::mount::Mount;
-use crate::routes::tools::ServerTools;
+use crate::routes::tools::{Embed, ServerTools};
 
 /// The path AST-20's `rateLimits` charges and `pool_for` buckets.
 ///
@@ -54,6 +56,47 @@ pub struct AssistantState {
     pub app: Arc<AppState>,
     pub bundle: Arc<Bundle>,
     pub config: AiConfig,
+    /// Both halves of retrieval, or neither.
+    pub retrieval: Option<Retrieval>,
+}
+
+/// What `ServerTools::search` needs in order to return anything at all.
+///
+/// One struct rather than two fields because `search` returns early unless it
+/// holds BOTH, and for a fortnight it held neither while reading as a working
+/// search over an empty site. Two `Option`s let that state exist and say
+/// nothing; this one cannot be half-built.
+pub struct Retrieval {
+    pub index: Arc<dyn VectorStore>,
+    pub embed: Arc<dyn Embed>,
+}
+
+impl Retrieval {
+    /// Fails rather than searches when the embedder's width is not the index's.
+    ///
+    /// Cosine similarity over mismatched widths is not an error anywhere below
+    /// here — it compares the overlapping prefix and scores the rest as zero,
+    /// so a 1536-wide query against a 768-wide index returns `k` plausible
+    /// rows in a meaningless order. Checked once here, where both numbers are
+    /// in hand, instead of per query where neither is.
+    pub fn new(
+        index: Arc<dyn VectorStore>,
+        embed: ModelEmbed,
+        index_dims: usize,
+    ) -> Result<Self, String> {
+        if embed.dims() != index_dims {
+            return Err(format!(
+                "the embedding model produces {} dimensions and the active index holds {};                  a query across the two scores every chunk on its first {} values and                  reports the order as relevance (AST-04 calls for a re-index)",
+                embed.dims(),
+                index_dims,
+                embed.dims().min(index_dims),
+            ));
+        }
+        Ok(Self {
+            index,
+            embed: Arc::new(embed),
+        })
+    }
 }
 
 /// What a reader may say about themselves.
@@ -166,6 +209,12 @@ pub async fn ask(
     if let Some(route) = reader.current_page.clone() {
         inner = inner.on_page(route);
     }
+    // The call that was unreachable: `with_index` takes an `Arc<dyn Embed>`
+    // and nothing in the workspace implemented `Embed`, so `search` returned
+    // early for every caller.
+    if let Some(retrieval) = &state.retrieval {
+        inner = inner.with_index(retrieval.index.clone(), retrieval.embed.clone());
+    }
     let tools = GatedTools::new(
         inner,
         state.bundle.clone(),
@@ -173,13 +222,26 @@ pub async fn ask(
         principal.cloned(),
     );
 
-    // No model is constructed anywhere in this crate yet, so `ask` cannot run
-    // and this endpoint answers with what the tools can reach on their own:
-    // the reader's page and the navigation they may see. The same choice
-    // `mcp::Host::ask_degraded` makes — say the answer is passages rather than
-    // prose, in the payload, instead of returning prose that was never
-    // written. `passages` is a real retrieval under this reader's
-    // entitlements, which is the half defect 146 was about.
+    // No CHAT model is constructed anywhere in this crate yet, so `ask` cannot
+    // run and this endpoint answers with what the tools reach on their own.
+    // The same choice `mcp::Host::ask_degraded` makes — say in the payload
+    // that the answer is passages rather than prose, instead of returning
+    // prose that was never written.
+    //
+    // Two separate claims about `passages`, and WP-25 was right that one
+    // sentence was carrying both:
+    //
+    //   the FILTER is real      `reader.query()` is threaded to the store,
+    //                           which applies it during retrieval, and that
+    //                           is what defect 146 was about.
+    //   the PASSAGES may not be `search` returns an empty vector unless
+    //                           `state.retrieval` is populated, and a served
+    //                           instance has no vector index to populate it
+    //                           with (defect 52).
+    //
+    // So the payload reports which of the two is missing. Saying only
+    // "retrieved under the reader's entitlements" over an empty vector is
+    // true of the filter and reads as a searched site.
     let current = match tools.get_current_page().await {
         Ok(page) => page,
         Err(e) => {
@@ -201,6 +263,19 @@ pub async fn ask(
             "degraded": "no model is configured for `ai.models.assistant`, so this answers with \
                          retrieved passages under the reader's entitlements rather than written \
                          prose",
+            // Named because an empty `passages` has two causes and an operator
+            // cannot act on the wrong one: nothing matched the question, or
+            // nothing can match any question.
+            "retrieval": match &state.retrieval {
+                Some(_) => json!({ "searched": true }),
+                None => json!({
+                    "searched": false,
+                    "why": "this instance has no vector index, so `passages` is empty for \
+                            every question rather than for this one (defect 52: \
+                            `sqlite-vec` is not in `Cargo.lock` and `liyasa-store` has only \
+                            `NoVectorIndex`)",
+                }),
+            },
             "answer": null,
             "passages": hits
                 .iter()
@@ -242,9 +317,18 @@ pub fn mount(app: &Arc<AppState>) -> Mount {
     if !config.assistant.enabled {
         return Mount::skipped("`ai.assistant.enabled` is false in this site's configuration");
     }
+    // A served instance has no vector index to give it. `MemoryStore` is the
+    // workspace's only `VectorStore` and its own doc rules it out here — §6.8
+    // forbids an in-process index in a served topology — and `vectors.db`
+    // through `sqlite-vec` belongs to `liyasa-store`, which has only
+    // `NoVectorIndex` and no `sqlite-vec` in `Cargo.lock` (defect 52). So this
+    // is `None` for a reason that is about the store and not about the
+    // embedder, and the handler says which half is missing rather than
+    // answering an empty retrieval that reads as a searched site.
     Mount::routes(router(Arc::new(AssistantState {
         app: app.clone(),
         bundle,
         config,
+        retrieval: None,
     })))
 }
