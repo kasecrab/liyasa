@@ -215,14 +215,18 @@ pub fn options(args: &Build, cwd: &Path) -> Options {
         env: args.env.clone(),
         build_time: args.build_time,
         profile: args.profile,
-        eager_images: false,
-        // `None` means the engine reads the real process environment for
-        // `env()`. An empty map is GIT-31's untrusted build, which is the
-        // server's business, not a flag here.
-        environment: None,
-        // `None` derives the nonce from the build ID, so the `_headers` policy
-        // and the markup agree (RX-110).
-        nonce: None,
+        // The rest take the engine's defaults, and the spread is deliberate:
+        // a literal that names every field turns each new engine option into
+        // a compile error in this crate, which is how `liyasa-cli` broke a
+        // chain gate on 2026-10-02.
+        //
+        // What the defaults mean here. `environment: None` makes the engine
+        // read the real process environment for `env()`; an empty map is
+        // GIT-31's untrusted build, which is the server's business and not a
+        // flag. `nonce: None` derives the nonce from the build ID, so the
+        // `_headers` policy and the markup agree (RX-110). `eager_images` is
+        // off because a CLI build renders what the pages ask for.
+        ..Options::default()
     }
 }
 

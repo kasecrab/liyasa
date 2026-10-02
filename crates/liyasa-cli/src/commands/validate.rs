@@ -53,15 +53,12 @@ pub fn run(global: &Global, args: &Validate) -> Exit {
         // `liyasa validate` was throwing away the project's build cache and
         // leaving the next `liyasa build` fully cold.
         clean: false,
-        drafts: false,
         strict: args.strict,
-        base_path: None,
-        env: None,
-        build_time: None,
-        profile: false,
-        eager_images: false,
-        environment: None,
-        nonce: None,
+        // Everything else is the engine's default — no drafts, no base path,
+        // no `--env` overlay, the real process environment, a build time from
+        // the git snapshot. The spread rather than a full literal so that a
+        // new engine option does not break this crate's build (2026-10-02).
+        ..engine::Options::default()
     };
 
     if global.dry_run {
