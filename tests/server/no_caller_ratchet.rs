@@ -469,18 +469,32 @@ fn pool_prefixes(mod_rs: &str) -> BTreeSet<String> {
             _ => {}
         }
     }
+    // Two spellings, because the arms do not all use one. `pool_for` matched
+    // endpoint prefixes with `starts_with` until 2026-10-02, when that was
+    // found to charge `/_liyasa/assistant.{hash}.js` — a build asset — to the
+    // assistant's ask pool; the arms call `under(p, "...")` now, which matches
+    // on a segment boundary. Reading only `starts_with` would have parsed zero
+    // prefixes afterwards.
+    //
+    // **That is what happened, and the `>= 5` floor in the caller is the only
+    // reason it was not a silent pass.** An empty prefix set makes every
+    // assertion below vacuous: nothing claimed, nothing unserved, green. Keep
+    // both needles and keep the floor; a parser that reads a syntax the source
+    // no longer uses reports a clean bill of health.
     let mut out = BTreeSet::new();
-    let mut rest = &body[open..end];
-    while let Some(at) = rest.find("starts_with(\"") {
-        let after = &rest[at + "starts_with(\"".len()..];
-        if let Some(close) = after.find('"') {
-            let path = &after[..close];
-            if path.starts_with("/_liyasa/") {
-                out.insert(path.to_owned());
+    for needle in ["starts_with(\"", "under(p, \""] {
+        let mut rest = &body[open..end];
+        while let Some(at) = rest.find(needle) {
+            let after = &rest[at + needle.len()..];
+            if let Some(close) = after.find('"') {
+                let path = &after[..close];
+                if path.starts_with("/_liyasa/") {
+                    out.insert(path.to_owned());
+                }
+                rest = &after[close..];
+            } else {
+                break;
             }
-            rest = &after[close..];
-        } else {
-            break;
         }
     }
     out
