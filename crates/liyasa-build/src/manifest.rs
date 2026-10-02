@@ -194,6 +194,14 @@ pub struct RouteEntry {
     /// Rendered per request rather than written as files (§6.6.4).
     pub dynamic: bool,
     pub variants: Vec<VariantEntry>,
+    /// The front matter `reviewed:` date (VER-77). Carried because the build is
+    /// the only thing that reads a page's front matter, and the review cadence
+    /// is computed afterwards from the manifest — without it the digest has no
+    /// date to compare a cadence against, so every run reports nothing.
+    ///
+    /// Skipped when absent so a site that reviews nothing adds no bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviewed: Option<String>,
     /// Who may see this page: the navigation ancestors that declared a
     /// restriction, root-first, and then the page itself as the last element
     /// (AUTH-07, AUTH-10, §7.6).
@@ -358,6 +366,7 @@ mod tests {
                     markdown: "/guides/install.md".to_owned(),
                     hidden: false,
                     dynamic: false,
+                    reviewed: None,
                     variants: vec![
                         VariantEntry {
                             key: "g=admin".to_owned(),
@@ -383,6 +392,7 @@ mod tests {
                     markdown: "/index.md".to_owned(),
                     hidden: false,
                     dynamic: false,
+                    reviewed: None,
                     variants: Vec::new(),
                     access: vec![AccessLevel::new([], false)],
                 },

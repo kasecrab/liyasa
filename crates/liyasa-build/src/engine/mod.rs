@@ -513,6 +513,9 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
             hidden: outcome.hidden,
             dynamic: outcome.dynamic,
             variants: entries,
+            reviewed: tree
+                .page(&outcome.route)
+                .and_then(|page| page.front.reviewed.clone()),
             access: access_chain(&ancestors, &tree, &outcome.route),
         });
     }

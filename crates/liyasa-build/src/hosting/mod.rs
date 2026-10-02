@@ -216,6 +216,7 @@ pub(crate) mod fixture {
             markdown,
             hidden: false,
             dynamic: false,
+            reviewed: None,
             variants: vec![VariantEntry {
                 key: "default".to_owned(),
                 path,
