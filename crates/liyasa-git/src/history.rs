@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::OnceLock;
 
-/// The prefix on an author record, interleaved with `--name-only` output.
+/// The prefix on an author record, interleaved with the name-only file list.
 ///
 /// NUL rather than `@`. `liyasa-cli/src/git.rs` uses `@` for its timestamp
 /// records, and a path may begin with `@` — `@types/index.md` is an ordinary

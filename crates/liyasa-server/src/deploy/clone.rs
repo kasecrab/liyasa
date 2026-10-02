@@ -138,7 +138,7 @@ fn refresh(spec: &CloneSpec, into: &Path) -> Result<(), CloneError> {
     )
 }
 
-/// `--no-cone` so `contextRepos[].paths` are taken as written.
+/// Non-cone sparse checkout, so `contextRepos[].paths` are taken as written.
 ///
 /// Cone mode only understands directory prefixes, and the schema's example
 /// allow list includes `openapi.yaml` — a file. In cone mode that entry would
