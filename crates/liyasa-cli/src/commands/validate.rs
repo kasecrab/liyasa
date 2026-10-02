@@ -43,14 +43,16 @@ pub fn run(global: &Global, args: &Validate) -> Exit {
 
     let options = engine::Options {
         output: Some(project.root.join(SCRATCH)),
-        // A warm build reuses a cached page without replaying the diagnostics
-        // that page produced, so a second `validate` on an unchanged project
-        // reports fewer problems than the first: E0401, E0403 and W0406 all
-        // disappear. Validation that depends on whether the cache is warm is
-        // not validation, so this command always starts cold. The cost is that
-        // the next `liyasa build` is cold too.
-        // TODO(rfc-0904): drop this once a cache hit replays its diagnostics.
-        clean: true,
+        // RFC 0904 is fixed: a cache hit replays the page's diagnostics from
+        // its own `page_diagnostics` artefact, and `cli_03_build.rs` asserts
+        // the warm and cold code sets are *equal* rather than one containing
+        // the other. So a warm `validate` reports what a cold one reports.
+        //
+        // `clean` was never only about this command's scratch directory — the
+        // engine deletes `.liyasa/cache` itself when it is set, so every
+        // `liyasa validate` was throwing away the project's build cache and
+        // leaving the next `liyasa build` fully cold.
+        clean: false,
         drafts: false,
         strict: args.strict,
         base_path: None,

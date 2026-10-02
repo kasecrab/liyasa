@@ -407,3 +407,54 @@ fn personalization_never_corrupts_a_machine_document() {
         outcome.stderr
     );
 }
+
+// --- the cache (RFC 0904 is fixed) -----------------------------------------
+
+/// A second `validate` on an unchanged project reports what the first did.
+///
+/// It used to build cold every time, because a warm build lost the
+/// diagnostics of pages it did not re-render. That is fixed — a page's
+/// diagnostics are their own cache artefact — so this is what holds the
+/// promise now that `clean` is off.
+#[test]
+fn a_second_validate_reports_what_the_first_did() {
+    let project = fixture("val-warm");
+
+    let first = Run::new(["validate", "--format", "json"])
+        .cwd(project.path())
+        .output();
+    let second = Run::new(["validate", "--format", "json"])
+        .cwd(project.path())
+        .output();
+
+    assert_eq!(
+        first.code,
+        second.code,
+        "{}\n---\n{}",
+        first.all(),
+        second.all()
+    );
+    assert_eq!(codes(&first.stdout), codes(&second.stdout));
+}
+
+/// `clean` deletes `.liyasa/cache`, not merely this command's scratch output,
+/// so a `validate` used to throw away the project's build cache and leave the
+/// next `liyasa build` fully cold. Validating a project is not a reason to
+/// undo its build.
+#[test]
+fn validating_does_not_throw_away_the_build_cache() {
+    let project = fixture("val-keeps-cache");
+    Run::new(["build"]).cwd(project.path()).output();
+    let cache = project.path().join(".liyasa/cache");
+    assert!(cache.is_dir(), "the build wrote no cache to protect");
+    let before = std::fs::read_dir(&cache).map(Iterator::count).unwrap_or(0);
+
+    Run::new(["validate"]).cwd(project.path()).output();
+
+    assert!(cache.is_dir(), "`validate` deleted the build cache");
+    assert_eq!(
+        std::fs::read_dir(&cache).map(Iterator::count).unwrap_or(0),
+        before,
+        "`validate` emptied the build cache"
+    );
+}
