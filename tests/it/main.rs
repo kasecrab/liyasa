@@ -259,3 +259,6 @@ mod agt_42_bugs;
 
 #[path = "../hosting/fixture_isolation.rs"]
 mod fixture_isolation;
+
+#[path = "../web/dashboard.rs"]
+mod dashboard;
