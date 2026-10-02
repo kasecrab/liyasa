@@ -15,7 +15,6 @@ use liyasa_config::vfs::OsVfs;
 use liyasa_core::Diagnostics;
 use liyasa_core::diagnostics::Diagnostic;
 use liyasa_core::source_map::SourceMap;
-use liyasa_core::vfs::VfsPath;
 
 use crate::Exit;
 use crate::cli::{Global, Subset, Validate};
@@ -351,8 +350,8 @@ fn reconstruct_sources(vfs: &OsVfs, options: &engine::Options) -> SourceMap {
         vfs,
         &mut sources,
         &liyasa_config::Options {
-            root: VfsPath::new(""),
             env: options.env.clone(),
+            ..Default::default()
         },
     );
     let settings = engine::Settings::from_value(&load.value);

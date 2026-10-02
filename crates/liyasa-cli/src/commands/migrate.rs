@@ -26,8 +26,8 @@ pub fn run(global: &Global, args: &MigrateConfig) -> Exit {
         &vfs,
         &mut sources,
         &liyasa_config::Options {
-            root: VfsPath::new(""),
             env: None,
+            ..Default::default()
         },
     );
     let printer = Printer::new(format, ctx::use_color(global));

@@ -18,7 +18,6 @@ use liyasa_build::engine::Settings;
 use liyasa_config::vfs::OsVfs;
 use liyasa_core::ids::{Locale, Route};
 use liyasa_core::source_map::SourceMap;
-use liyasa_core::vfs::VfsPath;
 
 pub struct Snapshot {
     pub site: SiteInput,
@@ -64,8 +63,8 @@ pub fn read(root: &Path, output: &Path) -> Result<Snapshot, Missing> {
         &vfs,
         &mut sources,
         &liyasa_config::Options {
-            root: VfsPath::new(""),
             env: None,
+            ..Default::default()
         },
     );
     let settings = Settings::from_value(&load.value);

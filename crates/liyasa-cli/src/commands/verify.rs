@@ -621,8 +621,8 @@ fn reconstruct(
         vfs,
         &mut sources,
         &liyasa_config::Options {
-            root: liyasa_core::vfs::VfsPath::new(""),
             env: options.env.clone(),
+            ..Default::default()
         },
     );
     let settings = liyasa_build::engine::Settings::from_value(&load.value);

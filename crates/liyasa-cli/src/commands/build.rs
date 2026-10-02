@@ -9,7 +9,6 @@ use liyasa_build::engine::{self, Options, Settings};
 use liyasa_config::vfs::OsVfs;
 use liyasa_core::Diagnostics;
 use liyasa_core::source_map::SourceMap;
-use liyasa_core::vfs::VfsPath;
 
 use crate::Exit;
 use crate::cli::{Build, Global};
@@ -108,8 +107,8 @@ fn plan(
         vfs,
         &mut sources,
         &liyasa_config::Options {
-            root: VfsPath::new(""),
             env: options.env.clone(),
+            ..Default::default()
         },
     );
     let settings = Settings::from_value(&load.value);
@@ -246,8 +245,8 @@ fn output_path(options: &Options, vfs: &OsVfs, root: &Path) -> PathBuf {
             vfs,
             &mut sources,
             &liyasa_config::Options {
-                root: VfsPath::new(""),
                 env: options.env.clone(),
+                ..Default::default()
             },
         );
         root.join(Settings::from_value(&load.value).output)
@@ -266,8 +265,8 @@ fn reconstruct_sources(vfs: &OsVfs, options: &Options) -> SourceMap {
         vfs,
         &mut sources,
         &liyasa_config::Options {
-            root: VfsPath::new(""),
             env: options.env.clone(),
+            ..Default::default()
         },
     );
     let settings = Settings::from_value(&load.value);
