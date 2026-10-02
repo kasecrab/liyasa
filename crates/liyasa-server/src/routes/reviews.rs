@@ -83,6 +83,29 @@ struct Sent {
 /// the address came from `DOCOWNERS`, and an operator wants to know whether it
 /// arrived. `auth/state.rs` says "do not tidy these into one shape".
 async fn send(state: &Arc<AppState>, digest: &Digest) -> Sent {
+    // An empty digest has its own reason. Without one the row reads
+    // `"sent": 0, "reason": null`, which cannot tell an operator apart:
+    //
+    //   nothing was overdue        the good case
+    //   nothing is being checked   today's case — no production path writes a
+    //                              `Review` record, because the caller for
+    //                              `review::overdue` does not exist yet
+    //
+    // WP-20c found this one field over from where `unowned` closed the same
+    // rule. It is self-retiring: once a caller exists, this reason firing
+    // means genuinely nothing is overdue, which is information.
+    if digest.owners.is_empty() {
+        return Sent {
+            reason: Some(
+                "no owner had an overdue page; note that nothing writes review records yet,                  so this is not evidence that the site is reviewed",
+            ),
+            ..Sent::default()
+        };
+    }
+    // Mail is checked AFTER the digest, not before: with nothing overdue
+    // there was nothing to send, so "no mail block" would be a true statement
+    // about an irrelevant thing. The configuration only matters once there is
+    // a reminder it would have carried.
     let Some(mail) = state.mail() else {
         return Sent {
             reason: Some("no `mail` block is configured, so no reminder was sent"),

@@ -85,6 +85,38 @@ pub async fn execute(
                 .collect();
             Ok(json!({ "passages": passages }))
         }
+        // AGT-02's research clause names four: "search docs, read pages, read
+        // code in context repos, fetch allow-listed web pages". `read_page`
+        // used to fall to the catch-all below and answer "not a research tool
+        // this instance serves", which is wrong as a *description* rather than
+        // merely incomplete — it is one of the four, and this instance serves
+        // it (WP-25).
+        "read_page" => {
+            let Some(route) = input.get("route").and_then(Value::as_str) else {
+                return Ok(json!({ "found": false, "reason": "`route` is required" }));
+            };
+            let section = input.get("section").and_then(Value::as_str);
+            match tools
+                .get_page(&liyasa_core::ids::Route::new(route), section)
+                .await
+            {
+                Ok(Some(page)) => Ok(json!({
+                    "route": page.route,
+                    "title": page.title,
+                    "anchor": page.anchor,
+                    "markdown": page.markdown,
+                })),
+                // A page this reader may not see and a page that does not
+                // exist answer the same way on purpose: `get_page` applies the
+                // reader's filter, and saying "you may not see this" would
+                // confirm the page exists (AST-11).
+                Ok(None) => Ok(json!({ "found": false, "route": route })),
+                Err(_) => Err(Unavailable {
+                    tool: "read_page",
+                    reason: "this instance's bundle could not be read",
+                }),
+            }
+        }
         "get_openapi" => {
             let operation = input
                 .get("operation")

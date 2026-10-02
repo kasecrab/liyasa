@@ -122,7 +122,12 @@ fn open_run(payload: &Payload) -> Run {
         policy: liyasa_agent::policy::Policy::default(),
         attribution: Attribution::person("the job API", "jobs@localhost"),
         content_tree: None,
-        graph: liyasa_agent::record::GraphAccess::Read,
+        // `None`, not `Read`: `get_fact` and `list_drift` both answer
+        // `Unavailable` on this instance, so a header claiming graph access
+        // would overstate what the run could reach. WP-25 caught the
+        // overstatement; it is the record's own claim about itself, and a
+        // reviewer reads it.
+        graph: liyasa_agent::record::GraphAccess::None,
         retention_days: 90,
         branch: format!("agent/{id}"),
     };
