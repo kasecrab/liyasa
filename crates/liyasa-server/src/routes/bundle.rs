@@ -363,25 +363,42 @@ mod tests {
     use super::*;
     use crate::auth::session::Principal;
 
+    /// Spread from `RouteEntry::new` rather than naming every field.
+    ///
+    /// This named all seven and then all ten, which made every field WP-06 adds
+    /// to `RouteEntry` a compile error here — three of them this week. A caller
+    /// can normally immunise itself by spreading `..Default::default()`, but
+    /// `RouteEntry` cannot derive `Default`: it holds a `Route`, `Route` comes
+    /// from `string_id!` with no `Default`, and giving it one would make an
+    /// empty route constructible, which that type's own doc calls invalid. So
+    /// there was no downstream remedy until `new` existed, and spreading from
+    /// it is the preparation.
+    ///
+    /// `markdown` stays explicit. `new` derives it from the route and the two
+    /// disagree at the root: this gives `/.md` for `"/"`, `new` gives
+    /// `/index.md`. `restricted_bundle` and `bundle` both pass `"/"`, so
+    /// dropping the line would change fixture data in the same edit that
+    /// changes how it is built. `new`'s value is the realistic one — no build
+    /// emits `/.md` — so this is worth a separate commit with its own test run,
+    /// not a silent ride-along.
+    ///
+    /// `hidden`, `dynamic`, `reviewed`, `source_updated_unix`, `description`
+    /// and `access` all come from `new` and match what this set explicitly.
+    /// `access` is the one to check if it ever matters: `new` defaults to one
+    /// open level, which is what `access_chain` emits for every route, so it is
+    /// the same value this fixture was writing by hand.
     fn route(path: &str) -> RouteEntry {
         RouteEntry {
-            route: Route::new(path),
-            source: format!("{}.md", path.trim_start_matches('/')),
             markdown: format!("{path}.md"),
-            hidden: false,
-            dynamic: false,
-            // WP-06's `reviewed: Option<String>` off the front matter, which
-            // `review::overdue` needs: a cadence measures elapsed time, so the
-            // caller is this package's scheduled job and it reaches the date
-            // through the `Bundle` it already holds. `None` here because the
-            // fixture's pages declare no date; the field's own tests are WP-06's.
-            reviewed: None,
             variants: vec![VariantEntry {
                 key: String::new(),
                 path: format!("{}/index.html", path.trim_end_matches('/')),
                 hash: Fingerprint::of(path),
             }],
-            access: vec![AccessLevel::new([], false)],
+            ..RouteEntry::new(
+                Route::new(path),
+                format!("{}.md", path.trim_start_matches('/')),
+            )
         }
     }
 
@@ -402,39 +419,25 @@ mod tests {
             ..entry
         };
         let manifest = Manifest {
-            build_id: BuildId(Fingerprint::of("build")),
-            liyasa_version: "0.1.0".to_owned(),
-            built_at: 0,
             base_path: base_path.to_owned(),
             routes: vec![with_base(route("/")), with_base(route("/guides/install"))],
-            assets: Vec::new(),
-            images: Vec::new(),
             redirects: vec![RedirectEntry {
                 source: "/old".to_owned(),
                 destination: "/guides/install".to_owned(),
                 status: 301,
             }],
-            served: Vec::new(),
-            inputs: Default::default(),
+            ..Manifest::new(BuildId(Fingerprint::of("build")), "0.1.0", 0)
         };
         Bundle::new(PathBuf::from("/nonexistent"), manifest, Rules::default())
     }
 
     fn restricted_bundle() -> Bundle {
         let manifest = Manifest {
-            build_id: BuildId(Fingerprint::of("build")),
-            liyasa_version: "0.1.0".to_owned(),
-            built_at: 0,
-            base_path: String::new(),
             routes: vec![
                 route("/"),
                 restricted("/internal/failover", &["staff"], &["sre", "oncall"]),
             ],
-            assets: Vec::new(),
-            images: Vec::new(),
-            redirects: Vec::new(),
-            served: Vec::new(),
-            inputs: Default::default(),
+            ..Manifest::new(BuildId(Fingerprint::of("build")), "0.1.0", 0)
         };
         Bundle::new(PathBuf::from("/nonexistent"), manifest, Rules::default())
     }
