@@ -393,17 +393,23 @@ async fn an_elevated_principal_reaches_a_guarded_route_and_an_unelevated_one_doe
 
     let auth = harness.state.auth_state().expect("auth mounted").clone();
 
-    // Self-clearing skip: `contribute` does not yet call `with_roles`, so no
-    // instance has a role source and the 200 below is unreachable. Those are
-    // WP-15's three lines. The moment they land this test runs rather than
-    // needing anyone to remember it — an `#[ignore]` would not.
-    if auth.roles.is_none() {
-        eprintln!(
-            "SKIPPED: `AuthState.roles` is `None` — `auth::mount::contribute` \
-             does not call `with_roles` yet (WP-15). Nothing to elevate with."
-        );
-        return;
-    }
+    // This was a self-clearing skip while `auth::mount::contribute` did not
+    // call `with_roles`: no instance had a role source, so the 200 below was
+    // unreachable and the test returned early rather than failing for work
+    // outside its package.
+    //
+    // **WP-15's three lines have landed, so the branch can no longer fire** —
+    // verified by running this with `--no-capture` and finding no marker on
+    // stdout. A branch nothing can reach reads as coverage, so it is an
+    // assertion now rather than a deletion: the precondition stays checked,
+    // and a regression that unwires the role source fails here loudly instead
+    // of silently skipping back to green.
+    assert!(
+        auth.roles.is_some(),
+        "`AuthState.roles` is `None`, so no instance has a role source and \
+         everything below is unreachable. `auth::mount::contribute` must call \
+         `with_roles` (WP-15); it did when this assertion replaced the skip."
+    );
 
     let org = harness.state.org_state().expect("an organization");
     org.write()
