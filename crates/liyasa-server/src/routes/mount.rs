@@ -215,11 +215,26 @@ fn org(app: &Arc<AppState>) -> Mount {
 /// WP-17. Two pools: the dashboard reads events from `analytics.db` and
 /// feedback and jobs from `liyasa.db`, and neither crate can open the other's.
 ///
-/// The four `with_*` builders `liyasa-analytics` offers are deliberately not
-/// used. Each needs configuration this state does not carry, and their absence
-/// is the safe reading rather than a guess: no integrations enabled, no page
-/// facts, so ANA-40's three build-dependent cards are absent instead of being
-/// computed from zeroes. Wire one when the config plumbing for it exists.
+/// Two of `liyasa-analytics`'s four `with_*` builders are wired, in
+/// `super::analytics::view`; `with_project` and `with_pages` are not, and the
+/// reason is per builder rather than general:
+///
+/// - `with_retention` — wired. ORG-30's plan cap, which only this crate can
+///   read.
+/// - `with_integrations` — wired. ANA-60's block, off `site_config`.
+/// - `with_project` — needs a `ProjectId`, which a self-hosted instance has
+///   none of. Wire it from the org path, not from here.
+/// - `with_pages` — needs page facts from the build and the verification
+///   engine. Absent is the safe reading rather than a guess: ANA-40's three
+///   build-dependent cards are absent instead of being computed from zeroes.
+///
+/// This note previously said all four were "deliberately not used" because
+/// "each needs configuration this state does not carry". That was true when it
+/// was written and false once RFC 1403 put the whole of `liyasa.json` on
+/// `AppState.config.site_config` — and nothing failed in between, because the
+/// absent reading of an absent block is the same as the absent reading of a
+/// configured one. **Name what retires a note, per item, or it outlives its
+/// reason silently.**
 fn analytics(app: &Arc<AppState>) -> Mount {
     match super::analytics::view(app) {
         Some(view) => Mount::routes(liyasa_analytics::serve::mount(Arc::new(view))),

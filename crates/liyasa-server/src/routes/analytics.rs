@@ -38,23 +38,35 @@ pub const DIGEST: JobKind = JobKind::scheduled(DIGEST_JOB, digest_due, run_diges
 pub fn view(app: &Arc<AppState>) -> Option<Analytics> {
     let store = app.store.clone()?;
     let pool = app.analytics_pool()?.clone();
-    Some(Analytics {
-        analytics: pool,
-        app: store.clone_pool(),
-        site: app.config.site.clone(),
-        project: None,
-        // ANA-06. The plan's ceiling narrows the operator's window and never
-        // widens it: `capped_by(None)` on an instance with no organization
-        // leaves the configured policy alone, and a plan more generous than
-        // the configuration changes nothing. Before this, `org/routes.rs:301`
-        // reported `analyticsRetentionDays` to an operator and nothing acted
-        // on it — a figure the system does not honour is worse than silence
-        // about it.
-        retention: liyasa_analytics::retention::Policy::default()
-            .capped_by(plan_retention_days(app)),
-        integrations: serde_json::Value::Null,
-        pages: Vec::new(),
-    })
+    // Through the builder, not a struct literal. **A builder beside a public
+    // struct literal is a seam that cannot be used**: the literal that was
+    // here named every field, so every setter was dead on arrival and could
+    // not acquire a caller without someone first noticing this line — and it
+    // would have kept its own defaults when the builder's changed.
+    Some(
+        Analytics::from_pools(pool, store.clone_pool(), app.config.site.clone())
+            // ANA-06. The plan's ceiling narrows the operator's window and
+            // never widens it: `capped_by(None)` on an instance with no
+            // organization leaves the configured policy alone, and a plan more
+            // generous than the configuration changes nothing. Before this,
+            // `org/routes.rs:301` reported `analyticsRetentionDays` to an
+            // operator and nothing acted on it — a figure the system does not
+            // honour is worse than silence about it.
+            .with_retention(
+                liyasa_analytics::retention::Policy::default().capped_by(plan_retention_days(app)),
+            )
+            // ANA-60. The block as `liyasa.json` carries it; absent is
+            // `Value::Null`, which is what the builder defaults to and what
+            // the literal hardcoded — so the dashboard's integrations cards
+            // were empty on every instance that configured some.
+            .with_integrations(
+                app.config
+                    .site_config
+                    .get("integrations")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null),
+            ),
+    )
 }
 
 /// The plan's analytics-retention ceiling, or `None` when this instance serves

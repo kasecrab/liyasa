@@ -67,3 +67,83 @@ async fn the_event_schema_is_served_without_a_dashboard_credential() {
         Some("application/schema+json")
     );
 }
+
+/// ANA-60. The `integrations` block reaches the view the dashboard is built
+/// from, and is read as configuration rather than carried as an opaque value.
+///
+/// `view()` used to build `Analytics` as a struct literal that hardcoded
+/// `integrations: Value::Null`, and `mount.rs` carried a note saying the
+/// builders were "deliberately not used" because "each needs configuration
+/// this state does not carry" — written before RFC 1403 put the whole of
+/// `liyasa.json` on `AppState.config.site_config`. The note outlived its
+/// reason, and nothing failed while it did: `configure(Null)` returns two
+/// empty vectors, so the endpoint answered with `enabled: []` on an instance
+/// that had configured a vendor, indistinguishable from one that had
+/// configured none.
+///
+/// Asserted through `configure`, not on the field: the configured vendor comes
+/// back by name, the junk key comes back as unknown, and `stuck` names the
+/// vendor that wants consent on a site with no consent provider. Those are
+/// three readings of the block, and an empty block produces none of them —
+/// where `integrations != Null` would pass on `{}`.
+#[tokio::test]
+async fn the_configured_integrations_block_reaches_the_dashboard() {
+    let (harness, _site) = Harness::new(Setup {
+        analytics: true,
+        site_config: Some(serde_json::json!({
+            "name": "docs",
+            "integrations": { "ga4": "G-XYZ", "notAVendor": true },
+        })),
+        ..Setup::new("ana60-integrations")
+    })
+    .await;
+
+    let view = liyasa_server::routes::analytics::view(&harness.state)
+        .expect("an instance with an analytics database has a dashboard view");
+    let (enabled, unknown) = liyasa_analytics::integrations::configure(&view.integrations);
+
+    let keys: Vec<&str> = enabled.iter().map(|c| c.key.as_str()).collect();
+    assert_eq!(
+        keys,
+        ["ga4"],
+        "the configured vendor must reach the dashboard; `[]` is what a \
+         hardcoded `Value::Null` produced for seven weeks"
+    );
+    assert_eq!(
+        unknown.iter().map(|u| u.0.as_str()).collect::<Vec<_>>(),
+        ["notAVendor"],
+        "an unknown key is how an operator ends up certain they enabled \
+         something they did not, so it has to survive the hop"
+    );
+    assert_eq!(
+        liyasa_analytics::integrations::gated_without_a_provider(&enabled)
+            .iter()
+            .map(|c| c.key.as_str())
+            .collect::<Vec<_>>(),
+        ["ga4"],
+        "ga4 wants consent and this site configures no provider"
+    );
+}
+
+/// The other half: absent must not read as configured-and-empty.
+///
+/// `with_integrations` defaults to `Value::Null` and so did the literal, so
+/// this passed before the change too — it is here because the mapping from
+/// "no `integrations` key" to `Null` is now written out in `view()`, and
+/// `unwrap_or(Value::Null)` is the kind of line a later edit turns into
+/// `unwrap_or_default()`, which for `Value` is `Null` today and is not
+/// guaranteed to stay that way.
+#[tokio::test]
+async fn a_site_that_configures_no_integrations_enables_none() {
+    let (harness, _site) = Harness::new(Setup {
+        analytics: true,
+        site_config: Some(serde_json::json!({ "name": "docs" })),
+        ..Setup::new("ana60-no-integrations")
+    })
+    .await;
+
+    let view = liyasa_server::routes::analytics::view(&harness.state).expect("a view");
+    assert!(view.integrations.is_null(), "{:?}", view.integrations);
+    let (enabled, unknown) = liyasa_analytics::integrations::configure(&view.integrations);
+    assert!(enabled.is_empty() && unknown.is_empty());
+}
