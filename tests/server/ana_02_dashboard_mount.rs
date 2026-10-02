@@ -9,7 +9,11 @@
 //! `liyasa-analytics`'s job and already done there.
 
 use http::StatusCode;
-use liyasa_tests::server::{Harness, Setup, expect_status};
+use liyasa_server::auth::roles::{Grant, Role};
+use liyasa_server::auth::session::Principal;
+use liyasa_server::org::model::Member;
+use liyasa_tests::server::{Harness, Setup, body_json, expect_status};
+use serde_json::json;
 
 fn with_analytics(name: &str) -> Setup {
     Setup {
@@ -168,4 +172,76 @@ async fn a_site_that_configures_no_integrations_enables_none() {
     assert!(view.integrations.is_null(), "{:?}", view.integrations);
     let (enabled, unknown) = liyasa_analytics::integrations::configure(&view.integrations);
     assert!(enabled.is_empty() && unknown.is_empty());
+}
+
+/// The last hop, over real HTTP with a real credential: the handler reads the
+/// block off the state the builder set.
+///
+/// The two tests above stop at `view()`, which is where this package's code
+/// ends — they would both pass if `vendors` read some other field. This one
+/// asks the dashboard. It needs a `DashboardRead` grant to get past the
+/// subtree's guard, which is why it was not the first thing written: the
+/// mechanism for reaching a guarded route in a test is `tests/server/mount.rs`'s
+/// and was not obvious from this file.
+#[tokio::test]
+async fn an_editor_reads_the_configured_integrations_over_http() {
+    let (harness, _site) = Harness::new(Setup {
+        analytics: true,
+        site_config: Some(json!({
+            "name": "Acme docs",
+            "seo": { "canonicalOrigin": "https://docs.acme.com" },
+            "auth": { "mode": "password" },
+            "integrations": { "ga4": "G-XYZ", "notAVendor": true },
+        })),
+        ..Setup::new("ana60-http")
+    })
+    .await;
+
+    let auth = harness.state.auth_state().expect("auth mounted").clone();
+    let org = harness.state.org_state().expect("an organization");
+    org.write()
+        .org
+        .add_member(Member::new(
+            "an-editor",
+            "editor@example.com",
+            Grant::role(Role::Editor),
+        ))
+        .expect("the member is added");
+    let token = auth
+        .tokens
+        .issue_personal(
+            &Principal::new("an-editor"),
+            "ci",
+            &Default::default(),
+            None,
+        )
+        .expect("a token");
+
+    let response = harness
+        .get_with(
+            "/_liyasa/api/v1/analytics/integrations",
+            &[("authorization", &format!("Bearer {}", token.secret))],
+        )
+        .await;
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "`Editor` carries `DashboardRead` (AUTH-30's table) and the subtree is \
+         guarded by it; a 401 here means the credential, not the integrations"
+    );
+
+    let body = body_json(response).await;
+    assert_eq!(
+        body["enabled"][0]["key"], "ga4",
+        "the dashboard reports the configured vendor: {body}"
+    );
+    assert_eq!(
+        body["enabled"][0]["name"], "Google Analytics 4",
+        "resolved against the catalogue rather than echoed: {body}"
+    );
+    assert_eq!(body["unknown"][0], "notAVendor", "{body}");
+    assert_eq!(
+        body["stuck"][0], "ga4",
+        "ga4 wants consent and this site configures no provider: {body}"
+    );
 }
