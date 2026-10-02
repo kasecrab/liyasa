@@ -11,6 +11,7 @@
 // state they render.
 
 import { html, raw } from "./escape.ts";
+import { isRecord } from "./text.ts";
 import type { Fragment } from "./escape.ts";
 import { buildModel, editBlock, editBlocks, serializeModel } from "./model.ts";
 import type { EditorModel, MarkdownBlock } from "./model.ts";
@@ -42,7 +43,7 @@ import { renderActivity, renderConflict, renderDrafts, renderEmpty, renderMedia 
 import { chipTooltip, expressionCompletions, renderBlock, renderChip, renderCode, renderComponent, renderExpressionEditor, renderLogicBlock, renderNode, renderOpaque, renderSurface, unexpanded } from "./view/blocks.ts";
 import { askLabel, describeContext, renderCappedRows, renderContextToolbar, renderHelp, renderProposal, renderTaskForm, renderTaskList, renderTemplatePicker, renderTourStep, renderVocabulary, termsIn } from "./view/guides.ts";
 import { START, actionFor, announcementFor, landmarkFor, reduce, renderPanel } from "./view/shell.ts";
-import type { Action, ShellState } from "./view/shell.ts";
+import type { Action, OpenDraft, ShellState } from "./view/shell.ts";
 
 /** What the shell holds while a draft is open. */
 interface State {
@@ -175,8 +176,9 @@ function mount(): void {
   document.addEventListener("keydown", onKey);
   document.addEventListener("focusin", onFocus);
   apply({ do: "first-visit", seen: shell.tourSeen });
+  openEmbeddedDraft();
 
-  announce("Editor ready");
+  announce(state.model === null ? "Editor ready" : `${state.path || "A draft"} opened.`);
 }
 
 // --- the panels -------------------------------------------------------------
@@ -186,6 +188,102 @@ function mount(): void {
 // read the attributes off the clicked control, apply the result, move focus.
 
 let shell: ShellState = START;
+
+/**
+ * The draft on screen, or `null` before one arrives.
+ *
+ * Separate from `shell` because the panel machine is a pure function of actions
+ * and this is a function of the network. Keeping them apart is what lets every
+ * panel decision be tested without a document and every document be rendered
+ * without replaying a click.
+ */
+let open: OpenDraft | null = null;
+
+/**
+ * Opens a draft: the one entry point between "the editor has a document" and
+ * everything that draws one.
+ *
+ * It reads the draft out of the page rather than fetching it. The route that
+ * will serve `/_liyasa/editor/` already has the parsed document in hand when it
+ * renders the shell, so embedding it costs nothing and saves the editor a round
+ * trip before it can show anything — and it means the first paint is not behind
+ * a request. `api.ts` marks every editor route `unbuilt`, so today nothing
+ * embeds one and this returns having done nothing.
+ */
+function openEmbeddedDraft(): void {
+  const carrier = document.querySelector('script[type="application/json"][data-draft]');
+  if (!carrier?.textContent) return;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(carrier.textContent);
+  } catch {
+    // A malformed payload is the server's bug and the author's problem either
+    // way, so it is said out loud rather than swallowed into a blank editor.
+    announce("This draft could not be read. Nothing has been opened.");
+    return;
+  }
+  if (!isRecord(payload) || typeof payload["source"] !== "string" || !isRecord(payload["document"])) {
+    announce("This draft could not be read. Nothing has been opened.");
+    return;
+  }
+  const source = payload["source"];
+  const path = typeof payload["path"] === "string" ? payload["path"] : "";
+  state.source = source;
+  state.path = path;
+  state.baseText = source;
+  state.model = buildModel(payload["document"] as never, source);
+  // The schema travels with the draft rather than being fetched. An earlier
+  // version pulled `/schemas/frontmatter.json`, which assumes whoever serves the
+  // bundle also serves the repository's `schemas/` directory — the e2e server
+  // does not, so the form silently never drew and only clicking the button
+  // showed it. The server that has the document has the schema too.
+  open = {
+    model: state.model,
+    source,
+    schema: isRecord(payload["schema"]) ? (payload["schema"] as never) : null,
+  };
+  drawDraft();
+}
+
+/** Everything that depends on the open draft, drawn once. */
+function drawDraft(): void {
+  if (!state.model) return;
+  // `renderSurface` emits the `[data-editor-surface]` element itself, and the
+  // shell ships one so the page is not blank before the bundle runs. Replacing
+  // its *children* nested a surface inside a surface and every selector for it
+  // then matched twice; the rendered one replaces it outright.
+  const surface = document.querySelector("[data-editor-surface]");
+  if (surface) {
+    const holder = document.createElement("div");
+    holder.innerHTML = String(renderSurface(state.model, unexpanded()));
+    surface.replaceWith(...holder.childNodes);
+  }
+  // Deliberately *not* `renderToolbar` here. It emits its own
+  // `<header class="toolbar">`, so mounting it inside the shell's header nests
+  // one inside the other — the same mistake as the surface — and it predates the
+  // guide controls, so replacing the header outright would delete the six
+  // buttons that do work. It has been superseded by `index.html`; what is real
+  // in it is the role-aware primary action, and that is applied here instead.
+  const primary = primaryAction(state.grant);
+  const action = document.querySelector("[data-action]");
+  if (action) {
+    action.setAttribute("data-action", primary.action);
+    action.textContent = primary.label;
+  }
+  replace("[data-problems]", renderProblems(state.source, []));
+  const status = document.querySelector("[data-draft-status]");
+  if (status) status.textContent = state.path === "" ? "Draft open." : `Editing ${state.path}`;
+  announce(`${state.path || "A draft"} opened.`);
+}
+
+/** Replaces a region's contents with a fragment. */
+function replace(selector: string, fragment: Fragment): void {
+  const region = document.querySelector(selector);
+  if (!region) return;
+  const holder = document.createElement("div");
+  holder.innerHTML = String(fragment);
+  region.replaceChildren(...holder.childNodes);
+}
 
 const TOUR_SEEN = "liyasa.editor.tourSeen";
 
@@ -218,9 +316,43 @@ function attributesOf(node: Element): Record<string, string> {
   return out;
 }
 
+/**
+ * ED-02's source mode.
+ *
+ * Both modes render from the same `SourceDocument`, so switching is a re-render
+ * and cannot lose anything — which is ED-03(d), and is a property of the model
+ * rather than of this function. What this owes is that the switch exists at all:
+ * the button has been in the shell since the first commit with nothing bound to
+ * it.
+ */
+function switchMode(): void {
+  if (!state.model) {
+    announce("There is no draft open to switch.");
+    return;
+  }
+  state.mode = state.mode === "visual" ? "source" : "visual";
+  const host = document.querySelector("[data-editor-surface], [data-source-mode]");
+  if (!host) return;
+  const holder = document.createElement("div");
+  holder.innerHTML =
+    state.mode === "source"
+      ? String(renderSourceMode({ document: state.model.document, source: state.source, problemLines: [] }))
+      : String(renderSurface(state.model, unexpanded()));
+  host.replaceWith(...holder.childNodes);
+  for (const button of document.querySelectorAll("[data-mode-switch]")) {
+    button.textContent = state.mode === "visual" ? "Source" : "Visual";
+  }
+  announce(state.mode === "source" ? "Source mode." : "Visual mode.");
+}
+
 function onClick(event: MouseEvent): void {
   const target = event.target;
   if (!(target instanceof Element)) return;
+  if (target.closest("[data-mode-switch]")) {
+    event.preventDefault();
+    switchMode();
+    return;
+  }
   // `closest` rather than the target itself: the control may be a `<strong>`
   // inside the button, which is what a template choice is.
   const control = target.closest("button, [data-choose-template], [data-choose-task]");
@@ -233,6 +365,13 @@ function onClick(event: MouseEvent): void {
 }
 
 function onKey(event: KeyboardEvent): void {
+  if (event.key.toLowerCase() === "e" && event.ctrlKey && !event.altKey && !event.metaKey) {
+    // `renderToolbar` has advertised `aria-keyshortcuts="Control+E"` all along,
+    // which is a promise the shell had not kept.
+    event.preventDefault();
+    switchMode();
+    return;
+  }
   if (event.key === "Escape" && shell.panel.kind !== "none") {
     event.preventDefault();
     apply({ do: "close" });
@@ -290,11 +429,16 @@ function markOpener(control: Element, action: Action): void {
 }
 
 function apply(action: Action): void {
-  const before = shell.panel.kind;
+  // The whole panel, not just its `kind`. Comparing kinds missed every change
+  // *within* one: advancing the tour from step 1 to step 2 stays `"tour"`, so
+  // the step changed on screen and a screen reader was told nothing. The same
+  // held for choosing a template and for moving the properties pane to another
+  // block — three silent changes from one comparison at the wrong granularity.
+  const before = JSON.stringify(shell.panel);
   shell = reduce(shell, action);
   if (shell.tourSeen) rememberTourSeen();
   paint();
-  if (shell.panel.kind !== before) announce(announcementFor(shell));
+  if (JSON.stringify(shell.panel) !== before) announce(announcementFor(shell, open));
   const pressed = document.querySelector("[data-advanced]");
   pressed?.setAttribute("aria-pressed", shell.advanced ? "true" : "false");
 }
@@ -310,7 +454,7 @@ function paint(): void {
   const host = document.querySelector(landmarkFor(shell.panel) ?? "[data-panel]");
   if (!host) return;
   const holder = document.createElement("div");
-  holder.innerHTML = String(renderPanel(shell));
+  holder.innerHTML = String(renderPanel(shell, open));
   // The tour goes beside the shell rather than inside the panel column, because
   // a step points at something on screen and cannot sit inside what it points at.
   host.append(...holder.childNodes);

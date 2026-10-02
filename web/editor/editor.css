@@ -419,8 +419,24 @@ button {
 .term-git { font-variant: small-caps; }
 
 /* ED-74: the tour points at the editor, so it sits above it and stays small. */
+/* ED-74's tour step.
+ *
+ * `position: fixed` at the foot of the viewport, not `absolute`. As an absolute
+ * box with auto offsets its static position inside the shell's grid resolved to
+ * (0, 0) — a 410x226 panel over the top-left of the toolbar, so on a first visit
+ * `elementFromPoint` on the mode switch returned the tour's own `<h2>` and the
+ * first thing a new author could do was nothing. Fixed placement does not depend
+ * on where the grid would have put it.
+ *
+ * And `pointer-events: none`, with the content taking them back. The step is
+ * `aria-modal="false"`, which is a promise that the page underneath stays usable;
+ * a box that swallows clicks across a third of the viewport is modal whatever the
+ * attribute says. Keeping those two in step is the whole point of declaring it. */
 .tour-step {
-  position: absolute;
+  position: fixed;
+  bottom: var(--ly-space-4);
+  left: var(--ly-space-4);
+  pointer-events: none;
   z-index: 20;
   /* `min()` rather than a media query: 24rem is 384px and a phone is 390px, so
    * the box plus its padding and border overflows before any breakpoint fires. */
@@ -431,6 +447,8 @@ button {
   border-radius: var(--ly-radius-md);
 }
 
+/* The step's own controls are the exception: they are what it is for. */
+.tour-step > * { pointer-events: auto; }
 .tour-step h2 { font-size: var(--ly-text-lg); margin-top: 0; }
 .tour-progress { font-size: var(--ly-text-xs); color: var(--ly-color-text-muted); }
 

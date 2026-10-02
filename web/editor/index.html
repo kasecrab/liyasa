@@ -18,14 +18,19 @@
 
       <header class="toolbar" data-landmark="Editor toolbar">
         <strong>Liyasa editor</strong>
-        <button type="button" data-mode-switch>Source</button>
+        <button type="button" data-mode-switch aria-keyshortcuts="Control+E">Source</button>
         <button type="button" data-action="suggest" class="primary">Submit for review</button>
         <button type="button" data-help aria-keyshortcuts="?">Help</button>
         <button type="button" data-open-tasks>Tasks</button>
         <button type="button" data-open-templates>Templates</button>
         <button type="button" data-open-tour>Take the tour</button>
         <button type="button" data-open-vocabulary>What these words mean</button>
+        <button type="button" data-open-frontmatter>Page settings</button>
         <button type="button" data-advanced aria-pressed="false">Advanced</button>
+        <!-- Filled by `renderToolbar` once a draft is open: the actions that
+             depend on the author's grant cannot be in static markup, because
+             the shell does not know who they are until the draft arrives. -->
+        <span class="toolbar-actions" data-toolbar-actions></span>
       </header>
 
       <nav class="pages" data-landmark="Pages" data-drafts>

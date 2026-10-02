@@ -63,6 +63,75 @@ function renderFragmentValue(value         )         {
   return escapeHtml(value);
 }
 
+// The text arithmetic several modules need, in one place.
+//
+// It is here rather than repeated because the bundler requires every binding
+// to be declared once across the entry graph (RFC 1100), and because the byte
+// conversion in particular is the kind of thing that is right in one copy and
+// subtly wrong in the next: the API's spans are **byte** offsets into UTF-8 and
+// every string the editor holds is UTF-16.
+
+/** Maps a byte offset in `text` to its string index. Builds the map once. */
+function byteIndex(text        )                             {
+  const encoder = new TextEncoder();
+  const map = new Map                ();
+  let at = 0;
+  for (let index = 0; index < text.length; ) {
+    map.set(at, index);
+    const point = text.codePointAt(index)          ;
+    const unit = String.fromCodePoint(point);
+    at += encoder.encode(unit).length;
+    index += unit.length;
+  }
+  map.set(at, text.length);
+  const total = at;
+  return (offset) => map.get(Math.min(Math.max(offset, 0), total)) ?? text.length;
+}
+
+/** One byte offset, without building a map. For a short string or a single call. */
+function byteToIndex(text        , offset        )         {
+  const encoder = new TextEncoder();
+  let bytes = 0;
+  let index = 0;
+  for (const character of text) {
+    if (bytes >= offset) break;
+    bytes += encoder.encode(character).length;
+    index += character.length;
+  }
+  return index;
+}
+
+/** The string index each line of `text` starts at, the first being 0. */
+function lineStarts(text        )           {
+  const starts = [0];
+  for (let at = 0; at < text.length; at += 1) if (text[at] === "\n") starts.push(at + 1);
+  return starts;
+}
+
+/** The 0-based line an offset falls on. */
+function lineOf(starts          , at        )         {
+  let line = 0;
+  while (line + 1 < starts.length && (starts[line + 1]          ) <= at) line += 1;
+  return line;
+}
+
+/** One line of `text`, without its newline. */
+function lineText(text        , starts          , line        )         {
+  const start = starts[line]          ;
+  const end = starts[line + 1] ?? text.length + 1;
+  return text.slice(start, end - 1).replace(/\n$/, "");
+}
+
+/** Escapes `text` so it matches itself inside a regular expression. */
+function escapeRegExp(text        )         {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** A plain object, and not an array or `null`. */
+function isRecord(value         )                                   {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 // ED-01's document model: the editor's tree is built from the **Source
 // Document**, never from the Rendered AST.
 //
@@ -484,75 +553,6 @@ function ownerOf(
     return undefined;
   };
   return walk(model.nodes);
-}
-
-// The text arithmetic several modules need, in one place.
-//
-// It is here rather than repeated because the bundler requires every binding
-// to be declared once across the entry graph (RFC 1100), and because the byte
-// conversion in particular is the kind of thing that is right in one copy and
-// subtly wrong in the next: the API's spans are **byte** offsets into UTF-8 and
-// every string the editor holds is UTF-16.
-
-/** Maps a byte offset in `text` to its string index. Builds the map once. */
-function byteIndex(text        )                             {
-  const encoder = new TextEncoder();
-  const map = new Map                ();
-  let at = 0;
-  for (let index = 0; index < text.length; ) {
-    map.set(at, index);
-    const point = text.codePointAt(index)          ;
-    const unit = String.fromCodePoint(point);
-    at += encoder.encode(unit).length;
-    index += unit.length;
-  }
-  map.set(at, text.length);
-  const total = at;
-  return (offset) => map.get(Math.min(Math.max(offset, 0), total)) ?? text.length;
-}
-
-/** One byte offset, without building a map. For a short string or a single call. */
-function byteToIndex(text        , offset        )         {
-  const encoder = new TextEncoder();
-  let bytes = 0;
-  let index = 0;
-  for (const character of text) {
-    if (bytes >= offset) break;
-    bytes += encoder.encode(character).length;
-    index += character.length;
-  }
-  return index;
-}
-
-/** The string index each line of `text` starts at, the first being 0. */
-function lineStarts(text        )           {
-  const starts = [0];
-  for (let at = 0; at < text.length; at += 1) if (text[at] === "\n") starts.push(at + 1);
-  return starts;
-}
-
-/** The 0-based line an offset falls on. */
-function lineOf(starts          , at        )         {
-  let line = 0;
-  while (line + 1 < starts.length && (starts[line + 1]          ) <= at) line += 1;
-  return line;
-}
-
-/** One line of `text`, without its newline. */
-function lineText(text        , starts          , line        )         {
-  const start = starts[line]          ;
-  const end = starts[line + 1] ?? text.length + 1;
-  return text.slice(start, end - 1).replace(/\n$/, "");
-}
-
-/** Escapes `text` so it matches itself inside a regular expression. */
-function escapeRegExp(text        )         {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** A plain object, and not an array or `null`. */
-function isRecord(value         )                                   {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // ED-02: the source mode.
@@ -7275,6 +7275,11 @@ function renderOpaque(node            )           {
 
 
 
+
+
+
+
+
 /** Which panel the shell is showing, and its own state. */
                    
                     
@@ -7283,7 +7288,13 @@ function renderOpaque(node            )           {
                                           
                      
                                 
-                           
+                          
+                                                                              
+                                                                           
+                                                                                
+                                         
+                                     
+                            
 
                              
                
@@ -7321,7 +7332,10 @@ const START             = {
                              
                    
                                         
-                                     
+                                    
+                                            
+                                        
+                               
 
 /**
  * The next state.
@@ -7392,6 +7406,21 @@ function reduce(state            , action        )             {
       return action.seen || state.tourSeen || state.panel.kind !== "none"
         ? { ...state, tourSeen: action.seen || state.tourSeen }
         : { ...state, panel: { kind: "tour", step: 0 }, focus: "[data-tour-next]" };
+    case "open-properties":
+      // Re-pressing the same block's handle closes, as everywhere else; pressing
+      // a *different* block's swaps rather than closing, because the author is
+      // moving along the page rather than dismissing a panel.
+      return state.panel.kind === "properties" && state.panel.block === action.block
+        ? closed(state)
+        : { ...state, panel: { kind: "properties", block: action.block }, focus: "[data-prop]" };
+    case "edit-source":
+      return state.panel.kind === "source" && state.panel.block === action.block
+        ? closed(state)
+        : { ...state, panel: { kind: "source", block: action.block }, focus: "[data-source-popover] [data-source-editor]" };
+    case "open-frontmatter":
+      return state.panel.kind === "frontmatter"
+        ? closed(state)
+        : { ...state, panel: { kind: "frontmatter" }, focus: "[data-frontmatter] input, [data-frontmatter] select, [data-frontmatter] textarea" };
     case "context":
       // Changing what the author is looking at re-points open help at it, and
       // leaves every other panel alone.
@@ -7414,8 +7443,29 @@ function closed(state            )             {
   return { ...state, panel: { kind: "none" }, focus: "[data-panel-opener]" };
 }
 
+/**
+ * What the shell knows about the draft on screen.
+ *
+ * Passed to `renderPanel` rather than held in `ShellState`, so the machine has
+ * nothing to keep in step with the document and `reduce` stays a pure function
+ * of actions. `null` is the state the editor is in until a draft arrives.
+ */
+                            
+                     
+                 
+                                                                              
+                                                  
+ 
+
+/** The node an action named, or nothing when the draft does not have it. */
+function blockIn(open                  , id        )                         {
+  if (!open) return undefined;
+  const found = flatten(open.model).find((each) => "kind" in each && each.id === id);
+  return found                          ;
+}
+
 /** The panel, drawn. */
-function renderPanel(state            )           {
+function renderPanel(state            , open                   = null)           {
   switch (state.panel.kind) {
     case "none":
       return html``;
@@ -7431,7 +7481,58 @@ function renderPanel(state            )           {
       return renderTaskForm(state.panel.id);
     case "vocabulary":
       return renderVocabulary(true);
+    case "properties": {
+      const node = blockIn(open, state.panel.block);
+      if (!node) return noDraft("the properties of a block", state.panel.block);
+      return renderProperties({
+        component: node.name ?? node.kind,
+        props: node.props ?? {},
+        block: node.id,
+      });
+    }
+    case "source": {
+      const node = blockIn(open, state.panel.block);
+      if (!node) return noDraft("the source of a block", state.panel.block);
+      return renderSourcePopover({
+        block: node.id,
+        text: node.text,
+        reason: opaqueReason(node.kind, node.text),
+      });
+    }
+    case "frontmatter": {
+      if (!open) return noDraft("the page settings", "frontmatter");
+      if (!open.schema) return noSchema();
+      const values = parseFrontmatter(open.model.frontmatter).fields;
+      return renderFrontmatterForm({
+        fields: formFields(open.schema),
+        values,
+        validation: validateFrontmatter(open.schema, values),
+        advanced: state.advanced,
+      });
+    }
   }
+}
+
+/**
+ * What a panel says when the draft it needs is not there.
+ *
+ * The same distinction `panes.ts` draws: this is not an empty form, it is an
+ * unknown one. A blank properties panel would read as "this component has no
+ * properties", which is a claim about the component rather than about the build.
+ */
+function noDraft(what        , id        )           {
+  return html`<p class="empty unserved" data-unserved="ED-20" data-wanted="${id}">
+    Nothing has opened a draft in this build yet, so ${what} is not available. The
+    editor's draft route is not served.
+  </p>`;
+}
+
+/** The schema is fetched, so it can be absent for a moment or for good. */
+function noSchema()           {
+  return html`<p class="empty unserved" data-unserved="ED-11">
+    The page settings form is generated from the project's schema, and the schema
+    has not loaded. Nothing is shown rather than a form with no rules behind it.
+  </p>`;
 }
 
 /**
@@ -7448,6 +7549,10 @@ function landmarkFor(panel       )                {
       return null;
     case "tour":
       return "[data-editor]";
+    case "source":
+      // ED-03(c) calls it a popover: it belongs over the block whose bytes it
+      // shows, not in a column somewhere else on the page.
+      return `[data-block="${panel.block}"]`;
     default:
       return "[data-panel]";
   }
@@ -7459,7 +7564,7 @@ function landmarkFor(panel       )                {
  * A panel that appears silently is a panel a screen reader user does not know
  * about: the visual change is the announcement for everybody else.
  */
-function announcementFor(state            )         {
+function announcementFor(state            , open                   = null)         {
   switch (state.panel.kind) {
     case "none":
       return "Closed.";
@@ -7475,6 +7580,17 @@ function announcementFor(state            )         {
       return `${state.panel.id} opened. Nothing changes until you submit it.`;
     case "vocabulary":
       return "Word list opened.";
+    case "properties": {
+      // Named, because moving the pane from one block to the next is a change a
+      // screen reader is otherwise told nothing about: "Properties opened."
+      // twice in a row says the same thing about two different blocks.
+      const node = blockIn(open, state.panel.block);
+      return node ? `Properties for ${node.name ?? node.kind}.` : "Properties opened.";
+    }
+    case "source":
+      return "Editing this block as source.";
+    case "frontmatter":
+      return "Page settings opened.";
   }
 }
 
@@ -7499,6 +7615,11 @@ function actionFor(attributes                        )                {
   if ("data-cancel-task" in attributes) return { do: "cancel-task" };
   if ("data-open-vocabulary" in attributes) return { do: "open-vocabulary" };
   if ("data-advanced" in attributes) return { do: "toggle-advanced" };
+  if ("data-open-properties" in attributes) {
+    return { do: "open-properties", block: attributes["data-open-properties"] ?? "" };
+  }
+  if ("data-edit-source" in attributes) return { do: "edit-source", block: attributes["data-edit-source"] ?? "" };
+  if ("data-open-frontmatter" in attributes) return { do: "open-frontmatter" };
   if ("data-close-panel" in attributes) return { do: "close" };
   return null;
 }
@@ -7514,6 +7635,7 @@ function actionFor(attributes                        )                {
 // Nothing here runs under `node --test`. What is testable about the shell is
 // the markup its renderers produce, and those are pure and live beside the
 // state they render.
+
 
 
 
@@ -7674,8 +7796,9 @@ function mount()       {
   document.addEventListener("keydown", onKey);
   document.addEventListener("focusin", onFocus);
   apply({ do: "first-visit", seen: shell.tourSeen });
+  openEmbeddedDraft();
 
-  announce("Editor ready");
+  announce(state.model === null ? "Editor ready" : `${state.path || "A draft"} opened.`);
 }
 
 // --- the panels -------------------------------------------------------------
@@ -7685,6 +7808,102 @@ function mount()       {
 // read the attributes off the clicked control, apply the result, move focus.
 
 let shell             = START;
+
+/**
+ * The draft on screen, or `null` before one arrives.
+ *
+ * Separate from `shell` because the panel machine is a pure function of actions
+ * and this is a function of the network. Keeping them apart is what lets every
+ * panel decision be tested without a document and every document be rendered
+ * without replaying a click.
+ */
+let open                   = null;
+
+/**
+ * Opens a draft: the one entry point between "the editor has a document" and
+ * everything that draws one.
+ *
+ * It reads the draft out of the page rather than fetching it. The route that
+ * will serve `/_liyasa/editor/` already has the parsed document in hand when it
+ * renders the shell, so embedding it costs nothing and saves the editor a round
+ * trip before it can show anything — and it means the first paint is not behind
+ * a request. `api.ts` marks every editor route `unbuilt`, so today nothing
+ * embeds one and this returns having done nothing.
+ */
+function openEmbeddedDraft()       {
+  const carrier = document.querySelector('script[type="application/json"][data-draft]');
+  if (!carrier?.textContent) return;
+  let payload         ;
+  try {
+    payload = JSON.parse(carrier.textContent);
+  } catch {
+    // A malformed payload is the server's bug and the author's problem either
+    // way, so it is said out loud rather than swallowed into a blank editor.
+    announce("This draft could not be read. Nothing has been opened.");
+    return;
+  }
+  if (!isRecord(payload) || typeof payload["source"] !== "string" || !isRecord(payload["document"])) {
+    announce("This draft could not be read. Nothing has been opened.");
+    return;
+  }
+  const source = payload["source"];
+  const path = typeof payload["path"] === "string" ? payload["path"] : "";
+  state.source = source;
+  state.path = path;
+  state.baseText = source;
+  state.model = buildModel(payload["document"]         , source);
+  // The schema travels with the draft rather than being fetched. An earlier
+  // version pulled `/schemas/frontmatter.json`, which assumes whoever serves the
+  // bundle also serves the repository's `schemas/` directory — the e2e server
+  // does not, so the form silently never drew and only clicking the button
+  // showed it. The server that has the document has the schema too.
+  open = {
+    model: state.model,
+    source,
+    schema: isRecord(payload["schema"]) ? (payload["schema"]         ) : null,
+  };
+  drawDraft();
+}
+
+/** Everything that depends on the open draft, drawn once. */
+function drawDraft()       {
+  if (!state.model) return;
+  // `renderSurface` emits the `[data-editor-surface]` element itself, and the
+  // shell ships one so the page is not blank before the bundle runs. Replacing
+  // its *children* nested a surface inside a surface and every selector for it
+  // then matched twice; the rendered one replaces it outright.
+  const surface = document.querySelector("[data-editor-surface]");
+  if (surface) {
+    const holder = document.createElement("div");
+    holder.innerHTML = String(renderSurface(state.model, unexpanded()));
+    surface.replaceWith(...holder.childNodes);
+  }
+  // Deliberately *not* `renderToolbar` here. It emits its own
+  // `<header class="toolbar">`, so mounting it inside the shell's header nests
+  // one inside the other — the same mistake as the surface — and it predates the
+  // guide controls, so replacing the header outright would delete the six
+  // buttons that do work. It has been superseded by `index.html`; what is real
+  // in it is the role-aware primary action, and that is applied here instead.
+  const primary = primaryAction(state.grant);
+  const action = document.querySelector("[data-action]");
+  if (action) {
+    action.setAttribute("data-action", primary.action);
+    action.textContent = primary.label;
+  }
+  replace("[data-problems]", renderProblems(state.source, []));
+  const status = document.querySelector("[data-draft-status]");
+  if (status) status.textContent = state.path === "" ? "Draft open." : `Editing ${state.path}`;
+  announce(`${state.path || "A draft"} opened.`);
+}
+
+/** Replaces a region's contents with a fragment. */
+function replace(selector        , fragment          )       {
+  const region = document.querySelector(selector);
+  if (!region) return;
+  const holder = document.createElement("div");
+  holder.innerHTML = String(fragment);
+  region.replaceChildren(...holder.childNodes);
+}
 
 const TOUR_SEEN = "liyasa.editor.tourSeen";
 
@@ -7717,9 +7936,43 @@ function attributesOf(node         )                         {
   return out;
 }
 
+/**
+ * ED-02's source mode.
+ *
+ * Both modes render from the same `SourceDocument`, so switching is a re-render
+ * and cannot lose anything — which is ED-03(d), and is a property of the model
+ * rather than of this function. What this owes is that the switch exists at all:
+ * the button has been in the shell since the first commit with nothing bound to
+ * it.
+ */
+function switchMode()       {
+  if (!state.model) {
+    announce("There is no draft open to switch.");
+    return;
+  }
+  state.mode = state.mode === "visual" ? "source" : "visual";
+  const host = document.querySelector("[data-editor-surface], [data-source-mode]");
+  if (!host) return;
+  const holder = document.createElement("div");
+  holder.innerHTML =
+    state.mode === "source"
+      ? String(renderSourceMode({ document: state.model.document, source: state.source, problemLines: [] }))
+      : String(renderSurface(state.model, unexpanded()));
+  host.replaceWith(...holder.childNodes);
+  for (const button of document.querySelectorAll("[data-mode-switch]")) {
+    button.textContent = state.mode === "visual" ? "Source" : "Visual";
+  }
+  announce(state.mode === "source" ? "Source mode." : "Visual mode.");
+}
+
 function onClick(event            )       {
   const target = event.target;
   if (!(target instanceof Element)) return;
+  if (target.closest("[data-mode-switch]")) {
+    event.preventDefault();
+    switchMode();
+    return;
+  }
   // `closest` rather than the target itself: the control may be a `<strong>`
   // inside the button, which is what a template choice is.
   const control = target.closest("button, [data-choose-template], [data-choose-task]");
@@ -7732,6 +7985,13 @@ function onClick(event            )       {
 }
 
 function onKey(event               )       {
+  if (event.key.toLowerCase() === "e" && event.ctrlKey && !event.altKey && !event.metaKey) {
+    // `renderToolbar` has advertised `aria-keyshortcuts="Control+E"` all along,
+    // which is a promise the shell had not kept.
+    event.preventDefault();
+    switchMode();
+    return;
+  }
   if (event.key === "Escape" && shell.panel.kind !== "none") {
     event.preventDefault();
     apply({ do: "close" });
@@ -7789,11 +8049,16 @@ function markOpener(control         , action        )       {
 }
 
 function apply(action        )       {
-  const before = shell.panel.kind;
+  // The whole panel, not just its `kind`. Comparing kinds missed every change
+  // *within* one: advancing the tour from step 1 to step 2 stays `"tour"`, so
+  // the step changed on screen and a screen reader was told nothing. The same
+  // held for choosing a template and for moving the properties pane to another
+  // block — three silent changes from one comparison at the wrong granularity.
+  const before = JSON.stringify(shell.panel);
   shell = reduce(shell, action);
   if (shell.tourSeen) rememberTourSeen();
   paint();
-  if (shell.panel.kind !== before) announce(announcementFor(shell));
+  if (JSON.stringify(shell.panel) !== before) announce(announcementFor(shell, open));
   const pressed = document.querySelector("[data-advanced]");
   pressed?.setAttribute("aria-pressed", shell.advanced ? "true" : "false");
 }
@@ -7809,7 +8074,7 @@ function paint()       {
   const host = document.querySelector(landmarkFor(shell.panel) ?? "[data-panel]");
   if (!host) return;
   const holder = document.createElement("div");
-  holder.innerHTML = String(renderPanel(shell));
+  holder.innerHTML = String(renderPanel(shell, open));
   // The tour goes beside the shell rather than inside the panel column, because
   // a step points at something on screen and cannot sit inside what it points at.
   host.append(...holder.childNodes);
