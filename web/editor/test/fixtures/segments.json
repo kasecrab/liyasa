@@ -478,6 +478,114 @@
   },
   {
     "document": {
+      "frontmatter": {
+        "span": {
+          "end": 172,
+          "source": 0,
+          "start": 0
+        },
+        "typed": {
+          "access": null,
+          "ai": null,
+          "asyncapi": null,
+          "authors": [],
+          "canonical": null,
+          "date": null,
+          "description": "A page of the shapes ED-03(c) calls opaque, so the editor's tests have one.",
+          "draft": null,
+          "facts": {},
+          "graphql": null,
+          "groups": [],
+          "hidden": null,
+          "icon": null,
+          "iconType": null,
+          "id": "01JBQ7Z9W6K4M2N8P0R3T5V7XA",
+          "keywords": [],
+          "locales": [],
+          "mode": null,
+          "noindex": null,
+          "og": null,
+          "openapi": null,
+          "personalized": null,
+          "product": null,
+          "regions": null,
+          "related": [],
+          "reviewed": null,
+          "search": null,
+          "sidebarTitle": null,
+          "slug": null,
+          "tag": null,
+          "template": null,
+          "title": "Constructs the editor does not model",
+          "twitter": null,
+          "updated": null,
+          "url": null,
+          "variation": [],
+          "verify": null,
+          "versions": []
+        },
+        "value": {
+          "description": "A page of the shapes ED-03(c) calls opaque, so the editor's tests have one.",
+          "id": "01JBQ7Z9W6K4M2N8P0R3T5V7XA",
+          "title": "Constructs the editor does not model"
+        }
+      },
+      "segments": [
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 606,
+            "source": 0,
+            "start": 172
+          }
+        },
+        {
+          "kind": {
+            "kind": "comment"
+          },
+          "segment": "template",
+          "span": {
+            "end": 688,
+            "source": 0,
+            "start": 606
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 761,
+            "source": 0,
+            "start": 688
+          }
+        },
+        {
+          "colons": 3,
+          "matching": null,
+          "name": "note",
+          "props": {},
+          "segment": "directiveOpen",
+          "span": {
+            "end": 769,
+            "source": 0,
+            "start": 761
+          }
+        },
+        {
+          "segment": "markdown",
+          "span": {
+            "end": 916,
+            "source": 0,
+            "start": 769
+          }
+        }
+      ],
+      "source": 0
+    },
+    "path": "opaque.md",
+    "source": "---\nid: 01JBQ7Z9W6K4M2N8P0R3T5V7XA\ntitle: Constructs the editor does not model\ndescription: A page of the shapes ED-03(c) calls opaque, so the editor's tests have one.\n---\n\nED-03(c) says a construct the visual editor does not model becomes an opaque\nnode carrying its source bytes. Those shapes were absent from every fixture\npage, so `renderOpaque` and the source popover had no segmentation to be tested\nagainst and the browser test for them could only skip.\n\n<div class=\"legacy-callout\" data-from=\"the old site\">\n  <p>Raw HTML is published exactly as written, so the editor shows the bytes.</p>\n</div>\n\n{# A template comment never reaches a reader, and the editor does not model it. #}\n\nProse between them, so the opaque runs do not merge into one segment.\n\n:::note\nA container that is never closed. The editor cannot tell where it ends, which is\nthe one shape of the four that is a mistake rather than a choice.\n"
+  },
+  {
+    "document": {
       "frontmatter": null,
       "segments": [
         {

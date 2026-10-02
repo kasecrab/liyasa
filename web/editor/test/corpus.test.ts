@@ -28,10 +28,25 @@ interface Scanned {
 const CORPUS: Scanned[] = JSON.parse(readFileSync(resolve(HERE, "fixtures/segments.json"), "utf8"));
 
 test("the corpus holds the pages the fixture claims", () => {
+  // Pinned so a page cannot vanish from the generated fixture unnoticed.
+  // `opaque.md` was added on 2026-10-02 because ED-03(c)'s browser test could
+  // only skip: the one opaque node in `limits.md` is a loop *body*, which ED-05
+  // renders as a source mini-editor by design, so it never reaches
+  // `renderOpaque` and no page produced an "edit as source" handle.
   assert.deepEqual(
     CORPUS.map((page) => page.path),
-    ["install.md", "limits.md", "plain.md"],
+    ["install.md", "limits.md", "opaque.md", "plain.md"],
   );
+});
+
+test("ED-03(c): a page of unmodelled constructs produces opaque nodes to edit", () => {
+  // The shapes ED-03(c) names: raw HTML, a template comment, a container that is
+  // never closed. The scanner decides which become opaque; what matters here is
+  // that at least one does, or the popover has nothing to open onto.
+  const page = CORPUS.find((each) => each.path === "opaque.md");
+  assert.ok(page, "the fixture has opaque.md");
+  const kinds = buildModel(page.document, page.source).nodes.map((node) => node.kind);
+  assert.ok(kinds.includes("opaque"), `opaque.md maps to ${kinds.join(", ")}`);
 });
 
 test("ED-03(a): every corpus page round trips through the model byte for byte", () => {
