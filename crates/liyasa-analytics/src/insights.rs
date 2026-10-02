@@ -30,6 +30,13 @@ pub const STALE_DAYS: i64 = 180;
 
 /// What the build and the verification engine know about a page. Supplied by
 /// the caller; this crate reads neither.
+///
+/// Not `liyasa_ai::exclude::PageFacts`, which has four fields too and is about
+/// why a page is left out of the assistant's index. Two sessions read the wrong
+/// one in a week, one of them because `git grep -l | head -1` returns the
+/// alphabetically earlier crate. This one is owned and `Serialize`; that one
+/// takes a lifetime and borrows its frontmatter, so the signature tells them
+/// apart faster than the name does.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PageFacts {
