@@ -6,6 +6,7 @@
 //! a push turns into, the environment a branch belongs to, the preview a pull
 //! request gets, and the rules an untrusted build is held to.
 
+pub mod clone;
 pub mod environment;
 pub mod hooks;
 pub mod hosts;
