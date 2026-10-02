@@ -125,7 +125,10 @@ fn an_empty_description_is_not_an_absent_one() {
             .clone()
     };
 
-    assert_eq!(described("/guides/written"), Some("A real summary.".to_owned()));
+    assert_eq!(
+        described("/guides/written"),
+        Some("A real summary.".to_owned())
+    );
     assert_eq!(described("/guides/blank"), Some(String::new()));
     assert_eq!(described("/guides/install"), None);
 }
