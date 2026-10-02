@@ -13,7 +13,7 @@ Specified by CFG-20..CFG-22.
 | Key | Type | Default | What it does |
 |---|---|---|---|
 | `navbar.items` | any[] | — | CFG-22: dropdowns and switcher placement. |
-| `navbar.links` | object[] | — | CFG-20 |
+| `navbar.links` | object[] | — | The links in the top navigation bar, in the order they are shown. Each is a label and a destination. |
 | `navbar.primary.href` | string | — | Where the button goes. For the `github` form, the repository URL whose stars are counted. |
 | `navbar.primary.label` | string | — | The button's text. Unused by the `github` form, which labels itself. |
 | `navbar.primary.type` | `button` \| `github` | — | `button` renders `label` and `href` as written; `github` renders the repository link with its star count, fetched at build time and cached, never from the reader's browser. |

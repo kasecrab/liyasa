@@ -232,3 +232,37 @@ fn an_agent_context_repo_with_no_name_is_refused() {
         report.diagnostics
     );
 }
+
+/// The schema's `refresh` admitted `ms` until 2026-10-02, and
+/// `liyasa_git::ContextRepo::refresh` is a whole number of seconds that
+/// `CloneSpec::plan` turns into `Duration::from_secs`. So `500ms` validated,
+/// resolved to zero, and meant "fetch every time you ask" to an operator who
+/// had written a throttle. The pattern no longer admits what the type cannot
+/// carry; `0s` is how you ask for always (RFC 0112).
+#[test]
+fn a_sub_second_refresh_is_refused_rather_than_rounded() {
+    let text = r#"{ "name": "Acme",
+        "contextRepos": [{ "repo": "acme/api", "paths": ["openapi.yaml"], "refresh": "500ms" }] }"#;
+    let value: serde_json::Value = serde_json::from_str(text).expect("valid JSON");
+    let report = liyasa_config::schema::check(&value, &SpanIndex::scan(SourceId(0), text));
+    assert!(
+        report.diagnostics.has_errors(),
+        "a refresh the clone policy cannot carry is not a configuration: {:?}",
+        report.diagnostics
+    );
+
+    let whole = text.replace("500ms", "0s");
+    let value: serde_json::Value = serde_json::from_str(&whole).expect("valid JSON");
+    let report = liyasa_config::schema::check(&value, &SpanIndex::scan(SourceId(0), &whole));
+    assert!(
+        !report.diagnostics.has_errors(),
+        "`0s` is how `always` is written: {:?}",
+        report.diagnostics
+    );
+    assert_eq!(
+        context_repos(&value)
+            .first()
+            .and_then(|entry| entry.refresh_seconds),
+        Some(0)
+    );
+}

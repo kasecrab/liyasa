@@ -439,7 +439,7 @@
             },
             "additionalProperties": false
           },
-          "description": "CFG-20"
+          "description": "The links in the top navigation bar, in the order they are shown. Each is a label and a destination."
         },
         "primary": {
           "type": "object",
@@ -2534,13 +2534,13 @@
           },
           "refresh": {
             "type": "string",
-            "pattern": "^\\d+(ms|s|m|h|d)$",
-            "description": "A duration such as `500ms`, `30s`, `180d`."
+            "pattern": "^\\d+(s|m|h|d)$",
+            "description": "How long a clone of this repository is reused before it is fetched again, such as `30s` or `180d`. Whole seconds and up: the clone policy carries this as a number of seconds (`liyasa_git::ContextRepo::refresh`), so a sub-second value would read as a throttle and mean `always`. Write `0s` for always."
           }
         },
         "additionalProperties": false
       },
-      "description": "CFG-99, GIT-11",
+      "description": "Repositories outside this project that Liyasa may fetch and read, each limited to the paths it names. A clone is shallow and blob-filtered, so a large repository stays affordable to read; `paths` is an allow list rather than a hint, and an entry with none is refused (W0142). Up to ten per project.",
       "x-liyasa-requirement": "CFG-99"
     },
     "server": {

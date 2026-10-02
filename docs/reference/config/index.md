@@ -30,7 +30,7 @@ Pointing `$schema` at the published URL is what gives you completion and inline 
 | [`banner`](/reference/config/banner) | Site-wide banner (§8.8). |
 | [`build`](/reference/config/build) | Build outputs, budgets, caps, and determinism inputs (§6.6). |
 | [`content`](/reference/config/content) | Markdown, templating, and image behaviour (§8.9). |
-| [`contextRepos`](/reference/config/contextRepos) | CFG-99, GIT-11 |
+| [`contextRepos`](/reference/config/contextRepos) | Repositories outside this project that Liyasa may fetch and read, each limited to the paths it names. A clone is shallow and blob-filtered, so a large repository stays affordable to read; `paths` is an allow list rather than a hint, and an entry with none is refused (W0142). Up to ten per project. |
 | [`description`](/reference/config/description) | One-line description of the site, used as the default meta description and as the site summary in the agent surfaces when a page carries none of its own. |
 | [`dimensions`](/reference/config/dimensions) | Custom content dimensions such as product (§7.12). |
 | [`editor`](/reference/config/editor) | Editor settings (§15). |

@@ -12,7 +12,7 @@ Specified by CFG-97.
 
 | Key | Type | Default | What it does |
 |---|---|---|---|
-| `ai.agent.contextRepos` | any[] | — | Repositories the agent may read for context while it works. |
+| `ai.agent.contextRepos` | object[] | — | Repositories the agent may read for context while it works. This is an access policy keyed by name (AGT-12), not the clone policy of the top-level `contextRepos` (CFG-99, GIT-11); RFC 0112 records why there are two and what relates them. |
 | `ai.agent.limits.maxFilesChanged` | integer | — | Most files one proposal may touch. |
 | `ai.agent.limits.maxLinesChanged` | integer | — | Most lines one proposal may change. |
 | `ai.assistant.enabled` | boolean | — | Offer the assistant to readers. |

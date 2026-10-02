@@ -1,12 +1,12 @@
 ---
 title: contextRepos
-description: "CFG-99, GIT-11"
+description: "Repositories outside this project that Liyasa may fetch and read, each limited to the paths it names. A clone is shallow and blob-filtered, so a large repository stays affordable to read; `paths` is an allow list rather than a hint, and an entry with none is refused (W0142). Up to ten per project."
 sidebarTitle: contextRepos
 ---
 
 # `contextRepos`
 
-CFG-99, GIT-11
+Repositories outside this project that Liyasa may fetch and read, each limited to the paths it names. A clone is shallow and blob-filtered, so a large repository stays affordable to read; `paths` is an allow list rather than a hint, and an entry with none is refused (W0142). Up to ten per project.
 
 Specified by CFG-99.
 
