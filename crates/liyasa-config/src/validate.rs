@@ -49,6 +49,7 @@ pub fn validate(config: &Value, spans: &SpanIndex, context: &Context<'_>) -> Dia
     run.seo();
     run.auth();
     run.review();
+    run.context_repos();
     run.diagnostics
 }
 
@@ -126,6 +127,92 @@ impl Run<'_> {
                 .help(help),
                 &format!("/content/reviewCadence/overrides/{directory}"),
             );
+        }
+    }
+
+    /// CFG-99 and GIT-11: a context repository a clone will refuse. Three of
+    /// GIT-11's four refusals are decidable from the configuration alone —
+    /// `CloneRefusal::NoPaths`, `PathEscapes` and `TooMany` — and the clone
+    /// that reports them runs when someone deploys, which is a long way from
+    /// the file they got wrong. The fourth, `TooLarge`, needs a size only the
+    /// remote knows, so it stays where it can be measured.
+    ///
+    /// One code for all three, because they are one fact about the entry —
+    /// a clone cannot be planned from it — and the message carries which rule
+    /// it broke.
+    fn context_repos(&mut self) {
+        let Some(entries) = self
+            .config
+            .pointer("/contextRepos")
+            .and_then(Value::as_array)
+        else {
+            return;
+        };
+
+        if entries.len() > crate::context_repos::MAX_CONTEXT_REPOS {
+            self.report(
+                Diagnostic::new(
+                    code::W0142,
+                    format!(
+                        "{} context repositories are configured, and a project may read {}; \
+                         the ones past the limit are never cloned",
+                        entries.len(),
+                        crate::context_repos::MAX_CONTEXT_REPOS
+                    ),
+                )
+                .help(
+                    "drop the entries this project does not read, or narrow \
+                     `contextRepos[].paths` and combine two entries that name one repository",
+                ),
+                "/contextRepos",
+            );
+        }
+
+        for (index, entry) in entries.iter().enumerate() {
+            let Some(repo) = entry.get("repo").and_then(Value::as_str) else {
+                continue;
+            };
+            let paths = entry.get("paths").and_then(Value::as_array);
+            if paths.is_none_or(|paths| paths.is_empty()) {
+                self.report(
+                    Diagnostic::new(
+                        code::W0142,
+                        format!(
+                            "`{repo}` lists no paths, so there is nothing for Liyasa to check \
+                             out and the clone is refused"
+                        ),
+                    )
+                    .help(
+                        "set `contextRepos[].paths` to the directories or files Liyasa may \
+                         read, such as `[\"openapi.yaml\"]`",
+                    ),
+                    &format!("/contextRepos/{index}"),
+                );
+                continue;
+            }
+            for (at, path) in paths.into_iter().flatten().enumerate() {
+                let Some(path) = path.as_str() else {
+                    continue;
+                };
+                if !crate::context_repos::escapes(path) {
+                    continue;
+                }
+                self.report(
+                    Diagnostic::new(
+                        code::W0142,
+                        format!(
+                            "`{path}` in `{repo}` leaves the repository, so the clone is \
+                                 refused"
+                        ),
+                    )
+                    .help(
+                        "a context path is relative to the root of the repository it names, \
+                         so write `spec/openapi.yaml` rather than `../spec`; a leading slash \
+                         is fine and means that same root",
+                    ),
+                    &format!("/contextRepos/{index}/paths/{at}"),
+                );
+            }
         }
     }
 

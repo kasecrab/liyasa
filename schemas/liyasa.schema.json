@@ -2348,8 +2348,34 @@
             },
             "contextRepos": {
               "type": "array",
-              "description": "Repositories the agent may read for context while it works.",
-              "items": {}
+              "description": "Repositories the agent may read for context while it works. This is an access policy keyed by name (AGT-12), not the clone policy of the top-level `contextRepos` (CFG-99, GIT-11); RFC 0112 records why there are two and what relates them.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "The repository this entry is about, as the agent names it when it asks."
+                  },
+                  "allow": {
+                    "type": "array",
+                    "description": "Path prefixes the agent may read. Absent or empty allows nothing: a missing allow list is not a licence (AGT-12). A prefix matches at a path boundary, so `src` covers `src/lib.rs` and not `srcs/secret.rs`.",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deny": {
+                    "type": "array",
+                    "description": "Path prefixes the agent may never read, whatever `allow` says.",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
             }
           },
           "additionalProperties": false

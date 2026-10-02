@@ -3,6 +3,7 @@
 //! instead of once per file, which is most of a test build's cost and disk.
 
 mod color;
+mod context_repos;
 mod command;
 mod load;
 mod migrate;

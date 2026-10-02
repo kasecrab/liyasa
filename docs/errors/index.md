@@ -73,6 +73,7 @@ The code in a terminal is also a link: every diagnostic carries the URL of its p
 | [`W0139`](/errors/W0139) | Warning | A configured operator holds their role whatever the membership table says, and removing them from the organization does not revoke it |
 | [`W0140`](/errors/W0140) | Warning | A `content.reviewCadence` override names a directory this project has no pages in |
 | [`E0141`](/errors/E0141) | Error | A navigation file names another navigation file in a cycle, or deeper than Liyasa resolves |
+| [`W0142`](/errors/W0142) | Warning | A context repository is configured in a way no clone can be planned from |
 
 ## Templating and Source Document
 
