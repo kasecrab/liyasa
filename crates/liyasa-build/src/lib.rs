@@ -42,4 +42,5 @@ pub mod hosting;
 
 pub mod i18n;
 pub mod index_scope;
+pub mod retained;
 pub mod spec_pages;

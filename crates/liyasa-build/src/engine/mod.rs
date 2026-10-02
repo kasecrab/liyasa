@@ -69,6 +69,17 @@ pub struct Options {
     pub build_time: Option<i64>,
     /// `--profile`: keep a timing per phase.
     pub profile: bool,
+    /// Keep every page's render in `Report.documents` (RFC 0914).
+    ///
+    /// Off by default because a 5,000-page build would hold 5,000 ASTs for a
+    /// consumer that is usually not there. `liyasa verify` and the deploy
+    /// worker set it; `liyasa build` does not.
+    pub retain_documents: bool,
+    /// Called once per page as its render becomes available, rendered or read
+    /// back from the cache. The primitive `retain_documents` collects over:
+    /// a changed-set verify wants three pages of five thousand, so it discards
+    /// on arrival rather than holding the set.
+    pub on_page: Option<crate::retained::PageHook>,
     /// `--images`: run the image pre-pass in this build.
     pub eager_images: bool,
     /// The nonce every page is rendered with (RX-110).
@@ -113,6 +124,15 @@ pub struct Report {
     pub rewritten: usize,
     pub timings: Vec<(&'static str, Duration)>,
     pub manifest: Option<Manifest>,
+    /// Every page's render, when `Options::retain_documents` asked for it
+    /// (RFC 0914).
+    ///
+    /// `None` means nobody asked, `Some` with no entries means the build placed
+    /// no page. A plain map could not tell those apart, and a caller that reads
+    /// an empty one as "nothing to check" would report a clean site for a
+    /// build that never retained anything — the shape that produced an empty
+    /// search index, an empty review digest and an empty integrations list.
+    pub documents: Option<BTreeMap<Route, crate::retained::PageRecord>>,
     pub diagnostics: Diagnostics,
 }
 
@@ -468,6 +488,35 @@ pub fn build(vfs: &dyn Vfs, git: &dyn GitMeta, root: &Path, options: &Options) -
         snippets_fingerprint,
     );
     phase.mark("pages");
+
+    // 8aa. Each page's render, for a caller that needs it rather than the
+    // output (RFC 0914). The hook fires here rather than inside the render loop
+    // on purpose: a warm build renders nothing, so a hook on the render would
+    // hand a full set cold and an empty one warm — and the callers are
+    // `liyasa verify`, whose runs are warm by default, and GIT-20's deploy
+    // verify, which *requires* the restored cache. `Outcome.document` and
+    // `.expansion` are read back from the cache on a hit, so this fires for
+    // every page the build placed either way.
+    let mut retained: Option<BTreeMap<Route, crate::retained::PageRecord>> =
+        options.retain_documents.then(BTreeMap::new);
+    if options.on_page.is_some() || retained.is_some() {
+        for outcome in &pages {
+            let (Some(document), Some(expansion)) = (&outcome.document, &outcome.expansion) else {
+                continue;
+            };
+            let record = crate::retained::PageRecord {
+                document: document.clone(),
+                expansion: expansion.clone(),
+            };
+            if let Some(hook) = &options.on_page {
+                hook.call(&outcome.route, &record);
+            }
+            if let Some(map) = retained.as_mut() {
+                map.insert(outcome.route.clone(), record);
+            }
+        }
+    }
+    report.documents = retained;
 
     // 8. What the pages produced.
     let mut routes = Vec::new();
@@ -984,6 +1033,10 @@ struct Outcome {
     /// The anonymous render the search index is built from (RFC 0705); `None`
     /// if the page failed to render.
     document: Option<liyasa_core::document::Document>,
+    /// What the page read while expanding, beside the document it produced
+    /// (RFC 0914). Carried together because a caller that has one without the
+    /// other cannot build a fact edge.
+    expansion: Option<liyasa_core::markdown::ExpansionRecord>,
     cache_hits: usize,
     cache_misses: usize,
     /// How long this page spent expanding and rendering, for the build-wide
@@ -1028,6 +1081,7 @@ fn render_pages(
                     changelog: Vec::new(),
                     hosts: ContentHosts::default(),
                     document: None,
+                    expansion: None,
                     cache_hits: 0,
                     cache_misses: 0,
                     spent: Duration::ZERO,
@@ -1122,6 +1176,20 @@ fn render_pages(
                     link_fingerprint,
                 ],
             );
+            // Beside `page_document`, and for the same reason: the hook and
+            // `Report.documents` have to answer for a page the build did not
+            // re-render, or a warm run hands a caller a full set cold and an
+            // empty one warm (RFC 0904's shape, one layer up).
+            let expansion_key = crate::cache::key(
+                "page_expansion",
+                &[
+                    page.fingerprint,
+                    config_fingerprint,
+                    navigation_fingerprint,
+                    snippets_fingerprint,
+                    link_fingerprint,
+                ],
+            );
             let mut markdown = cache
                 .get(&markdown_key)
                 .and_then(|bytes| String::from_utf8(bytes.to_vec()).ok())
@@ -1141,6 +1209,9 @@ fn render_pages(
                 .unwrap_or_default();
             let mut document: Option<liyasa_core::document::Document> = cache
                 .get(&document_key)
+                .and_then(|bytes| serde_json::from_slice(&bytes).ok());
+            let mut expansion: Option<liyasa_core::markdown::ExpansionRecord> = cache
+                .get(&expansion_key)
                 .and_then(|bytes| serde_json::from_slice(&bytes).ok());
             // Kept apart from `diagnostics`, which already holds the scan's:
             // those are recomputed every build, and storing them too would
@@ -1240,6 +1311,7 @@ fn render_pages(
                             // one door the component gate does not cover.
                             if document.is_none() && variant == Variant::default() {
                                 document = page_render.document.clone();
+                                expansion = Some(page_render.record.clone());
                             }
                             let navigation =
                                 navigations.get(&page.version).cloned().unwrap_or_default();
@@ -1302,6 +1374,7 @@ fn render_pages(
                     .unwrap_or_default();
                 hosts = content_hosts(&page_render);
                 document = page_render.document.clone();
+                expansion = Some(page_render.record.clone());
                 recorded = true;
             }
             // A page whose variant set holds no default — a dynamic page ships
@@ -1310,7 +1383,9 @@ fn render_pages(
             // than taken from a variant that admits more than everyone sees.
             if document.is_none() {
                 let context = template_context(settings, build_options, page, &Variant::default());
-                document = render::page(sources, &source, &context, &options).document;
+                let anonymous = render::page(sources, &source, &context, &options);
+                expansion = Some(anonymous.record.clone());
+                document = anonymous.document;
             }
             if recorded {
                 // One entry per diagnostic: every variant of a page raises the
@@ -1373,6 +1448,16 @@ fn render_pages(
                     &[page.fingerprint, config_fingerprint],
                 );
             }
+            if let Some(encoded) = expansion
+                .as_ref()
+                .and_then(|record| serde_json::to_vec(record).ok())
+            {
+                let _ = cache.put(
+                    &expansion_key,
+                    liyasa_core::vfs::Bytes::from(encoded),
+                    &[page.fingerprint, config_fingerprint],
+                );
+            }
 
             diagnostics.extend(render_diagnostics);
 
@@ -1387,6 +1472,7 @@ fn render_pages(
                 changelog,
                 hosts,
                 document,
+                expansion,
                 cache_hits: hits,
                 cache_misses: misses,
                 spent,
