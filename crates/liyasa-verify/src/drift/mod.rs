@@ -23,6 +23,11 @@ pub mod spec;
 pub mod store;
 pub mod wire;
 
+// `DriftSeverity` is drift's own scale (RFC 1302) and lives in `core::config`
+// because that is where `verify.drift` is parsed. Re-exported here because that
+// is where a caller of this module looks for it: WP-14's first real call site
+// spent two compile errors finding it under `core::config`.
+pub use crate::core::config::DriftSeverity;
 pub use engine::{Coverage, Engine, GraphRoutes, Routes};
 pub use entries::entries;
 pub use links::FailingLink;

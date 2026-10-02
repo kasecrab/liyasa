@@ -291,3 +291,26 @@ fn a_key_round_trips_so_a_stored_row_can_be_found_by_it() {
         assert_eq!(back.job_id(), key.job_id(), "and names the same record");
     }
 }
+
+#[test]
+fn a_caller_finds_the_severity_scale_and_the_constructor_where_it_looks_for_them() {
+    // Pins the re-export. `DriftSeverity` lives in `core::config` because that
+    // is where `verify.drift` is parsed, and a caller of `drift` has no reason
+    // to look there — WP-14's first real call site spent two compile errors on
+    // it. Written as the path a caller would type.
+    use crate::drift::DriftSeverity as ReExported;
+    assert_eq!(ReExported::default(), DriftSeverity::Medium);
+
+    // And the documented construction path is the one that exists.
+    let record = Candidate::new(fact(ChangeKind::Changed), vec![Route::new("/pricing")])
+        .opened(ReExported::High, SystemTime::UNIX_EPOCH);
+    assert_eq!(record.severity, DriftSeverity::High);
+    assert_eq!(
+        record.first_seen, record.last_seen,
+        "a freshly opened record"
+    );
+    assert_eq!(record.state, DriftState::Open);
+    assert_eq!(record.resolution, None);
+    assert_eq!(record.gone_since, None);
+    assert_eq!(record.resolved_at, None);
+}

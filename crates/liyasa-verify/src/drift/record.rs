@@ -200,6 +200,18 @@ pub enum Resolution {
 }
 
 /// A subject that has drifted, the pages it affects, and the evidence.
+///
+/// **Built through [`Candidate`], not directly:**
+/// `Candidate::new(kind, pages).opened(severity, now)`. There is deliberately
+/// no `DriftRecord::new` — the lifecycle fields have to agree, and a freshly
+/// opened record is exactly one where `first_seen == last_seen`, `state` is
+/// `Open`, and `gone_since`, `resolved_at` and `resolution` are all absent.
+/// A constructor taking eleven fields would let a caller build a record that is
+/// resolved and has never been seen.
+///
+/// The fields are public so a caller that already has a record can move it
+/// through its lifecycle — `Engine::record` and `Engine::resolve` do exactly
+/// that — and so it can be deserialised from a store.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DriftRecord {
