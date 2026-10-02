@@ -508,7 +508,13 @@ async fn cards(State(state): State<Arc<Analytics>>, RawQuery(raw): RawQuery) -> 
     let computed = unwrap_or_fail!(
         insights::compute(&state.inputs(), window.range, &window.filters, now_ms()).await
     );
-    ok(json!({ "cards": computed }))
+    // The classes that were not assessed travel with the cards rather than
+    // being inferred from an empty list. An empty `cards` means "evaluated and
+    // nothing fired" only when `notAssessed` is empty too.
+    ok(json!({
+        "cards": computed,
+        "notAssessed": insights::not_assessed(&state.pages),
+    }))
 }
 
 /// What the dashboard posts when someone presses a card's button.

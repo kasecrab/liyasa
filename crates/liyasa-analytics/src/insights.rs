@@ -123,6 +123,28 @@ pub struct Inputs<'a> {
     pub pages: &'a [PageFacts],
 }
 
+/// Card classes whose inputs are absent, so they were never evaluated (ANA-40).
+///
+/// Not the same as a class that was evaluated and did not fire, and the
+/// difference is the whole value of the report: an operator reading "nothing
+/// stood out" is entitled to assume everything was looked at.
+///
+/// `page_fact_cards` bails per route on `pages.iter().find(...)`, so with no
+/// `PageFacts` the three classes behind it are unreached rather than false —
+/// `open_drift > 0` is never evaluated. Nothing supplies them today: the
+/// assembly needs the build manifest and the verification engine, which live
+/// on the other side of the seam from this crate.
+pub fn not_assessed(pages: &[PageFacts]) -> Vec<CardKind> {
+    if pages.is_empty() {
+        return vec![
+            CardKind::DriftOnPopularPages,
+            CardKind::StalePopularPages,
+            CardKind::MissingDescriptions,
+        ];
+    }
+    Vec::new()
+}
+
 /// How much traffic a page needs before a card claims anything about it. One
 /// view is not a trend, and a list of one-view pages buries the real ones.
 const POPULAR: i64 = 20;

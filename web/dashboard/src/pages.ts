@@ -186,9 +186,40 @@ export interface InsightCard {
   action?: { kind: string; label: string; target: string };
 }
 
-export function renderInsightList(cards: InsightCard[]): Fragment {
+/**
+ * The insight list, with the classes the server could not assess.
+ *
+ * `notAssessed` has three meaningful states and they must not collapse.
+ * `undefined` is a server that did not say, which is not a claim that
+ * everything was looked at; `[]` is every class evaluated; a non-empty list
+ * names classes whose inputs were absent, so their silence here is not a
+ * finding. Before this, an empty `cards` said "Nothing stood out over this
+ * period" on every instance while three of the nine classes had never been
+ * evaluated at all.
+ */
+export function renderInsightList(
+  cards: InsightCard[],
+  notAssessed: string[] | undefined,
+): Fragment {
+  const caveat =
+    notAssessed === undefined
+      ? html`<p class="ly-note">
+          This server did not say which classes it assessed, so an empty list is not
+          evidence that every one was.
+        </p>`
+      : notAssessed.length > 0
+        ? html`<p class="ly-note">
+            Not assessed: ${notAssessed.map((kind) => kind.replace(/_/g, " ")).join(", ")}.
+            Nothing supplies the page facts these read, so their absence here is not a
+            finding.
+          </p>`
+        : null;
   if (cards.length === 0) {
-    return html`<p class="ly-empty">Nothing stood out over this period.</p>`;
+    const nothing =
+      notAssessed !== undefined && notAssessed.length > 0
+        ? html`<p class="ly-empty">Nothing stood out among the classes that could be assessed.</p>`
+        : html`<p class="ly-empty">Nothing stood out over this period.</p>`;
+    return html`${nothing}${caveat}`;
   }
   const items = cards.map((card) => {
     const action = card.action;
@@ -204,14 +235,17 @@ export function renderInsightList(cards: InsightCard[]): Fragment {
     </li>`;
   });
   return html`<ul class="ly-cards">
-    ${items}
-  </ul>`;
+      ${items}
+    </ul>
+    ${caveat}`;
 }
 
 export function renderOverview(state: RouteState, data: PageData): Fragment {
   const totals = data["traffic.totals"] as Result<Record<string, Comparison>> | undefined;
   const series = data["traffic.series"] as Result<SeriesPayload> | undefined;
-  const insights = data["insights.cards"] as Result<{ cards: InsightCard[] }> | undefined;
+  const insights = data["insights.cards"] as
+    | Result<{ cards: InsightCard[]; notAssessed?: string[] }>
+    | undefined;
   const reach = data["traffic.horizon"] as Result<Horizon> | undefined;
   const stats =
     totals && totals.ok
@@ -236,7 +270,9 @@ export function renderOverview(state: RouteState, data: PageData): Fragment {
       ),
     ),
   );
-  const cards = panel("What to look at", insights, (value) => renderInsightList(value.cards));
+  const cards = panel("What to look at", insights, (value) =>
+    renderInsightList(value.cards, value.notAssessed),
+  );
   return html`${stats}${traffic}${cards}`;
 }
 

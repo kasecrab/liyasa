@@ -589,3 +589,57 @@ async fn a_route_that_looks_like_markup_does_not_reach_the_html_as_markup() {
     );
     assert!(!html.contains("<script>"));
 }
+
+// ---- not evaluated is not "nothing stood out" ----
+
+/// Three card classes live behind `page_fact_cards`, which bails per route on
+/// `let Some(facts) = pages.iter().find(...) else { continue }`. With no
+/// `PageFacts` that fires for every route, so none of the three is ever
+/// evaluated — `open_drift > 0` is not false, it is unreached.
+///
+/// Nothing fills `Analytics.pages`: `with_pages` has no caller and
+/// `routes/analytics.rs` builds the struct literally with `pages: Vec::new()`.
+/// So on every instance today the Overview said "Nothing stood out over this
+/// period" about three classes it never looked at. WP-20c found this from the
+/// drift end; my own first reading of it was wrong in its reason, which is why
+/// the distinction is asserted here rather than described in a comment.
+#[test]
+fn the_classes_that_cannot_be_evaluated_are_named_rather_than_implied() {
+    let absent = insights::not_assessed(&[]);
+    assert_eq!(
+        absent,
+        vec![
+            CardKind::DriftOnPopularPages,
+            CardKind::StalePopularPages,
+            CardKind::MissingDescriptions,
+        ],
+        "with no page facts, the three classes behind them were not assessed"
+    );
+
+    let supplied = [PageFacts {
+        route: "/guides/install".to_owned(),
+        open_drift: 0,
+        updated_at: T0,
+        has_description: true,
+    }];
+    assert!(
+        insights::not_assessed(&supplied).is_empty(),
+        "given page facts, every class was evaluated — firing is a separate \
+         question from being assessed"
+    );
+}
+
+/// The wire name is what the dashboard switches on, so it is pinned here. A
+/// round trip through the enum cannot see a rename.
+#[test]
+fn the_unassessed_classes_serialise_as_the_dashboard_reads_them() {
+    let json = serde_json::to_value(insights::not_assessed(&[])).expect("serialises");
+    assert_eq!(
+        json,
+        serde_json::json!([
+            "drift_on_popular_pages",
+            "stale_popular_pages",
+            "missing_descriptions"
+        ])
+    );
+}

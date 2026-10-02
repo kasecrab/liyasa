@@ -228,14 +228,14 @@ test("an insight card renders its action as a button the page can wire", () => {
       metrics: {},
       action: { kind: "create_page", label: "Create a page for this", target: "sso saml" },
     },
-  ]));
+  ], []));
   assert.match(markup, /data-action="create_page"/);
   assert.match(markup, /data-target="sso saml"/);
   assert.match(markup, /Create a page for this/);
 });
 
 test("no insights is a sentence rather than an empty list", () => {
-  assert.match(String(renderInsightList([])), /Nothing stood out/);
+  assert.match(String(renderInsightList([], [])), /Nothing stood out over this period/);
 });
 
 test("a problem renders without a detail it does not have", () => {
@@ -508,4 +508,55 @@ test("renderTable refuses to invent an empty state", () => {
     /empty/i,
     "a table with no rows and no sentence has to fail rather than guess one",
   );
+});
+
+
+// `notAssessed` has three states and conflating any two of them is the bug.
+//
+// Three of ANA-40's nine card classes sit behind `page_fact_cards`, which
+// bails per route when no `PageFacts` matches. Nothing fills
+// `Analytics.pages` — `with_pages` has no caller and the server builds the
+// struct literally — so those three were never evaluated on any instance,
+// while the Overview said "Nothing stood out over this period".
+
+test("classes that were never assessed are named rather than read as quiet", () => {
+  const markup = String(
+    renderInsightList([], ["drift_on_popular_pages", "stale_popular_pages"]),
+  );
+  assert.ok(
+    !/Nothing stood out over this period/.test(markup),
+    `an unassessed class must not be reported as a quiet period: ${markup}`,
+  );
+  assert.match(markup, /could be assessed/);
+  assert.match(markup, /drift on popular pages/);
+  assert.match(markup, /stale popular pages/);
+});
+
+test("a server that did not say is not a server that assessed everything", () => {
+  const markup = String(renderInsightList([], undefined));
+  assert.match(markup, /did not say which classes it assessed/);
+  assert.ok(
+    !/could be assessed/.test(markup),
+    "absent must not render as the empty list, which claims everything was looked at",
+  );
+});
+
+test("every class assessed and nothing found keeps the plain sentence", () => {
+  const markup = String(renderInsightList([], []));
+  assert.match(markup, /Nothing stood out over this period/);
+  assert.ok(!/Not assessed/.test(markup));
+  assert.ok(!/did not say/.test(markup));
+});
+
+test("an unassessed class is still named when other cards did fire", () => {
+  // The caveat is about coverage, not about emptiness: a class nobody looked
+  // at matters whether or not the ones that were looked at found something.
+  const markup = String(
+    renderInsightList(
+      [{ kind: "funnels", title: "Search to click", detail: "41%", metrics: {} }],
+      ["missing_descriptions"],
+    ),
+  );
+  assert.match(markup, /Search to click/);
+  assert.match(markup, /missing descriptions/);
 });
