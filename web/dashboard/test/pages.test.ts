@@ -207,12 +207,14 @@ test("the delivery note reports a measurement and not an assumption", () => {
 });
 
 test("an empty table says so rather than rendering a header over nothing", () => {
-  assert.match(String(renderTable(["A"], [])), /Nothing over this period/);
-  assert.match(String(renderTable(["A"], [["x"]])), /<td>x<\/td>/);
+  assert.match(String(renderTable(["A"], [], "No rows here.")), /No rows here\./);
+  assert.match(String(renderTable(["A"], [["x"]], "unused")), /<td>x<\/td>/);
 });
 
 test("a route from a request does not become markup", () => {
-  const markup = String(renderTable(["Page"], [['<img src=x onerror="alert(1)">']]));
+  const markup = String(
+    renderTable(["Page"], [['<img src=x onerror="alert(1)">']], "unused"),
+  );
   assert.ok(!markup.includes("<img"));
   assert.match(markup, /&lt;img/);
 });
@@ -424,4 +426,86 @@ test("the traffic page draws the variant split it fetches", () => {
 
 test("an unknown page is a problem rather than a blank screen", () => {
   assert.match(String(renderPage({ ...state("overview"), page: "nonsense" }, {})), /Unknown page/);
+});
+
+// ---- an empty table must not claim a window it never looked at ----
+//
+// `renderTable` had one empty sentence for all seventeen of its call sites:
+// "Nothing over this period." That is true of a traffic series and false of
+// every table whose source is a current set rather than a window. Open drift,
+// the proposals queue, the job list, the page tree and the integrations list
+// are not sampled over the selected range at all, and saying so asserts a
+// check that never happened.
+//
+// WP-20c raised it from the other end: nothing constructs a `Review` drift
+// record in this build, so `/drift` will answer `{"items": []}` the day it is
+// served. Today `drift.open` is `servedBy: "unbuilt"` and the page shows a
+// 501, which is honest. The trap is the flip — one word in `api.ts` turns
+// "not served" into "nothing found" with no empty state behind it to tell
+// them apart.
+
+/** Pages whose tables are a current set, with an `ok` but empty payload. */
+const CURRENT_SET_PAGES: Array<{ page: string; data: PageData }> = [
+  { page: "truth", data: { "drift.open": { ok: true, value: { items: [] } } } },
+  { page: "proposals", data: { "proposals.list": { ok: true, value: { items: [] } } } },
+  { page: "automations", data: { "jobs.list": { ok: true, value: { items: [] } } } },
+  { page: "content", data: { "content.tree": { ok: true, value: { pages: [] } } } },
+  {
+    page: "deployments",
+    data: {
+      "builds.queue": { ok: true, value: { depth: 0, running: 0, items: [] } },
+      "deployments.history": { ok: true, value: { items: [] } },
+    },
+  },
+  {
+    page: "settings",
+    data: {
+      "settings.integrations": {
+        ok: true,
+        value: { enabled: [], stuck: [], consentStatement: "No analytics are loaded." },
+      },
+    },
+  },
+];
+
+test("an empty table whose source is a current set does not claim a period", () => {
+  for (const { page, data } of CURRENT_SET_PAGES) {
+    const html = renderPage(state(page), data as PageData).toString();
+    assert.ok(
+      !/this period/i.test(html),
+      `${page} renders an empty current set as a statement about the selected \
+range, which asserts a window it never looked at: ${html}`,
+    );
+  }
+});
+
+test("each empty table says which of its own rows are missing", () => {
+  // Distinct sentences, so no two tables are explained by one default. A
+  // single shared sentence is what made the bug above invisible: it was
+  // correct where it was written and wrong everywhere it was reused.
+  const sentences = new Set<string>();
+  for (const { page, data } of CURRENT_SET_PAGES) {
+    const html = renderPage(state(page), data as PageData).toString();
+    const found = [...html.matchAll(/<p class="ly-empty">([^<]+)<\/p>/g)].map((m) =>
+      m[1].trim().replace(/\s+/g, " "),
+    );
+    assert.ok(found.length > 0, `${page} renders an empty table with no empty state: ${html}`);
+    for (const sentence of found) sentences.add(sentence);
+  }
+  assert.ok(
+    sentences.size > 1,
+    `every empty current-set table shares one sentence, so none of them is \
+about its own rows: ${[...sentences].join(" | ")}`,
+  );
+});
+
+test("renderTable refuses to invent an empty state", () => {
+  // The parameter is required at the type level, and the build strips types
+  // rather than checking them, so the guard has to exist at runtime or a
+  // forgotten argument silently reintroduces a shared default.
+  assert.throws(
+    () => renderTable(["One"], [], undefined as unknown as string),
+    /empty/i,
+    "a table with no rows and no sentence has to fail rather than guess one",
+  );
 });

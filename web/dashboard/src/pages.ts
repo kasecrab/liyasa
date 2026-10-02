@@ -154,8 +154,15 @@ export function emptyChart(id: string, title: string, range: Range, grain?: Grai
   };
 }
 
-export function renderTable(headers: string[], body: string[][]): Fragment {
-  if (body.length === 0) return html`<p class="ly-empty">Nothing over this period.</p>`;
+export function renderTable(headers: string[], body: string[][], empty: string): Fragment {
+  // Required rather than defaulted. One shared default is what made this
+  // wrong: "Nothing over this period." was correct where it was written and
+  // false at every call site whose source is a current set rather than a
+  // window, and nothing could see the difference.
+  if (typeof empty !== "string" || empty.trim() === "") {
+    throw new Error("renderTable needs an empty-state sentence about its own rows");
+  }
+  if (body.length === 0) return html`<p class="ly-empty">${empty}</p>`;
   return html`<table class="ly-table">
     <thead>
       <tr>
@@ -347,19 +354,24 @@ export function renderTraffic(state: RouteState, data: PageData): Fragment {
         formatCount(page.agent),
         formatCount(page.human + page.agent + page.bot + page.integration),
       ]),
+      "No pages were read over this period.",
     ),
   );
   const hosts = panel("Referrers", referrers, (value) =>
-    renderTable(["Host", "Visits"], value.referrers.map((row) => [row.name, formatCount(row.count)])),
+    renderTable(["Host", "Visits"], value.referrers.map((row) => [row.name, formatCount(row.count)]),
+      "No referrers over this period.",
+    ),
   );
   const journey = panel("Entry and exit pages", journeys, (value) => {
     const entry = renderTable(
       ["Entered on", "Sessions"],
       value.entry.map((row) => [row.name, formatCount(row.count)]),
+      "No session began on a page over this period.",
     );
     const exit = renderTable(
       ["Left from", "Sessions"],
       value.exit.map((row) => [row.name, formatCount(row.count)]),
+      "No session ended on a page over this period.",
     );
     return html`${entry}${exit}`;
   });
@@ -406,6 +418,7 @@ export function renderSearch(_state: RouteState, data: PageData): Fragment {
         formatPercent(row.searches > 0 ? row.clicks / row.searches : null),
         row.topResult ?? "—",
       ]),
+      "No searches over this period.",
     ),
   );
   const nothing = panel("Found nothing", queries, (value) => {
@@ -433,6 +446,7 @@ export function renderSearch(_state: RouteState, data: PageData): Fragment {
         formatCount(row.clicks),
         formatPercent(row.impressions > 0 ? row.clicks / row.impressions : null),
       ]),
+      "No page recorded a search over this period.",
     ),
   );
   const rising = panel("Trending", trending, (value) =>
@@ -444,6 +458,7 @@ export function renderSearch(_state: RouteState, data: PageData): Fragment {
         formatCount(row.previous),
         formatChange(row.searches, row.previous),
       ]),
+      "No query trended over this period.",
     ),
   );
   return html`${list}${nothing}${perPage}${rising}`;
@@ -459,7 +474,9 @@ export function renderAssistant(_state: RouteState, data: PageData): Fragment {
       renderStat("Rated", formatCount(value.rated)),
       renderStat("Answered well", formatPercent(value.rated > 0 ? value.positive / value.rated : null)),
     ]);
-    const gaps = renderTable(["Topic"], value.unanswered.map((topic) => [topic]));
+    const gaps = renderTable(["Topic"], value.unanswered.map((topic) => [topic]),
+      "No unanswered topics over this period.",
+    );
     return html`${stats}
       <h4>Could not answer</h4>
       ${gaps}`;
@@ -583,10 +600,12 @@ export function renderFeedback(state: RouteState, data: PageData): Fragment {
         item.text ?? "—",
         item.status,
       ]),
+      "No reader left written feedback over this period.",
     );
     const agentTable = renderTable(
       ["Page", "Task it was doing", "Status"],
       agents.map((item) => [item.route, item.task ?? "—", item.status]),
+      "No agent left feedback over this period.",
     );
     return html`${readerTable}
       <h4>From agents</h4>
@@ -617,6 +636,7 @@ export function renderTruth(_state: RouteState, data: PageData): Fragment {
     renderTable(
       ["Page", "Claim", "Source", "Found"],
       value.items.map((row) => [row.route, row.claim, row.source, formatDate(row.foundAt)]),
+      "No open drift records. An empty list means none are recorded, not that these pages were verified.",
     ),
   );
 }
@@ -639,6 +659,7 @@ export function renderProposals(_state: RouteState, data: PageData): Fragment {
         formatCount(row.pages),
         formatDate(row.openedAt),
       ]),
+      "No proposals are open.",
     ),
   );
 }
@@ -683,6 +704,7 @@ export function renderDeployments(_state: RouteState, data: PageData): Fragment 
         row.project ?? "—",
         row.estimatedStartMs === null ? "—" : formatDate(row.estimatedStartMs),
       ]),
+      "No builds are waiting.",
     );
     return html`${stats}${table}`;
   });
@@ -690,6 +712,7 @@ export function renderDeployments(_state: RouteState, data: PageData): Fragment 
     renderTable(
       ["Build", "Branch", "Status", "When"],
       value.items.map((row) => [row.build, row.branch, row.status, formatDate(row.at)]),
+      "No build has run.",
     ),
   );
   return html`${trigger}${waiting}${past}`;
@@ -714,6 +737,7 @@ export function renderAutomations(_state: RouteState, data: PageData): Fragment 
         formatCount(row.attempts),
         formatDate(row.updatedAt),
       ]),
+      "No jobs are recorded.",
     ),
   );
 }
@@ -736,6 +760,7 @@ export function renderContent(_state: RouteState, data: PageData): Fragment {
         formatDate(row.updatedAt),
         formatCount(row.openDrift),
       ]),
+      "This build knows of no pages.",
     ),
   );
 }
@@ -760,6 +785,7 @@ export function renderSettings(_state: RouteState, data: PageData): Fragment {
     const table = renderTable(
       ["Vendor", "Consent", "Loads before consent"],
       value.enabled.map((row) => [row.name, row.consent, row.loadsBeforeConsent ? "yes" : "no"]),
+      "No integrations are configured.",
     );
     const stuck =
       value.stuck.length > 0
