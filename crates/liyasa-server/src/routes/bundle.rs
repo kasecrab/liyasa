@@ -370,6 +370,12 @@ mod tests {
             markdown: format!("{path}.md"),
             hidden: false,
             dynamic: false,
+            // WP-06's `reviewed: Option<String>` off the front matter, which
+            // `review::overdue` needs: a cadence measures elapsed time, so the
+            // caller is this package's scheduled job and it reaches the date
+            // through the `Bundle` it already holds. `None` here because the
+            // fixture's pages declare no date; the field's own tests are WP-06's.
+            reviewed: None,
             variants: vec![VariantEntry {
                 key: String::new(),
                 path: format!("{}/index.html", path.trim_end_matches('/')),
