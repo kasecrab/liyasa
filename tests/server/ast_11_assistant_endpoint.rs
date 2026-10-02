@@ -201,23 +201,27 @@ async fn the_application_the_binary_runs_serves_the_assistant_endpoint() {
     // half that asks the composed object.
     let harness = harness("ast11-mounted", build_site("mounted")).await;
 
-    // The precondition is checked rather than assumed: the subtree line lives
-    // in `routes/mount.rs`, which is WP-14's file, so until they append it
-    // this skips with the reason instead of failing for something outside
-    // this package's reach.
-    let Some(record) = harness.mounted.iter().find(|m| m.name == "assistant") else {
-        eprintln!(
-            "SKIPPED: `routes::mount::subtrees()` carries no `assistant` entry, so \
-             `routes::application` does not compose this endpoint however well it works. \
-             The missing line is\n\n    \
-             Subtree {{ name: \"assistant\", permission: None, mount: crate::assistant::mount }},\n\n\
-             in `crates/liyasa-server/src/routes/mount.rs`, which is WP-14's file and not \
-             WP-18's to write. This becomes a real assertion the moment WP-14 appends it.\n\
-             Mounted: {:?}",
-            harness.mounted.iter().map(|m| m.name).collect::<Vec<_>>()
-        );
-        return;
-    };
+    // This used to skip while `subtrees()` had no `assistant` entry, because
+    // that line is in `routes/mount.rs` and not WP-18's to write. The entry is
+    // there now, so the skip branch was dead code reading as coverage — a
+    // skip-with-reason is a claim about the present and nothing in its format
+    // marks it expired. Converted to the assertion rather than deleted, so the
+    // reason stays loud if the entry is ever dropped.
+    let record = harness
+        .mounted
+        .iter()
+        .find(|m| m.name == "assistant")
+        .unwrap_or_else(|| {
+            panic!(
+                "`routes::mount::subtrees()` carries no `assistant` entry, so \
+                 `routes::application` does not compose this endpoint however well the \
+                 router works — the state main was in with the MCP server for a full \
+                 merge round. The line is\n\n    \
+                 Subtree {{ name: \"assistant\", permission: None, mount: crate::assistant::mount }},\n\n\
+                 in crates/liyasa-server/src/routes/mount.rs. Mounted: {:?}",
+                harness.mounted.iter().map(|m| m.name).collect::<Vec<_>>()
+            )
+        });
     assert!(
         record.mounted,
         "the assistant subtree is registered and did not mount: {:?}",
