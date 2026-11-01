@@ -27,7 +27,7 @@ jobs:
   licences:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo run -p xtask -- licences
@@ -50,7 +50,7 @@ jobs:
   msrv:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: floor
         run: |
           version=$(sed -n 's/^rust-version *= *"\(.*\)"/\1/p' Cargo.toml | head -1)
@@ -71,7 +71,7 @@ jobs:
   determinism:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo run --release -p liyasa-cli --bin liyasa -- build --config docs/liyasa.json --check-determinism
@@ -92,7 +92,7 @@ jobs:
             name: macos
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo run --release -p liyasa-cli --bin liyasa -- build --config docs/liyasa.json
@@ -107,7 +107,7 @@ jobs:
           cd docs/dist
           find . -type f -exec shasum -a 256 {} + | LC_ALL=C sort -k2 \
             > "$RUNNER_TEMP/bundle-${{ matrix.name }}.txt"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: bundle-${{ matrix.name }}
           path: ${{ runner.temp }}/bundle-${{ matrix.name }}.txt
@@ -116,7 +116,7 @@ jobs:
     needs: reference-site
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: bundles
           merge-multiple: true
