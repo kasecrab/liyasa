@@ -21,9 +21,9 @@
     "test:editor": "node --disable-warning=ExperimentalWarning --test editor/test/*.test.ts"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.13.0",
-    "@playwright/test": "1.63.0",
-    "chrome-launcher": "1.2.1",
-    "lighthouse": "13.4.1"
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
+    "chrome-launcher": "1.2.2",
+    "lighthouse": "13.6.0"
   }
 }
